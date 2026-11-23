@@ -37,7 +37,13 @@ function client(disk = new Map(), quota = Infinity) {
   };
   const c = vm.createContext({ localStorage, structuredClone, crypto: webcrypto });
   for (const name of sources) vm.runInContext(read(name + '.js'), c, { filename: name + '.js' });
-  return { m: c.PineMotion, l: c.PineLooks, w: c.PineWardrobe, disk };
+  return {
+    m: c.PineMotion,
+    l: c.PineLooks,
+    w: c.PineWardrobe,
+    painter: vm.runInContext('pineDesignerBody', c),
+    disk
+  };
 }
 function colorDigest(colors) {
   return createHash('sha256')
@@ -57,7 +63,7 @@ const a = client(),
   first = json('packs/creek-child.json'),
   second = json('packs/maple-child.json');
 assert.equal(a.m.characters.size, 6);
-assert.equal(a.l.catalog.size, 5);
+assert.equal(a.l.catalog.size, 6);
 assert.equal(a.l.prepare(second).recipe.baseNotice, read('LICENSE').trimEnd());
 assert.equal(second.embeddedPacks[0].notice, read('LICENSE').trimEnd());
 assert.deepEqual(clone(a.l.manifest(hat)), clone(a.l.manifest(second.embeddedPacks[0])));
@@ -191,7 +197,7 @@ const corrupt = client(),
 malformed.score.steps[3].action = 'crawl';
 assert.throws(() => corrupt.w.readScoreFile(malformed, true));
 assert.equal(corrupt.m.characters.size, 6);
-assert.equal(corrupt.l.catalog.size, 5);
+assert.equal(corrupt.l.catalog.size, 6);
 assert.equal(corrupt.disk.size, 0);
 const limited = client(new Map(), 1);
 const temporary = limited.w.readScoreFile(clone(cast), true);
@@ -260,7 +266,94 @@ for (const [doc, expected] of archived) {
   assert.equal(poseDigest(person, referencePose), expected, doc.id);
 }
 const classic = a.l.facePresets.classic.face;
-assert.equal(digest(a.l.build(current), a.m), baseline);
+assert.equal(digest(a.l.build({ ...first, packs: { 'pine-core': a.l.hairRelease } }), a.m), baseline);
+assert.notEqual(digest(a.l.build(current), a.m), baseline);
+// Mark the actual lip pigments and look from the front, including occlusion by skin.
+// Check each visible row, since a slanted lip can still have a centered average.
+function checkLipRows({ body, model, y }, label) {
+  const [x0, y0, z0, x1, y1, z1] = model.bounds;
+  const origin = 2 * y * body.density;
+  assert.ok(Math.abs(origin - Math.round(origin)) < 1e-7, label + ' crop shifted off the sampling grid');
+  let rows = 0;
+  const bytes = new Uint8Array(model.colors.buffer, model.colors.byteOffset, model.colors.byteLength);
+  for (let iz = z0; iz < z1; iz++) {
+    const lip = new Set();
+    for (let iy = y0; iy < y1; iy++) {
+      const row = (iz * body.ny + iy) * body.nx;
+      let ix = x1 - 1;
+      while (ix >= x0 && !model.colors[row + ix]) ix--;
+      if (ix < x0) continue;
+      const p = (row + ix) * 4;
+      if (bytes[p] > 160 && bytes[p + 1] === 0 && bytes[p + 2] === bytes[p])
+        lip.add(Math.round(origin) + 2 * iy + 1 - body.ny);
+    }
+    for (const column of lip) assert.ok(lip.has(-column), label + ' lip row is off center');
+    if (lip.size) rows++;
+  }
+  assert.ok(rows > 0, label + ' lip disappeared');
+}
+for (const base of ['adult', 'child']) {
+  for (const [index, mouth] of Object.keys(a.l.features.mouth).entries()) {
+    const wide = index % 2 === 1;
+    const doc = {
+      ...current,
+      base,
+      face: { ...classic, mouth },
+      shape: {
+        ...current.shape,
+        faceWidth: wide ? 1.16 : 0.84,
+        jaw: wide ? 1.2 : 0.8,
+        mouthHeight: wide ? 1 : -1
+      },
+      parts: { ...current.parts, hair: index % 2 ? 'side-part' : 'ponytail', hat: 'none' }
+    };
+    const spec = a.painter.build(doc);
+    for (const key of ['lips', 'upperLip', 'lowerLip', 'lipLine']) spec.art.materials[key] = 'ff00ff';
+    const actor = a.m.createCharacter({ id: doc.id, label: doc.label, ...spec });
+    assert.equal(actor.sockets.mouth.point[1], 0);
+    const pose = a.m.rig.pose(actor.rig, {}),
+      model = actor.body.makePose(pose);
+    checkLipRows({ body: actor.body, model, y: 0 }, base + ' ' + mouth);
+    checkLipRows(a.m.faceLayers(actor, pose, model)[1], base + ' close-up ' + mouth);
+  }
+}
+// Compare crown and eye-level diameters at matching heights on the same short haircut.
+function crownRatios(doc) {
+  const actor = a.l.build(doc),
+    pose = a.m.rig.pose(actor.rig, {});
+  const upper = a.m.faceLayers(actor, pose, actor.body.makePose(pose))[1];
+  const { body, model } = upper;
+  function diameters(height) {
+    const z = Math.floor((height - upper.z) * body.density);
+    let left = body.nx,
+      right = -1,
+      top = body.ny,
+      bottom = -1;
+    for (let y = 0; y < body.ny; y++)
+      for (let x = 0; x < body.nx; x++) {
+        if (!model.colors[(z * body.ny + y) * body.nx + x]) continue;
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+        top = Math.min(top, y);
+        bottom = Math.max(bottom, y);
+      }
+    assert.ok(right >= left && bottom >= top);
+    return [right - left + 1, bottom - top + 1];
+  }
+  const eye = a.m.rig.socket(actor, pose, 'leftEye')[2],
+    mouth = a.m.rig.socket(actor, pose, 'mouth')[2];
+  const base = diameters(eye);
+  return diameters(eye + 1.35 * (eye - mouth)).map((extent, i) => extent / base[i]);
+}
+for (const base of ['adult', 'child']) {
+  const doc = { ...current, base, parts: { ...current.parts, hair: 'crop', hat: 'none' } };
+  const round = crownRatios(doc),
+    old = crownRatios({ ...doc, packs: { 'pine-core': a.l.hairRelease } });
+  assert.ok(
+    round.every((ratio, i) => ratio < old[i] - 0.04),
+    base + ' crown should taper from both views'
+  );
+}
 for (const base of ['adult', 'child']) {
   const actor = a.l.build({ ...current, base });
   const rest = a.m.rig.pose(actor.rig, {}),
@@ -306,7 +399,7 @@ for (const pin of [a.l.originalRelease, a.l.styleRelease, a.l.profileRelease, a.
   assert.equal(a.l.prepare(dye).recipe.colors.hair, '#795cb4');
   for (const hair of addedHair) {
     const styled = { ...dye, parts: { ...dye.parts, hair } };
-    assert.equal(a.l.editingRelease(styled), a.l.release);
+    assert.equal(a.l.editingRelease(styled), a.l.hairRelease);
     assert.throws(() => a.l.prepare(styled));
   }
 }
@@ -366,7 +459,8 @@ const examples = ['chorus-child', 'relay-child'].map((name) => json('packs/' + n
 for (const doc of examples) {
   const edited = a.l.templates.find((p) => p.id === doc.id);
   assert.deepEqual(clone(a.l.prepare(asPriorStyle(edited)).recipe), doc);
-  assert.equal(digest(a.l.build(edited), a.m), digest(a.l.build(doc), a.m));
+  assert.equal(digest(a.l.build(asPriorStyle(edited)), a.m), digest(a.l.build(doc), a.m));
+  assert.ok(a.l.hasRoundedHead(edited));
   assert.deepEqual(clone(empty.w.importCharacter(doc).recipe), doc);
 }
 const savedScore = empty.w.scoreFile({
@@ -400,7 +494,7 @@ assert.ok(!Object.hasOwn(a.l.prepare(unmarked).recipe, 'gender'));
 assert.equal(a.l.bodyProfileOf(unmarked), null);
 assert.equal(
   digest(a.l.build(unmarked), a.m),
-  digest(a.l.build({ ...unmarked, packs: { 'pine-core': a.l.release }, gender: 'unspecified' }), a.m)
+  digest(a.l.build({ ...unmarked, packs: { 'pine-core': a.l.hairRelease }, gender: 'unspecified' }), a.m)
 );
 for (const version of [a.l.originalRelease, a.l.styleRelease]) {
   assert.throws(() => a.l.prepare({ ...first, packs: { 'pine-core': version }, gender: 'female' }));
@@ -476,7 +570,7 @@ const longHaired = a.l.withBodyProfile(
   },
   'male'
 );
-assert.equal(longHaired.packs['pine-core'], a.l.release);
+assert.equal(longHaired.packs['pine-core'], a.l.hairRelease);
 const castDocs = [...referenceModels, childAgain, longHaired],
   profilesClient = client(),
   audience = client();
@@ -513,7 +607,7 @@ for (const i of [2, 3]) {
   );
   assert.ok(distance(lead.contacts.palm, partner.contacts.palm) < 0.01);
 }
-console.log('PineLooks core ' + a.l.release + ' · 五代存档、扩展体型、五官、发型、发色、服饰及双人复演通过');
+console.log('PineLooks core ' + a.l.release + ' · 历代存档、头型与唇线、扩展体型、五官、发型及双人复演通过');
 console.log(
   'PineLooks v1 · 两个独立形象跨环境像素一致 · 8 项形体、5 组款式、7 色槽 · 双基型戴帽与喝水通过 · ' +
     pairings +

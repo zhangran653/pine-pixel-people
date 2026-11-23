@@ -5,8 +5,12 @@ const PineLooks = (() => {
     styleRelease = '1.1.0',
     profileRelease = '1.2.0',
     proportionRelease = '1.3.0',
-    release = '1.4.0';
-  const releases = [originalRelease, styleRelease, profileRelease, proportionRelease, release];
+    hairRelease = '1.4.0',
+    release = '1.5.0';
+  const releases = [originalRelease, styleRelease, profileRelease, proportionRelease, hairRelease, release];
+  function hasRoundedHead(recipe) {
+    return releases.indexOf(recipe.packs[core]) > releases.indexOf(hairRelease);
+  }
   const shape = pineDesignerBody.shapeRanges;
   const previousBodyRanges = {
     height: [0.9, 1.1],
@@ -145,7 +149,7 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (Object.hasOwn(additionalHair, recipe.parts.hair)) needed = release;
+    if (Object.hasOwn(additionalHair, recipe.parts.hair)) needed = hairRelease;
     else if (usesExtendedShape(recipe.shape)) needed = proportionRelease;
     else if (recipe.gender !== undefined) needed = profileRelease;
     else if (needsNewCore(recipe.parts, recipe.face)) needed = styleRelease;
@@ -415,7 +419,7 @@ SOFTWARE.`;
     const actor = PineMotion.createCharacter({
       id: recipe.id,
       label: recipe.label,
-      ...pineDesignerBody.build(recipe, paintHat(hat), hat?.primitives)
+      ...pineDesignerBody.build(recipe, paintHat(hat), hat?.primitives, hasRoundedHead(recipe))
     });
     actor.gender = recipe.gender ?? 'unspecified';
     return actor;
@@ -458,7 +462,7 @@ SOFTWARE.`;
     label,
     base: bodyProfiles[profile].base,
     gender: bodyProfiles[profile].gender,
-    packs: { [core]: profileRelease },
+    packs: { [core]: release },
     shape: { ...Object.fromEntries(Object.entries(shape).map(([k, v]) => [k, v[2]])), ...sizes },
     parts: Object.fromEntries([...Object.keys(slots), 'hat'].map((k, i) => [k, items[i]])),
     colors: Object.fromEntries(Object.keys(colors).map((k, i) => [k, palette[i]]))
@@ -522,7 +526,7 @@ SOFTWARE.`;
       label: style.label,
       base: bodyProfiles[style.profile].base,
       gender: bodyProfiles[style.profile].gender,
-      packs: { [core]: profileRelease },
+      packs: { [core]: release },
       shape: { ...seed.shape, ...style.shape },
       parts: { hair: style.hair, ...outfit.parts, hat: 'none' },
       face: { ...facePresets[style.face].face },
@@ -547,6 +551,8 @@ SOFTWARE.`;
     styleRelease,
     profileRelease,
     proportionRelease,
+    hairRelease,
+    hasRoundedHead,
     editingRelease,
     usesExtendedShape,
     bodyProfiles,

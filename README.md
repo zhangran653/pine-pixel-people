@@ -29,9 +29,9 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 全身镜头有固定的地面和厘米标尺。身高读数取站直时的裸头顶位置。拖动「环视」可以从正面和侧面看两种成人体型的差别。两个样本使用相同的身高、发型和衣装。[成人体型并排对照](http://127.0.0.1:8000/atelier.html?preset=look_body_female&compare=look_body_male&tab=shape) · [儿童身高对照](http://127.0.0.1:8000/atelier.html?preset=look_chorus&compare=look_relay&tab=shape) · [双马尾后侧近景](http://127.0.0.1:8000/atelier.html?preset=look_chorus&tab=hair)
 
-打开「五官」，拖动环视可以看眼睑、鼻梁和下颌的侧面轮廓。用镜子右下角的「精细五官」开关可以在同一姿势、同一角度比较两种精度。近景只对下巴以上的区域加密，同高度的手、头发和水壶也参与绘制。全身镜和角色卡使用标准精度。[试试披肩长发的五官近景](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&hair=shoulder-length)
+在暂停待机时打开「五官」，镜子会对准正面。基础部件 `pine-core 1.5.0` 让唇线和喝水接触点共用脸部中线，头顶和后脑沿椭圆截面过渡到下颌和后颈。拖动环视可看轮廓，右下角的「精细五官」可以切换近景精度。已有形象可以点「采用新版头型」预览，满意后保存。[查看披肩长发正面](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&hair=shoulder-length)
 
-![同一角色的标准正面、精细正面与精细侧转](face-detail-preview.png)
+![同一角色修改前后的正面、侧面与后侧，展示唇线中点和头型](face-detail-preview.png)
 
 ## 角色与动作怎样复用
 

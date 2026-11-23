@@ -300,6 +300,18 @@
     return group;
   }
   function faceFields(area) {
+    if (!looks.hasRoundedHead(draft)) {
+      const update = document.createElement('button');
+      update.type = 'button';
+      update.id = 'update-head';
+      update.textContent = '采用新版头型';
+      update.onclick = () => {
+        draft.packs[looks.core] = looks.release;
+        changed();
+        fields();
+      };
+      area.append(update);
+    }
     area.append(
       presetGroup('五官组合', looks.facePresets, 'facePreset', (p) => {
         draft.face = { ...p.face };
@@ -320,7 +332,15 @@
   }
   function paintHairCards(cards, stagger = false) {
     cancelAnimationFrame(swatchFrame);
-    const currentKey = JSON.stringify([draft.base, draft.gender, draft.shape, draft.face, draft.colors]);
+    const headVersion = looks.hasRoundedHead(draft) ? looks.release : looks.hairRelease;
+    const currentKey = JSON.stringify([
+      headVersion,
+      draft.base,
+      draft.gender,
+      draft.shape,
+      draft.face,
+      draft.colors
+    ]);
     if (swatchKey !== currentKey) {
       swatchKey = currentKey;
       swatchActors.clear();
@@ -331,7 +351,7 @@
       if (!swatchActors.has(key)) {
         const sample = {
           ...looks.templates[0],
-          packs: { [looks.core]: looks.release },
+          packs: { [looks.core]: headVersion },
           base: draft.base,
           gender: draft.gender ?? 'unspecified',
           shape: draft.shape,
@@ -642,7 +662,12 @@
       hairAngle = bearing;
       bearing = priorAngle;
     }
-    if (next === 'face' && tab !== 'face' && Math.cos((bearing * Math.PI) / 180) < 0) bearing = 18;
+    if (next === 'face' && tab !== 'face') {
+      if (!playing && action === 'idle') {
+        bearing = 0;
+        phase = 0;
+      } else if (Math.cos((bearing * Math.PI) / 180) < 0) bearing = 18;
+    }
     tab = next;
     orientation();
     fields();

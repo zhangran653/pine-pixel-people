@@ -194,17 +194,22 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
       }
     }
     if (left >= right) return null;
-    const extent = [(right - left + 4) / density, (highY - lowY + 4) / density, (b[5] - cut + 2) / density];
-    let d = Math.min(desiredDensity, Math.floor(Math.cbrt(480000 / (extent[0] * extent[1] * extent[2]))));
-    while (
-      d > density &&
-      Math.ceil(extent[0] * d) * Math.ceil(extent[1] * d) * (Math.ceil(extent[2] * d) + 2) > 480000
-    )
-      d--;
-    if (d <= density) return null;
-    const [w, h, layers] = extent.map((n) => Math.ceil(n * d));
-    const x = (right + left - nx) / (2 * density),
-      y = (highY + lowY - ny) / (2 * density),
+    // Crop on the actor's grid. An off-center hairstyle or raised hand may grow
+    // the crop, but must not move the row of samples through the middle of the lips.
+    const xMin = (left - nx / 2 - 2) / density, xMax = (right - nx / 2 + 2) / density;
+    const yMin = (lowY - ny / 2 - 2) / density, yMax = (highY - ny / 2 + 2) / density;
+    const top = (b[5] - cut + 2) / density;
+    const limit = 480000, volume = (xMax - xMin) * (yMax - yMin) * top;
+    let d = Math.min(Math.floor(desiredDensity), Math.floor(Math.cbrt(limit / volume))), w, h, layers;
+    for (; d > density; d--) {
+      w = Math.ceil(xMax * d) - Math.floor(xMin * d);
+      h = Math.ceil(yMax * d) - Math.floor(yMin * d);
+      layers = Math.ceil(top * d);
+      if (w * h * (layers + 2) <= limit) break;
+    }
+    if (!(d > density)) return null;
+    const x = (Math.floor(xMin * d) + w / 2) / d,
+      y = (Math.floor(yMin * d) + h / 2) / d,
       z = cut / density;
     // Keep two lighting neighbors below the join while sampling the upper section.
     const fine = samplePose(pose, d, w, h, layers + 2, x, y, z - 2 / d, true);

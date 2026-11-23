@@ -168,10 +168,31 @@ function checkEditor() {
     expect(
       styled.parts.hair === 'shoulder-length' &&
         styled.colors.hair === '#a6b784' &&
-        styled.packs['pine-core'] === PineLooks.release,
+        styled.packs['pine-core'] === PineLooks.hairRelease,
       'saved hair style, dye or core version was lost'
     );
     byId('tab-face').click();
+    expect(byId('bearing').value === '0', 'paused idle should face straight ahead for editing');
+    const oldPortrait = byId('mirror').toDataURL();
+    byId('update-head').click();
+    expect(
+      !byId('update-head') && byId('mirror').toDataURL() !== oldPortrait,
+      'old head did not upgrade in the mirror'
+    );
+    expect(
+      PineWardrobe.saved.get(legacy.id).packs['pine-core'] === PineLooks.hairRelease,
+      'preview overwrote the existing save'
+    );
+    byId('save-look').click();
+    const updated = PineWardrobe.saved.get(legacy.id);
+    expect(
+      updated.packs['pine-core'] === PineLooks.release &&
+        updated.id === styled.id &&
+        ['shape', 'face', 'parts', 'colors'].every(
+          (key) => JSON.stringify(updated[key]) === JSON.stringify(styled[key])
+        ),
+      'head upgrade changed the identity or other appearance settings'
+    );
     const quality = byId('fine-face');
     expect(quality.checked && !byId('face-quality').hidden, 'close-up should open with fine features');
     const detailed = byId('mirror').toDataURL();
@@ -220,7 +241,7 @@ function checkEditor() {
     }
     target.dataset.state = 'pass';
     target.textContent =
-      'Body profiles, legacy saves, scale, hairstyles, dyes, close-up detail and slice alignment passed';
+      'Body profiles, legacy saves, head upgrade, scale, hairstyles, dyes, close-ups and slice alignment passed';
   } catch (err) {
     target.dataset.state = 'fail';
     target.textContent = err.message;
