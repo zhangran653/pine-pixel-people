@@ -140,7 +140,7 @@
   }
   function setView(next) {
     view = next;
-    $('face-quality').hidden = view !== 'face';
+    $('mirror').dataset.framing = view;
     for (const b of document.querySelectorAll('[data-view]'))
       b.setAttribute('aria-pressed', String(b.dataset.view === view));
     show();

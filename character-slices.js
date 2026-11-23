@@ -19,6 +19,7 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const lerp = (a, b, t) => a + (b - a) * t;
   const MaterialGrid=palette.length<=256?Uint8Array:palette.length<=65536?Uint16Array:Uint32Array;
+  const normalLength = Float64Array.from({ length: 13 }, (_, i) => Math.sqrt(i));
   const portraitLighting = new Uint8Array(palette.length);
   for (const name of art.portraitLighting?.soft || []) portraitLighting[ink[name]] = 1;
   for (const name of art.portraitLighting?.painted || []) portraitLighting[ink[name]] = 2;
@@ -71,17 +72,27 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     const pitch = nx * ny;
     let frame = null;
     const cells = new MaterialGrid(pitch * nz);
+    const visited = [nx, ny, nz, 0, 0, 0];
+    const xs = Float64Array.from({ length: nx }, (_, x) => ox + (x + .5 - nx / 2) / density);
+    const ys = Float64Array.from({ length: ny }, (_, y) => oy + (y + .5 - ny / 2) / density);
+    const zs = Float64Array.from({ length: nz }, (_, z) => oz + (z + .5) / density);
     function fillBounds(x0, x1, y0, y1, z0, z1, paint) {
       const left=Math.max(0,Math.floor((x0-ox)*density+nx/2)), right=Math.min(nx,Math.ceil((x1-ox)*density+nx/2));
       const top=Math.max(0,Math.floor((y0-oy)*density+ny/2)), bottom=Math.min(ny,Math.ceil((y1-oy)*density+ny/2));
       const low=Math.max(0,Math.floor((z0-oz)*density)), high=Math.min(nz,Math.ceil((z1-oz)*density));
-      if (left >= right || top >= bottom) return;
+      if (left >= right || top >= bottom || low >= high) return;
+      visited[0] = Math.min(visited[0], left);
+      visited[1] = Math.min(visited[1], top);
+      visited[2] = Math.min(visited[2], low);
+      visited[3] = Math.max(visited[3], right);
+      visited[4] = Math.max(visited[4], bottom);
+      visited[5] = Math.max(visited[5], high);
       for (let z=low;z<high;z++) {
-        const pz=oz+(z+.5)/density;
+        const pz=zs[z];
         for (let y=top;y<bottom;y++) {
-          const py=oy+(y+.5-ny/2)/density, row=z*pitch+y*nx;
+          const py=ys[y], row=z*pitch+y*nx;
           for (let x=left;x<right;x++) {
-            const color=paint(ox+(x+.5-nx/2)/density,py,pz);
+            const color=paint(xs[x],py,pz);
             if (color) cells[row+x]=color;
           }
         }
@@ -136,31 +147,37 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
 
     const colors = new Uint32Array(cells.length);
     const bounds=[nx,ny,nz,0,0,0];
-    for (let i=0;i<cells.length;i++) {
-      const material=cells[i];
-      if (!material) continue;
-      const dx = Number(!!cells[i-1]) - Number(!!cells[i+1]);
-      const dy = Number(!!cells[i-nx]) - Number(!!cells[i+nx]);
-      const dz = Number(!!cells[i-pitch]) - Number(!!cells[i+pitch]);
-      const n = Math.hypot(dx,dy,dz);
-      let shade = n ? Math.round((0.94 + (0.17 * (0.43 * dx - 0.37 * dy + 0.81 * dz)) / n) * 24) : 0;
-      if (faceDetail && portraitLighting[material] === 2) {
-        // The portrait artist has already lit these small color planes in head space.
-        shade = 24;
-      } else if (faceDetail && n && portraitLighting[material]) {
-        // Two sampling distances soften stair-step shadows on cheeks without filtering any pigment edges.
-        const gx = dx + Number(!!cells[i - 2]) - Number(!!cells[i + 2]);
-        const gy = dy + Number(!!cells[i - 2 * nx]) - Number(!!cells[i + 2 * nx]);
-        const gz = dz + Number(!!cells[i - 2 * pitch]) - Number(!!cells[i + 2 * pitch]);
-        shade = Math.round(
-          (0.975 + (0.072 * (0.43 * gx - 0.37 * gy + 0.81 * gz)) / (Math.hypot(gx, gy, gz) || 1)) * 24
-        );
+    for (let z = visited[2]; z < visited[5]; z++) {
+      for (let y = visited[1]; y < visited[4]; y++) {
+        const row = z * pitch + y * nx;
+        for (let x = visited[0]; x < visited[3]; x++) {
+          const i = row + x, material = cells[i];
+          if (!material) continue;
+          const dx = Number(!!cells[i-1]) - Number(!!cells[i+1]);
+          const dy = Number(!!cells[i-nx]) - Number(!!cells[i+nx]);
+          const dz = Number(!!cells[i-pitch]) - Number(!!cells[i+pitch]);
+          const n = normalLength[dx*dx + dy*dy + dz*dz];
+          let shade = n ? Math.round((0.94 + (0.17 * (0.43 * dx - 0.37 * dy + 0.81 * dz)) / n) * 24) : 0;
+          if (faceDetail && portraitLighting[material] === 2) {
+            // The artist lit the small color planes of the face in head space.
+            shade = 24;
+          } else if (faceDetail && n && portraitLighting[material]) {
+            // Two sampling distances soften stair-step shadows without blurring the pigment edges.
+            const gx = dx + Number(!!cells[i - 2]) - Number(!!cells[i + 2]);
+            const gy = dy + Number(!!cells[i - 2 * nx]) - Number(!!cells[i + 2 * nx]);
+            const gz = dz + Number(!!cells[i - 2 * pitch]) - Number(!!cells[i + 2 * pitch]);
+            const length = normalLength[gx*gx + gy*gy + gz*gz] || 1;
+            shade = Math.round((0.975 + (0.072 * (0.43 * gx - 0.37 * gy + 0.81 * gz)) / length) * 24);
+          }
+          colors[i] = swatches[material][shade];
+          if (x < bounds[0]) bounds[0] = x;
+          if (y < bounds[1]) bounds[1] = y;
+          if (z < bounds[2]) bounds[2] = z;
+          if (x >= bounds[3]) bounds[3] = x + 1;
+          if (y >= bounds[4]) bounds[4] = y + 1;
+          if (z >= bounds[5]) bounds[5] = z + 1;
+        }
       }
-      colors[i] = swatches[material][shade];
-      const x=i%nx, row=(i-x)/nx, y=row%ny, z=(row-y)/ny;
-      if(x<bounds[0])bounds[0]=x;if(x>=bounds[3])bounds[3]=x+1;
-      if(y<bounds[1])bounds[1]=y;if(y>=bounds[4])bounds[4]=y+1;
-      if(z<bounds[2])bounds[2]=z;if(z>=bounds[5])bounds[5]=z+1;
     }
     return { colors, sheets: [], bounds };
   }
@@ -168,22 +185,15 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
   function makePose(pose) {
     return samplePose(pose, density, nx, ny, nz, 0, 0, 0, false);
   }
-  // Split at a horizontal cell boundary. Every object above it, including hands,
-  // glasses or a bottle in front of the mouth, shares the finer sampling grid.
-  function faceLayers(pose, model, height, desiredDensity) {
-    const b = model.bounds,
-      plane = nx * ny;
-    const cut = Math.max(b[2] + 1, Math.floor(height * density));
-    if (cut >= b[5]) return null;
-    let left = nx,
-      right = 0,
-      lowY = ny,
-      highY = 0;
-    for (let z = cut; z < b[5]; z++) {
+  // Use the painted bounds of the current pose, including props crossing the body.
+  // Upper and lower grids meet at exactly the same world-space height.
+  function refineBand(pose, model, from, to, desired, limit, upper) {
+    const b = model.bounds, plane = nx * ny;
+    let left = nx, right = 0, lowY = ny, highY = 0;
+    for (let z = from; z < to; z++) {
       for (let y = b[1]; y < b[4]; y++) {
         const row = z * plane + y * nx;
-        let first = b[0],
-          last = b[3];
+        let first = b[0], last = b[3];
         while (first < last && !model.colors[row + first]) first++;
         if (first === last) continue;
         while (!model.colors[row + last - 1]) last--;
@@ -194,43 +204,54 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
       }
     }
     if (left >= right) return null;
-    // Crop on the actor's grid. An off-center hairstyle or raised hand may grow
-    // the crop, but must not move the row of samples through the middle of the lips.
     const xMin = (left - nx / 2 - 2) / density, xMax = (right - nx / 2 + 2) / density;
     const yMin = (lowY - ny / 2 - 2) / density, yMax = (highY - ny / 2 + 2) / density;
-    const top = (b[5] - cut + 2) / density;
-    const limit = 480000, volume = (xMax - xMin) * (yMax - yMin) * top;
-    let d = Math.min(Math.floor(desiredDensity), Math.floor(Math.cbrt(limit / volume))), w, h, layers;
-    for (; d > density; d--) {
+    const height = (to - from + (upper ? 2 : 0)) / density;
+    const volume = (xMax - xMin) * (yMax - yMin) * height;
+    const halo = upper ? 2 : 4;
+    const maximum = Math.min(Math.floor(desired), Math.cbrt(limit / volume));
+    // A broad pose can just miss the next integer density. Keep the fine art
+    // and fit a substep between it and the base grid within the same budget.
+    let d = maximum >= density + 1 ? Math.floor(maximum) : Math.floor(maximum * 4) / 4;
+    let w, h, layers;
+    for (; d > density; d -= d > density + 1 ? 1 : 0.25) {
       w = Math.ceil(xMax * d) - Math.floor(xMin * d);
       h = Math.ceil(yMax * d) - Math.floor(yMin * d);
-      layers = Math.ceil(top * d);
-      if (w * h * (layers + 2) <= limit) break;
+      layers = Math.ceil(height * d);
+      if (w * h * (layers + halo) <= limit) break;
     }
     if (!(d > density)) return null;
-    const x = (Math.floor(xMin * d) + w / 2) / d,
-      y = (Math.floor(yMin * d) + h / 2) / d,
-      z = cut / density;
-    // Keep two lighting neighbors below the join while sampling the upper section.
-    const fine = samplePose(pose, d, w, h, layers + 2, x, y, z - 2 / d, true);
-    if (fine.bounds[5] <= 2) return null;
-    fine.colors = fine.colors.subarray(2 * w * h);
+    const x = (Math.floor(xMin * d) + w / 2) / d, y = (Math.floor(yMin * d) + h / 2) / d;
+    const z = upper ? from / density : to / density - layers / d;
+    // Read two neighbors past each join so the lighting continues across it.
+    const fine = samplePose(pose, d, w, h, layers + halo, x, y, z - 2 / d, true);
+    fine.colors = fine.colors.subarray(2 * w * h, (layers + 2) * w * h);
     fine.bounds[2] = Math.max(0, fine.bounds[2] - 2);
-    fine.bounds[5] -= 2;
-    return [
-      {
-        x: 0,
-        y: 0,
-        z: 0,
-        body: createSliceProjector(nx, ny, cut, density),
+    fine.bounds[5] = Math.min(layers, fine.bounds[5] - 2);
+    if (fine.bounds[2] >= fine.bounds[5]) return null;
+    return { x, y, z, body: createSliceProjector(w, h, layers, d), model: fine };
+  }
+
+  function faceLayers(pose, model, height, desiredDensity, bodyDensity = 0) {
+    const b = model.bounds, plane = nx * ny;
+    const cut = Math.max(b[2] + 1, Math.floor(height * density));
+    if (cut >= b[5]) return null;
+    const upper = refineBand(pose, model, cut, b[5], desiredDensity, 480000, true);
+    const lower = bodyDensity > density
+      ? refineBand(pose, model, Math.max(0, b[2] - 2), cut, bodyDensity, 800000, false) : null;
+    if (!upper && !lower) return null;
+    function standardBand(from, to) {
+      return {
+        x: 0, y: 0, z: from / density,
+        body: createSliceProjector(nx, ny, to - from, density),
         model: {
-          colors: model.colors.subarray(0, plane * cut),
-          bounds: [b[0], b[1], b[2], b[3], b[4], cut],
+          colors: model.colors.subarray(plane * from, plane * to),
+          bounds: [b[0], b[1], Math.max(0, b[2] - from), b[3], b[4], Math.min(to, b[5]) - from],
           sheets: []
         }
-      },
-      { x, y, z, body: createSliceProjector(w, h, layers, d), model: fine }
-    ];
+      };
+    }
+    return [lower || standardBand(0, cut), upper || standardBand(cut, b[5])];
   }
   return {...createSliceProjector(nx,ny,nz,density), makePose, faceLayers};
 }

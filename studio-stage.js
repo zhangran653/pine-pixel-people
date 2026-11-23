@@ -39,7 +39,8 @@ function mergeStudioActors(
     w = overall[3] - ox,
     h = overall[4] - oy,
     depth = overall[5] - oz;
-  if (w * h * depth > cellLimit) return density > 1 ? mergeStudioActors(parts, cellLimit, density - 1) : null;
+  if (w * h * depth > cellLimit)
+    return density > 1 ? mergeStudioActors(parts, cellLimit, Math.max(1, density - 1)) : null;
   const colors = new Uint32Array(w * h * depth);
   for (const { p, c, s, box } of plans) {
     const { body, model } = p,
@@ -78,11 +79,11 @@ function mergeStudioActors(
 
 // Cut each person at their own chin. When adults and children touch, merge the
 // shared height intervals so both faces and any intervening hands stay visible.
-function studioPortraitLayers(parts, motion) {
+function studioPortraitLayers(parts, motion, sampleLayers = motion.faceLayers) {
   const cuts = new Set(),
     volumes = [];
   for (const p of parts) {
-    const layers = motion.faceLayers(p.actor, p.pose, p.model);
+    const layers = sampleLayers.call(motion, p.actor, p.pose, p.model);
     if (!layers) {
       volumes.push(p);
       continue;
@@ -141,8 +142,7 @@ function createStudioStage(canvas) {
     cacheKey = '',
     view = null,
     entries = [],
-    combined = null,
-    portrait = null;
+    drawings = [];
   function camera(w, h) {
     const yaw = bearing * rad,
       elevation = tilt * rad,
@@ -232,10 +232,6 @@ function createStudioStage(canvas) {
       );
       ctx.fill();
     }
-    // Large on-screen heads can resolve more samples. Keep distant playback at its original cost.
-    let drawings = combined ? [combined] : [];
-    if (combined && entries.some((e) => e.rig.height * 0.2 * world * sx >= 52 * device))
-      drawings = portrait ??= studioPortraitLayers(entries, studioLibrary) || drawings;
     for (const drawing of drawings) {
       const p = view.project(
         anchorX + drawing.x * actorSize,
@@ -259,8 +255,11 @@ function createStudioStage(canvas) {
       const actor = studioLibrary.characters.get(e.character);
       return { ...e, actor, rig: actor.rig, body: actor.body, model: actor.body.makePose(e.pose) };
     });
-    combined = entries.length ? mergeStudioActors(entries) : null;
-    portrait = null;
+    drawings = entries.length
+      ? studioPortraitLayers(entries, studioLibrary, studioLibrary.figureLayers) || [
+          mergeStudioActors(entries)
+        ]
+      : [];
     draw();
   }
   function setView(angle, pitch = tilt, magnify = zoom) {

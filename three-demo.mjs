@@ -84,7 +84,7 @@ export function startClearing(motion) {
     controls.update();
   }
   home();
-  const cast = createPineCast(THREE, motion);
+  const cast = createPineCast(THREE, motion, { detail: 'figure' });
   cast.group.rotation.y = -2.27;
   scene.add(cast.group);
   const choices = showcases(motion);
@@ -96,12 +96,6 @@ export function startClearing(motion) {
     request = 0;
 
   function render() {
-    const distance = camera.position.distanceTo(controls.target);
-    const actors = plan?.locate(time)?.step.actors || [];
-    const tallest = Math.max(0, ...actors.map((key) => motion.characters.get(key).rig.height));
-    const faceHeight = tallest * 0.20 * motion.rig.centimetersPerUnit / 100;
-    const facePixels = canvas.clientHeight * faceHeight / (2 * Math.tan(camera.fov * Math.PI / 360) * distance);
-    if (cast.setFaceDetail(facePixels >= 58)) renderer.shadowMap.needsUpdate = true;
     renderer.render(scene, camera);
   }
   function resize() {

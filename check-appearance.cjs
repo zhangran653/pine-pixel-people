@@ -423,6 +423,23 @@ for (const base of ['adult', 'child']) {
   assert.equal(lower.body.nz / lower.body.density, upper.z, 'the two grids must meet at one height');
   assert.ok(upper.body.density > body.density);
   assert.ok(upper.body.nx * upper.body.ny * (upper.body.nz + 2) <= 480000, 'portrait sample budget');
+  const [figureBody, figureHead] = a.m.figureLayers(actor, rest, model);
+  const lowerGrid = figureBody.body;
+  assert.ok(
+    lowerGrid.density > body.density,
+    base + ' full-body clothes and hands stayed at standard density'
+  );
+  assert.ok(lowerGrid.nx * lowerGrid.ny * (lowerGrid.nz + 4) <= 800000, 'full-body sample budget');
+  assert.ok(
+    Math.abs(figureBody.z + lowerGrid.nz / lowerGrid.density - figureHead.z) < 1e-7,
+    'gap at the neck'
+  );
+  assert.deepEqual([figureHead.x, figureHead.y, figureHead.z], [upper.x, upper.y, upper.z]);
+  assert.equal(
+    colorDigest(figureHead.model.colors),
+    colorDigest(upper.model.colors),
+    base + ' face changed between cameras'
+  );
   const closed = a.m.faceLayers(actor, { ...rest, blink: 1 }, model)[1];
   assert.ok(
     upper.model.colors.some((color, i) => color !== closed.model.colors[i]),
@@ -445,6 +462,17 @@ for (const base of ['adult', 'child']) {
   }
   assert.ok(changedAtMouth, base + ' bottle spout must be drawn at the mouth in close-up');
 }
+const jumper = a.l.build({
+  ...adultSeed,
+  parts: { ...adultSeed.parts, hair: 'long-waves' },
+  shape: { ...adultSeed.shape, height: 1.3, shoulders: 1.35, arms: 1.25 }
+});
+const reach = a.m.actions.get('jump').sample(0.48, jumper)[0].pose;
+const jumpBands = a.m.figureLayers(jumper, reach, jumper.body.makePose(reach));
+assert.ok(
+  jumpBands?.every((b) => b.body.density > jumper.body.density),
+  'a wide jumping pose loses full-body detail'
+);
 const addedHair = ['shoulder-length', 'long-waves', 'half-up', 'twin-braids', 'side-part'];
 const schemaHair = json('character-v1.schema.json').properties.parts.properties.hair.enum;
 assert.deepEqual([...Object.keys(a.l.slots.hair)].sort(), schemaHair.sort());
@@ -677,7 +705,7 @@ for (const i of [2, 3]) {
   );
   assert.ok(distance(lead.contacts.palm, partner.contacts.palm) < 0.01);
 }
-console.log('PineLooks core ' + a.l.release + ' · 历代存档、头型与唇线、扩展体型、五官、发型及双人复演通过');
+console.log('PineLooks core ' + a.l.release + ' · 历代存档、全身与五官精度、头型与唇线、扩展体型、发型及双人复演通过');
 console.log(
   'PineLooks v1 · 两个独立形象跨环境像素一致 · 8 项形体、5 组款式、7 色槽 · 双基型戴帽与喝水通过 · ' +
     pairings +

@@ -202,7 +202,32 @@ function checkEditor() {
     quality.click();
     expect(byId('mirror').toDataURL() === detailed, 'changing quality moved the camera or the pose');
     document.querySelector('[data-view="body"]').click();
-    expect(byId('face-quality').hidden, 'portrait setting is visible in the full length mirror');
+    expect(
+      quality.checked && !byId('face-quality').hidden,
+      'whole-figure detail is unavailable in the full length mirror'
+    );
+    const canvas = byId('mirror'),
+      ctx = canvas.getContext('2d');
+    const whole = canvas.toDataURL(),
+      { top, height } = contour(canvas);
+    const a = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    quality.click();
+    const b = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const changes = [0, 0];
+    for (let y = top; y < top + height; y++) {
+      for (let x = Math.floor(canvas.width * 0.38); x < canvas.width * 0.72; x++) {
+        const i = (y * canvas.width + x) * 4;
+        if (a[i] + a[i + 1] + a[i + 2] > 510 || b[i] + b[i + 1] + b[i + 2] > 510) continue;
+        if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2])
+          changes[Number(y > top + height * 0.32)]++;
+      }
+    }
+    expect(
+      changes.every((n) => n > 15),
+      'full-body detail did not change both the painted face and the outfit'
+    );
+    quality.click();
+    expect(canvas.toDataURL() === whole, 'full-body quality switch moved the subject or camera');
 
     const pose = PineMotion.rig.pose(lead.rig, {});
     const coarse = lead.body.makePose(pose);
@@ -260,7 +285,7 @@ function checkEditor() {
     );
     target.dataset.state = 'pass';
     target.textContent =
-      'Body profiles, legacy saves, head upgrade, scale, hairstyles, dyes, close-ups and slice alignment passed';
+      'Body profiles, legacy saves, head upgrade, scale, hairstyles, dyes, full-body and close-up detail, and slice alignment passed';
   } catch (err) {
     target.dataset.state = 'fail';
     target.textContent = err.message;

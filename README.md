@@ -27,9 +27,11 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 「体型」面板以每种默认体型为 100%。身高可调至 75%–130%，肩宽 70%–135%，臂长和腿长各为 80%–125%，步长均为 1%。成人站姿约为 117–203 cm，儿童约为 83–144 cm。已有形象首次使用扩展范围时会自动采用基础部件 `pine-core 1.3.0`。
 
+全身和脸部镜头默认开启「精细人物」。全身沿用五官编辑的头脸切片，衣领、手、裤脚和鞋也会加密。动作工坊和 Three.js 观景台也使用精细全身。[查看全身](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=shape&hair=shoulder-length&bearing=16) · [同一全身镜头的前后对照图](full-body-detail-preview.png)
+
 全身镜头有固定的地面和厘米标尺。身高读数取站直时的裸头顶位置。拖动「环视」可以从正面和侧面看两种成人体型的差别。两个样本使用相同的身高、发型和衣装。[成人体型并排对照](http://127.0.0.1:8000/atelier.html?preset=look_body_female&compare=look_body_male&tab=shape) · [儿童身高对照](http://127.0.0.1:8000/atelier.html?preset=look_chorus&compare=look_relay&tab=shape) · [双马尾后侧近景](http://127.0.0.1:8000/atelier.html?preset=look_chorus&tab=hair)
 
-在暂停待机时打开「五官」，镜子会对准正面。头顶、后脑和下颌沿椭圆截面过渡。当前预设的四种唇形用脸部切片上的色差画出，水壶对准唇心。拖动「环视」观察侧脸，右下角的「精细五官」可切换近景精度。旧存档可在「发型」或「五官」点「试用新版头发与五官」，满意后保存。[查看唇部侧面](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&bearing=90)
+在暂停待机时打开「五官」，镜子会对准正面。头顶、后脑和下颌沿椭圆截面过渡。当前预设的四种唇形用脸部切片上的色差画出，水壶对准唇心。右下角的「精细人物」可随时切换精度。旧存档也可在「发型」或「五官」点「试用新版头发与五官」预览新版造型，满意后保存。[查看唇部侧面](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&bearing=90)
 
 ![同一角色修改前后的正面、侧面与后侧，展示唇线中点和头型](face-detail-preview.png)
 

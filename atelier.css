@@ -279,6 +279,9 @@ h2 {
 .stage canvas:active {
   cursor: grabbing;
 }
+.stage canvas[data-framing='body'] {
+  height: clamp(320px, 37vw, 468px);
+}
 #face-quality {
   position: absolute;
   right: 12px;
@@ -786,6 +789,9 @@ h2 {
   }
   .stage canvas {
     height: clamp(224px, 62vw, 330px);
+  }
+  .stage canvas[data-framing='body'] {
+    height: clamp(300px, 78vw, 380px);
   }
   .inspector {
     padding: 14px;

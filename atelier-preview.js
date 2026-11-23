@@ -72,7 +72,7 @@ const atelierPreview = (() => {
       if (pair) {
         const samples = clip.sample(phase, ...pair);
         const parts = pair.map((a, i) => part(a, samples[i]));
-        return [{ parts, drawing: mergeStudioActors(parts) }];
+        return [{ parts }];
       }
       clip = motion.actions.get('idle');
     }
@@ -403,10 +403,13 @@ const atelierPreview = (() => {
     groups.forEach((g, i) => {
       const [ox, oy] = origins[i];
       for (const p of g.parts) shadows(ctx, p, camera, scale, ox, oy);
-      const drawings =
-        portrait && !compact && detail
-          ? (g.layers ??= studioPortraitLayers(g.parts, motion) || [g.drawing])
-          : [g.drawing];
+      const mode = detail ? (portrait ? 'portraitLayers' : 'figureLayers') : 'standardLayers';
+      if (!g[mode]) {
+        const layers =
+          detail && studioPortraitLayers(g.parts, motion, portrait ? motion.faceLayers : motion.figureLayers);
+        g[mode] = layers || [(g.drawing ??= mergeStudioActors(g.parts))];
+      }
+      const drawings = g[mode];
       // Magnify the finished pixel image instead of repeatedly projecting each
       // transparent slice across a large portrait canvas.
       const density = Math.max(...drawings.map((d) => d.body.density));
@@ -437,14 +440,14 @@ const atelierPreview = (() => {
     return measured;
   }
 
-  function dimensions(canvas, compact) {
+  function dimensions(canvas, nativePixels = false) {
     // Detached library cards may only have an intrinsic size on their first paint.
     const last = logicalSizes.get(canvas);
     const cssW = canvas.clientWidth || last?.[0] || Number(canvas.getAttribute('width')) || 144;
     const cssH = canvas.clientHeight || last?.[1] || Number(canvas.getAttribute('height')) || 144;
     if (last?.[0] !== cssW || last?.[1] !== cssH) logicalSizes.set(canvas, [cssW, cssH]);
     const ratio = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(2000000 / (cssW * cssH)));
-    const sampling = Math.min(ratio, compact ? 1.5 : 1.12, 1024 / Math.max(cssW, cssH));
+    const sampling = nativePixels ? ratio : Math.min(ratio, 1.12, 1024 / Math.max(cssW, cssH));
     return [
       Math.max(1, Math.round(cssW * ratio)),
       Math.max(1, Math.round(cssH * ratio)),
@@ -470,18 +473,20 @@ const atelierPreview = (() => {
       disposed = false;
     function render() {
       if (disposed) return;
-      const [width, height, w, h] = dimensions(canvas, false);
+      const [width, height, w, h] = dimensions(canvas, previous?.detail);
       resizeTo(canvas, width, height);
       if (backdrop.width !== w || backdrop.height !== h) {
         resizeTo(backdrop, w, h);
         paper(backdrop);
       }
-      resizeTo(stage, w, h);
-      ctx.drawImage(backdrop, 0, 0);
+      const direct = width === w && height === h;
+      if (!direct) resizeTo(stage, w, h);
+      const target = direct ? display : ctx;
+      target.drawImage(backdrop, 0, 0);
       const measured =
         previous &&
         paint(
-          ctx,
+          target,
           w,
           h,
           groups,
@@ -494,8 +499,10 @@ const atelierPreview = (() => {
           w / logicalSizes.get(canvas)[0],
           previous.detail
         );
-      display.imageSmoothingEnabled = false;
-      display.drawImage(stage, 0, 0, width, height);
+      if (!direct) {
+        display.imageSmoothingEnabled = false;
+        display.drawImage(stage, 0, 0, width, height);
+      }
       if (measured) {
         // Put small numerals on device pixels after enlarging the pixel art.
         display.save();

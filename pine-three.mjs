@@ -103,7 +103,7 @@ function allocateSurface(T, capacity) {
   return geometry;
 }
 
-function writeSurface(T, mesh, body, model, scratch) {
+function writeSurface(T, mesh, body, model, scratch, offset) {
   const faces = surfaceRectangles(model, [body.nx, body.ny, body.nz], scratch);
   const count = faces.length / 7;
   if (!count) {
@@ -116,8 +116,12 @@ function writeSurface(T, mesh, body, model, scratch) {
   }
   const g = mesh.geometry,
     { position, color, normal } = g.attributes;
-  const origin = [body.nx / 2, body.ny / 2, 0],
-    d = body.density;
+  const d = body.density;
+  const origin = [
+    body.nx / 2 - (offset?.x || 0) * d,
+    body.ny / 2 - (offset?.y || 0) * d,
+    -(offset?.z || 0) * d
+  ];
   const p = position.array,
     n = normal.array,
     c = color.array;
@@ -156,8 +160,8 @@ function writeSurface(T, mesh, body, model, scratch) {
   }
   g.setDrawRange(0, count * 6);
   const b = model.bounds;
-  g.boundingBox.min.set((b[0] - origin[0]) / d, (b[1] - origin[1]) / d, b[2] / d);
-  g.boundingBox.max.set((b[3] - origin[0]) / d, (b[4] - origin[1]) / d, b[5] / d);
+  g.boundingBox.min.set((b[0] - origin[0]) / d, (b[1] - origin[1]) / d, (b[2] - origin[2]) / d);
+  g.boundingBox.max.set((b[3] - origin[0]) / d, (b[4] - origin[1]) / d, (b[5] - origin[2]) / d);
   g.boundingBox.getBoundingSphere(g.boundingSphere);
 }
 
@@ -168,11 +172,17 @@ export function createPineCast(
     metersPerUnit = (motion?.rig?.centimetersPerUnit ?? 3.4) / 100,
     sampleRate = 20,
     material,
-    faceDetail = false
+    faceDetail = false,
+    detail = faceDetail ? 'face' : 'standard'
   } = {}
 ) {
   if (![metersPerUnit, sampleRate].every((n) => Number.isFinite(n) && n > 0))
     throw new RangeError('比例与采样率须为正数');
+  function checkDetail(mode) {
+    if (!['standard', 'face', 'figure'].includes(mode)) throw new RangeError('未知的人物精度');
+    return mode;
+  }
+  checkDetail(detail);
   const group = new THREE.Group(),
     basis = new THREE.Group();
   group.name = 'PineMotion';
@@ -210,10 +220,12 @@ export function createPineCast(
       }
       const body = cast[i].body;
       const model = body.makePose(e.pose);
-      const layers = faceDetail && motion.faceLayers?.(cast[i], e.pose, model);
+      const sampleLayers =
+        detail === 'figure' ? (motion.figureLayers ?? motion.faceLayers) : motion.faceLayers;
+      const layers = detail !== 'standard' && sampleLayers?.call(motion, cast[i], e.pose, model);
       if (layers) {
         const [lower, upper] = layers;
-        writeSurface(THREE, mesh, lower.body, lower.model, scratch);
+        writeSurface(THREE, mesh, lower.body, lower.model, scratch, lower);
         let head = heads[i];
         if (!head) {
           head = heads[i] = new THREE.Mesh(new THREE.BufferGeometry(), paint);
@@ -235,10 +247,10 @@ export function createPineCast(
     });
     for (let i = entries.length; i < slots.length; i++) slots[i].visible = false;
   }
-  function setFaceDetail(enabled) {
+  function setDetail(mode) {
     if (disposed) throw new Error('此人物组已释放');
-    if (faceDetail === enabled) return false;
-    faceDetail = enabled;
+    if (detail === mode) return false;
+    detail = checkDetail(mode);
     if (lastEntries) {
       const plan = previousPlan;
       setFrame(lastEntries);
@@ -288,5 +300,12 @@ export function createPineCast(
     scratch.mask = new Int32Array(0);
     previousPlan = undefined;
   }
-  return { group, setFrame, setTime, setFaceDetail, dispose };
+  return {
+    group,
+    setFrame,
+    setTime,
+    setDetail,
+    setFaceDetail: (enabled) => setDetail(enabled ? 'face' : 'standard'),
+    dispose
+  };
 }
