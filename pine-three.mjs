@@ -164,7 +164,12 @@ function writeSurface(T, mesh, body, model, scratch) {
 export function createPineCast(
   THREE,
   motion,
-  { metersPerUnit = (motion?.rig?.centimetersPerUnit ?? 3.4) / 100, sampleRate = 20, material } = {}
+  {
+    metersPerUnit = (motion?.rig?.centimetersPerUnit ?? 3.4) / 100,
+    sampleRate = 20,
+    material,
+    faceDetail = false
+  } = {}
 ) {
   if (![metersPerUnit, sampleRate].every((n) => Number.isFinite(n) && n > 0))
     throw new RangeError('比例与采样率须为正数');
@@ -176,12 +181,14 @@ export function createPineCast(
   group.add(basis);
   const paint = material ?? new THREE.MeshLambertMaterial({ vertexColors: true });
   const slots = [],
+    heads = [],
     scratch = { faces: [], mask: new Int32Array(0) };
   let previousPlan,
     previousTick,
     previousIndex,
     previousRepeat,
     previousEnd,
+    lastEntries,
     disposed = false;
 
   function setFrame(entries) {
@@ -192,6 +199,7 @@ export function createPineCast(
       return actor;
     });
     previousPlan = undefined;
+    lastEntries = entries;
     entries.forEach((e, i) => {
       let mesh = slots[i];
       if (!mesh) {
@@ -201,13 +209,42 @@ export function createPineCast(
         basis.add(mesh);
       }
       const body = cast[i].body;
-      writeSurface(THREE, mesh, body, body.makePose(e.pose), scratch);
+      const model = body.makePose(e.pose);
+      const layers = faceDetail && motion.faceLayers?.(cast[i], e.pose, model);
+      if (layers) {
+        const [lower, upper] = layers;
+        writeSurface(THREE, mesh, lower.body, lower.model, scratch);
+        let head = heads[i];
+        if (!head) {
+          head = heads[i] = new THREE.Mesh(new THREE.BufferGeometry(), paint);
+          head.castShadow = head.receiveShadow = true;
+          mesh.add(head);
+        }
+        writeSurface(THREE, head, upper.body, upper.model, scratch);
+        head.position.set(upper.x, upper.y, upper.z);
+        head.name = e.character + '/face';
+        head.visible = true;
+      } else {
+        writeSurface(THREE, mesh, body, model, scratch);
+        if (heads[i]) heads[i].visible = false;
+      }
       mesh.name = e.character;
       mesh.position.set(e.x, e.y, e.z);
       mesh.rotation.z = e.heading;
       mesh.visible = true;
     });
     for (let i = entries.length; i < slots.length; i++) slots[i].visible = false;
+  }
+  function setFaceDetail(enabled) {
+    if (disposed) throw new Error('此人物组已释放');
+    if (faceDetail === enabled) return false;
+    faceDetail = enabled;
+    if (lastEntries) {
+      const plan = previousPlan;
+      setFrame(lastEntries);
+      previousPlan = plan;
+    }
+    return true;
   }
   function setTime(plan, seconds) {
     if (disposed) throw new Error('此人物组已释放');
@@ -241,12 +278,15 @@ export function createPineCast(
     disposed = true;
     group.removeFromParent();
     for (const mesh of slots) mesh.geometry.dispose();
+    for (const head of heads) head?.geometry.dispose();
     if (!material) paint.dispose();
     basis.clear();
     slots.length = 0;
+    heads.length = 0;
+    lastEntries = undefined;
     scratch.faces.length = 0;
     scratch.mask = new Int32Array(0);
     previousPlan = undefined;
   }
-  return { group, setFrame, setTime, dispose };
+  return { group, setFrame, setTime, setFaceDetail, dispose };
 }

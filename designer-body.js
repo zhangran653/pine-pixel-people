@@ -122,6 +122,8 @@ const pineDesignerBody = (() => {
       base[key] = (/^#[0-9a-f]{6}$/i.test(value) ? value : fallback).slice(1);
     }
     const { skin, hair, eyes, top, bottom, shoes, accent } = base;
+    const portraitSkin = tint(skin, 'ffe8ce', 0.24);
+    const flush = tint(portraitSkin, tint(skin, 'd68585', 0.42), 0.34);
     return {
       ...base,
       skinLight: tint(skin, 'ffe8ca', 0.31),
@@ -148,7 +150,23 @@ const pineDesignerBody = (() => {
       hatLight: tint(accent, 'fff2d2', 0.36),
       hatShade: tint(accent, '474153', 0.38),
       hatTrim: tint(accent, '4c6472', 0.56),
-      hatInk: tint(accent, '292a39', 0.69)
+      hatInk: tint(accent, '292a39', 0.69),
+      pupil: tint(eyes, '28232a', 0.66),
+      irisLight: tint(eyes, 'beaa87', 0.29),
+      glint: 'e8dfcb',
+      sclera: tint(skin, 'f9f0df', 0.82),
+      browSoft: tint(hair, portraitSkin, 0.34),
+      lash: tint(hair, '403537', 0.36),
+      faceLight: portraitSkin,
+      faceMid: tint(skin, 'f0ccba', 0.23),
+      faceEdge: tint(skin, 'bb877c', 0.1),
+      rose: flush,
+      roseVeil: tint(portraitSkin, flush, 0.52),
+      noseLight: tint(portraitSkin, 'ffe3c6', 0.22),
+      noseShade: tint(skin, '8e625b', 0.39),
+      lipLine: tint(skin, '885651', 0.57),
+      upperLip: tint(skin, 'b47370', 0.58),
+      lowerLip: tint(skin, 'dc9f93', 0.6)
     };
   }
 
@@ -1067,7 +1085,29 @@ const pineDesignerBody = (() => {
         brows = face.brows || 'classic';
       const nose = face.nose || 'classic',
         mouth = face.mouth || 'classic';
+      // The close portrait has a softer cheek-to-chin transition. Keep the
+      // recipe's jaw width, eye spacing, nose style and calibrated mouth height.
+      function contourWidth(h) {
+        const chin = clamp((-h - 0.1) / 0.87, 0, 1);
+        return jawWidth(h) * (1 - (kind === 'child' ? 0.1 : 0.17) * chin * chin);
+      }
+      function portraitFront(y, z) {
+        const h = (z - cz) / rz,
+          v = Math.abs(y / contourWidth(h));
+        return cx + rx * Math.cbrt(Math.max(0, 1 - h * h - v * v * v));
+      }
       function eyebrowInk(off, z) {
+        if (b.faceDetail) {
+          const q = off / (ry * (brows === 'straight' ? 0.305 : 0.285));
+          if (Math.abs(q) >= 1) return 0;
+          const arch = brows === 'arched' ? 0.096 : brows === 'straight' ? 0.025 : 0.055;
+          const mid = eyeZ + rz * (0.209 + arch * (1 - (q - 0.12) ** 2) + 0.018 * q);
+          const width =
+            (brows === 'thick' ? 0.077 : 0.049) * (1 - 0.43 * Math.abs(q) - 0.32 * Math.max(0, q));
+          const d = (z - mid) / rz;
+          if (Math.abs(d) > width) return 0;
+          return brows === 'thick' && d < -0.014 && q < 0.55 ? k.lash : k.browSoft;
+        }
         if (brows === 'classic') {
           return Math.abs(off) < eyeHalf && Math.abs(z - (eyeZ + 0.202 * rz + 0.112 * off)) < 0.046 * rz
             ? k.hairShade
@@ -1092,7 +1132,27 @@ const pineDesignerBody = (() => {
         if (brows === 'straight') return d > 0.008 || a > 0.84 ? k.hair : k.hairShade;
         return brows === 'thick' && d > half * 0.42 ? k.hair : k.hairShade;
       }
-      function eyeInk(off, z) {
+      function eyeInk(off, z, side) {
+        if (b.faceDetail) {
+          const halfWidth = eyes === 'round' ? 0.24 : eyes === 'almond' ? 0.272 : 0.251;
+          const q = off / (ry * halfWidth);
+          if (Math.abs(q) >= 1) return 0;
+          const round = eyes === 'round',
+            slim = eyes === 'narrow';
+          const curve = round ? Math.sqrt(1 - q * q) : 1 - q * q;
+          const center = eyeZ + rz * ((eyes === 'almond' ? 0.052 : 0.021) * q - 0.043 * blink);
+          const h = (z - center) / rz;
+          const top = (slim ? 0.061 : round ? 0.135 : 0.101) * curve * (1 - blink);
+          const bottom = -(slim ? 0.046 : round ? 0.095 : 0.066) * curve * (1 - blink);
+          if (h > top + 0.025 || h < bottom - 0.012) return 0;
+          if (blink > 0.87 || h > top - 0.016) return k.lash;
+          if (h < bottom + 0.006 && q > 0.2) return k.browSoft;
+          const iris = (q / 0.49) ** 2 + ((h - 0.012) / (round ? 0.134 : 0.105)) ** 2;
+          if (iris > 1) return k.sclera;
+          if (side * q > -0.28 && side * q < -0.1 && h > 0.014 && h < 0.059) return k.glint;
+          if (iris < 0.23) return k.pupil;
+          return h < -0.014 && iris < 0.86 ? k.irisLight : k.eyes;
+        }
         if (eyes === 'classic') {
           if (Math.abs(off) >= eyeHalf) return 0;
           const bottom = eyeZ - 0.105 * rz;
@@ -1124,6 +1184,22 @@ const pineDesignerBody = (() => {
       function lipInk(y, z) {
         const a = Math.abs(y - mouthY) / ry,
           h = (z - mouthZ) / rz;
+        if (b.faceDetail) {
+          const width =
+            mouth === 'small' ? 0.184 : mouth === 'full' ? 0.284 : mouth === 'smile' ? 0.309 : 0.263;
+          const q = a / width;
+          if (q >= 1) return 0;
+          const curve = 1 - q * q;
+          const seam = (mouth === 'smile' ? 0.102 : 0.034) * q * q - 0.008;
+          const upper =
+            (mouth === 'full' ? 0.092 : 0.061) *
+            curve *
+            (0.64 + 0.36 * Math.max(0, 1 - 3 * Math.abs(q - 0.3)));
+          const lower = (mouth === 'full' ? 0.099 : 0.062) * curve;
+          if (h > seam + upper || h < seam - lower) return 0;
+          if (Math.abs(h - seam) < 0.019 || q > 0.88) return k.lipLine;
+          return h > seam ? k.upperLip : k.lowerLip;
+        }
         if (mouth === 'smile') {
           const q = a / 0.292,
             d = h - 0.17 * q * q;
@@ -1150,26 +1226,32 @@ const pineDesignerBody = (() => {
       b.stamp(cx - rx, cx + rx, -1.075 * ry, 1.075 * ry, cz - rz, cz + rz, (x, y, z) => {
         const h = (z - cz) / rz,
           u = (x - cx) / rx,
-          v = y / jawWidth(h),
+          v = y / (b.faceDetail ? contourWidth(h) : jawWidth(h)),
           u2 = u * u,
           v2 = v * v;
-        if (u2 * u2 + v2 * v2 + h * h > 1) return 0;
+        if ((b.faceDetail ? Math.abs(u) * u2 + Math.abs(v) * v2 : u2 * u2 + v2 * v2) + h * h > 1) return 0;
         const a = Math.abs(y),
           off = a - eyeY;
         if (u > 0.49 && Math.abs(off) < 0.345 * ry) {
-          const color = eyebrowInk(off, z) || eyeInk(off, z);
+          const color = eyebrowInk(off, z) || eyeInk(off, z, Math.sign(y));
           if (color) return color;
         }
         if (u > 0.64) {
-          if (mouth === 'classic') {
+          if (mouth === 'classic' && !b.faceDetail) {
             if (Math.abs(y - mouthY) < 0.19 * ry && Math.abs(z - mouthZ) < 0.068 * rz) return k.lips;
           } else {
             const color = lipInk(y, z);
             if (color) return color;
           }
         }
-        if (u > 0.47 && a > ry * 0.64 && z > mouthZ + 0.09 * rz && z < eyeZ - 0.11 * rz) return k.cheek;
         if (h > 0.63 || (u < -0.52 && h > -0.6)) return k.hair;
+        if (b.faceDetail) {
+          const blush = ((a / ry - 0.62) / 0.22) ** 2 + ((z - eyeZ + 0.275 * rz) / (0.13 * rz)) ** 2;
+          if (u > 0.35 && blush < 1.25) return blush < 0.54 ? k.rose : k.roseVeil;
+          if (u < 0.2 || (h < -0.66 && u < 0.57)) return k.faceEdge;
+          return u > 0.69 && h > -0.72 ? k.faceLight : k.faceMid;
+        }
+        if (u > 0.47 && a > ry * 0.64 && z > mouthZ + 0.09 * rz && z < eyeZ - 0.11 * rz) return k.cheek;
         return u > 0.4 ? k.skinLight : h < -0.42 ? k.skinShade : k.skin;
       });
       for (const side of [-1, 1]) {
@@ -1185,7 +1267,33 @@ const pineDesignerBody = (() => {
       }
       const noseZ = eyeZ - 0.205 * rz,
         noseX = faceFront(0, noseZ) - 0.1 * rx;
-      if (nose === 'button') {
+      if (b.faceDetail) {
+        const root = eyeZ + 0.1 * rz,
+          tip = eyeZ - (nose === 'button' ? 0.26 : 0.32) * rz;
+        const width = ry * (nose === 'wide' ? 0.224 : nose === 'button' ? 0.158 : 0.172);
+        const reach = rx * (nose === 'bridge' ? 0.255 : nose === 'button' ? 0.155 : 0.197);
+        b.stamp(cx + 0.51 * rx, cx + 1.31 * rx, -width, width, tip - 0.105 * rz, root, (x, y, z) => {
+          const q = y / width,
+            t = (root - z) / (root - tip);
+          if (t < 0 || Math.abs(q) >= 1) return 0;
+          const ridge =
+            Math.max(0, 1 - (q / (0.43 + 0.17 * t)) ** 2) * clamp(t, 0, 1) * clamp((1.17 - t) / 0.28, 0, 1);
+          const bulb = Math.max(0, 1 - (q / 0.64) ** 2 - ((z - tip) / (0.099 * rz)) ** 2);
+          const wing = Math.max(
+            0,
+            1 - ((Math.abs(q) - 0.61) / 0.39) ** 2 - ((z - tip + 0.033 * rz) / (0.064 * rz)) ** 2
+          );
+          const lift = Math.max(ridge, bulb, 0.48 * wing);
+          if (lift < 0.045) return 0;
+          const front = portraitFront(y, z);
+          if (x < front - 0.1 * rx || x > front + reach * lift) return 0;
+          if (wing > 0.22 && z < tip - 0.036 * rz && Math.abs(q) > 0.4 && Math.abs(q) < 0.72)
+            return k.noseShade;
+          if (z < tip - 0.023 * rz) return k.faceEdge;
+          if (q > 0.32) return k.faceMid;
+          return q > -0.29 && q < 0.05 && t > 0.24 && z > tip ? k.noseLight : k.faceLight;
+        });
+      } else if (nose === 'button') {
         b.blob(
           noseX + 0.067 * rx,
           0,
@@ -1250,7 +1358,7 @@ const pineDesignerBody = (() => {
           z > noseZ - 0.035 * rz ? k.skinLight : k.skinShade
         );
       }
-      if (mouth === 'classic') {
+      if (mouth === 'classic' && !b.faceDetail) {
         b.blob(
           rig.mouth[0] - 0.095 * s,
           mouthY,
@@ -1272,7 +1380,7 @@ const pineDesignerBody = (() => {
           (x, y, z) => {
             const color = lipInk(y, z);
             if (!color) return 0;
-            const front = faceFront(y, z);
+            const front = b.faceDetail ? portraitFront(y, z) : faceFront(y, z);
             const reach = (mouth === 'full' ? 0.58 : mouth === 'small' ? 0.29 : 0.36) * s;
             return x >= front - 0.32 * s && x <= front + reach ? color : 0;
           }
@@ -1299,7 +1407,9 @@ const pineDesignerBody = (() => {
           else edge = bob ? -0.98 + 0.74 * (u + 0.33) : -0.49 + 0.63 * (u + 0.33) + 0.075 * v;
           if (loose && u > 0.32) {
             const part = hairstyle === 'long-waves' ? -0.32 : 0.08;
-            edge = 0.3 + 0.37 * Math.max(0, 1 - 1.65 * Math.abs(v - part)) - 0.12 * Math.abs(v);
+            edge = b.faceDetail
+              ? 0.38 + 0.26 * Math.max(0, 1 - 1.45 * Math.abs(v - part)) - 0.085 * Math.abs(v)
+              : 0.3 + 0.37 * Math.max(0, 1 - 1.65 * Math.abs(v - part)) - 0.12 * Math.abs(v);
           } else if (hairstyle === 'side-part') {
             edge = u > 0.26 ? 0.34 + 0.44 * v + 0.1 * u : -0.2 + 0.22 * u + 0.15 * v;
           }
@@ -1372,6 +1482,21 @@ const pineDesignerBody = (() => {
     }
     const art = {
       materials,
+      portraitLighting: {
+        soft: ['skin', 'skinLight', 'skinShade', 'cheek', 'lips', 'eyelid'],
+        painted: [
+          'faceLight',
+          'faceMid',
+          'faceEdge',
+          'rose',
+          'roseVeil',
+          'noseLight',
+          'noseShade',
+          'upperLip',
+          'lowerLip',
+          'lipLine'
+        ]
+      },
       paint(pose, brush, ink) {
         drawLegs(pose, brush, ink);
         drawTorso(pose, brush, ink);

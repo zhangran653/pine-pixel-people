@@ -85,7 +85,15 @@
   }
   function show() {
     const other = compareDoc();
-    mirror.show({ actor, compare: other ? actorFor(other) : null, action, u: phase, bearing, view });
+    mirror.show({
+      actor,
+      compare: other ? actorFor(other) : null,
+      action,
+      u: phase,
+      bearing,
+      view,
+      detail: $('fine-face').checked
+    });
   }
   function centimeters(doc, scale = doc.shape.height) {
     return Math.round(pineDesignerBody.standingHeight(doc.base, scale) * PineMotion.rig.centimetersPerUnit);
@@ -132,6 +140,7 @@
   }
   function setView(next) {
     view = next;
+    $('face-quality').hidden = view !== 'face';
     for (const b of document.querySelectorAll('[data-view]'))
       b.setAttribute('aria-pressed', String(b.dataset.view === view));
     show();
@@ -665,6 +674,7 @@
       refreshAction();
     };
   for (const b of document.querySelectorAll('[data-view]')) b.onclick = () => setView(b.dataset.view);
+  $('fine-face').onchange = show;
   $('look-name').oninput = () => {
     draft.label = $('look-name').value;
     dirty = true;
@@ -790,8 +800,10 @@
   );
   if (openingTab) changeTab(openingTab);
   const requestedHair = query.get('hair');
-  if (tab === 'hair' && Object.hasOwn(looks.slots.hair, requestedHair))
-    document.querySelector('[data-hair-style="' + requestedHair + '"]').click();
+  if (Object.hasOwn(looks.slots.hair, requestedHair) && requestedHair !== draft.parts.hair) {
+    draft.parts.hair = requestedHair;
+    changed();
+  }
   orientation();
   if (skipped) note('有 ' + skipped + ' 个无效的本地存档，其他形象已载入。', true);
   if (location.protocol !== 'file:')

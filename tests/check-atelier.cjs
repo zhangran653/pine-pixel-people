@@ -171,9 +171,56 @@ function checkEditor() {
         styled.packs['pine-core'] === PineLooks.release,
       'saved hair style, dye or core version was lost'
     );
+    byId('tab-face').click();
+    const quality = byId('fine-face');
+    expect(quality.checked && !byId('face-quality').hidden, 'close-up should open with fine features');
+    const detailed = byId('mirror').toDataURL();
+    quality.click();
+    expect(byId('mirror').toDataURL() !== detailed, 'standard and fine portraits were identical');
+    quality.click();
+    expect(byId('mirror').toDataURL() === detailed, 'changing quality moved the camera or the pose');
+    document.querySelector('[data-view="body"]').click();
+    expect(byId('face-quality').hidden, 'portrait setting is visible in the full length mirror');
+
+    const pose = PineMotion.rig.pose(lead.rig, {});
+    const coarse = lead.body.makePose(pose);
+    for (const { body, model } of PineMotion.faceLayers(lead, pose, coarse)) {
+      const testSlice = document.createElement('canvas');
+      testSlice.width = body.nx;
+      testSlice.height = body.ny;
+      const ctx = testSlice.getContext('2d', { willReadFrequently: true });
+      const pitch = body.nx * body.ny;
+      for (const z of [0, Math.floor(body.nz / 2), body.nz - 1]) {
+        body.drawSlice(ctx, model, z + 1);
+        const pixels = new Uint32Array(ctx.getImageData(0, 0, body.nx, body.ny).data.buffer);
+        expect(
+          pixels.every((c, i) => c === model.colors[z * pitch + i]),
+          'cropped slice shifted at ' + z
+        );
+      }
+    }
+    const adult = PineLooks.build(PineLooks.templates.find((p) => p.id === 'look_body_female'));
+    const child = PineLooks.build(PineLooks.templates.find((p) => p.id === 'look_chorus'));
+    const highfive = PineMotion.actions.get('highfive').sample(0.5, adult, child);
+    const cast = [adult, child].map((actor, i) => ({
+      ...highfive[i],
+      actor,
+      body: actor.body,
+      model: actor.body.makePose(highfive[i].pose)
+    }));
+    const bands = studioPortraitLayers(cast, PineMotion);
+    for (const p of cast) {
+      const mouth = p.z + PineMotion.rig.socket(p.actor, p.pose, 'mouth')[2];
+      expect(
+        bands?.some(
+          (b) => b.body.density > p.body.density && mouth >= b.z && mouth < b.z + b.body.nz / b.body.density
+        ),
+        'adult and child both need detail at their own head height'
+      );
+    }
     target.dataset.state = 'pass';
     target.textContent =
-      'Body profiles, legacy saves, fixed scale, shared floor, hairstyles and hair colors passed';
+      'Body profiles, legacy saves, scale, hairstyles, dyes, close-up detail and slice alignment passed';
   } catch (err) {
     target.dataset.state = 'fail';
     target.textContent = err.message;

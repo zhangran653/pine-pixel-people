@@ -29,6 +29,10 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 全身镜头有固定的地面和厘米标尺。身高读数取站直时的裸头顶位置。拖动「环视」可以从正面和侧面看两种成人体型的差别。两个样本使用相同的身高、发型和衣装。[成人体型并排对照](http://127.0.0.1:8000/atelier.html?preset=look_body_female&compare=look_body_male&tab=shape) · [儿童身高对照](http://127.0.0.1:8000/atelier.html?preset=look_chorus&compare=look_relay&tab=shape) · [双马尾后侧近景](http://127.0.0.1:8000/atelier.html?preset=look_chorus&tab=hair)
 
+打开「五官」，拖动环视可以看眼睑、鼻梁和下颌的侧面轮廓。用镜子右下角的「精细五官」开关可以在同一姿势、同一角度比较两种精度。近景只对下巴以上的区域加密，同高度的手、头发和水壶也参与绘制。全身镜和角色卡使用标准精度。[试试披肩长发的五官近景](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&hair=shoulder-length)
+
+![同一角色的标准正面、精细正面与精细侧转](face-detail-preview.png)
+
 ## 角色与动作怎样复用
 
 先确定骨长与关节，再在各部位的局部坐标中绘制体积。在每个姿势中，用格点采样身体和衣服。Canvas 路径按观察方向层叠像素切片。Three.js 适配器提取同一份格点的可见表面，支持遮挡和阴影。角色导出的是参数和部件引用，动作由独立的采样器根据骨架、标签与接触点重建姿势。

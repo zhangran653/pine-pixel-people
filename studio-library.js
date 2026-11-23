@@ -111,6 +111,11 @@ const studioLibrary = (() => {
   function accepts(clip, slot, person) {
     return !!person && clip.roles[slot]?.some((tag) => person.tags.includes(tag));
   }
+  function faceLayers(actor, pose, model) {
+    const cut = studioRig.socket(actor, pose, 'mouth')[2] - actor.rig.height * 0.068;
+    const density = Math.max(3, Math.min(10, Math.round(300 / actor.rig.height)));
+    return actor.body.faceLayers?.(pose, model, cut, density) || null;
+  }
   const built = (action, actors, repeat = 1) => ({
     action,
     actors,
@@ -223,6 +228,7 @@ const studioLibrary = (() => {
     rig: studioRig,
     characters,
     actions,
+    faceLayers,
     createCharacter,
     registerCharacter,
     registerAction,

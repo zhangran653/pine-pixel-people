@@ -375,7 +375,7 @@ const atelierPreview = (() => {
     });
   }
 
-  function paint(ctx, w, h, groups, motion, action, bearing, view, compact, layer, pixel = 1) {
+  function paint(ctx, w, h, groups, motion, action, bearing, view, compact, layer, pixel = 1, detail = true) {
     if (!groups.length) return;
     const portrait = view === 'face',
       camera = lens(bearing, portrait);
@@ -403,20 +403,33 @@ const atelierPreview = (() => {
     groups.forEach((g, i) => {
       const [ox, oy] = origins[i];
       for (const p of g.parts) shadows(ctx, p, camera, scale, ox, oy);
-      const d = g.drawing,
-        pos = camera.project(d.x, d.y, d.z);
-      const x = ox + scale * pos[0],
-        y = oy + scale * pos[1];
+      const drawings =
+        portrait && !compact && detail
+          ? (g.layers ??= studioPortraitLayers(g.parts, motion) || [g.drawing])
+          : [g.drawing];
       // Magnify the finished pixel image instead of repeatedly projecting each
       // transparent slice across a large portrait canvas.
-      const ratio = layer ? Math.min(1, Math.max(2.6, d.body.density * 1.9) / scale) : 1;
-      if (ratio === 1) {
-        d.body.draw(ctx, d.model, x, y, camera.yaw - d.heading, camera.tilt, scale);
-      } else {
+      const density = Math.max(...drawings.map((d) => d.body.density));
+      const ratio = layer ? Math.min(1, Math.max(2.6, density * 1.9) / scale) : 1;
+      let ink = ctx;
+      if (ratio < 1) {
         resizeTo(layer, Math.ceil(w * ratio), Math.ceil(h * ratio));
-        const ink = layer.getContext('2d');
+        ink = layer.getContext('2d');
         ink.clearRect(0, 0, layer.width, layer.height);
-        d.body.draw(ink, d.model, x * ratio, y * ratio, camera.yaw - d.heading, camera.tilt, scale * ratio);
+      }
+      for (const d of drawings) {
+        const pos = camera.project(d.x, d.y, d.z);
+        d.body.draw(
+          ink,
+          d.model,
+          (ox + scale * pos[0]) * ratio,
+          (oy + scale * pos[1]) * ratio,
+          camera.yaw - d.heading,
+          camera.tilt,
+          scale * ratio
+        );
+      }
+      if (ratio < 1) {
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(layer, 0, 0, layer.width / ratio, layer.height / ratio);
       }
@@ -478,7 +491,8 @@ const atelierPreview = (() => {
           previous.view,
           false,
           layer,
-          w / logicalSizes.get(canvas)[0]
+          w / logicalSizes.get(canvas)[0],
+          previous.detail
         );
       display.imageSmoothingEnabled = false;
       display.drawImage(stage, 0, 0, width, height);
@@ -490,7 +504,15 @@ const atelierPreview = (() => {
         display.restore();
       }
     }
-    function show({ actor, compare = null, action = 'idle', u = 0, bearing = 25, view = 'body' }) {
+    function show({
+      actor,
+      compare = null,
+      action = 'idle',
+      u = 0,
+      bearing = 25,
+      view = 'body',
+      detail = true
+    }) {
       if (disposed) return;
       const clip = motion.actions.get(action) || motion.actions.get('idle');
       const phase = Math.max(0, Math.min(1, Number.isFinite(u) ? u : 0));
@@ -504,7 +526,8 @@ const atelierPreview = (() => {
         clip !== previous.clip ||
         phase !== previous.phase;
       if (frameChanged) groups = sampleFrame(motion, actor, compare, clip, phase);
-      if (!frameChanged && angle === previous.bearing && view === previous.view) return;
+      if (!frameChanged && angle === previous.bearing && view === previous.view && detail === previous.detail)
+        return;
       previous = {
         actor,
         compare,
@@ -513,7 +536,8 @@ const atelierPreview = (() => {
         clip,
         phase,
         bearing: angle,
-        view
+        view,
+        detail
       };
       render();
     }

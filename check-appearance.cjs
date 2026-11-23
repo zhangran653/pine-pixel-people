@@ -39,10 +39,15 @@ function client(disk = new Map(), quota = Infinity) {
   for (const name of sources) vm.runInContext(read(name + '.js'), c, { filename: name + '.js' });
   return { m: c.PineMotion, l: c.PineLooks, w: c.PineWardrobe, disk };
 }
+function colorDigest(colors) {
+  return createHash('sha256')
+    .update(Buffer.from(colors.buffer, colors.byteOffset, colors.byteLength))
+    .digest('hex');
+}
 function poseDigest(person, pose) {
   const model = person.body.makePose(pose);
   assert.ok(model.bounds[3] > model.bounds[0] && model.bounds[5] > model.bounds[2]);
-  return createHash('sha256').update(Buffer.from(model.colors.buffer)).digest('hex');
+  return colorDigest(model.colors);
 }
 function digest(person, motion, action = 'idle', phase = 0.31) {
   return poseDigest(person, motion.actions.get(action).sample(phase, person)[0].pose);
@@ -256,6 +261,42 @@ for (const [doc, expected] of archived) {
 }
 const classic = a.l.facePresets.classic.face;
 assert.equal(digest(a.l.build(current), a.m), baseline);
+for (const base of ['adult', 'child']) {
+  const actor = a.l.build({ ...current, base });
+  const rest = a.m.rig.pose(actor.rig, {}),
+    body = actor.body,
+    model = body.makePose(rest);
+  const [lower, upper] = a.m.faceLayers(actor, rest, model);
+  assert.equal(
+    lower.model.colors.buffer,
+    model.colors.buffer,
+    'the lower body should reuse its sampled pixels'
+  );
+  assert.equal(lower.body.nz / lower.body.density, upper.z, 'the two grids must meet at one height');
+  assert.ok(upper.body.density > body.density);
+  assert.ok(upper.body.nx * upper.body.ny * (upper.body.nz + 2) <= 480000, 'portrait sample budget');
+  const closed = a.m.faceLayers(actor, { ...rest, blink: 1 }, model)[1];
+  assert.ok(
+    upper.model.colors.some((color, i) => color !== closed.model.colors[i]),
+    base + ' blink'
+  );
+
+  const sip = a.m.actions.get('drink').sample(0.5, actor)[0].pose;
+  const held = body.makePose(sip);
+  const pouring = a.m.faceLayers(actor, sip, held)[1];
+  const bare = a.m.faceLayers(actor, { ...sip, bottle: null }, held)[1];
+  const lip = sip.bottle.lip,
+    grid = pouring.body;
+  let changedAtMouth = false;
+  for (let i = 0; i < pouring.model.colors.length && !changedAtMouth; i++) {
+    if (pouring.model.colors[i] === bare.model.colors[i]) continue;
+    const x = pouring.x + ((i % grid.nx) + 0.5 - grid.nx / 2) / grid.density;
+    const y = pouring.y + ((Math.floor(i / grid.nx) % grid.ny) + 0.5 - grid.ny / 2) / grid.density;
+    const z = pouring.z + (Math.floor(i / (grid.nx * grid.ny)) + 0.5) / grid.density;
+    changedAtMouth = Math.hypot(x - lip[0], y - lip[1], z - lip[2]) < 1.1;
+  }
+  assert.ok(changedAtMouth, base + ' bottle spout must be drawn at the mouth in close-up');
+}
 const addedHair = ['shoulder-length', 'long-waves', 'half-up', 'twin-braids', 'side-part'];
 const schemaHair = json('character-v1.schema.json').properties.parts.properties.hair.enum;
 assert.deepEqual([...Object.keys(a.l.slots.hair)].sort(), schemaHair.sort());
@@ -296,15 +337,20 @@ assert.throws(() => a.l.prepare({ ...current, face: { eyes: 'round' } }));
 assert.throws(() => a.l.prepare({ ...current, face: { ...classic, eyes: 'unregistered' } }));
 for (const base of ['child', 'adult']) {
   for (const [feature, choices] of Object.entries(a.l.features)) {
+    const portraits = new Set();
     const drawings = new Set(
       Object.keys(choices).map((value) => {
         const person = a.l.build({ ...current, base, face: { ...classic, [feature]: value } });
         const drinking = a.m.actions.get('drink').sample(0.5, person)[0].pose;
         assert.ok(distance(a.m.rig.socket(person, drinking, 'mouth'), drinking.bottle.lip) < 1e-7);
-        return digest(person, a.m);
+        const rest = a.m.actions.get('idle').sample(0.31, person)[0].pose;
+        const model = person.body.makePose(rest);
+        portraits.add(colorDigest(a.m.faceLayers(person, rest, model)[1].model.colors));
+        return colorDigest(model.colors);
       })
     );
     assert.equal(drawings.size, Object.keys(choices).length, base + ' · ' + feature);
+    assert.equal(portraits.size, Object.keys(choices).length, base + ' close-up · ' + feature);
   }
   for (const [slot, choices] of Object.entries(a.l.slots)) {
     const drawings = new Set(

@@ -1,6 +1,6 @@
 // Paint in body coordinates. Density sets the number of samples per unit on each axis.
 function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]) {
-  const [nx,ny,nz]=box.map(n=>Math.ceil(n*density)), pitch=nx*ny;
+  const [nx,ny,nz]=box.map(n=>Math.ceil(n*density));
   const bottleMaterials = {
     enamel: '396fa8', enamelLight: '639bc8', enamelFoot: '374f77',
     bottleBand: 'a2ccdc', steel: 'c1cfd0', spout: 'e4e8d9', seal: '465b67'
@@ -19,6 +19,9 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const lerp = (a, b, t) => a + (b - a) * t;
   const MaterialGrid=palette.length<=256?Uint8Array:palette.length<=65536?Uint16Array:Uint32Array;
+  const portraitLighting = new Uint8Array(palette.length);
+  for (const name of art.portraitLighting?.soft || []) portraitLighting[ink[name]] = 1;
+  for (const name of art.portraitLighting?.painted || []) portraitLighting[ink[name]] = 2;
 
   function paintBottle({base, lip, held}, rightArm, stamp, link) {
     const vector = lip.map((v, i) => v-base[i]);
@@ -64,19 +67,21 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     link(onGrip(1.12,-.08), onGrip(.46,-.94), .74, .53, 1, () => ink.skin);
   }
 
-  function makePose(pose) {
+  function samplePose(pose, density, nx, ny, nz, ox, oy, oz, faceDetail) {
+    const pitch = nx * ny;
     let frame = null;
     const cells = new MaterialGrid(pitch * nz);
     function fillBounds(x0, x1, y0, y1, z0, z1, paint) {
-      const left=Math.max(0,Math.floor(x0*density+nx/2)), right=Math.min(nx,Math.ceil(x1*density+nx/2));
-      const top=Math.max(0,Math.floor(y0*density+ny/2)), bottom=Math.min(ny,Math.ceil(y1*density+ny/2));
-      const low=Math.max(0,Math.floor(z0*density)), high=Math.min(nz,Math.ceil(z1*density));
+      const left=Math.max(0,Math.floor((x0-ox)*density+nx/2)), right=Math.min(nx,Math.ceil((x1-ox)*density+nx/2));
+      const top=Math.max(0,Math.floor((y0-oy)*density+ny/2)), bottom=Math.min(ny,Math.ceil((y1-oy)*density+ny/2));
+      const low=Math.max(0,Math.floor((z0-oz)*density)), high=Math.min(nz,Math.ceil((z1-oz)*density));
+      if (left >= right || top >= bottom) return;
       for (let z=low;z<high;z++) {
-        const pz=(z+.5)/density;
+        const pz=oz+(z+.5)/density;
         for (let y=top;y<bottom;y++) {
-          const py=(y+.5-ny/2)/density, row=z*pitch+y*nx;
+          const py=oy+(y+.5-ny/2)/density, row=z*pitch+y*nx;
           for (let x=left;x<right;x++) {
-            const color=paint((x+.5-nx/2)/density,py,pz);
+            const color=paint(ox+(x+.5-nx/2)/density,py,pz);
             if (color) cells[row+x]=color;
           }
         }
@@ -123,7 +128,7 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
           return color(t, u, v, w);
         });
     }
-    const brush = {density, frame(transform) {frame=transform;}, stamp, blob, link};
+    const brush = {density, faceDetail, frame(transform) {frame=transform;}, stamp, blob, link};
     art.paint(pose, brush, ink);
     frame = null;
     if (pose.bottle) paintBottle(pose.bottle, pose.arms.find(arm => arm.side === -1), stamp, link);
@@ -138,7 +143,19 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
       const dy = Number(!!cells[i-nx]) - Number(!!cells[i+nx]);
       const dz = Number(!!cells[i-pitch]) - Number(!!cells[i+pitch]);
       const n = Math.hypot(dx,dy,dz);
-      const shade = n ? Math.round((.94 + .17*(.43*dx - .37*dy + .81*dz)/n)*24) : 0;
+      let shade = n ? Math.round((0.94 + (0.17 * (0.43 * dx - 0.37 * dy + 0.81 * dz)) / n) * 24) : 0;
+      if (faceDetail && portraitLighting[material] === 2) {
+        // The portrait artist has already lit these small color planes in head space.
+        shade = 24;
+      } else if (faceDetail && n && portraitLighting[material]) {
+        // Two sampling distances soften stair-step shadows on cheeks without filtering any pigment edges.
+        const gx = dx + Number(!!cells[i - 2]) - Number(!!cells[i + 2]);
+        const gy = dy + Number(!!cells[i - 2 * nx]) - Number(!!cells[i + 2 * nx]);
+        const gz = dz + Number(!!cells[i - 2 * pitch]) - Number(!!cells[i + 2 * pitch]);
+        shade = Math.round(
+          (0.975 + (0.072 * (0.43 * gx - 0.37 * gy + 0.81 * gz)) / (Math.hypot(gx, gy, gz) || 1)) * 24
+        );
+      }
       colors[i] = swatches[material][shade];
       const x=i%nx, row=(i-x)/nx, y=row%ny, z=(row-y)/ny;
       if(x<bounds[0])bounds[0]=x;if(x>=bounds[3])bounds[3]=x+1;
@@ -148,7 +165,69 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     return { colors, sheets: [], bounds };
   }
 
-  return {...createSliceProjector(nx,ny,nz,density), makePose};
+  function makePose(pose) {
+    return samplePose(pose, density, nx, ny, nz, 0, 0, 0, false);
+  }
+  // Split at a horizontal cell boundary. Every object above it, including hands,
+  // glasses or a bottle in front of the mouth, shares the finer sampling grid.
+  function faceLayers(pose, model, height, desiredDensity) {
+    const b = model.bounds,
+      plane = nx * ny;
+    const cut = Math.max(b[2] + 1, Math.floor(height * density));
+    if (cut >= b[5]) return null;
+    let left = nx,
+      right = 0,
+      lowY = ny,
+      highY = 0;
+    for (let z = cut; z < b[5]; z++) {
+      for (let y = b[1]; y < b[4]; y++) {
+        const row = z * plane + y * nx;
+        let first = b[0],
+          last = b[3];
+        while (first < last && !model.colors[row + first]) first++;
+        if (first === last) continue;
+        while (!model.colors[row + last - 1]) last--;
+        left = Math.min(left, first);
+        right = Math.max(right, last);
+        lowY = Math.min(lowY, y);
+        highY = Math.max(highY, y + 1);
+      }
+    }
+    if (left >= right) return null;
+    const extent = [(right - left + 4) / density, (highY - lowY + 4) / density, (b[5] - cut + 2) / density];
+    let d = Math.min(desiredDensity, Math.floor(Math.cbrt(480000 / (extent[0] * extent[1] * extent[2]))));
+    while (
+      d > density &&
+      Math.ceil(extent[0] * d) * Math.ceil(extent[1] * d) * (Math.ceil(extent[2] * d) + 2) > 480000
+    )
+      d--;
+    if (d <= density) return null;
+    const [w, h, layers] = extent.map((n) => Math.ceil(n * d));
+    const x = (right + left - nx) / (2 * density),
+      y = (highY + lowY - ny) / (2 * density),
+      z = cut / density;
+    // Keep two lighting neighbors below the join while sampling the upper section.
+    const fine = samplePose(pose, d, w, h, layers + 2, x, y, z - 2 / d, true);
+    if (fine.bounds[5] <= 2) return null;
+    fine.colors = fine.colors.subarray(2 * w * h);
+    fine.bounds[2] = Math.max(0, fine.bounds[2] - 2);
+    fine.bounds[5] -= 2;
+    return [
+      {
+        x: 0,
+        y: 0,
+        z: 0,
+        body: createSliceProjector(nx, ny, cut, density),
+        model: {
+          colors: model.colors.subarray(0, plane * cut),
+          bounds: [b[0], b[1], b[2], b[3], b[4], cut],
+          sheets: []
+        }
+      },
+      { x, y, z, body: createSliceProjector(w, h, layers, d), model: fine }
+    ];
+  }
+  return {...createSliceProjector(nx,ny,nz,density), makePose, faceLayers};
 }
 
 function createSliceProjector(nx,ny,nz,density) {
@@ -157,29 +236,43 @@ function createSliceProjector(nx,ny,nz,density) {
   const faces = [[1,2],[0,2],[0,1]], cols = 8, gutter = 2;
   function sheet(model, axis) {
     if (model.sheets[axis]) return model.sheets[axis];
-    const [u,v] = faces[axis], w = dimensions[u], h = dimensions[v];
-    const tw = w+2*gutter, th = h+2*gutter;
+    const bounds = model.bounds || [0, 0, 0, nx, ny, nz];
+    const [u, v] = faces[axis];
+    const u0 = bounds[u],
+      v0 = bounds[v],
+      k0 = bounds[axis];
+    const w = Math.max(1, bounds[u + 3] - u0),
+      h = Math.max(1, bounds[v + 3] - v0),
+      count = Math.max(0, bounds[axis + 3] - k0);
+    const tw = w + 2 * gutter,
+      th = h + 2 * gutter;
     const image = document.createElement('canvas');
-    image.width = cols*tw; image.height = th*Math.ceil(dimensions[axis]/cols);
-    const c = image.getContext('2d', {willReadFrequently:true}), data = c.createImageData(image.width,image.height);
+    image.width = Math.min(cols, Math.max(1, count)) * tw;
+    image.height = th * Math.max(1, Math.ceil(count / cols));
+    const c = image.getContext('2d', { willReadFrequently: true }),
+      data = c.createImageData(image.width, image.height);
     const out = new Uint32Array(data.data.buffer);
     // Atlas offsets are separable along x, y and z, including the gutters of each slice.
-    const offsets=dimensions.map((length, dim)=>Int32Array.from({length},(_,i)=>{
-      if (dim===u) return i;
-      if (dim===v) return i*image.width;
-      return (Math.floor(i/cols)*th+gutter)*image.width+(i%cols)*tw+gutter;
-    }));
-    for (let z=0;z<nz;z++) for (let y=0;y<ny;y++) {
-      const src=z*pitch+y*nx, dest=offsets[2][z]+offsets[1][y];
-      for (let x=0;x<nx;x++) {
-        const value=model.colors[src+x];
-        if (value) out[dest+offsets[0][x]]=value;
+    const offsets = dimensions.map((length, dim) =>
+      Int32Array.from({ length }, (_, i) => {
+        if (dim === u) return i - u0;
+        if (dim === v) return (i - v0) * image.width;
+        const tile = i - k0;
+        return (Math.floor(tile / cols) * th + gutter) * image.width + (tile % cols) * tw + gutter;
+      })
+    );
+    for (let z = bounds[2]; z < bounds[5]; z++)
+      for (let y = bounds[1]; y < bounds[4]; y++) {
+        const src = z * pitch + y * nx,
+          dest = offsets[2][z] + offsets[1][y];
+        for (let x = bounds[0]; x < bounds[3]; x++) {
+          const value = model.colors[src + x];
+          if (value) out[dest + offsets[0][x]] = value;
+        }
       }
-    }
-    c.putImageData(data,0,0);
-    return model.sheets[axis] = {image,w,h,tw,th};
+    c.putImageData(data, 0, 0);
+    return (model.sheets[axis] = { image, w, h, tw, th, u0, v0, k0, count });
   }
-
   function draw(ctx, model, x, y, azimuth, elevation, worldScale) {
     const scale=worldScale/density;
     const a = Math.cos(azimuth), b = Math.sin(azimuth), c = Math.cos(elevation), s = Math.sin(elevation);
@@ -187,25 +280,38 @@ function createSliceProjector(nx,ny,nz,density) {
     let axis = 0;
     for (let i=1;i<3;i++) if (Math.abs(axes[i][2]) > Math.abs(axes[axis][2])) axis=i;
     const normal=axes[axis], across=axes[faces[axis][0]], down=axes[faces[axis][1]], source=sheet(model,axis);
-    const ox=x-scale*(axes[0][0]*nx/2+axes[1][0]*ny/2);
-    const oy=y-scale*(axes[0][1]*nx/2+axes[1][1]*ny/2);
+    const ox=x-scale*(axes[0][0]*nx/2+axes[1][0]*ny/2-across[0]*source.u0-down[0]*source.v0);
+    const oy=y-scale*(axes[0][1]*nx/2+axes[1][1]*ny/2-across[1]*source.u0-down[1]*source.v0);
     const samples=Math.max(1,Math.ceil(scale*Math.hypot(normal[0],normal[1])*1.7));
     ctx.save();
     ctx.imageSmoothingEnabled=false;
-    for (let pass=0; pass<dimensions[axis]; pass++) {
-      const k=normal[2]>=0 ? pass : dimensions[axis]-1-pass;
+    for (let pass=0; pass<source.count; pass++) {
+      const tile=normal[2]>=0 ? pass : source.count-1-pass;
+      const k=source.k0+tile;
       for (let sub=0; sub<samples; sub++) {
         const d=k+((normal[2]>=0?sub:samples-1-sub)+.5)/samples;
         ctx.setTransform(scale*across[0],scale*across[1],scale*down[0],scale*down[1],ox+d*scale*normal[0],oy+d*scale*normal[1]);
-        ctx.drawImage(source.image,(k%cols)*source.tw+gutter,Math.floor(k/cols)*source.th+gutter,source.w,source.h,0,0,source.w,source.h);
+        ctx.drawImage(source.image,(tile%cols)*source.tw+gutter,Math.floor(tile/cols)*source.th+gutter,source.w,source.h,0,0,source.w,source.h);
       }
     }
     ctx.restore();
   }
   function drawSlice(ctx, model, level) {
-    const atlas=sheet(model,2), k=level-1;
-    ctx.clearRect(0,0,nx,ny);
-    ctx.drawImage(atlas.image,(k%cols)*atlas.tw+gutter,Math.floor(k/cols)*atlas.th+gutter,nx,ny,0,0,nx,ny);
+    const atlas = sheet(model, 2),
+      k = level - 1 - atlas.k0;
+    ctx.clearRect(0, 0, nx, ny);
+    if (k >= 0 && k < atlas.count)
+      ctx.drawImage(
+        atlas.image,
+        (k % cols) * atlas.tw + gutter,
+        Math.floor(k / cols) * atlas.th + gutter,
+        atlas.w,
+        atlas.h,
+        atlas.u0,
+        atlas.v0,
+        atlas.w,
+        atlas.h
+      );
   }
   return { draw, drawSlice, nx, ny, nz, density };
 }

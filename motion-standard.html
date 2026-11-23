@@ -125,7 +125,8 @@ renderer.setAnimationLoop(renderFrame);
 
 // 从场景移除人物时调用 cast.dispose()。</code></pre>
         <p><code>cast.setTime(plan, 秒数)</code> 读取编排，同一动作采样帧可以从任意镜头重复渲染。上例循环播放「放学活动」。播放一般编排时，在 <code>plan.score.loop</code> 为 true 且总时长大于零时取余，一次性播放则传入经过的秒数。已有逐帧姿势也可以直接传给 <code>cast.setFrame(entries)</code>。</p>
-        <p>适配器从每层有颜色的格子提取外露表面，并把同一平面相邻的同色格合并。每位演员使用一个带顶点颜色的 <code>THREE.Mesh</code>，帽子、手指、手机和键盘一起参与深度测试与光照。人物使用场景灯光。在宿主中打开 <code>renderer.shadowMap.enabled</code>，让光源 <code>castShadow</code>、地面 <code>receiveShadow</code>，人物就能向地面投影。原身体坐标 (x, y, z) 映射为 Three.js 的 (x, z, −y)。默认每身体单位为 0.034 米，成人参考身高为 1.70 米。</p>
+        <p>适配器从每层有颜色的格子提取外露表面，并把同一平面相邻的同色格合并。标准精度下每位演员使用一个带顶点颜色的 <code>THREE.Mesh</code>，帽子、手指、手机和键盘一起参与深度测试与光照。人物使用场景灯光。在宿主中打开 <code>renderer.shadowMap.enabled</code>，让光源 <code>castShadow</code>、地面 <code>receiveShadow</code>，人物就能向地面投影。原身体坐标 (x, y, z) 映射为 Three.js 的 (x, z, −y)。默认每身体单位为 0.034 米，成人参考身高为 1.70 米。</p>
+        <p>在特写镜头调用 <code>cast.setFaceDetail(true)</code>。采样预算允许时，下颌以上的切片会生成一个随演员转动的子网格。调用 <code>cast.setFaceDetail(false)</code> 可切回标准精度，暂停时也能切换。需要从第一帧开启特写时，可将 <code>{ faceDetail: true }</code> 作为 <code>createPineCast</code> 的第三个参数。观景台会根据画面中脸部的预计大小自动切换。</p>
         <p>可传入 <code>{ metersPerUnit: 0.034, sampleRate: 20 }</code> 调整比例和每秒姿势采样次数。镜头可按屏幕刷新率更新。人物的姿势和表面由 CPU 生成，实际场景若需要许多同时活动的角色，应按目标设备测试数量。示例自带 Three.js r187，通过本地 HTTP 服务打开即可。<a href="pine-three.mjs">人物适配器</a> · <a href="three-demo.mjs">示例场景代码</a> · <a href="https://threejs.org/docs/pages/BufferGeometry.html">Three.js 的 BufferGeometry</a></p>
       </section>
     </article>

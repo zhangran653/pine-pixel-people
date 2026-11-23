@@ -279,6 +279,22 @@ h2 {
 .stage canvas:active {
   cursor: grabbing;
 }
+#face-quality {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: var(--forest);
+  background: var(--card);
+  cursor: pointer;
+}
+#face-quality input {
+  accent-color: var(--forest);
+  vertical-align: middle;
+}
 .angle-tag {
   position: absolute;
   left: 15px;
