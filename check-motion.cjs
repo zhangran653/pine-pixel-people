@@ -76,6 +76,35 @@ for (const clip of motion.actions.values()) {
   }
 }
 
+for (const id of ['hiker', 'child', 'toddler']) {
+  const actor = motion.characters.get(id);
+  const { rig } = actor;
+  const sample = (action, u) => motion.actions.get(action).sample(u, actor)[0].pose;
+  const extension = (pose, i) => distance(pose.legs[i].hip, pose.feet[i]) / (rig.thigh + rig.shin);
+  for (const u of phases) {
+    const pose = sample('idle', u);
+    pose.legs.forEach(({ hip, knee }, i) => {
+      const foot = pose.feet[i], reach = extension(pose, i);
+      // A relaxed knee must stay close to full reach without locking during the breath.
+      assert.ok(reach > 0.96 && reach < 0.995, id + ' 自然站姿膝角');
+      assert.deepEqual([...foot], [0, (i ? 1 : -1) * rig.hip[1], rig.ankle]);
+      assert.ok(Math.abs(distance(hip, knee) - rig.thigh) < 1e-6);
+      assert.ok(Math.abs(distance(knee, foot) - rig.shin) < 1e-6);
+    });
+  }
+  const rest = sample('idle', 0);
+  for (const action of ['walk', 'run', 'jump', 'sitdown']) {
+    for (const u of [0, 1]) {
+      const pose = sample(action, u);
+      pose.legs.forEach(({ knee }, i) => assert.ok(distance(knee, rest.legs[i].knee) < 1e-6, action));
+    }
+  }
+  for (const [action, u] of [['sit', 0.5], ['jump', 0.15], ['run', 0.25]]) {
+    const pose = sample(action, u);
+    assert.ok(pose.legs.some((_, i) => extension(pose, i) < 0.9), id + ' ' + action + ' 应能充分屈膝');
+  }
+}
+
 const example = motion.compile(readFileSync(join(__dirname, 'family-score.json'), 'utf8'));
 assert.equal(example.locate(example.duration).u, 1);
 const repeated = motion.compile({

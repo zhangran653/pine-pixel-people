@@ -39,11 +39,13 @@ function client(disk = new Map(), quota = Infinity) {
   for (const name of sources) vm.runInContext(read(name + '.js'), c, { filename: name + '.js' });
   return { m: c.PineMotion, l: c.PineLooks, w: c.PineWardrobe, disk };
 }
-function digest(person, motion, action = 'idle', phase = 0.31) {
-  const e = motion.actions.get(action).sample(phase, person)[0];
-  const model = person.body.makePose(e.pose);
+function poseDigest(person, pose) {
+  const model = person.body.makePose(pose);
   assert.ok(model.bounds[3] > model.bounds[0] && model.bounds[5] > model.bounds[2]);
   return createHash('sha256').update(Buffer.from(model.colors.buffer)).digest('hex');
+}
+function digest(person, motion, action = 'idle', phase = 0.31) {
+  return poseDigest(person, motion.actions.get(action).sample(phase, person)[0].pose);
 }
 const a = client(),
   hat = json('packs/creek-hats.json'),
@@ -228,7 +230,17 @@ const archived = [
     '0569981e7d8ff0c5b2decb9ac9175b9d32cc4cdd5e69317c35bb20bc05d85827'
   ]
 ];
-for (const [doc, expected] of archived) assert.equal(digest(a.l.build(doc), a.m), expected, doc.id);
+// The archive was painted at 31% of the original idle. Keep the reference pose fixed as clips evolve.
+for (const [doc, expected] of archived) {
+  const person = a.l.build(doc);
+  const t = 0.31 * (2 * Math.PI);
+  const referencePose = a.m.rig.pose(person.rig, {
+    standing: 0,
+    hipOffset: [0, person.rig.height * 0.005 * Math.sin(t), -0.15 * (1 - Math.cos(t))],
+    headYaw: 0.13 * Math.sin(t) ** 3
+  });
+  assert.equal(poseDigest(person, referencePose), expected, doc.id);
+}
 const current = { ...first, packs: { 'pine-core': a.l.release } },
   classic = a.l.facePresets.classic.face;
 assert.equal(digest(a.l.build(current), a.m), baseline);

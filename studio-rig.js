@@ -1,6 +1,6 @@
 // Physical units are shared by every actor. Art density changes sampling, never bone length.
 const studioRig = (() => {
-  const { frame, point, compose, joint } = hikerMotion.geometry;
+  const { frame, point, compose, joint, standingHipLift } = hikerMotion.geometry;
   const sides = [-1, 1]; // anatomical right, then left
   const profiles = {
     adult: {
@@ -126,9 +126,12 @@ const studioRig = (() => {
       frame(rig.neck, origin, channels.headYaw || 0, channels.headPitch || 0, channels.headRoll || 0)
     );
     const feet = channels.feet || sides.map((s) => [0, s * rig.hip[1], rig.ankle]);
+    const standing = clamp(channels.standing ?? (channels.feet ? 0 : 1));
+    const hipZ =
+      rig.hip[2] + standing * standingHipLift(rig.hip[0], rig.hip[2], rig.ankle, rig.thigh, rig.shin);
     // The contact foot is authoritative. Lower the pelvis for a distant planted foot.
     sides.forEach((s, i) => {
-      const hip = point(torso, [rig.hip[0], s * rig.hip[1], rig.hip[2]]);
+      const hip = point(torso, [rig.hip[0], s * rig.hip[1], hipZ]);
       const flat = (feet[i][0] - hip[0]) ** 2 + (feet[i][1] - hip[1]) ** 2;
       const limit = Math.sqrt(Math.max(0, (rig.thigh + rig.shin) ** 2 - flat));
       const excess = Math.max(0, hip[2] - feet[i][2] - limit);
@@ -136,7 +139,7 @@ const studioRig = (() => {
       head[11] -= excess;
     });
     const legs = sides.map((s, i) => {
-      const hip = point(torso, [rig.hip[0], s * rig.hip[1], rig.hip[2]]);
+      const hip = point(torso, [rig.hip[0], s * rig.hip[1], hipZ]);
       return { hip, knee: joint(hip, feet[i], rig.thigh, rig.shin, channels.kneePoles?.[i] || [1, 0, 0]) };
     });
     const arms = sides.map((side, i) => {

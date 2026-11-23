@@ -30,11 +30,12 @@ const soloClips = (() => {
   function idle(u, a) {
     const r = a.rig,
       ch = waist(r, a),
-      off = ch.hipOffset || [0, 0, 0];
+      off = ch.hipOffset || zero,
+      breath = ch.feet ? 0.15 : 0.005 * (r.thigh + r.shin);
     ch.hipOffset = [
       off[0],
       off[1] + r.height * 0.005 * Math.sin(tau * u),
-      off[2] - 0.15 * (1 - Math.cos(tau * u))
+      off[2] - breath * (1 - Math.cos(tau * u))
     ];
     ch.headYaw = 0.13 * Math.sin(u * tau) ** 3;
     ch.blink = blink(u);
@@ -84,6 +85,7 @@ const soloClips = (() => {
     const lean = Math.sin(pi * weight),
       ch = {
         hipOffset: base.hipOffset.map((v) => v * weight),
+        standing: 1 - weight,
         feet: base.feet,
         pitch: 0.29 * lean + 0.045 * weight,
         headPitch: -0.12 * lean,
@@ -164,6 +166,7 @@ const soloClips = (() => {
       drive = run ? 0.185 : 0.12;
     const ch = {
       feet,
+      standing: 1 - strength,
       hipOffset: [0, 0, -0.017 * h * Math.abs(stride)],
       pitch: (run ? 0.14 : 0.045) * strength,
       headPitch: -0.035 * strength,
@@ -184,6 +187,7 @@ const soloClips = (() => {
     const dip =
       ramp(u, 0.015, 0.15) - ramp(u, 0.15, 0.25) + 0.86 * (ramp(u, 0.71, 0.79) - ramp(u, 0.79, 0.98));
     const ch = {
+      standing: 1 - Math.max(dip, arc),
       hipOffset: [-0.045 * h * dip, 0, -0.115 * h * dip],
       pitch: 0.23 * dip,
       feet: sides.map((s) => [-0.028 * h * arc, s * r.hip[1], r.ankle + 0.071 * h * arc]),

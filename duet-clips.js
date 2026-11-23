@@ -42,6 +42,7 @@ const duetClips = (() => {
       const root = { x: i === 0 ? -space : space, y: 0, z: 0, heading: i === 0 ? 0 : pi };
       const drop = Math.min(0.76 * (rig.hip[2] - rig.ankle), Math.max(0, rig.shoulder[2] - z + 0.16 * arm));
       const channels = {
+        standing: 1 - lift,
         hipOffset: [0, 0, -lift * (drop + 0.025 * arm)],
         pitch: lift * (0.09 + (0.22 * drop) / rig.hip[2]),
         headPitch: lift * (0.07 + (0.17 * drop) / rig.hip[2]),
@@ -119,6 +120,7 @@ const duetClips = (() => {
 
     const mc = {
       // A low, side-on squat leaves room for the baby's head during the pickup.
+      standing: 1 - deep,
       hipOffset: [-1.28 * deep - 0.28 * lift, 0.52 * rock, -0.819 * m.hip[2] * deep - 0.72 * lift],
       pitch: 0.67 * deep + 0.095 * lift,
       roll: 0.33 * deep + 0.05 * rock,
@@ -160,6 +162,7 @@ const duetClips = (() => {
     const mr = { x: -0.137 * m.height, y: 0, z: 0, heading: 0 };
     const br = { x: 0.18 * m.height, y: 0, z: 0, heading: pi };
     const mc = {
+      standing: 0,
       hipOffset: [-1.15, 0, -0.49 * m.hip[2] - 0.62 * raised],
       pitch: 0.44 + 0.09 * raised - 0.12 * raised * reveal,
       headPitch: 0.13 + 0.13 * raised * (1 - reveal) - 0.1 * raised * reveal,

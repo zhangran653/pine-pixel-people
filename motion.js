@@ -46,8 +46,19 @@ const hikerMotion = (() => {
     const pole = unit(plus(bendDirection,n,-dot));
     return plus(plus(start,n,along),pole,bend);
   }
+  // In a relaxed stand the thigh starts a little higher inside the pelvis.
+  // Keep some leg reach in reserve so the knees can still soften with the breath.
+  function standingHipLift(hipX, hipZ, ankleZ, thigh, shin) {
+    const reach = thigh + shin;
+    const verticalReach = Math.sqrt(Math.max(0, reach * reach - hipX * hipX));
+    const slack = Math.max(0, verticalReach - (hipZ - ankleZ));
+    return Math.min(0.04 * reach, 0.65 * slack);
+  }
+  const hikerHipLift = standingHipLift(-.4, 19.5, 3.1, 8.7, 8.45);
   function leg(side, ankle, bob = 0) {
     const hip = [-.4, side*3.05, 19.5+bob];
+    const slack = 17.15 - Math.hypot(...ankle.map((v, i) => v - hip[i]));
+    hip[2] += Math.min(hikerHipLift, Math.max(0, slack));
     return {hip, knee:joint(hip,ankle,8.7,8.45,[1,0,0])};
   }
   const waveKeys = [
@@ -228,9 +239,10 @@ const hikerMotion = (() => {
       const drop=(seat.height/size+3.10-19.2)*seated;
       const pitch=.235*Math.sin(seated*Math.PI)+.035*seated+.013*idle*breath;
       const torso=frame([-.15,0,19.2],[-(back-.15)*seated,shift*(1-.66*seated),drop+bob+.13*(breath-idleMotion)*idle*(1-seated)],0,pitch,-shift*.037);
+      const hipZ=19.5+hikerHipLift*idle*(1-seated);
       // Bend at the hips on a long placement step instead of stretching a planted leg.
       feet.forEach((ankle,i)=>{
-        const hip=point(torso,[-.4,(i===0?-1:1)*3.05,19.5]);
+        const hip=point(torso,[-.4,(i===0?-1:1)*3.05,hipZ]);
         const across=(ankle[0]-hip[0])**2+(ankle[1]-hip[1])**2;
         const height=Math.sqrt(Math.max(0,17.15**2-across));
         torso[11]-=Math.max(0,hip[2]-ankle[2]-height);
@@ -243,7 +255,7 @@ const hikerMotion = (() => {
       const sipping=ramp(drinkClock,.87,1.48)*(1-ramp(drinkClock,2.20,2.81));
       const head=compose(torso,frame([.2,0,34.5],[0,0,0],glance*(1-sipping)-.08*sipping,-.045*glance-.15*sipping-.005*breath*idle,shift*.014));
       const legs=feet.map((ankle,i)=>{
-        const hip=point(torso,[-.4,(i===0?-1:1)*3.05,19.5]);
+        const hip=point(torso,[-.4,(i===0?-1:1)*3.05,hipZ]);
         return {hip,knee:joint(hip,ankle,8.7,8.45,[1,0,0])};
       });
       const wave=waveAt(gesture==='wave'?clamp(gestureTime/1.45):null);
@@ -280,5 +292,5 @@ const hikerMotion = (() => {
       get animating() {return ambient || idleRequest!==null || swayOn || sway>0 || active();},
     };
   }
-  return {create,leg,minX,maxX, geometry:{frame,point,compose,joint}};
+  return {create,leg,minX,maxX, geometry:{frame,point,compose,joint,standingHipLift}};
 })();
