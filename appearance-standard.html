@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>形象与部件规范 v1 · 松溪像素</title>
+    <link rel="stylesheet" href="atelier.css" />
+    <style>
+      article {
+        max-width: 850px;
+        margin: 30px auto;
+        padding: clamp(18px, 4vw, 44px);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--card);
+      }
+      article h1 {
+        margin: 0 0 18px;
+        font-size: clamp(1.6rem, 4vw, 2.1rem);
+      }
+      article h2 {
+        margin: 26px 0 9px;
+      }
+      article p {
+        margin: 9px 0;
+      }
+      article a {
+        color: #2e654b;
+        text-underline-offset: 3px;
+      }
+      article pre {
+        overflow: auto;
+        background: #f1efe3;
+        padding: 14px;
+        border-radius: 5px;
+      }
+      article table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.92rem;
+      }
+      article th,
+      article td {
+        padding: 6px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+      }
+      article code {
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="bar-inner">
+        <a class="wordmark" href="index.html"><span class="tree" aria-hidden="true"></span>松溪像素</a>
+        <nav>
+          <a href="atelier.html">人物创作室</a><a href="studio.html">动作工坊</a
+          ><a href="appearance-standard.html" aria-current="page">创作规范</a>
+        </nav>
+      </div>
+    </header>
+    <main>
+      <article>
+        <h1>形象与部件规范 v1</h1>
+        <p>
+          一个形象文件记录人体基型、体型与五官、穿搭、配色和依赖版本。动作通过共同的骨架和接触点驱动角色。创作室、动作工坊和
+          Three.js 场景读取同一份形象。
+        </p>
+        <h2>形象文件</h2>
+        <p>
+          用创作室的「导入角色」打开下面的任一示例。编辑后可以保持 ID 保存，也可以另存为独立形象。导入相同
+          ID、不同内容的文件会得到新的 ID。
+        </p>
+        <p>
+          <a href="packs/creek-child.json">溪谷学童 JSON</a> ·
+          <a href="packs/maple-child.json">枫林信使 JSON</a> ·
+          <a href="character-v1.schema.json">角色 JSON Schema</a>
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>约定</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>format / version / id / label</code></td>
+              <td>格式为 pine-character，版本 1，ID 以 look_ 开头。显示名可改，编排引用 ID。</td>
+            </tr>
+            <tr>
+              <td><code>base / shape</code></td>
+              <td>
+                child、adult 各有独立静止骨架。身高、肩宽、臂长、腿长、脸宽、眼距、下颌宽度均以 1
+                为基准，嘴高以 0 为基准。范围由 Schema 给出。
+              </td>
+            </tr>
+            <tr>
+              <td><code>parts / colors</code></td>
+              <td>
+                六个部位分别为头发、上衣、下装、鞋、颈饰和帽子。七个 RGB
+                色槽控制肤色、头发、眼睛、上衣、下装、鞋与配饰。阴影和高光由色槽派生。
+              </td>
+            </tr>
+            <tr>
+              <td><code>packs / embeddedPacks</code></td>
+              <td>
+                固定 pine-core
+                的确切版本和身上外部帽包的版本。导出会附带该帽包，另一个浏览器可离线恢复。同名同版本的内容必须一致。
+              </td>
+            </tr>
+            <tr>
+              <td><code>baseNotice</code></td>
+              <td>导出的文件携带基础素材的 MIT 版权与许可全文。外部帽包保留自己的作者、许可及随附声明。</td>
+            </tr>
+          </tbody>
+        </table>
+        <h2>从参数到 360° 像素</h2>
+        <p>
+          先按基型缩放骨长和关节位置，再在头、躯干、四肢的局部坐标系绘制头发、衣服和皮肤。每个姿势在三维格点上采样，沿高度切成透明的二维像素层。Canvas
+          版依据观察方向由远到近绘制切片，镜头旋转时可以看到同一角色的正面、侧面和后脑。近景使用最近邻采样。
+        </p>
+        <p>
+          Three.js 适配器读取同一份采样体，提取外表面以参与深度测试、遮挡和投影。<a
+            href="motion-standard.html#three"
+            >Three.js 接入与单位换算</a
+          >
+        </p>
+        <h2>贡献一顶帽子</h2>
+        <ol>
+          <li>
+            以 <a href="packs/creek-hats.json">溪谷帽饰包</a> 为模板。填写独立的包名、版本、作者、许可与部件
+            ID，在 parts 数组内添加一个 slot 为 hat 的部件。
+          </li>
+          <li>
+            每一笔可使用 ellipsoid 或 box。center 是相对头部中心的位移，size
+            是半长。三个方向的单位分别是头部的前后、左右、上下半径。+X 朝脸，+Y 朝人物左侧，+Z 向上。椭球可用
+            power 控制圆角，默认 2。后画的材料覆盖先画的材料。
+          </li>
+          <li>
+            颜色从 hatMain、hatShade、hatLight、hatTrim、hatInk
+            中选。试穿时这些颜色会随人物的配饰色变化。用「穿搭 →
+            导入帽饰包」加载文件，分别给儿童与成人试戴，从正面、侧面和后脑检查轮廓。
+          </li>
+          <li>
+            发布修改过的包时增加 release，并保留旧版本。在 v1 中，帽子是可用纯 JSON
+            扩展的部位，其他服饰款式由基础部件库提供。
+          </li>
+        </ol>
+        <p>
+          <a href="part-pack-v1.schema.json">帽饰 JSON Schema</a> ·
+          <a href="packs/creek-hats.json">两款帽子的完整原稿</a>
+        </p>
+        <h2>动作与接触点</h2>
+        <p>
+          动作根据角色标签选演员，然后查询该角色的骨骼、嘴和手等接触点。喝水时瓶口追踪当前头部的嘴，击掌时两人共同求解手掌的世界坐标。儿童与成人基型可使用
+          13 个动作，其中击掌需要搭档。婴儿爬行以及妈妈与宝宝的抱摇、躲猫猫使用动作库中已有的相应角色。
+        </p>
+        <p>
+          编排内的 steps 引用动作 ID 和角色 ID。含自定义角色的导出采用 pine-cast
+          v1，同时携带所需形象与帽包。只使用内置演员的编排沿用原始 score
+          v1。运行时检查动作人数、角色标签和引用版本；Schema 可用于编辑器或 CI 的结构检查。
+        </p>
+        <p>
+          <a href="cast-v1.schema.json">编排包 Schema</a> ·
+          <a href="score-v1.schema.json">动作编排 Schema</a> ·
+          <a href="packs/after-school.json">可导入的双人编排</a> ·
+          <a href="motion-standard.html">增加动作、骨架与接触点</a>
+        </p>
+        <h2>在自己的页面使用</h2>
+        <p>
+          按创作室页面的顺序加载人物、动作、designer-body、appearance 和 appearance-store
+          脚本。无界面程序可直接用 JavaScript 构建演员与采样编排。
+        </p>
+        <pre><code>const actor = PineLooks.build(characterFile);
+const cast = new Map(PineMotion.characters);
+cast.set(actor.id, actor);
+const plan = PineMotion.compile({
+  version: 1, loop: true,
+  steps: [{ action: 'run', actors: [actor.id] }]
+}, cast);
+const pose = plan.sample(0.4)[0].pose;
+const slices = actor.body.makePose(pose);</code></pre>
+        <p>
+          在 Three.js 场景中，用 PineWardrobe.readScoreFile(bundle) 注册编排包中的演员并取得 plan，再将 plan
+          传给 createPineCast 返回的 setTime。可用 Node 执行下面两个检查。
+        </p>
+        <pre><code>node check-motion.cjs
+node check-appearance.cjs</code></pre>
+        <h2>许可与来源</h2>
+        <p>
+          本项目原创代码、角色、服饰、动作、切片示例与场景素材统一采用
+          MIT。复制或分发时，请保留版权及许可声明。随项目分发的 Three.js r187 与 OrbitControls 保留上游许可。
+        </p>
+        <p>
+          <a href="LICENSE">项目 MIT 许可</a> · <a href="vendor/three-r187/LICENSE">Three.js 许可</a> ·
+          <a href="https://opensource.org/license/mit">MIT 原文</a> ·
+          <a href="https://json-schema.org/draft/2020-12">JSON Schema Draft 2020-12</a>
+        </p>
+      </article>
+    </main>
+  </body>
+</html>

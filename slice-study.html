@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>原始人物切片 · 松溪像素</title>
+<link rel="stylesheet" href="trail.css"><style>:root{--font-size-base:1rem;--foreground:#283b30}#pixel-hiker-study{padding:20px;border-radius:8px;background:#ebe9d9;color:var(--foreground)}#pixel-hiker-study input{max-width:100%}</style></head><body><main class="trail-shell"><header class="mast"><h1>原始人物切片</h1><nav><a href="atelier.html">人物创作室</a><a href="index.html">松溪步道</a></nav></header>
+<div id="pixel-hiker-study" lang="zh-CN">
+  <div class="hiker-views">
+    <figure>
+      <canvas data-person width="100" height="100" role="img" aria-label="戴红帽、穿青绿色外套、背黄色背包的像素徒步者"></canvas>
+      <figcaption class="viz-row"><button class="btn" type="button" data-step>迈一步</button><output data-pose aria-live="polite">站立</output></figcaption>
+    </figure>
+    <figure>
+      <canvas data-cut width="40" height="28" role="img" aria-label="人物的水平切片，前方朝右"></canvas>
+      <figcaption>俯视切片 <span class="text-small text-muted">前方 →</span></figcaption>
+    </figure>
+  </div>
+  <div class="viz-controls">
+    <label class="form-label" for="hiker-view-angle">环视角度 <output data-angle class="tabular-nums" for="hiker-view-angle">355°</output>
+      <input class="form-range" id="hiker-view-angle" type="range" min="0" max="360" value="355">
+    </label>
+    <label class="form-label" for="hiker-cut-height">切片高度 <output data-height class="tabular-nums" for="hiker-cut-height">第 14 / 50 层</output>
+      <input class="form-range" id="hiker-cut-height" type="range" min="1" max="50" value="14">
+    </label>
+  </div>
+</div>
+<style>
+  #pixel-hiker-study { display: grid; gap: var(--font-size-base); }
+  #pixel-hiker-study .hiker-views { display: grid; grid-template-columns: 1.15fr 1fr; gap: var(--font-size-base); align-items: center; }
+  #pixel-hiker-study figure { display: grid; gap: calc(var(--font-size-base) * .45); margin: 0; justify-items: center; min-width: 0; }
+  #pixel-hiker-study canvas { display: block; height: auto; image-rendering: pixelated; }
+  #pixel-hiker-study [data-person] { width: min(100%, 260px); }
+  #pixel-hiker-study [data-cut] { width: min(100%, 188px); background: repeating-conic-gradient(color-mix(in srgb, var(--foreground) 7%, transparent) 0% 25%, transparent 0% 50%) 0 0 / 14px 14px; }
+  #pixel-hiker-study figcaption { text-align: center; }
+</style>
+<script>
+(() => {
+  const root = document.getElementById('pixel-hiker-study');
+  const canvas = root.querySelector('[data-person]'), cut = root.querySelector('[data-cut]');
+  const ctx = canvas.getContext('2d', {willReadFrequently:true});
+  const sliceContext = cut.getContext('2d', {willReadFrequently:true});
+  const angleInput = root.querySelector('#hiker-view-angle'), heightInput = root.querySelector('#hiker-cut-height');
+  const stepButton = root.querySelector('[data-step]'), poseLabel = root.querySelector('[data-pose]');
+  const nx = 40, ny = 28, nz = 50, pitch = nx * ny;
+  const dimensions = [nx, ny, nz];
+  const materials = {
+    skin: 'dc9a70', skinLight: 'efb98d', nose: 'dd8b68', cheek: 'e4987e', mouth: '995949',
+    hair: '493a39', hairLight: '675047', eye: '2a333a', brow: '5e453f',
+    cap: 'cc5946', capLight: 'eb7656', capBand: 'a5483e', capSeam: 'bc5142', capUnder: '813e39',
+    jacket: '38877f', jacketShade: '2e726e', jacketLight: '55a597', hem: '345d5d', zipper: '94b7a3',
+    pants: '3e526b', pantsLight: '536d80', pantsDark: '354459', cuff: '758994',
+    leather: '8c593e', leatherLight: 'b57e50', sole: '50423b', lace: 'd8b684',
+    pack: 'd79b45', packShadow: 'a57139', packLight: 'efbc68', buckle: 'e5d4a6',
+    strap: '705440', scarf: 'f1d49d', scarfShade: 'cfa676', roll: '8d9a79', rollLight: 'acb897'
+  };
+  const palette = [[0, 0, 0]], ink = {};
+  for (const [name, hex] of Object.entries(materials)) {
+    ink[name] = palette.length;
+    palette.push([0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16)));
+  }
+  const littleEndian = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const rad = Math.PI / 180;
+
+  // x points forward, y across the shoulders, z up from the boot soles.
+  // Each z reserves one transparent 40 by 28 pixel image.
+  function makePose(stride, swing, movingSide) {
+    const cells = new Uint8Array(pitch * nz);
+    const bob = .45 * swing - .38 * Math.abs(stride);
+    function stamp(x0, x1, y0, y1, z0, z1, paint) {
+      for (let k = Math.max(0, Math.floor(z0)); k < Math.min(nz, Math.ceil(z1)); k++) {
+        for (let j = Math.max(0, Math.floor(y0 + ny/2)); j < Math.min(ny, Math.ceil(y1 + ny/2)); j++) {
+          for (let i = Math.max(0, Math.floor(x0 + nx/2)); i < Math.min(nx, Math.ceil(x1 + nx/2)); i++) {
+            const color = paint(i + .5 - nx/2, j + .5 - ny/2, k + .5);
+            if (color) cells[k * pitch + j * nx + i] = color;
+          }
+        }
+      }
+    }
+    function blob(x, y, z, rx, ry, rz, color, exponent = 2) {
+      stamp(x-rx, x+rx, y-ry, y+ry, z-rz, z+rz, (px, py, pz) => {
+        const u = Math.abs((px-x)/rx), v = Math.abs((py-y)/ry), w = Math.abs((pz-z)/rz);
+        if (u ** exponent + v ** exponent + w ** exponent > 1) return 0;
+        return typeof color === 'function' ? color(px, py, pz) : color;
+      });
+    }
+    // A tapered solid joins two points. The rounded ends keep moving joints joined.
+    function link(a, b, r0, r1, width, color) {
+      const dx = b[0]-a[0], dy = b[1]-a[1], dz = b[2]-a[2];
+      const length2 = dx*dx + dy*dy + dz*dz;
+      const m = Math.max(r0, r1) * Math.max(1, width);
+      stamp(Math.min(a[0], b[0])-m, Math.max(a[0], b[0])+m,
+        Math.min(a[1], b[1])-m, Math.max(a[1], b[1])+m,
+        Math.min(a[2], b[2])-m, Math.max(a[2], b[2])+m, (x, y, z) => {
+          const t = clamp(((x-a[0])*dx + (y-a[1])*dy + (z-a[2])*dz) / length2, 0, 1);
+          const u = x - a[0] - dx*t, v = (y - a[1] - dy*t) / width, w = z - a[2] - dz*t;
+          if (u*u + v*v + w*w > lerp(r0, r1, t) ** 2) return 0;
+          return color(t, u, v, w);
+        });
+    }
+    const feet = [];
+    for (const side of [-1, 1]) {
+      const y = side * 3.05;
+      const hip = [-.4, y, 19.5 + bob];
+      const lift = side === movingSide ? 4.1 * swing : 0;
+      const ankle = [side * (5.7 * stride + .4), y, 3.1 + lift];
+      feet.push(ankle);
+      // Intersection of two circles gives a forward-bending knee for the chosen ankle.
+      const dx = ankle[0] - hip[0], dz = ankle[2] - hip[2], d = Math.hypot(dx, dz);
+      const thigh = 8.7, shin = 8.45;
+      const along = (thigh*thigh - shin*shin + d*d) / (2*d);
+      const bend = Math.sqrt(Math.max(0, thigh*thigh - along*along));
+      const knee = [hip[0] + (dx*along - dz*bend)/d, y, hip[2] + (dz*along + dx*bend)/d];
+      link(hip, knee, 2.8, 2.25, .93, (t, u, v) => u > .9 && t > .77 ? ink.pantsLight : side*v < -.9 ? ink.pantsDark : ink.pants);
+      link(knee, ankle, 2.29, 1.85, .94, (t, u) => t > .7 && t < .88 ? ink.cuff : u < -.9 ? ink.pantsDark : ink.pants);
+      blob(ankle[0]+1.05, y, 1.75+lift, 3.7, 2.22, 1.65, (x, yy, z) =>
+        z < lift+1.05 ? ink.sole : x > ankle[0]+2.1 ? ink.leatherLight : ink.leather, 3.4);
+      blob(ankle[0]+.05, y, 3.35+lift, 2.05, 2.04, 1.65, (x, yy, z) =>
+        x > ankle[0]+1 && z > lift+3.1 && z < lift+3.9 ? ink.lace : ink.leather, 3);
+    }
+    blob(-.15, 0, 19.2+bob, 3.95, 5.55, 3.25, ink.pants, 2.8);
+    blob(.1, 0, 26.35+bob, 4.32, 6.15, 8.35, (x, y, z) => {
+      const h = z-bob, a = Math.abs(y);
+      if (h < 20.5) return ink.hem;
+      if (x > .8 && Math.abs(a - (2.5 + (h-20)*.115)) < .72 && h > 22) return ink.strap;
+      if (x > 2 && a < .65) return ink.zipper;
+      if (x > 1.9 && a > 1.6 && a < 4.7 && h > 23 && h < 24.1) return ink.hem;
+      return x < -.9 ? ink.jacketShade : h > 30.5 ? ink.jacketLight : ink.jacket;
+    }, 3.1);
+    // Pocket, flap, and bedroll sit on the back; the straps cross the front of the coat.
+    blob(-4.75, 0, 26.6+bob, 3.15, 5.05, 6.5, (x, y, z) => {
+      const h = z-bob;
+      if (x < -5.6 && Math.abs(y) < .72 && h > 25.7 && h < 27.6) return ink.buckle;
+      if (x < -5.6 && Math.abs(y) < .78 && h > 23.7 && h < 30) return ink.strap;
+      return h > 27 ? ink.packLight : Math.abs(y) > 3.85 ? ink.packShadow : ink.pack;
+    }, 3.8);
+    blob(-5.25, 0, 32.1+bob, 2.15, 6.2, 1.95, (x, y, z) =>
+      Math.abs(Math.abs(y)-3.5) < .69 ? ink.strap : z > 32.5+bob ? ink.rollLight : ink.roll, 3.5);
+    for (const side of [-1, 1]) {
+      const reach = -side * stride;
+      const a = .04 + .50*reach, b = .29 + .63*reach;
+      const shoulder = [.3 + .36*reach, side*5.65, 31.8+bob];
+      const elbow = [shoulder[0] + 6.75*Math.sin(a), side*7.15, shoulder[2] - 6.75*Math.cos(a)];
+      const wrist = [elbow[0] + 5.8*Math.sin(b), side*7.5, elbow[2] - 5.8*Math.cos(b)];
+      link(shoulder, elbow, 2.6, 2.13, .92, (t, u) => u < -.95 ? ink.jacketShade : t < .22 ? ink.jacketLight : ink.jacket);
+      link(elbow, wrist, 2.15, 1.7, 1, t => t > .75 ? ink.hem : ink.jacket);
+      blob(wrist[0]+.25, wrist[1], wrist[2]-1.32, 1.75, 1.65, 2.25, (x, y) =>
+        side*y > 7.6 ? ink.skinLight : ink.skin, 2.7);
+    }
+    blob(.4, 0, 34.8+bob, 3.7, 4.75, 1.8, (x, y, z) => z > 34.7+bob ? ink.scarf : ink.scarfShade, 3);
+    blob(3.75, -1.65, 32.35+bob, 1.13, 1.45, 2.85, ink.scarf, 3);
+    blob(.8, 0, 39.55+bob, 4.92, 5.65, 5.8, (x, y, z) => {
+      const h = z-bob, a = Math.abs(y);
+      if (x < -.7 || (a > 4.05 && x < 2 && h > 39.8)) return h > 41.5 ? ink.hairLight : ink.hair;
+      if (x > 3.25 && Math.abs(a-2.5) < .72) {
+        if (h > 40.1 && h < 41.9) return ink.eye;
+        if (h > 42 && h < 43.2) return ink.brow;
+      }
+      if (x > 3.35 && h > 37.1 && h < 38 && a < 1.8) return ink.mouth;
+      if (x > 2.3 && a > 3.3 && h > 38.5 && h < 40) return ink.cheek;
+      return x > 2.5 ? ink.skinLight : ink.skin;
+    }, 3);
+    for (const side of [-1,1]) blob(.55, side*5.48, 39.7+bob, 1.44, 1.04, 1.7, ink.skin);
+    blob(5.6, 0, 39.85+bob, 1.65, 1.2, 1.39, (x,y,z) => z > 39.8+bob ? ink.skinLight : ink.nose);
+    blob(-.1, 0, 45.55+bob, 5.75, 6.32, 3.9, (x, y, z) => {
+      const h = z-bob;
+      if (h < 44.8) return ink.capBand;
+      if (Math.abs(y) < .65 && h > 47) return ink.capSeam;
+      return x > 1.3 ? ink.capLight : ink.cap;
+    }, 2.45);
+    blob(4.6, 0, 44.2+bob, 4.15, 5.92, .98, (x,y,z) => z > 44+bob ? ink.capLight : ink.capUnder, 2.8);
+    blob(-.35, 0, 49.2+bob, 1.28, 1.4, .92, ink.capBand);
+
+    const colors = new Uint32Array(cells.length);
+    for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+      const i = z*pitch + y*nx + x, material = cells[i];
+      if (!material) continue;
+      const dx = Number(!!cells[i-1]) - Number(!!cells[i+1]);
+      const dy = Number(!!cells[i-nx]) - Number(!!cells[i+nx]);
+      const dz = Number(!!cells[i-pitch]) - Number(!!cells[i+pitch]);
+      const n = Math.hypot(dx,dy,dz);
+      const light = n ? Math.round((.94 + .17*(.43*dx - .37*dy + .81*dz)/n)*24)/24 : .96;
+      const [r,g,b] = palette[material].map(c => Math.min(255,Math.round(c*light)));
+      colors[i] = littleEndian ? (255<<24)|(b<<16)|(g<<8)|r : (r<<24)|(g<<16)|(b<<8)|255;
+    }
+    return { colors, sheets: [], feet };
+  }
+
+  // Repack the same horizontal images along either lateral axis for edge-on views.
+  const faces = [[1,2],[0,2],[0,1]], cols = 8, gutter = 2;
+  function sheet(model, axis) {
+    if (model.sheets[axis]) return model.sheets[axis];
+    const [u,v] = faces[axis], w = dimensions[u], h = dimensions[v];
+    const tw = w+2*gutter, th = h+2*gutter;
+    const image = document.createElement('canvas');
+    image.width = cols*tw; image.height = th*Math.ceil(dimensions[axis]/cols);
+    const c = image.getContext('2d', {willReadFrequently:true}), data = c.createImageData(image.width,image.height);
+    const out = new Uint32Array(data.data.buffer);
+    for (let z=0; z<nz; z++) for (let y=0; y<ny; y++) for (let x=0; x<nx; x++) {
+      const value = model.colors[z*pitch+y*nx+x];
+      if (!value) continue;
+      const xyz=[x,y,z], k=xyz[axis];
+      out[(Math.floor(k/cols)*th+gutter+xyz[v])*image.width+(k%cols)*tw+gutter+xyz[u]] = value;
+    }
+    c.putImageData(data,0,0);
+    return model.sheets[axis] = {image,w,h,tw,th};
+  }
+  const zoom = 1.62, base = 91, center = 47.5, elevation = 11*rad;
+  let stance = 0, model = makePose(0, 0, 0), step = null, raf = 0;
+  function draw() {
+    const angle = (angleInput.valueAsNumber % 360) * rad;
+    const a=Math.cos(angle), b=Math.sin(angle), c=Math.cos(elevation), s=Math.sin(elevation);
+    const axes=[[-b,s*a,c*a],[a,s*b,c*b],[0,-c,s]];
+    let axis=0;
+    for(let i=1;i<3;i++) if(Math.abs(axes[i][2])>Math.abs(axes[axis][2])) axis=i;
+    const normal=axes[axis], across=axes[faces[axis][0]], down=axes[faces[axis][1]];
+    const source=sheet(model,axis), selected=heightInput.valueAsNumber;
+    const theme=getComputedStyle(root).color;
+    ctx.resetTransform();ctx.clearRect(0,0,canvas.width,canvas.height);ctx.imageSmoothingEnabled=false;
+    ctx.fillStyle=theme;ctx.globalAlpha=.075;
+    ctx.beginPath();ctx.ellipse(center,base+.5,13.4,2.5,0,0,Math.PI*2);ctx.fill();
+    for (const [x,y,z] of model.feet) {
+      ctx.globalAlpha=.12*Math.max(.15,1-(z-3.1)/5);
+      ctx.beginPath();ctx.ellipse(center+zoom*(-b*x+a*y),base+zoom*s*(a*x+b*y),4.5,1.15,0,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    const ox=center-zoom*(axes[0][0]*nx/2+axes[1][0]*ny/2);
+    const oy=base-zoom*(axes[0][1]*nx/2+axes[1][1]*ny/2);
+    const samples=Math.max(1,Math.ceil(zoom*Math.hypot(normal[0],normal[1])*1.7));
+    for(let pass=0;pass<dimensions[axis];pass++) {
+      const k=normal[2]>=0?pass:dimensions[axis]-1-pass;
+      for(let sub=0;sub<samples;sub++) {
+        const d=k+((normal[2]>=0?sub:samples-1-sub)+.5)/samples;
+        ctx.setTransform(zoom*across[0],zoom*across[1],zoom*down[0],zoom*down[1],ox+d*zoom*normal[0],oy+d*zoom*normal[1]);
+        ctx.drawImage(source.image,(k%cols)*source.tw+gutter,Math.floor(k/cols)*source.th+gutter,source.w,source.h,0,0,source.w,source.h);
+      }
+    }
+    ctx.resetTransform();
+    // Marks share the same elevation and origin as the body.
+    ctx.fillStyle=theme;ctx.globalAlpha=.24;
+    for(let h=0;h<=nz;h+=5) ctx.fillRect(78,Math.round(base-zoom*c*h),h%10===0?3:2,1);
+    ctx.globalAlpha=.8;ctx.fillRect(74,Math.round(base-zoom*c*(selected-.5)),7,1);ctx.globalAlpha=1;
+    const horizontal=sheet(model,2), layer=selected-1;
+    sliceContext.clearRect(0,0,nx,ny);sliceContext.imageSmoothingEnabled=false;
+    sliceContext.drawImage(horizontal.image,(layer%cols)*horizontal.tw+gutter,Math.floor(layer/cols)*horizontal.th+gutter,nx,ny,0,0,nx,ny);
+    const bearing=angleInput.valueAsNumber;
+    const direction=['正面','左前','左侧','左后','背面','右后','右侧','右前'][Math.round(bearing/45)%8];
+    const azText = bearing+'° · '+direction, heightText='第 '+selected+' / '+nz+' 层';
+    root.querySelector('[data-angle]').textContent=azText;
+    root.querySelector('[data-height]').textContent=heightText;
+    angleInput.setAttribute('aria-valuetext',azText);heightInput.setAttribute('aria-valuetext',heightText);
+    cut.setAttribute('aria-label',heightText+'的俯视切片，前方朝右');
+    canvas.setAttribute('aria-label','从'+direction+'观察红帽徒步者，'+poseLabel.textContent);
+  }
+  function reportStance() {
+    poseLabel.textContent = stance===0?'站立':stance>0?'左脚在前':'右脚在前';
+  }
+  function save() {
+    try {
+      localStorage.setItem('pineCreek.sliceStudy.v1',JSON.stringify({personAngle:angleInput.valueAsNumber,personLayer:heightInput.valueAsNumber,stance}));
+    } catch { /* This study also works without storage. */ }
+  }
+  function finishStep() {
+    stance=step.to;step=null;raf=0;stepButton.disabled=false;
+    model=makePose(stance,0,0);reportStance();draw();save();
+  }
+  function animate(time) {
+    if(!step) return;
+    const p=clamp((time-step.start)/720,0,1);
+    if(p===1) { finishStep();return; }
+    const frame=Math.floor(p*16);
+    if(frame!==step.frame) {
+      step.frame=frame;
+      const t=frame/16, ease=t*t*(3-2*t);
+      model=makePose(lerp(step.from,step.to,ease),Math.sin(Math.PI*t),step.to);
+      draw();
+    }
+    raf=requestAnimationFrame(animate);
+  }
+  stepButton.addEventListener('click',()=>{
+    if(step) return;
+    step={from:stance,to:stance===1?-1:1,start:performance.now(),frame:-1};
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches) { finishStep();return; }
+    stepButton.disabled=true;poseLabel.textContent='迈步中';raf=requestAnimationFrame(animate);
+  });
+  for(const input of [angleInput,heightInput]) {
+    input.addEventListener('input',draw);
+    input.addEventListener('change',()=>{if(!step) save();});
+  }
+  function restore(state) {
+    const saved=state||{};
+    const valid=(v,min,max,fallback)=>Number.isInteger(v)&&v>=min&&v<=max?v:fallback;
+    const az=valid(saved.personAngle,0,360,355), level=valid(saved.personLayer,1,nz,14), pose=valid(saved.stance,-1,1,0);
+    if (step) { cancelAnimationFrame(raf);step=null;stepButton.disabled=false; }
+    angleInput.value=az;heightInput.value=level;
+    if(stance!==pose) { stance=pose;model=makePose(stance,0,0); }
+    else if (raf) model=makePose(stance,0,0);
+    raf=0;reportStance();draw();
+  }
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw);
+  let saved;
+  try { saved=JSON.parse(localStorage.getItem('pineCreek.sliceStudy.v1')); } catch {}
+  restore(saved);
+})();
+</script>
+</main></body></html>

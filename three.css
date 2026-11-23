@@ -1,0 +1,138 @@
+.three-shell {
+  width: min(1240px, 100%);
+}
+.three-panel {
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.three-set {
+  position: relative;
+  height: clamp(330px, 62vh, 650px);
+  background: #bed3c5;
+}
+#clearing {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+#clearing:active {
+  cursor: grabbing;
+}
+#clearing:focus-visible {
+  outline-offset: -3px;
+}
+#gl-status {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 9px 15px;
+  background: #20362df2;
+  border-radius: 5px;
+  min-width: min(250px, 85%);
+  text-align: center;
+}
+.three-console {
+  padding: 12px clamp(13px, 2.5vw, 26px) 10px;
+}
+.now {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 12px;
+}
+.now h2 {
+  margin: 0;
+  font-size: 1.14rem;
+}
+.now span,
+#view-help {
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+.three-console fieldset {
+  border: 0;
+  min-width: 0;
+  padding: 0;
+  margin: 8px 0 0;
+}
+.three-row,
+.camera-tools,
+.three-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.three-row,
+.camera-tools {
+  flex-wrap: wrap;
+}
+.camera-tools {
+  margin-left: auto;
+}
+.three-row select,
+.three-row button {
+  border: 1px solid #597260;
+  border-radius: 5px;
+  background: #243a2e;
+  color: var(--text);
+  min-height: 38px;
+  padding: 4px 12px;
+  font: inherit;
+}
+.three-row select {
+  background-color: #182c22;
+  appearance: none;
+  padding-right: 26px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #ced8c2 50%),
+    linear-gradient(135deg, #ced8c2 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+.three-row button:hover:enabled {
+  border-color: var(--gold);
+}
+.three-row .primary {
+  background: #f2ce91;
+  border-color: #f2ce91;
+  color: #29271e;
+  font-weight: 650;
+  min-width: 66px;
+}
+.camera-tools input {
+  accent-color: var(--gold);
+  width: 17px;
+  height: 17px;
+}
+.three-console .range-heading {
+  margin-top: 10px;
+}
+#view-help {
+  margin-top: 9px;
+}
+@media (max-width: 670px) {
+  .three-set {
+    height: clamp(300px, 49svh, 460px);
+  }
+  .camera-tools {
+    width: 100%;
+    margin-left: 0;
+  }
+  .three-shell .mast {
+    flex-wrap: wrap;
+  }
+}
+@media (pointer: coarse) {
+  .three-row button,
+  .three-row select {
+    min-height: 44px;
+  }
+}

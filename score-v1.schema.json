@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "松溪人物动作编排 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "steps"],
+  "properties": {
+    "version": { "const": 1 },
+    "loop": { "type": "boolean", "default": false, "description": "到达整套编排末尾后回到开头。" },
+    "steps": { "type": "array", "items": { "$ref": "#/$defs/step" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "actors"],
+      "properties": {
+        "action": { "$ref": "#/$defs/id", "description": "已注册的动作 ID。" },
+        "actors": {
+          "type": "array", "minItems": 1, "maxItems": 2,
+          "items": { "$ref": "#/$defs/id" },
+          "description": "按动作声明的角色顺序填写人物 ID。运行时校验人数与每个槽位的标签。"
+        },
+        "seconds": { "type": "number", "exclusiveMinimum": 0, "description": "播放一次的秒数，省略时使用动作默认时长。" },
+        "repeat": { "type": "integer", "minimum": 1, "maximum": 9007199254740991, "default": 1 }
+      }
+    }
+  }
+}

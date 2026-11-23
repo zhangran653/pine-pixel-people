@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "松溪像素形象 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "id",
+    "label",
+    "base",
+    "packs",
+    "shape",
+    "parts",
+    "colors"
+  ],
+  "properties": {
+    "format": {
+      "const": "pine-character"
+    },
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^look_[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 48,
+      "pattern": "\\S"
+    },
+    "base": {
+      "enum": [
+        "child",
+        "adult"
+      ]
+    },
+    "packs": {
+      "type": "object",
+      "required": [
+        "pine-core"
+      ],
+      "maxProperties": 2,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{0,39}$"
+      },
+      "properties": {
+        "pine-core": {
+          "const": "1.0.0"
+        }
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]{0,3})\\.(0|[1-9][0-9]{0,3})\\.(0|[1-9][0-9]{0,3})$"
+      }
+    },
+    "shape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "height",
+        "shoulders",
+        "arms",
+        "legs",
+        "faceWidth",
+        "eyeSpacing",
+        "jaw",
+        "mouthHeight"
+      ],
+      "properties": {
+        "height": {
+          "type": "number",
+          "minimum": 0.9,
+          "maximum": 1.1,
+          "default": 1
+        },
+        "shoulders": {
+          "type": "number",
+          "minimum": 0.85,
+          "maximum": 1.15,
+          "default": 1
+        },
+        "arms": {
+          "type": "number",
+          "minimum": 0.92,
+          "maximum": 1.08,
+          "default": 1
+        },
+        "legs": {
+          "type": "number",
+          "minimum": 0.92,
+          "maximum": 1.08,
+          "default": 1
+        },
+        "faceWidth": {
+          "type": "number",
+          "minimum": 0.84,
+          "maximum": 1.16,
+          "default": 1
+        },
+        "eyeSpacing": {
+          "type": "number",
+          "minimum": 0.8,
+          "maximum": 1.2,
+          "default": 1
+        },
+        "jaw": {
+          "type": "number",
+          "minimum": 0.8,
+          "maximum": 1.2,
+          "default": 1
+        },
+        "mouthHeight": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "default": 0
+        }
+      }
+    },
+    "parts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hair",
+        "top",
+        "bottom",
+        "shoes",
+        "neck",
+        "hat"
+      ],
+      "properties": {
+        "hair": {
+          "enum": [
+            "crop",
+            "bob",
+            "bun"
+          ]
+        },
+        "top": {
+          "enum": [
+            "jacket",
+            "pullover"
+          ]
+        },
+        "bottom": {
+          "enum": [
+            "shorts",
+            "trousers"
+          ]
+        },
+        "shoes": {
+          "enum": [
+            "sneakers",
+            "boots"
+          ]
+        },
+        "neck": {
+          "enum": [
+            "none",
+            "scarf"
+          ]
+        },
+        "hat": {
+          "type": "string",
+          "pattern": "^(?:none|[a-z][a-z0-9-]{0,39}/[a-z][a-z0-9-]{0,39})$"
+        }
+      }
+    },
+    "colors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skin",
+        "hair",
+        "eyes",
+        "top",
+        "bottom",
+        "shoes",
+        "accent"
+      ],
+      "properties": {
+        "skin": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "hair": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "eyes": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "top": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "bottom": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "shoes": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "accent": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        }
+      }
+    },
+    "embeddedPacks": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 1,
+      "items": {
+        "$ref": "part-pack-v1.schema.json"
+      }
+    },
+    "baseNotice": {
+      "const": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+    }
+  },
+  "if": {
+    "properties": {
+      "parts": {
+        "properties": {
+          "hat": {
+            "pattern": "^(none$|pine-core/)"
+          }
+        }
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "packs": {
+        "maxProperties": 1
+      },
+      "embeddedPacks": {
+        "maxItems": 0
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "packs": {
+        "minProperties": 2
+      }
+    }
+  }
+}

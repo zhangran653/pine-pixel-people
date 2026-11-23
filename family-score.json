@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "loop": true,
+  "steps": [
+    { "action": "run",      "actors": ["child"],            "seconds": 2.8 },
+    { "action": "jump",     "actors": ["toddler"],          "seconds": 1.7, "repeat": 2 },
+    { "action": "highfive", "actors": ["child", "mother"],  "seconds": 2.8 },
+    { "action": "cradle",   "actors": ["mother", "baby"],   "seconds": 5.8 },
+    { "action": "peekaboo", "actors": ["mother", "baby"],   "seconds": 4 },
+    { "action": "crawl",    "actors": ["baby"],             "seconds": 3.6 },
+    { "action": "phone",    "actors": ["surveyor"],         "seconds": 4 },
+    { "action": "type",     "actors": ["surveyor"],         "seconds": 4.2 }
+  ]
+}

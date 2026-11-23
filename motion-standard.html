@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#14231f">
+  <title>人物与动作接入规范 v1 · 松溪步道</title>
+  <link rel="stylesheet" href="trail.css">
+  <style>
+    .spec { max-width:990px; }
+    .spec .mast { flex-wrap:wrap; }
+    .spec .mast h1 { font-size:clamp(1.55rem,3vw,2.35rem); }
+    .spec article { max-width:830px; }
+    .spec section { margin-block:36px; }
+    .spec pre { overflow:auto; padding:16px; background:#101f19; border:1px solid #3c5446; border-radius:7px; font: .87rem/1.6 var(--mono); color:#e7e0c2; }
+    .spec :not(pre) > code { color:#ecdbb5; font:.91em var(--mono); overflow-wrap:anywhere; }
+    .spec h3 { font-size:1.04rem; margin:21px 0 4px; }
+    .spec table { width:100%; border-collapse:collapse; color:#d5dfd1; font-size:.94rem; }
+    .spec th,.spec td { text-align:left; vertical-align:top; padding:8px 6px; border-bottom:1px solid #40584c; }
+    .spec li { color:#d5dfd1; margin:.4em 0; }
+    .spec .resource-links { display:flex; flex-wrap:wrap; gap:7px 23px; }
+  </style>
+</head>
+<body>
+  <main class="trail-shell notes spec">
+    <header class="mast"><h1><span class="pine-mark" aria-hidden="true"></span>人物与动作接入规范 v1</h1><nav aria-label="项目"><a href="atelier.html">人物创作室</a><a href="appearance-standard.html">形象与部件规范</a><a href="studio.html">动作工坊</a><a href="index.html">松溪步道</a></nav></header>
+    <article>
+      <p class="intro">一段跳跃只描述什么时候蓄力、起跳和落地。孩子的腿长决定膝盖弯多少，外观绘制函数决定画上哪双鞋。给新人物配置体型、外观和可用动作的标签，即可加入同一份编排。</p>
+      <p class="resource-links"><a href="#characters">接入人物</a><a href="#actions">编写动作</a><a href="#contact">双人接触</a><a href="#score">编排与播放</a><a href="#three">接入 Three.js</a></p>
+      <section id="characters">
+        <h2>接入一个人物</h2>
+        <p>全身共用一套身体单位。静止人物面向 +x，+y 指向人物左手，+z 向上，脚底位于 z = 0。侧别数组一律先右后左。角度用弧度，时长用秒。体型给出真实的身体比例，切片密度控制每个身体单位里有多少个像素。</p>
+        <table><thead><tr><th>体型标签</th><th>参考身高</th><th>内置人物与动作</th></tr></thead><tbody>
+          <tr><td><code>adult</code></td><td>50</td><td>徒步者、测绘员和妈妈。可跑跳、用手机、打字和击掌。</td></tr>
+          <tr><td><code>child</code></td><td>34</td><td>学龄儿童。跑跳幅度按自己的身高计算，可使用设备或与大人击掌。</td></tr>
+          <tr><td><code>toddler</code></td><td>28</td><td>学步幼儿。可走、跑、跳、爬，也能与儿童或大人击掌。</td></tr>
+          <tr><td><code>baby</code></td><td>22</td><td>小宝宝。可坐、爬、挥手、拍手，或作为搭档被抱起。</td></tr>
+        </tbody></table>
+        <p>将扩展脚本放在 <code>studio-library.js</code> 之后、<code>studio.js</code> 之前加载。人物和动作各自使用唯一的 ID，首字母为小写英文，其后可含小写字母、数字、下划线和短横线。下面的例子用现有儿童画法换一件紫色外套，注册后即可参加跑步和击掌。</p>
+<pre><code>const violetCoat = {
+  ...familyArt.child,
+  materials: { ...familyArt.child.materials,
+    blue: '8568aa', blueLight: 'b79bcb', blueDeep: '654c89' }
+};
+PineMotion.registerCharacter({
+  id: 'violet_child', label: '紫衣小朋友',
+  rig: 'child', art: violetCoat, density: 2, tags: ['child']
+});</code></pre>
+        <p>自绘外观提供 <code>materials</code> 和 <code>paint(pose, brush, ink)</code>。色值使用六位 RGB 十六进制字符串。<code>brush.frame(pose.head)</code> 或 <code>brush.frame(pose.torso)</code> 让后续像素跟随头或躯干。绘制四肢前调用 <code>brush.frame(null)</code>，沿已求解的关节使用 <code>brush.link</code>。<code>brush.blob</code> 可画圆形部件，<code>brush.stamp</code> 可逐点采样衣纹。密度 2 表示每个轴每单位采两格。</p>
+        <p>已有体型可直接填写名称。新增体型时传入参数对象，包含正数 <code>height, ankle, thigh, shin, upperArm, forearm, palm</code> 和三维坐标 <code>pelvis, hip, shoulder, neck, mouth</code>。髋、肩坐标中的 y 填左右对称距离。可用 <code>box: [宽x, 宽y, 高z]</code> 为大幅下蹲、伸手和道具预留采样空间。<a href="studio-rig.js">四种体型的完整参数</a> · <a href="family-art.js">四个人物的外观画法</a></p>
+      </section>
+      <section id="actions">
+        <h2>编写一个动作</h2>
+        <p>每个动作声明默认时长、角色槽位和采样函数。<code>sample(u, 主角, 搭档)</code> 接收 0 至 1 的进度，返回本帧的演出人物数组。用传入的进度计算姿势，便可随时拖动时间、重复播放或改速。相同的时间与人物应得到相同的结果。</p>
+<pre><code>PineMotion.registerAction({
+  id: 'look_around', label: '看看四周', group: '日常', seconds: 2.4,
+  roles: [['adult', 'child', 'toddler']],
+  sample(u, actor) {
+    const pose = PineMotion.rig.pose(actor.rig, {
+      headYaw: 0.38 * Math.sin(2 * Math.PI * u)
+    });
+    return [{ character: actor.id, x: 0, y: 0, z: 0, heading: 0, pose }];
+  }
+});</code></pre>
+        <table><thead><tr><th>接口</th><th>约定</th></tr></thead><tbody>
+          <tr><td><code>x, y, z, heading</code></td><td>人物根节点在片段场景中的位置与绕 z 轴的朝向。跳跃的整体腾空写入根节点 z，脚、头和道具一起升降。</td></tr>
+          <tr><td><code>rig.pose(rig, channels)</code></td><td>可指定骨盆偏移 hipOffset、躯干和头部的转角、左右脚踝 feet、手掌目标 hands，以及指引膝肘弯曲方向的 kneePoles 和 elbowPoles。手脚目标均为人物局部坐标。</td></tr>
+          <tr><td><code>pose</code></td><td>torso、head 是按行存储的 3 × 4 刚体矩阵。legs 提供 hip、knee，feet 提供 ankle。arms 提供 shoulder、elbow、wrist、hand。blink 从 0（睁眼）到 1（闭眼）。</td></tr>
+          <tr><td><code>pose.props</code></td><td>数组中的每项为 {kind, frame, scale}，内置 phone、laptop、stool。frame 把道具局部坐标变换到人物空间，scale 统一调整大小。水瓶沿用 pose.bottle 的 base、lip、held。</td></tr>
+        </tbody></table>
+        <p>让设备和人物对准时，可先用 <code>rig.point(frame, 接触点)</code> 算出目标，再交给手臂求解。手机的玻璃面在道具 x = 0 处，笔记本的键盘面在 z = 0 附近。<a href="studio-actions.js">跑跳、手机和键盘动作</a> · <a href="studio-props.js">设备与坐凳的像素绘制</a></p>
+      </section>
+      <section id="contact">
+        <h2>让两个人碰到同一点</h2>
+        <p><code>roles</code> 有几个槽位，就按顺序传入几个人。每个槽位列出允许的标签，命中任意一个即可。击掌的两个槽位都接受 adult、child 或 toddler。托抱和躲猫猫使用 <code>[['mother'], ['baby']]</code>。兼容的新照护者可声明 <code>tags: ['adult', 'mother']</code>，并校准手臂和宝宝接触点。</p>
+        <p>每个人物都有命名接触点 <code>mouth</code>、<code>rightEye</code>、<code>leftEye</code>、<code>seat</code>（臀侧）和 <code>upperBack</code>（上背）。换服装或体型后如果锚点有偏移，可在注册人物时传入 <code>sockets: { upperBack: { frame: 'torso', point: [-1.95, -1.18, 11.65] } }</code>。point 是相对于静止人物原点的坐标，frame 选 head 或 torso。<code>PineMotion.rig.socket(actor, pose, 'upperBack')</code> 会给出当前姿势下的人物局部坐标。</p>
+        <p>两个人物共享一个 u。击掌先选一个双方都能触到的场景坐标，再把它分别换算为两人的局部手掌目标。抱起时，宝宝臀侧和上背的接触点随躯干升降，妈妈的两只手分别追踪它们。可从每位演出者的 <code>contacts</code> 读取已求解的场景坐标检查间距。渲染器先把两人投到共同的像素切片，再根据相机角度绘制手臂、衣服和脸的遮挡。</p>
+        <p>新增互动可在正侧面核对接触，再转到背面查看交错的手臂。想让相邻两段衔接平滑，可以为它们绘制相同的收尾和起始姿势。<a href="duet-clips.js">击掌、托抱和躲猫猫的实现</a></p>
+      </section>
+      <section id="score">
+        <h2>编排、循环与交换文件</h2>
+        <p>在工坊里选择人物和动作，调整「单次秒数」「重复次数」，再点「加入末尾」。点击时间线中的一段即可修改、替换、移动或删除。「单段试看」只播放编辑中的一段，「返回编排」回到原播放位置。勾选「循环播放」会在整套编排结束后回到第一段。编排本随编辑保存在当前浏览器中，导出的 JSON 可以在其他浏览器导入。</p>
+<pre><code>{
+  "version": 1,
+  "loop": true,
+  "steps": [
+    { "action": "jump", "actors": ["child"], "seconds": 1.7, "repeat": 2 },
+    { "action": "highfive", "actors": ["child", "mother"] }
+  ]
+}</code></pre>
+        <p><code>version</code> 和 <code>steps</code> 必填。<code>loop</code> 默认 false，<code>seconds</code> 默认取动作时长，<code>repeat</code> 默认 1。单次时长须为有限正数，次数须为正的安全整数。空 steps 表示空编排。每段可以换演员，交界处直接切到下一段的起始姿势。独立的片段可以使用各自的出场位置。</p>
+<pre><code>const plan = PineMotion.compile({
+  version: 1, loop: true,
+  steps: [{ action: 'jump', actors: ['toddler'], repeat: 2 }]
+});
+plan.duration;            // 3.4 秒
+plan.locate(1.7);         // 第 0 段，第 1 次重复（从 0 开始计数），u = 0
+plan.sample(0.85);        // 第一次跳跃的一帧
+plan.sample(plan.duration); // 最后一段的终点姿势</code></pre>
+        <p><code>compile</code> 接受对象或 JSON 字符串，验证字段、角色人数和标签，给出段落起点 <code>starts</code>、总时长 <code>duration</code> 和采样器。<code>sample</code> 将越界时间限制在首尾。自定义播放器在 loop 为 true 且总时长大于零时，对播放秒数按总时长取余。结构校验使用下方的 JSON Schema，人物和动作 ID 由当前注册表校验。</p>
+        <p class="resource-links"><a href="family-score.json" download>下载八段家庭编排</a><a href="score-v1.schema.json">编排 JSON Schema</a><a href="studio-library.js">注册与播放接口</a><a href="studio.html?demo=play">试播放学活动</a></p>
+        <h3>检查新角色和新动作</h3>
+        <p>从项目目录运行 <code>node hiker/check-motion.cjs</code> 可检查所有已注册搭配的关节、采样复现、重复边界，以及击掌和托抱的接触。把自己的扩展脚本路径加在命令末尾，它也会参加检查。然后在工坊中从正面、侧面和背面查看衣物与道具的遮挡。<a href="check-motion.cjs">接入检查脚本</a></p>
+      </section>
+      <section id="three">
+        <h2>把人物放进 Three.js 场景</h2>
+        <p>在动作工坊中点「三维预览」，即可把当前编排放到溪边木平台上。点「从栏杆侧看」，在同一个姿势下开关「显示栏杆」，能看清哪一条栏杆挡住了腿。拖动镜头可以绕到人物身后，也可以从高处看。<a href="three.html">打开溪畔观景台</a></p>
+        <p>在自己的项目里先加载动作库。示例页面从 <code>motion.js</code> 到 <code>studio-library.js</code> 的十个脚本依次构成 <code>PineMotion</code>，可继续加载自定义人物和动作。将宿主项目使用的 Three.js 传入适配器，得到可添加到场景、可移动和旋转的 <code>THREE.Group</code>。以下代码假定宿主已有 <code>scene</code>、<code>camera</code> 和 <code>renderer</code>。</p>
+<pre><code>import * as THREE from 'three';
+import { createPineCast } from './pine-three.mjs';
+
+const cast = createPineCast(THREE, PineMotion);
+scene.add(cast.group);
+const plan = PineMotion.compile(PineMotion.presets.play);
+const start = performance.now();
+
+// 在宿主已有的渲染循环中调用以下三行。
+function renderFrame(now) {
+  const t = (now - start) / 1000;
+  cast.setTime(plan, t % plan.duration);
+  renderer.render(scene, camera);
+}
+renderer.setAnimationLoop(renderFrame);
+
+// 从场景移除人物时调用 cast.dispose()。</code></pre>
+        <p><code>cast.setTime(plan, 秒数)</code> 读取编排，同一动作采样帧可以从任意镜头重复渲染。上例循环播放「放学活动」。播放一般编排时，在 <code>plan.score.loop</code> 为 true 且总时长大于零时取余，一次性播放则传入经过的秒数。已有逐帧姿势也可以直接传给 <code>cast.setFrame(entries)</code>。</p>
+        <p>适配器从每层有颜色的格子提取外露表面，并把同一平面相邻的同色格合并。每位演员使用一个带顶点颜色的 <code>THREE.Mesh</code>，帽子、手指、手机和键盘一起参与深度测试与光照。人物使用场景灯光。在宿主中打开 <code>renderer.shadowMap.enabled</code>，让光源 <code>castShadow</code>、地面 <code>receiveShadow</code>，人物就能向地面投影。原身体坐标 (x, y, z) 映射为 Three.js 的 (x, z, −y)。默认每身体单位为 0.034 米，成人参考身高为 1.70 米。</p>
+        <p>可传入 <code>{ metersPerUnit: 0.034, sampleRate: 20 }</code> 调整比例和每秒姿势采样次数。镜头可按屏幕刷新率更新。人物的姿势和表面由 CPU 生成，实际场景若需要许多同时活动的角色，应按目标设备测试数量。示例自带 Three.js r187，通过本地 HTTP 服务打开即可。<a href="pine-three.mjs">人物适配器</a> · <a href="three-demo.mjs">示例场景代码</a> · <a href="https://threejs.org/docs/pages/BufferGeometry.html">Three.js 的 BufferGeometry</a></p>
+      </section>
+    </article>
+  </main>
+</body>
+</html>

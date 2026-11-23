@@ -1,0 +1,349 @@
+.studio-shell {
+  width: min(1450px, 100%);
+  margin: auto;
+  padding: clamp(12px, 2.3vw, 34px) clamp(12px, 3vw, 42px) 30px;
+}
+.studio-shell .mast {
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.workstation {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(286px, 0.78fr);
+  grid-template-areas: 'stage score' 'editor score';
+  align-items: start;
+  gap: 14px;
+}
+.studio-panel {
+  min-width: 0;
+  border: 1px solid #405c4c;
+  border-radius: 12px;
+  background: #1d3128;
+}
+.studio-panel h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 660;
+}
+.monitor {
+  grid-area: stage;
+  overflow: hidden;
+}
+.take,
+.score-heading,
+.scrub-head,
+.playline,
+.edit-actions,
+.cue-tools,
+.score-files {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.take,
+.score-heading,
+.scrub-head {
+  justify-content: space-between;
+}
+.take {
+  padding: 12px 19px;
+  background: #263c30;
+}
+.take > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+.take h2 {
+  font-size: 1.25rem;
+}
+.take p,
+.take output,
+.score-heading output,
+.cue-meta,
+.scrub-head label,
+.view-settings label,
+.preset-field,
+.fields label {
+  color: #c1cdba;
+  font-size: 0.875rem;
+}
+.take p {
+  margin: 0;
+}
+.take output {
+  white-space: nowrap;
+  color: #ebcb94;
+}
+.set {
+  height: clamp(300px, 46vh, 540px);
+  background: #a8c6b1;
+  border-block: 1px solid #42604e;
+}
+#studio-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  image-rendering: pixelated;
+  touch-action: none;
+}
+#studio-canvas.drag {
+  cursor: grabbing;
+}
+.playback {
+  padding: 13px 18px 12px;
+}
+.studio-panel button {
+  border: 1px solid #60796a;
+  color: #eceddb;
+  background: #293f33;
+  padding: 5px 12px;
+  min-height: 36px;
+  border-radius: 5px;
+  font-size: 0.93rem;
+  font-weight: 560;
+  cursor: pointer;
+}
+.studio-panel button:hover:enabled {
+  border-color: #e1ca98;
+}
+.studio-panel button:disabled {
+  opacity: 0.44;
+  cursor: default;
+}
+.studio-panel button.studio-primary {
+  background: #f2ce91;
+  color: #29271e;
+  border-color: #f2ce91;
+  font-weight: 680;
+}
+.playline {
+  flex-wrap: wrap;
+}
+.loop-check {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.loop-check input {
+  width: 17px;
+  height: 17px;
+  accent-color: #f2ce91;
+}
+.scrub-head {
+  margin-top: 9px;
+}
+.scrub-head output,
+.view-settings output,
+.score-heading output {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: #eaca90;
+}
+.view-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  border-top: 1px solid #3a5044;
+  margin-top: 8px;
+  padding-top: 7px;
+}
+.view-settings label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.editor {
+  grid-area: editor;
+  padding: 14px 17px;
+}
+.editor h2,
+.score-heading h2 {
+  font-size: 1.13rem;
+}
+.fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+  margin: 9px 0 13px;
+}
+.fields label {
+  flex: 1 1 95px;
+  min-width: 0;
+}
+.fields label:has(input) {
+  flex: 0 1 84px;
+}
+.studio-panel select,
+.fields input {
+  display: block;
+  width: 100%;
+  margin-top: 3px;
+  min-height: 36px;
+  background-color: #17291f;
+  color: #f1efda;
+  border: 1px solid #56705e;
+  border-radius: 5px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 0.94rem;
+}
+.studio-panel select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #ced8c2 50%),
+    linear-gradient(135deg, #ced8c2 50%, transparent 50%);
+  background-position:
+    calc(100% - 13px) 50%,
+    calc(100% - 9px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  padding-right: 22px;
+  cursor: pointer;
+}
+.edit-actions,
+.cue-tools,
+.score-files {
+  flex-wrap: wrap;
+}
+.score {
+  grid-area: score;
+  padding: 16px;
+}
+.preset-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 12px;
+}
+.preset-field select {
+  flex: 1;
+  margin-top: 0;
+}
+#cue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 48vh;
+  overflow-y: auto;
+}
+#cue-list li + li {
+  margin-top: 5px;
+}
+.studio-panel .cue {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border-color: #425c49;
+  border-radius: 5px;
+  background: #21372b;
+  padding: 8px;
+}
+.studio-panel .cue[aria-pressed='true'] {
+  border-color: #dec38b;
+  background: #324734;
+}
+.cue-num {
+  color: #c7ccab;
+  font: 0.83rem var(--mono);
+}
+.cue[aria-current='step'] .cue-num {
+  color: #f6cf83;
+  font-weight: 700;
+}
+.cue-name {
+  display: block;
+}
+.cue-meta {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.8rem;
+}
+.cue-time {
+  font: 0.8rem var(--mono);
+  color: #e5cb9d;
+  white-space: nowrap;
+}
+.cue-tools,
+.score-files {
+  margin-top: 12px;
+}
+.score-files {
+  border-top: 1px solid #3c5545;
+  padding-top: 12px;
+}
+#feedback,
+#empty-score {
+  color: #d7cfac;
+  font-size: 0.85rem;
+  margin: 10px 0 0;
+}
+#feedback:empty {
+  display: none;
+}
+.studio-shell [hidden] {
+  display: none !important;
+}
+@media (max-width: 850px) {
+  .workstation {
+    grid-template-columns: minmax(0, 1.4fr) minmax(248px, 1fr);
+    gap: 10px;
+  }
+  .score {
+    padding: 12px;
+  }
+  .playback {
+    padding: 11px;
+  }
+  .set {
+    height: clamp(275px, 42vh, 410px);
+  }
+}
+@media (max-width: 680px) {
+  .workstation {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'stage' 'editor' 'score';
+  }
+  .set {
+    height: clamp(245px, 36svh, 370px);
+  }
+  .take {
+    padding: 9px 11px;
+  }
+  .editor,
+  .score {
+    padding: 12px;
+  }
+  .studio-panel button {
+    padding-inline: 9px;
+  }
+  .studio-shell .mast nav {
+    gap: 9px;
+  }
+  .fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .view-settings {
+    gap: 16px;
+  }
+  #cue-list {
+    max-height: 40vh;
+  }
+}
+@media (pointer: coarse) {
+  .studio-panel button,
+  .studio-panel select,
+  .fields input {
+    min-height: 42px;
+  }
+}

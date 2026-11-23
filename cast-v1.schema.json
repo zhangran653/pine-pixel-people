@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "松溪可移植角色编排包 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "score",
+    "characters"
+  ],
+  "properties": {
+    "format": {
+      "const": "pine-cast"
+    },
+    "version": {
+      "const": 1
+    },
+    "score": {
+      "$ref": "score-v1.schema.json"
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "$ref": "character-v1.schema.json"
+      }
+    }
+  }
+}

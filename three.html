@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#14231f">
+  <title>溪畔观景台 · Three.js 人物场景</title>
+  <link rel="stylesheet" href="trail.css">
+  <link rel="stylesheet" href="three.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three-r187/three.module.js"}}</script>
+  <script defer src="motion.js"></script>
+  <script defer src="character-slices.js"></script>
+  <script defer src="actor.js"></script>
+  <script defer src="surveyor-art.js"></script>
+  <script defer src="family-art.js"></script>
+  <script defer src="studio-props.js"></script>
+  <script defer src="studio-rig.js"></script>
+  <script defer src="studio-actions.js"></script>
+  <script defer src="duet-clips.js"></script>
+  <script defer src="studio-library.js"></script>
+  <script defer src="designer-body.js"></script>
+  <script defer src="appearance.js"></script>
+  <script defer src="appearance-store.js"></script>
+</head>
+<body>
+  <main class="trail-shell three-shell">
+    <header class="mast">
+      <h1><span class="pine-mark" aria-hidden="true"></span>溪畔观景台</h1>
+      <nav aria-label="人物项目"><a href="atelier.html">人物创作室</a><a href="studio.html">动作工坊</a><a href="motion-standard.html#three">Three.js 接入</a></nav>
+    </header>
+    <section class="three-panel" aria-label="可环视的 Three.js 人物场景">
+      <div class="three-set">
+        <canvas id="clearing" tabindex="0" aria-label="像素人物与三维木平台。拖动环视，滚轮或双指缩放" aria-describedby="view-help"></canvas>
+        <p id="gl-status" role="status">正在加载观景台…</p>
+      </div>
+      <div class="three-console">
+        <div class="now"><h2 id="clip-label">抱起轻摇</h2><span id="cast-label">妈妈与小宝宝</span></div>
+        <fieldset id="three-controls" disabled>
+          <div class="three-row">
+            <label for="showcase">编排 <select id="showcase"></select></label>
+            <button id="play-3d" class="primary" type="button">播放</button>
+            <div class="camera-tools">
+              <button id="rail-view" type="button">从栏杆侧看</button>
+              <button id="home-view" type="button">复位镜头</button>
+              <label><input type="checkbox" id="show-rail" checked>显示栏杆</label>
+            </div>
+          </div>
+          <div class="range-heading"><label for="time-3d">播放进度</label><output id="clock-3d" for="time-3d">0.0 秒</output></div>
+          <input type="range" id="time-3d" min="0" max="1" value="0" step="any">
+        </fieldset>
+      </div>
+    </section>
+    <p id="view-help">拖动环视，滚轮或双指缩放。<span class="key-help">聚焦场景后可用方向键转动镜头、空格键播放或暂停。</span></p>
+    <noscript>请启用 JavaScript 以观看三维场景。</noscript>
+  </main>
+  <script type="module">
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const { startClearing } = await import('./three-demo.mjs');
+        startClearing(globalThis.PineMotion);
+      } catch (error) {
+        console.error(error);
+        const status = document.getElementById('gl-status');
+        status.hidden = false;
+        status.textContent = location.protocol === 'file:'
+          ? '请通过本地 HTTP 服务打开此页，以加载 Three.js 模块。'
+          : '三维场景未能启动。请使用支持 WebGL 2 的浏览器，或返回动作工坊观看。';
+      }
+    }, { once: true });
+  </script>
+</body>
+</html>

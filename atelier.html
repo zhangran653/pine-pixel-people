@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1b302a" />
+    <title>人物创作室 · 松溪像素</title>
+    <link rel="stylesheet" href="atelier.css" />
+    <script defer src="motion.js"></script>
+    <script defer src="character-slices.js"></script>
+    <script defer src="actor.js"></script>
+    <script defer src="surveyor-art.js"></script>
+    <script defer src="family-art.js"></script>
+    <script defer src="studio-props.js"></script>
+    <script defer src="studio-rig.js"></script>
+    <script defer src="studio-actions.js"></script>
+    <script defer src="duet-clips.js"></script>
+    <script defer src="studio-library.js"></script>
+    <script defer src="designer-body.js"></script>
+    <script defer src="appearance.js"></script>
+    <script defer src="appearance-store.js"></script>
+    <script defer src="studio-stage.js"></script>
+    <script defer src="atelier-preview.js"></script>
+    <script defer src="atelier.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="bar-inner">
+        <a class="wordmark" href="index.html"><span class="tree" aria-hidden="true"></span>松溪像素</a>
+        <nav aria-label="项目">
+          <a href="atelier.html" aria-current="page">人物创作室</a><a href="studio.html">动作工坊</a
+          ><a href="appearance-standard.html">创作规范</a>
+        </nav>
+      </div>
+    </header>
+    <main>
+      <header class="title-row">
+        <div>
+          <h1>人物创作室</h1>
+          <p>从一款基型出发，捏出自己的像素人物。</p>
+        </div>
+        <div class="file-tools">
+          <button id="load" type="button">导入角色</button
+          ><button id="export-look" type="button">导出 JSON <span aria-hidden="true">↓</span></button
+          ><input id="look-file" type="file" accept=".json,application/json" hidden />
+        </div>
+      </header>
+      <div class="workbench">
+        <section class="preview-panel" aria-label="人物试衣镜">
+          <div class="stage-head">
+            <h2 id="mirror-name">溪谷学童</h2>
+            <div class="switch" aria-label="取景">
+              <button data-view="body" aria-pressed="true">全身</button
+              ><button data-view="face" aria-pressed="false">脸部</button>
+            </div>
+          </div>
+          <div class="stage">
+            <canvas
+              id="mirror"
+              width="700"
+              height="360"
+              tabindex="0"
+              aria-label="可拖动环视的像素人物。方向键旋转，空格播放"
+            ></canvas>
+            <span id="angle-tag" class="angle-tag">正面偏侧 · 24°</span>
+          </div>
+          <div class="transport">
+            <label for="action">试演动作<select id="action"></select></label
+            ><button id="play-look" aria-pressed="false">播放</button>
+            <label class="orbit" for="bearing"
+              >环视<input id="bearing" type="range" min="0" max="360" value="24"
+            /></label>
+          </div>
+          <div class="compare">
+            <label for="compare">对照人物</label
+            ><select id="compare"></select
+            ><a id="three-link" href="three.html?show=studio">三维试演 <span aria-hidden="true">↗</span></a>
+          </div>
+        </section>
+        <section class="inspector" aria-label="形象编辑">
+          <div class="inspector-head">
+            <h2>编辑形象</h2>
+            <span id="save-state" role="status">新形象</span>
+          </div>
+          <label class="name-field"
+            >角色名<input id="look-name" maxlength="48" required autocomplete="off"
+          /></label>
+          <div class="base-row">
+            <span>人体基型</span>
+            <div class="switch" aria-label="人体基型">
+              <button data-base="child" aria-pressed="true">儿童</button
+              ><button data-base="adult" aria-pressed="false">成人</button>
+            </div>
+          </div>
+          <div class="tabs" role="tablist" aria-label="编辑类别">
+            <button
+              id="tab-shape"
+              role="tab"
+              aria-controls="editor-fields"
+              aria-selected="true"
+              data-tab="shape"
+            >
+              体型
+            </button>
+            <button
+              id="tab-face"
+              role="tab"
+              aria-controls="editor-fields"
+              aria-selected="false"
+              data-tab="face"
+            >
+              五官
+            </button>
+            <button
+              id="tab-wear"
+              role="tab"
+              aria-controls="editor-fields"
+              aria-selected="false"
+              data-tab="wear"
+            >
+              穿搭
+            </button>
+            <button
+              id="tab-colors"
+              role="tab"
+              aria-controls="editor-fields"
+              aria-selected="false"
+              data-tab="colors"
+            >
+              配色
+            </button>
+          </div>
+          <div id="editor-fields" class="fields" role="tabpanel" aria-labelledby="tab-shape"></div>
+          <div class="save-actions">
+            <button id="save-look" class="primary">保存形象</button
+            ><button id="fork-look">另存为新形象</button>
+          </div>
+          <a id="studio-link" class="studio-link" href="studio.html"
+            >保存并进入动作工坊 <span aria-hidden="true">→</span></a
+          >
+        </section>
+        <section class="collection" aria-label="人物形象库">
+          <div class="collection-head">
+            <h2>形象库</h2>
+            <span id="shelf-count"></span>
+          </div>
+          <div id="look-shelf" class="shelf"></div>
+        </section>
+      </div>
+      <p id="feedback" role="status" aria-live="polite"></p>
+      <input id="pack-file" type="file" accept=".json,application/json" hidden />
+      <dialog id="switch-dialog" aria-labelledby="switch-title">
+        <form method="dialog">
+          <h2 id="switch-title">当前形象有未保存的修改</h2>
+          <p>继续切换会放弃本次修改。</p>
+          <div class="file-tools">
+            <button value="cancel" autofocus>继续编辑</button><button value="discard">放弃修改并切换</button>
+          </div>
+        </form>
+      </dialog>
+      <noscript>启用 JavaScript 后即可编辑人物和试看动作。</noscript>
+    </main>
+  </body>
+</html>

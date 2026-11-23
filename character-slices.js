@@ -1,0 +1,211 @@
+// Paint in body coordinates. Density sets the number of samples per unit on each axis.
+function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]) {
+  const [nx,ny,nz]=box.map(n=>Math.ceil(n*density)), pitch=nx*ny;
+  const bottleMaterials = {
+    enamel: '396fa8', enamelLight: '639bc8', enamelFoot: '374f77',
+    bottleBand: 'a2ccdc', steel: 'c1cfd0', spout: 'e4e8d9', seal: '465b67'
+  };
+  const palette = [[0, 0, 0]], ink = {};
+  for (const [name, hex] of Object.entries({...art.materials, ...bottleMaterials, ...accessories?.materials})) {
+    ink[name] = palette.length;
+    palette.push([0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16)));
+  }
+  const littleEndian = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+  const swatches = palette.map(channels => Array.from({ length: 32 }, (_, level) => {
+    const light = level ? level / 24 : .96;
+    const [r,g,b] = channels.map(c => Math.min(255,Math.round(c*light)));
+    return littleEndian ? (255<<24)|(b<<16)|(g<<8)|r : (r<<24)|(g<<16)|(b<<8)|255;
+  }));
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const MaterialGrid=palette.length<=256?Uint8Array:palette.length<=65536?Uint16Array:Uint32Array;
+
+  function paintBottle({base, lip, held}, rightArm, stamp, link) {
+    const vector = lip.map((v, i) => v-base[i]);
+    const length = Math.hypot(...vector);
+    if (length < .001) return;
+    const axis = vector.map(v => v/length);
+    const [ax,ay,az] = axis, [bx,by,bz] = base, radius = 2.05;
+    const bounds = dim => [Math.min(base[dim],lip[dim])-radius, Math.max(base[dim],lip[dim])+radius];
+    stamp(...bounds(0), ...bounds(1), ...bounds(2), (x,y,z) => {
+      const dx=x-bx, dy=y-by, dz=z-bz;
+      const along = ax*dx+ay*dy+az*dz, t=along/length;
+      if (t < 0 || t > 1) return 0;
+      const rx=dx-along*ax, ry=dy-along*ay, rz=dz-along*az;
+      let r = radius;
+      if (t < .10) r = lerp(1.63, radius, t/.10);
+      else if (t > .92) r = 1.05;
+      else if (t > .80) r = .84;
+      else if (t > .61) r = lerp(radius, .94, (t-.61)/.19);
+      if (rx*rx+ry*ry+rz*rz > r*r) return 0;
+      if (t > .89) return ink.spout;
+      if (t > .77) return ink.seal;
+      if (t > .63) return ink.steel;
+      if (t < .10) return ink.enamelFoot;
+      if (t < .25) return ink.bottleBand;
+      return .5*rx-.72*ry+.25*rz > 1.28 ? ink.enamelLight : ink.enamel;
+    });
+    if (!rightArm || held === false) return;
+    const reach = rightArm.hand.map((v,i) => v-base[i]);
+    const grip = reach.reduce((sum,v,i) => sum+v*axis[i], 0);
+    const normal = reach.map((v,i) => v-grip*axis[i]);
+    const distance = Math.hypot(...normal);
+    if (distance < .01 || distance > 3.45 || grip < .8 || grip > .77*length) return;
+    const [ux,uy,uz] = normal.map(v => v/distance);
+    const tangent = [ay*uz-az*uy, az*ux-ax*uz, ax*uy-ay*ux];
+    const outward = [ux,uy,uz];
+    function onGrip(h, angle) {
+      return base.map((v,i) => v+(grip+h)*axis[i]+radius*(outward[i]*Math.cos(angle)+tangent[i]*Math.sin(angle)));
+    }
+    // Two short finger pads and an opposing thumb leave the enamel band visible.
+    for (const h of [-.62,.53]) {
+      link(onGrip(h,.05), onGrip(h-.13,1.13), .68, .51, 1, () => ink.skinLight);
+    }
+    link(onGrip(1.12,-.08), onGrip(.46,-.94), .74, .53, 1, () => ink.skin);
+  }
+
+  function makePose(pose) {
+    let frame = null;
+    const cells = new MaterialGrid(pitch * nz);
+    function fillBounds(x0, x1, y0, y1, z0, z1, paint) {
+      const left=Math.max(0,Math.floor(x0*density+nx/2)), right=Math.min(nx,Math.ceil(x1*density+nx/2));
+      const top=Math.max(0,Math.floor(y0*density+ny/2)), bottom=Math.min(ny,Math.ceil(y1*density+ny/2));
+      const low=Math.max(0,Math.floor(z0*density)), high=Math.min(nz,Math.ceil(z1*density));
+      for (let z=low;z<high;z++) {
+        const pz=(z+.5)/density;
+        for (let y=top;y<bottom;y++) {
+          const py=(y+.5-ny/2)/density, row=z*pitch+y*nx;
+          for (let x=left;x<right;x++) {
+            const color=paint((x+.5-nx/2)/density,py,pz);
+            if (color) cells[row+x]=color;
+          }
+        }
+      }
+    }
+    // Sample a rigid part in its original drawing coordinates. Inverse sampling
+    // visits every destination pixel even when a thin feature tilts between slices.
+    function stamp(x0, x1, y0, y1, z0, z1, paint) {
+      if (!frame) {
+        fillBounds(x0, x1, y0, y1, z0, z1, paint);
+        return;
+      }
+      const m = frame;
+      const cx=(x1+x0)/2, cy=(y1+y0)/2, cz=(z1+z0)/2;
+      const hx=(x1-x0)/2, hy=(y1-y0)/2, hz=(z1-z0)/2;
+      const bound = row => {
+        const center = m[row]*cx + m[row+1]*cy + m[row+2]*cz + m[row+3];
+        const extent = Math.abs(m[row])*hx + Math.abs(m[row+1])*hy + Math.abs(m[row+2])*hz;
+        return [center-extent, center+extent];
+      };
+      fillBounds(...bound(0), ...bound(4), ...bound(8), (x, y, z) => {
+        const dx=x-m[3], dy=y-m[7], dz=z-m[11];
+        return paint(m[0]*dx+m[4]*dy+m[8]*dz, m[1]*dx+m[5]*dy+m[9]*dz, m[2]*dx+m[6]*dy+m[10]*dz);
+      });
+    }
+    function blob(x, y, z, rx, ry, rz, color, exponent = 2) {
+      stamp(x-rx, x+rx, y-ry, y+ry, z-rz, z+rz, (px, py, pz) => {
+        const u = Math.abs((px-x)/rx), v = Math.abs((py-y)/ry), w = Math.abs((pz-z)/rz);
+        if (u ** exponent + v ** exponent + w ** exponent > 1) return 0;
+        return typeof color === 'function' ? color(px, py, pz) : color;
+      });
+    }
+    // A tapered solid joins two points. The rounded ends keep moving joints joined.
+    function link(a, b, r0, r1, width, color) {
+      const dx = b[0]-a[0], dy = b[1]-a[1], dz = b[2]-a[2];
+      const length2 = dx*dx + dy*dy + dz*dz;
+      const m = Math.max(r0, r1) * Math.max(1, width);
+      stamp(Math.min(a[0], b[0])-m, Math.max(a[0], b[0])+m,
+        Math.min(a[1], b[1])-m, Math.max(a[1], b[1])+m,
+        Math.min(a[2], b[2])-m, Math.max(a[2], b[2])+m, (x, y, z) => {
+          const t = clamp(((x-a[0])*dx + (y-a[1])*dy + (z-a[2])*dz) / length2, 0, 1);
+          const u = x - a[0] - dx*t, v = (y - a[1] - dy*t) / width, w = z - a[2] - dz*t;
+          if (u*u + v*v + w*w > lerp(r0, r1, t) ** 2) return 0;
+          return color(t, u, v, w);
+        });
+    }
+    const brush = {density, frame(transform) {frame=transform;}, stamp, blob, link};
+    art.paint(pose, brush, ink);
+    frame = null;
+    if (pose.bottle) paintBottle(pose.bottle, pose.arms.find(arm => arm.side === -1), stamp, link);
+    if (accessories && pose.props?.length) accessories.paint(pose,brush,ink);
+
+    const colors = new Uint32Array(cells.length);
+    const bounds=[nx,ny,nz,0,0,0];
+    for (let i=0;i<cells.length;i++) {
+      const material=cells[i];
+      if (!material) continue;
+      const dx = Number(!!cells[i-1]) - Number(!!cells[i+1]);
+      const dy = Number(!!cells[i-nx]) - Number(!!cells[i+nx]);
+      const dz = Number(!!cells[i-pitch]) - Number(!!cells[i+pitch]);
+      const n = Math.hypot(dx,dy,dz);
+      const shade = n ? Math.round((.94 + .17*(.43*dx - .37*dy + .81*dz)/n)*24) : 0;
+      colors[i] = swatches[material][shade];
+      const x=i%nx, row=(i-x)/nx, y=row%ny, z=(row-y)/ny;
+      if(x<bounds[0])bounds[0]=x;if(x>=bounds[3])bounds[3]=x+1;
+      if(y<bounds[1])bounds[1]=y;if(y>=bounds[4])bounds[4]=y+1;
+      if(z<bounds[2])bounds[2]=z;if(z>=bounds[5])bounds[5]=z+1;
+    }
+    return { colors, sheets: [], bounds };
+  }
+
+  return {...createSliceProjector(nx,ny,nz,density), makePose};
+}
+
+function createSliceProjector(nx,ny,nz,density) {
+  const dimensions=[nx,ny,nz], pitch=nx*ny;
+  // Repack the same horizontal images along either lateral axis for edge-on views.
+  const faces = [[1,2],[0,2],[0,1]], cols = 8, gutter = 2;
+  function sheet(model, axis) {
+    if (model.sheets[axis]) return model.sheets[axis];
+    const [u,v] = faces[axis], w = dimensions[u], h = dimensions[v];
+    const tw = w+2*gutter, th = h+2*gutter;
+    const image = document.createElement('canvas');
+    image.width = cols*tw; image.height = th*Math.ceil(dimensions[axis]/cols);
+    const c = image.getContext('2d', {willReadFrequently:true}), data = c.createImageData(image.width,image.height);
+    const out = new Uint32Array(data.data.buffer);
+    // Atlas offsets are separable along x, y and z, including the gutters of each slice.
+    const offsets=dimensions.map((length, dim)=>Int32Array.from({length},(_,i)=>{
+      if (dim===u) return i;
+      if (dim===v) return i*image.width;
+      return (Math.floor(i/cols)*th+gutter)*image.width+(i%cols)*tw+gutter;
+    }));
+    for (let z=0;z<nz;z++) for (let y=0;y<ny;y++) {
+      const src=z*pitch+y*nx, dest=offsets[2][z]+offsets[1][y];
+      for (let x=0;x<nx;x++) {
+        const value=model.colors[src+x];
+        if (value) out[dest+offsets[0][x]]=value;
+      }
+    }
+    c.putImageData(data,0,0);
+    return model.sheets[axis] = {image,w,h,tw,th};
+  }
+
+  function draw(ctx, model, x, y, azimuth, elevation, worldScale) {
+    const scale=worldScale/density;
+    const a = Math.cos(azimuth), b = Math.sin(azimuth), c = Math.cos(elevation), s = Math.sin(elevation);
+    const axes = [[-b,s*a,c*a],[a,s*b,c*b],[0,-c,s]];
+    let axis = 0;
+    for (let i=1;i<3;i++) if (Math.abs(axes[i][2]) > Math.abs(axes[axis][2])) axis=i;
+    const normal=axes[axis], across=axes[faces[axis][0]], down=axes[faces[axis][1]], source=sheet(model,axis);
+    const ox=x-scale*(axes[0][0]*nx/2+axes[1][0]*ny/2);
+    const oy=y-scale*(axes[0][1]*nx/2+axes[1][1]*ny/2);
+    const samples=Math.max(1,Math.ceil(scale*Math.hypot(normal[0],normal[1])*1.7));
+    ctx.save();
+    ctx.imageSmoothingEnabled=false;
+    for (let pass=0; pass<dimensions[axis]; pass++) {
+      const k=normal[2]>=0 ? pass : dimensions[axis]-1-pass;
+      for (let sub=0; sub<samples; sub++) {
+        const d=k+((normal[2]>=0?sub:samples-1-sub)+.5)/samples;
+        ctx.setTransform(scale*across[0],scale*across[1],scale*down[0],scale*down[1],ox+d*scale*normal[0],oy+d*scale*normal[1]);
+        ctx.drawImage(source.image,(k%cols)*source.tw+gutter,Math.floor(k/cols)*source.th+gutter,source.w,source.h,0,0,source.w,source.h);
+      }
+    }
+    ctx.restore();
+  }
+  function drawSlice(ctx, model, level) {
+    const atlas=sheet(model,2), k=level-1;
+    ctx.clearRect(0,0,nx,ny);
+    ctx.drawImage(atlas.image,(k%cols)*atlas.tw+gutter,Math.floor(k/cols)*atlas.th+gutter,nx,ny,0,0,nx,ny);
+  }
+  return { draw, drawSlice, nx, ny, nz, density };
+}
