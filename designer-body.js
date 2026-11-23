@@ -444,7 +444,10 @@ const pineDesignerBody = (() => {
     const tee = parts.top === 'tee',
       hoodie = parts.top === 'hoodie',
       cardigan = parts.top === 'cardigan';
-    const jacket = parts.top !== 'pullover' && !tee && !hoodie && !cardigan,
+    const workshopTop = Object.hasOwn(pineWorkshopWear.clothes.top, parts.top),
+      workshopBottom = Object.hasOwn(pineWorkshopWear.clothes.bottom, parts.bottom),
+      workshopShoes = Object.hasOwn(pineWorkshopWear.clothes.shoes, parts.shoes);
+    const jacket = !workshopTop && parts.top !== 'pullover' && !tee && !hoodie && !cardigan,
       scarf = parts.neck === 'scarf';
     const loose = Object.hasOwn(looseLengths, parts.hair);
     const hairstyle =
@@ -543,6 +546,20 @@ const pineDesignerBody = (() => {
       upperBack: socket('torso', [-0.89 * chestDepth, -0.15 * rig.shoulder[1], rig.shoulder[2] - 0.65 * s])
     };
     const materials = palette(recipe.colors, surfaceDetails);
+    const equipped = pineWorkshopWear.needsRelease(parts, recipe.colors);
+    if (equipped) Object.assign(materials, pineWorkshopWear.materials(recipe.colors, tint));
+    const bottleLength = rig.height * 0.136;
+    if (parts.bottle) {
+      const dock =
+        parts.bag === 'trail-pack' || parts.bag === 'school-pack'
+          ? [
+              -1.43 * chestDepth,
+              -1.07 * rig.shoulder[1],
+              rig.pelvis[2] + 0.52 * (rig.neck[2] - rig.pelvis[2])
+            ]
+          : [-0.69 * chestDepth, -1.08 * hipHalf, rig.pelvis[2] + 0.35 * (rig.neck[2] - rig.pelvis[2])];
+      sockets.bottleDock = socket('torso', dock);
+    }
 
     // The hem follows both upper legs. Its cross-section turns upward over bent
     // knees, and each half follows its own thigh during a running stride.
@@ -618,7 +635,23 @@ const pineDesignerBody = (() => {
         const side = i ? 1 : -1,
           foot = pose.feet[i],
           { hip, knee } = pose.legs[i];
-        if (cargo) {
+        if (workshopBottom) {
+          const denim = parts.bottom === 'cuffed-denim',
+            patches = parts.bottom === 'knee-pants';
+          thighLink(hip, knee, 1.015 * thigh, 1.04 * kneeRadius, 0.96, (t, u, v) => {
+            if (patches && t > 0.7 && u > 0.4 * kneeRadius && Math.abs(v) < 0.74 * kneeRadius)
+              return k.bottomLight;
+            if (side * v > 0.62 * thigh && Math.abs(u) < 0.16 * thigh) return k.bottomLight;
+            return side * v < -0.65 * thigh ? k.bottomShade : k.bottom;
+          });
+          shinLink(knee, foot, 1.04 * kneeRadius, 1.07 * ankleRadius, 0.95, (t, u, v) => {
+            if (denim && t > 0.68) return t > 0.73 && t < 0.9 ? k.bottomLight : k.bottomShade;
+            if (patches && t < 0.19 && u > 0.43 * kneeRadius && Math.abs(v) < 0.74 * kneeRadius)
+              return k.bottomLight;
+            if (!denim && t > 0.85) return k.bottomShade;
+            return side * v < -0.65 * ankleRadius ? k.bottomShade : k.bottom;
+          });
+        } else if (cargo) {
           thighLink(hip, knee, 1.11 * thigh, 1.13 * kneeRadius, 1, (t, u, v) => {
             if (t > 0.77 && u > 0.48 * kneeRadius) return k.bottomLight;
             return side * v < -0.69 * thigh ? k.bottomShade : k.bottom;
@@ -678,6 +711,22 @@ const pineDesignerBody = (() => {
         const forward = 1 - 2 * clamp((dx / (Math.hypot(dx, dz) || 1) - 0.7) / 0.29, 0, 1);
         const toe = shoeX * 0.25 * forward,
           sh = ankle * (boots ? 0.73 : 0.64);
+        if (workshopShoes) {
+          pineWorkshopWear.shoe(
+            parts.shoes,
+            b,
+            k,
+            foot,
+            knee,
+            side,
+            shoeX,
+            shoeY,
+            ankle,
+            ankleRadius,
+            forward
+          );
+          continue;
+        }
         if (highTops || flats) {
           const h = ankle * (flats ? 0.47 : 0.66),
             sx = shoeX * (flats ? 0.96 : 1.035);
@@ -791,7 +840,14 @@ const pineDesignerBody = (() => {
       const upperLink = softContours ? contouredLink(b, pose.torso, limbContours.upperArm) : b.link;
       const foreLink = softContours ? contouredLink(b, pose.torso, limbContours.forearm) : b.link;
       for (const { side, shoulder, elbow, wrist, hand } of pose.arms) {
-        if (tee) {
+        if (workshopTop) {
+          upperLink(shoulder, elbow, 1.035 * upper, 1.02 * elbowR, 0.97, (t, u, v) =>
+            pineWorkshopWear.sleeve(parts.top, t, u, v, side, elbowR, false, k)
+          );
+          foreLink(elbow, wrist, 1.02 * elbowR, cuff, 0.96, (t, u, v) =>
+            pineWorkshopWear.sleeve(parts.top, t, u, v, side, cuff, true, k)
+          );
+        } else if (tee) {
           upperLink(shoulder, elbow, upper * 0.85, elbowR * 0.82, 0.91, (t, u, v) =>
             side * v < -0.43 * elbowR ? k.skin : k.skinLight
           );
@@ -839,6 +895,7 @@ const pineDesignerBody = (() => {
             t > 0.77 ? (jacket ? k.topStitch : k.topShade) : side * v < -0.69 * s ? k.topShade : k.top
           );
         }
+        if (parts.wrist && side === 1) pineWorkshopWear.wristwear(parts.wrist, b, k, { elbow, wrist }, cuff);
         const length = Math.hypot(...hand.map((v, j) => v - wrist[j])) || 1;
         const axis = hand.map((v, j) => (v - wrist[j]) / length);
         const near = hand.map((v, j) => v - 0.39 * palm * axis[j]),
@@ -857,7 +914,9 @@ const pineDesignerBody = (() => {
     }
     function drawTorso(pose, b, k) {
       b.frame(pose.torso);
-      const low = rig.pelvis[2] - hipHeight * 0.47 - (hoodie ? 0.42 * s : cardigan ? 0.52 * s : 0),
+      const coatDrop =
+        parts.top === 'striped-cardigan' ? 1.48 * s : parts.top === 'field-jacket' ? 0.52 * s : 0;
+      const low = rig.pelvis[2] - hipHeight * 0.47 - (hoodie ? 0.42 * s : cardigan ? 0.52 * s : coatDrop),
         high = rig.neck[2] - 0.1 * s,
         tall = high - low;
       const ease = hoodie ? 1.085 : cardigan ? 1.025 : 1;
@@ -904,6 +963,15 @@ const pineDesignerBody = (() => {
         const section = u2 * u2 + v2 * v2 + corner * (u2 * (1 - u2) + v2 * (1 - v2));
         if (t < 0 || t > 1 - cut.shoulderSlope * v2 - shoulderDrop || section > 1) return 0;
         const a = Math.abs(v);
+        if (parts.bag || parts.attachment) {
+          const strap = pineWorkshopWear.straps(parts.bag, parts.attachment, u, v, t, k);
+          if (strap) return strap;
+        }
+        if (parts.bottom === 'bib-overalls') {
+          const bib = pineWorkshopWear.bib(u, v, t, k);
+          if (bib) return bib;
+        }
+        if (workshopTop) return pineWorkshopWear.fabric(parts.top, u, v, t, k);
         if (tee) {
           const crew = 0.852 + 0.37 * a * a;
           if (u > 0.44 && a < 0.6 && t > crew) return t < crew + 0.052 ? k.topStitch : k.skin;
@@ -941,7 +1009,9 @@ const pineDesignerBody = (() => {
         if (t < 0.14 && a > 0.18 && Math.floor(a * 14) % 2 === 0) return k.topShade;
         return u < -0.62 ? k.topShade : k.top;
       });
-      if (tee) {
+      if (workshopTop) {
+        pineWorkshopWear.torsoDetails(parts.top, b, k, chestDepth, broad, low, tall);
+      } else if (tee) {
         // A small stitched chest pocket also gives the tee an asymmetric side view.
         const px = 0.89 * chestDepth,
           py = 0.4 * broad,
@@ -1071,6 +1141,21 @@ const pineDesignerBody = (() => {
           0.045 * tall,
           k.accent,
           2.5
+        );
+      }
+      if (parts.bag || parts.attachment) pineWorkshopWear.luggage(parts, b, k, chestDepth, broad, low, tall);
+      if (parts.bottle) {
+        const [x, y, z] = sockets.bottleDock.point,
+          r = rig.height * 0.043;
+        b.blob(
+          x + 0.48 * r,
+          y + 0.63 * r,
+          z - 0.66 * bottleLength,
+          1.1 * r,
+          0.8 * r,
+          0.23 * bottleLength,
+          (_x, _y, pz) => (pz > z - 0.56 * bottleLength ? k.bagLight : k.bagShade),
+          3
         );
       }
       b.blob(rig.neck[0], 0, rig.neck[2], fit.rx * 0.397, fit.ry * 0.41, fit.rz * 0.235, k.skin, 2.3);
@@ -1877,6 +1962,10 @@ const pineDesignerBody = (() => {
         drawTiedHair(b, k);
       else if (loose) drawLooseHair(pose, b, k);
       else if (hairstyle === 'twin-braids') drawTwinBraids(pose, b, k);
+      if (parts.glasses || parts.ears) {
+        b.frame(pose.head);
+        pineWorkshopWear.facewear(parts, b, k, fit, eyeY, eyeZ, faceFront);
+      }
       if (hasHat) {
         b.frame(pose.head);
         paintHat(pose, b, k, fit);
@@ -1885,6 +1974,26 @@ const pineDesignerBody = (() => {
     }
     const art = {
       materials,
+      devices: { phone: parts.phone, laptop: parts.laptop },
+      ...(parts.bottle
+        ? {
+            bottleStyle: parts.bottle,
+            bottleScale: rig.height / 50,
+            bottleMaterials: {
+              enamel: materials.bottleMain,
+              enamelLight: materials.bottleLight,
+              enamelFoot: materials.bottleShade
+            },
+            carriedBottle(pose) {
+              const dock = sockets.bottleDock.point;
+              return {
+                lip: studioRig.point(pose.torso, dock),
+                base: studioRig.point(pose.torso, [dock[0], dock[1], dock[2] - bottleLength]),
+                held: false
+              };
+            }
+          }
+        : {}),
       portraitLighting: {
         soft: [
           'skin',

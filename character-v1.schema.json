@@ -57,7 +57,8 @@
             "1.4.0",
             "1.5.0",
             "1.6.0",
-            "1.6.1"
+            "1.6.1",
+            "1.7.0"
           ]
         }
       },
@@ -164,7 +165,13 @@
             "pullover",
             "tee",
             "hoodie",
-            "cardigan"
+            "cardigan",
+            "trail-shell",
+            "field-jacket",
+            "striped-cardigan",
+            "rain-anorak",
+            "sailor-knit",
+            "snap-knit"
           ]
         },
         "bottom": {
@@ -172,7 +179,10 @@
             "shorts",
             "trousers",
             "skirt",
-            "cargo"
+            "cargo",
+            "cuffed-denim",
+            "knee-pants",
+            "bib-overalls"
           ]
         },
         "shoes": {
@@ -180,7 +190,11 @@
             "sneakers",
             "boots",
             "high-tops",
-            "flats"
+            "flats",
+            "trail-boots",
+            "strap-sneakers",
+            "canvas-shoes",
+            "soft-booties"
           ]
         },
         "neck": {
@@ -193,6 +207,56 @@
         "hat": {
           "type": "string",
           "pattern": "^(?:none|[a-z][a-z0-9-]{0,39}/[a-z][a-z0-9-]{0,39})$"
+        },
+        "bag": {
+          "enum": [
+            "trail-pack",
+            "survey-satchel",
+            "school-pack"
+          ]
+        },
+        "attachment": {
+          "enum": [
+            "bedroll",
+            "map-tube"
+          ]
+        },
+        "glasses": {
+          "enum": [
+            "round",
+            "square",
+            "shades"
+          ]
+        },
+        "ears": {
+          "enum": [
+            "studs",
+            "hoops"
+          ]
+        },
+        "wrist": {
+          "enum": [
+            "watch",
+            "sport-band"
+          ]
+        },
+        "bottle": {
+          "enum": [
+            "canteen",
+            "thermos"
+          ]
+        },
+        "phone": {
+          "enum": [
+            "rugged",
+            "folio"
+          ]
+        },
+        "laptop": {
+          "enum": [
+            "field",
+            "stickers"
+          ]
         }
       }
     },
@@ -234,6 +298,38 @@
           "pattern": "^#[a-fA-F0-9]{6}$"
         },
         "accent": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "hat": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "bag": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "attachment": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "glasses": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "ears": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "wrist": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "bottle": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "device": {
           "type": "string",
           "pattern": "^#[a-fA-F0-9]{6}$"
         }
@@ -505,6 +601,83 @@
                   "curly"
                 ]
               }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "packs": {
+            "properties": {
+              "pine-core": {
+                "not": {
+                  "const": "1.7.0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "parts": {
+            "properties": {
+              "top": {
+                "enum": [
+                  "jacket",
+                  "pullover",
+                  "tee",
+                  "hoodie",
+                  "cardigan"
+                ]
+              },
+              "bottom": {
+                "enum": [
+                  "shorts",
+                  "trousers",
+                  "skirt",
+                  "cargo"
+                ]
+              },
+              "shoes": {
+                "enum": [
+                  "sneakers",
+                  "boots",
+                  "high-tops",
+                  "flats"
+                ]
+              },
+              "bag": false,
+              "attachment": false,
+              "glasses": false,
+              "ears": false,
+              "wrist": false,
+              "bottle": false,
+              "phone": false,
+              "laptop": false,
+              "hat": {
+                "not": {
+                  "enum": [
+                    "pine-core/trail-cap",
+                    "pine-core/survey-hat",
+                    "pine-core/cotton-cap"
+                  ]
+                }
+              }
+            }
+          },
+          "colors": {
+            "properties": {
+              "hat": false,
+              "bag": false,
+              "attachment": false,
+              "glasses": false,
+              "ears": false,
+              "wrist": false,
+              "bottle": false,
+              "device": false
             }
           }
         }

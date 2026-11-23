@@ -209,7 +209,9 @@ const soloClips = (() => {
     const ch = { headPitch: -0.15 * tilt, headYaw: -0.055 * tilt, blink: blink(u) };
     const rest = pose(r, ch),
       mouth = studioRig.socket(a, rest, 'mouth'),
-      dock = point(rest.torso, [-4.85 * s, -6.65 * s, 0.536 * h]);
+      dock = a.sockets?.bottleDock
+        ? studioRig.socket(a, rest, 'bottleDock')
+        : point(rest.torso, [-4.85 * s, -6.65 * s, 0.536 * h]);
     const lip = blend(dock, mouth, raise);
     lip[0] += 2 * s * Math.sin(pi * raise);
     lip[1] -= 2.7 * s * Math.sin(pi * raise);

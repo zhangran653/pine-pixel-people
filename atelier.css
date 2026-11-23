@@ -883,3 +883,29 @@ dialog p {
     min-width: 44px;
   }
 }
+
+.workshop-outfits .preset-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.workshop-outfits .preset-choices button {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 5px 2px 7px;
+  line-height: 1.3;
+}
+.workshop-outfits canvas {
+  display: block;
+  width: 54px;
+  height: 54px;
+  image-rendering: pixelated;
+}
+.workshop-outfits .fabric-swatch { height: 4px; }
+.workshop-outfits .fabric-swatch i { width: 8px; }
+.wear-section { border-top: 1px solid #d9dfd0; padding-top: 3px; }
+.wear-section legend { padding-right: 9px; }
+.wear-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.wear-actions button { padding: 5px 8px; font-size: 0.8rem; }

@@ -347,3 +347,9 @@
     min-height: 42px;
   }
 }
+
+.actor-field { flex: 1.3 1 125px; min-width: 0; }
+.actor-field > div { display: flex; justify-content: space-between; align-items: baseline; gap: 3px; }
+.actor-field label { flex: none; }
+#edit-outfit { color: #edcd82; font-size: .8rem; text-underline-offset: 2px; }
+#edit-outfit[hidden] { display: none; }

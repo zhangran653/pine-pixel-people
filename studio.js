@@ -86,6 +86,12 @@
   function listActions(wanted, partner) {
     const groups = new Map(),
       p = lib.characters.get($who.value);
+    const outfit = id('edit-outfit');
+    const workshop = Object.hasOwn(PineLooks.workshopOutfits, p.id);
+    const editable = PineWardrobe.saved.has(p.id);
+    outfit.hidden = !workshop && !editable;
+    outfit.textContent = workshop ? '试穿同款 ↗' : '编辑穿搭 ↗';
+    if (!outfit.hidden) outfit.href = 'atelier.html?tab=wear&' + (workshop ? 'preset=look_workshop_' : 'saved=') + encodeURIComponent(p.id);
     $which.replaceChildren();
     for (const clip of lib.actions.values())
       if (lib.accepts(clip, 0, p)) {

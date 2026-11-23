@@ -380,7 +380,8 @@ const atelierPreview = (() => {
     const portrait = view === 'face',
       camera = lens(bearing, portrait);
     const frames = groups.map((g) => framing(g, motion, camera, portrait, groups.length > 1));
-    const measured = !portrait && fullBodyLayout(w, h, groups, frames, motion, pixel, action, camera);
+    const measured =
+      !portrait && !compact && fullBodyLayout(w, h, groups, frames, motion, pixel, action, camera);
     let scale, origins;
     if (measured) {
       ({ scale, origins } = measured);
@@ -565,11 +566,11 @@ const atelierPreview = (() => {
     };
   }
 
-  function thumbnail(canvas, actor, bearing = 24) {
+  function thumbnail(canvas, actor, bearing = 24, view = 'face') {
     const [width, height, w, h] = dimensions(canvas, true);
     resizeTo(canvas, width, height);
     const angle = Number.isFinite(bearing) ? ((bearing % 360) + 360) % 360 : 24;
-    const key = [w, h, angle].join('/');
+    const key = [w, h, angle, view].join('/');
     let saved = portraits.get(actor);
     if (!saved || saved.body !== actor.body) {
       saved = { body: actor.body, angles: new Map() };
@@ -583,7 +584,7 @@ const atelierPreview = (() => {
       const motion = globalThis.PineMotion,
         clip = motion.actions.get('idle');
       const groups = sampleFrame(motion, actor, null, clip, 0.17);
-      paint(image.getContext('2d'), w, h, groups, motion, clip.id, angle, 'face', true);
+      paint(image.getContext('2d'), w, h, groups, motion, clip.id, angle, view, true);
       if (saved.angles.size >= 4) saved.angles.delete(saved.angles.keys().next().value);
       saved.angles.set(key, image);
     }

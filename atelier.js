@@ -25,7 +25,15 @@
     bottom: '下装',
     shoes: '鞋款',
     neck: '颈饰',
-    hat: '帽子'
+    hat: '帽子',
+    bag: '背包与挎包',
+    attachment: '包外挂',
+    glasses: '眼镜',
+    ears: '耳饰',
+    wrist: '腕饰',
+    bottle: '随身水壶',
+    phone: '手机外壳',
+    laptop: '笔记本外壳'
   };
   const tabKeys = {
     shape: ['height', 'shoulders', 'arms', 'legs'],
@@ -54,7 +62,7 @@
     thumbnails = new WeakMap();
   function paintThumbnail(canvas) {
     const item = thumbnails.get(canvas);
-    if (item) atelierPreview.thumbnail(canvas, item.actor, item.bearing);
+    if (item) atelierPreview.thumbnail(canvas, item.actor, item.bearing, item.view);
   }
   function paintThumbnails(container) {
     for (const canvas of container.querySelectorAll('canvas')) paintThumbnail(canvas);
@@ -237,8 +245,13 @@
     for (const [v, text] of options) field.add(new Option(text, v));
     field.value = value;
     field.onchange = () => {
+      const pin = draft.packs[looks.core];
       apply(field.value);
       changed();
+      if (tab === 'wear' && pin !== draft.packs[looks.core]) {
+        fields();
+        $('edit-' + id)?.focus({ preventScroll: true });
+      }
     };
     label.append(caption, field);
     return label;
@@ -253,7 +266,10 @@
       const outfit = looks.outfits[b.dataset.outfit];
       const match =
         Object.entries(outfit.parts).every(([k, v]) => draft.parts[k] === v) &&
-        Object.entries(outfit.colors).every(([k, v]) => draft.colors[k] === v);
+        Object.entries(outfit.colors).every(([k, v]) => draft.colors[k] === v) &&
+        (!Object.hasOwn(looks.workshopOutfits, b.dataset.outfit) ||
+          (looks.carriedSlots.every((k) => draft.parts[k] === outfit.parts[k]) &&
+            looks.outfitDyes.every((k) => draft.colors[k] === outfit.colors[k])));
       b.setAttribute('aria-pressed', String(match));
     }
     for (const b of document.querySelectorAll('[data-hair-style]'))
@@ -274,6 +290,14 @@
       button.type = 'button';
       button.dataset[type] = id;
       if (type === 'outfit') {
+        if (Object.hasOwn(looks.workshopOutfits, id)) {
+          group.classList.add('workshop-outfits');
+          const thumbnail = document.createElement('canvas');
+          const model = looks.templates.find((t) => t.id === 'look_workshop_' + id);
+          thumbnail.setAttribute('aria-hidden', 'true');
+          thumbnails.set(thumbnail, { actor: actorFor(model), bearing: 29, view: 'body' });
+          button.append(thumbnail);
+        }
         const palette = document.createElement('span');
         palette.className = 'fabric-swatch';
         palette.setAttribute('aria-hidden', 'true');
@@ -289,10 +313,14 @@
         if (button.getAttribute('aria-pressed') === 'true') return;
         apply(preset);
         changed();
+        if (type === 'outfit') {
+          fields();
+          document.querySelector('[data-outfit="' + id + '"]')?.focus({ preventScroll: true });
+          return;
+        }
         for (const select of $('editor-fields').querySelectorAll('select')) {
           const slot = select.id.slice(5);
           if (type === 'facePreset' && Object.hasOwn(preset.face, slot)) select.value = preset.face[slot];
-          if (type === 'outfit' && Object.hasOwn(preset.parts, slot)) select.value = preset.parts[slot];
         }
       };
       row.append(button);
@@ -300,7 +328,7 @@
     return group;
   }
   function figureUpgrade(area) {
-    if (draft.packs[looks.core] === looks.release) return;
+    if ([looks.release, looks.contourRelease].includes(draft.packs[looks.core])) return;
     const update = document.createElement('button');
     update.type = 'button';
     update.id = 'update-head';
@@ -381,7 +409,7 @@
     const input = document.createElement('input');
     input.type = 'color';
     input.id = 'color-' + key;
-    input.value = draft.colors[key];
+    input.value = draft.colors[key] || looks.gearColor(draft.colors, key);
     input.oninput = () => {
       if (draft.colors[key] === input.value) return;
       draft.colors[key] = input.value;
@@ -505,60 +533,119 @@
       hairFields(area);
       return;
     }
-    if (tab === 'wear')
-      area.append(
-        presetGroup('整套穿搭', looks.outfits, 'outfit', (outfit) => {
-          Object.assign(draft.parts, outfit.parts);
-          Object.assign(draft.colors, outfit.colors);
-        })
-      );
-    const grid = document.createElement('div');
-    area.append(grid);
     if (tab === 'wear') {
+      wearFields(area);
+      markPresets();
+      return;
+    }
+    const grid = document.createElement('div');
+    grid.className = 'color-grid';
+    for (const [key, text] of Object.entries({ ...looks.colors, ...looks.gearColors })) {
+      const label = document.createElement('label');
+      label.append(colorInput(key), text);
+      grid.append(label);
+    }
+    area.append(grid);
+  }
+  function wearFields(area) {
+    const apply = (outfit) => looks.applyOutfit(draft, outfit);
+    const featured = presetGroup('工坊同款', looks.workshopOutfits, 'outfit', apply);
+    area.append(featured);
+    paintThumbnails(featured);
+    const everyday = Object.fromEntries(
+      Object.entries(looks.outfits).filter(([id]) => !Object.hasOwn(looks.workshopOutfits, id))
+    );
+    area.append(presetGroup('日常穿搭', everyday, 'outfit', apply));
+    function group(title) {
+      const section = document.createElement('fieldset'),
+        legend = document.createElement('legend'),
+        grid = document.createElement('div');
+      section.className = 'preset-group wear-section';
+      legend.textContent = title;
       grid.className = 'wardrobe-grid';
-      for (const [slot, values] of Object.entries(looks.slots)) {
-        grid.append(
-          picker(names[slot], slot, Object.entries(values), draft.parts[slot], (v) => {
-            draft.parts[slot] = v;
-          })
-        );
-      }
-      const hats = [['none', '无帽饰']];
-      for (const pack of looks.catalog.values()) {
-        if (pack.id === looks.core && pack.release !== draft.packs[looks.core]) continue;
-        for (const p of pack.parts) {
-          hats.push([
-            pack.id + '/' + p.id + '@' + pack.release,
-            p.label + (pack.id === looks.core ? '' : ' · ' + pack.release)
-          ]);
-        }
-      }
-      const hat = draft.parts.hat,
-        owner = hat.split('/')[0];
-      grid.append(
-        picker('帽子', 'hat', hats, hat === 'none' ? 'none' : hat + '@' + draft.packs[owner], (v) => {
-          const [qualified, release] = v.split('@'),
-            packId = qualified.split('/')[0];
-          draft.parts.hat = qualified;
-          draft.packs = { [looks.core]: draft.packs[looks.core] };
-          delete draft.embeddedPacks;
-          if (qualified !== 'none' && packId !== looks.core) draft.packs[packId] = release;
+      section.append(legend, grid);
+      area.append(section);
+      return grid;
+    }
+    const clothing = group('服装与鞋帽');
+    for (const [slot, options] of Object.entries(looks.slots)) {
+      clothing.append(
+        picker(names[slot], slot, Object.entries(options), draft.parts[slot], (v) => {
+          draft.parts[slot] = v;
         })
       );
-      const button = document.createElement('button');
-      button.className = 'pack-action';
-      button.textContent = '导入帽饰包…';
-      button.onclick = () => $('pack-file').click();
-      area.append(button);
-      markPresets();
-    } else {
-      grid.className = 'color-grid';
-      for (const [key, text] of Object.entries(looks.colors)) {
-        const label = document.createElement('label');
-        label.append(colorInput(key), text);
-        grid.append(label);
+    }
+    const pin = draft.packs[looks.core],
+      hats = [['none', '无帽饰']];
+    const pinnedHats = looks.catalog.get(looks.core + '@' + pin).parts;
+    for (const pack of looks.catalog.values()) {
+      if (pack.id === looks.core && pack.release !== looks.release) continue;
+      for (const p of pack.parts) {
+        const version = pack.id === looks.core && pinnedHats.some((h) => h.id === p.id) ? pin : pack.release;
+        hats.push([
+          pack.id + '/' + p.id + '@' + version,
+          p.label + (pack.id === looks.core ? '' : ' · ' + pack.release)
+        ]);
       }
     }
+    const hat = draft.parts.hat;
+    clothing.append(
+      picker(
+        '帽子',
+        'hat',
+        hats,
+        hat === 'none' ? hat : hat + '@' + draft.packs[hat.split('/')[0]],
+        (value) => {
+          const [qualified, version] = value.split('@'),
+            owner = qualified.split('/')[0];
+          draft.parts.hat = qualified;
+          draft.packs = { [looks.core]: pin };
+          delete draft.embeddedPacks;
+          if (qualified !== 'none' && owner !== looks.core) draft.packs[owner] = version;
+        }
+      )
+    );
+    const gear = group('随身配件'),
+      devices = group('动作道具');
+    for (const [slot, options] of Object.entries(looks.wearables)) {
+      const device = slot === 'phone' || slot === 'laptop';
+      (device ? devices : gear).append(
+        picker(
+          names[slot],
+          slot,
+          [['', device ? '工坊原款' : '无'], ...Object.entries(options)],
+          draft.parts[slot] || '',
+          (v) => {
+            if (v) draft.parts[slot] = v;
+            else delete draft.parts[slot];
+          }
+        )
+      );
+    }
+    const actions = document.createElement('div');
+    actions.className = 'wear-actions';
+    for (const [clip, label] of [
+      ['drink', '试演喝水'],
+      ['phone', '试演手机'],
+      ['type', '试演打字']
+    ]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.dataset.tryAction = clip;
+      button.onclick = () => {
+        $('action').value = clip;
+        $('action').dispatchEvent(new Event('change'));
+        $('mirror').scrollIntoView({ block: 'nearest' });
+      };
+      actions.append(button);
+    }
+    devices.parentNode.append(actions);
+    const button = document.createElement('button');
+    button.className = 'pack-action';
+    button.textContent = '导入帽饰包…';
+    button.onclick = () => $('pack-file').click();
+    area.append(button);
   }
   function activate(doc, key, isSaved) {
     draft = clone(doc);
@@ -816,8 +903,9 @@
     schedule();
   });
   const query = new URLSearchParams(location.search);
-  const first = looks.templates.find((doc) => doc.id === query.get('preset')) || looks.templates[0];
-  activate(first, 'preset:' + first.id, false);
+  const stored = wardrobe.saved.get(query.get('saved'));
+  const first = stored || looks.templates.find((doc) => doc.id === query.get('preset')) || looks.templates[0];
+  activate(first, (stored ? 'saved:' : 'preset:') + first.id, !!stored);
   const partner = looks.templates.find((doc) => doc.id !== first.id && doc.id === query.get('compare'));
   if (partner) {
     $('compare').value = 'preset:' + partner.id;

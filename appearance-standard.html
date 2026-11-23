@@ -77,6 +77,7 @@
           <a href="packs/maple-child.json">枫林信使 JSON</a> ·
           <a href="packs/chorus-child.json">双马尾合唱队员</a> ·
           <a href="packs/relay-child.json">单马尾接力跑手</a> ·
+          <a href="packs/workshop-surveyor.json">测绘员整套衣装和随身物</a> ·
           <a href="packs/female-adult.json">女性体型样本</a> ·
           <a href="packs/male-adult.json">男性体型样本</a> ·
           <a href="character-v1.schema.json">角色 JSON Schema</a>
@@ -121,7 +122,7 @@
             <tr>
               <td><code>parts / colors</code></td>
               <td>
-                六个部位分别为头发、上衣、下装、鞋、颈饰和帽子。七个 RGB
+                六个必填部位为头发、上衣、下装、鞋、颈饰和帽子。七个基础 RGB
                 色槽控制肤色、头发、眼睛、上衣、下装、鞋与配饰。发色写在
                 <code>colors.hair</code>，使用六位十六进制 RGB 值，如
                 <code>#82513b</code>。阴影和高光由色槽派生。
@@ -167,7 +168,7 @@
           1.3.0。外部帽包继续使用原先固定的版本。角色文件格式为 pine-character v1。
         </p>
         <p>
-          内置预设使用 pine-core 1.6.1，沿用 1.6.0 的头身比、骨长和接触点。下颌和后脑下缘轻微收拢，肩线过渡到胸背，大腿、小腿、上臂和前臂各有一条沿骨骼变化的截面曲线。儿童的下颌调整幅度较小。<a href="figure-contour-preview.png">查看同一姿势的全身轮廓对照</a>
+          pine-core 1.6.1 对轮廓做了微调，沿用 1.6.0 的头身比、骨长和接触点。下颌和后脑下缘轻微收拢，肩线过渡到胸背，大腿、小腿、上臂和前臂各有一条沿骨骼变化的截面曲线。儿童的下颌调整幅度较小。<a href="figure-contour-preview.png">查看同一姿势的全身轮廓对照</a>
         </p>
         <p>
           四种唇形直接画在脸面上，用唇线、嘴角和上下唇的色差区分款式。唇心位于头部局部坐标 Y = 0，水壶在这里接触脸面。旧存档按各自版本绘制。在「体型」「发型」或「五官」点「试用细调轮廓」可预览当前基础部件，点击「保存」后会记录新版本。<a href="atelier.html?preset=look_body_female&amp;tab=face&amp;bearing=90">从正侧面查看唇线</a>
@@ -203,7 +204,7 @@
           </li>
           <li>
             颜色从 hatMain、hatShade、hatLight、hatTrim、hatInk
-            中选。试穿时这些颜色会随人物的配饰色变化。用「穿搭 →
+            中选。试穿时优先使用帽色 <code>colors.hat</code>，省略时使用配饰色。用「穿搭 →
             导入帽饰包」加载文件，分别给儿童与成人试戴，从正面、侧面和后脑检查轮廓。
           </li>
           <li>
@@ -214,6 +215,28 @@
         <p>
           <a href="part-pack-v1.schema.json">帽饰 JSON Schema</a> ·
           <a href="packs/creek-hats.json">两款帽子的完整原稿</a>
+        </p>
+        <h2 id="wardrobe">工坊穿搭与随身物</h2>
+        <p>
+          pine-core 1.7.0 的套装会展开成独立的上衣、下装、鞋、帽、颈饰、随身物和颜色。选择套装时保留人物的五官、头发、身材和电子设备配置。
+          旧角色选用新款式或新增色槽后，保存的形象会记录依赖版本 1.7.0。
+          <a href="atelier.html?preset=look_workshop_hiker&amp;tab=wear&amp;bearing=145">查看徒步者的包和卷垫</a>
+        </p>
+        <table>
+          <thead><tr><th>可选部位</th><th>绘制与动作</th></tr></thead>
+          <tbody>
+            <tr><td><code>parts.bag / attachment</code></td><td>背包、挎包与外挂独立选用。包与肩带跟随躯干，卷垫横挂，图筒斜挂。</td></tr>
+            <tr><td><code>parts.glasses / ears / wrist</code></td><td>镜框与耳饰跟随头，腕表与手环贴合左前臂。</td></tr>
+            <tr><td><code>parts.bottle</code></td><td>搪瓷水壶或保温杯使用躯干上的 <code>bottleDock</code>。喝水动作取下随身水壶、对准 <code>mouth</code>，再放回挂点。</td></tr>
+            <tr><td><code>parts.phone / laptop</code></td><td>手机壳与笔记本外壳分别在看手机与打字时出现。省略款式时，动作使用工坊原款。</td></tr>
+          </tbody>
+        </table>
+        <p>
+          可选 RGB 色槽为 <code>hat</code>、<code>bag</code>、<code>attachment</code>、<code>glasses</code>、<code>ears</code>、<code>wrist</code>、<code>bottle</code> 与 <code>device</code>。
+          卸下随身物时省略对应的部位字段，其染色可以保留。上衣、下装与鞋沿用必填字段，背带裤的胸兜和背带由下装绘制。
+          运行时可从 <code>PineLooks.slots</code> 和 <code>PineLooks.wearables</code> 读取合法款式，用
+          <code>PineLooks.applyOutfit(recipe, PineLooks.workshopOutfits.surveyor)</code> 修改草稿，再调用 <code>PineLooks.prepare</code> 或 <code>PineLooks.build</code>。
+          <a href="packs/workshop-surveyor.json">完整示例</a> · <a href="character-v1.schema.json">字段与取值</a>
         </p>
         <h2>动作与接触点</h2>
         <p>
@@ -235,7 +258,7 @@
         </p>
         <h2>在自己的页面使用</h2>
         <p>
-          按创作室页面的顺序加载人物、动作、designer-body、appearance 和 appearance-store
+          按创作室页面的顺序加载人物、动作、workshop-wear、designer-body、appearance 和 appearance-store
           脚本。可以把形象文件和 <code>female</code>、<code>male</code> 或 <code>child</code> 传给
           <code>PineLooks.withBodyProfile(characterFile, profile)</code
           >，取得同一角色的新体型副本。用下面的代码构建演员与采样编排。

@@ -18,6 +18,7 @@ const sources = [
   'studio-actions',
   'duet-clips',
   'studio-library',
+  'workshop-wear',
   'designer-body',
   'appearance',
   'appearance-store'
@@ -770,11 +771,106 @@ for (const i of [2, 3]) {
   );
   assert.ok(distance(lead.contacts.palm, partner.contacts.palm) < 0.01);
 }
+// Portable workshop outfits share the existing mannequin and clip contact points.
+const wardrobeSchema = json('character-v1.schema.json').properties;
+for (const id of ['look_body_female', 'look_relay']) {
+  const doc = a.l.templates.find((p) => p.id === id);
+  const prior = { ...doc, packs: { 'pine-core': a.l.contourRelease } };
+  assert.equal(digest(a.l.build(doc), a.m, 'run'), digest(a.l.build(prior), a.m, 'run'));
+}
+const surveyExample = json('packs/workshop-surveyor.json');
+assert.deepEqual(
+  clone(a.l.prepare(a.l.templates.find((p) => p.id === surveyExample.id)).recipe),
+  surveyExample
+);
+for (const [slot, options] of Object.entries(a.l.wearables)) {
+  assert.deepEqual([...Object.keys(options)].sort(), [...wardrobeSchema.parts.properties[slot].enum].sort());
+  const action = slot === 'phone' ? 'phone' : slot === 'laptop' ? 'type' : 'idle';
+  for (const base of ['child', 'adult']) {
+    const plain = { ...current, base };
+    const unadorned = digest(a.l.build(plain), a.m, action);
+    const seen = new Set([unadorned]);
+    for (const value of Object.keys(options)) {
+      const doc = { ...plain, parts: { ...plain.parts, [slot]: value } };
+      const person = a.l.build(doc);
+      seen.add(digest(person, a.m, action));
+      if (slot === 'phone' || slot === 'laptop') {
+        assert.equal(digest(person, a.m), digest(a.l.build(plain), a.m), slot + ' appeared during idle');
+      }
+      assert.throws(() => a.l.prepare({ ...doc, packs: { 'pine-core': a.l.contourRelease } }));
+    }
+    assert.equal(seen.size, Object.keys(options).length + 1, base + ' ' + slot + ' visuals');
+    assert.throws(() => a.l.prepare({ ...plain, parts: { ...plain.parts, [slot]: 'absent-style' } }));
+  }
+}
+const dressed = clone(a.l.templates.find((d) => d.id === 'look_workshop_hiker'));
+Object.assign(dressed.parts, {
+  glasses: 'round',
+  wrist: 'watch',
+  ears: 'hoops',
+  phone: 'rugged',
+  laptop: 'field'
+});
+for (const key of Object.keys(a.l.gearColors)) {
+  assert.ok(wardrobeSchema.colors.properties[key]);
+  const doc = { ...dressed, colors: { ...dressed.colors, [key]: '#20a6fb' } };
+  const action = key === 'device' ? 'type' : 'idle';
+  assert.notEqual(digest(a.l.build(doc), a.m, action), digest(a.l.build(dressed), a.m, action), key + ' dye');
+  assert.throws(() => a.l.prepare({ ...doc, colors: { ...doc.colors, [key]: 'invalid' } }));
+}
+const { recipe: beforeWear } = a.l.prepare(dressed);
+const custom = a.l.applyOutfit(clone(beforeWear), a.l.workshopOutfits.mother);
+assert.deepEqual(custom.shape, clone(beforeWear.shape));
+assert.deepEqual(custom.face, clone(beforeWear.face));
+assert.equal(custom.parts.hair, beforeWear.parts.hair);
+assert.equal(custom.parts.bag, undefined);
+assert.equal(custom.parts.laptop, 'field');
+const cleaned = a.l.applyOutfit(clone(second), a.l.workshopOutfits.surveyor);
+assert.equal(cleaned.embeddedPacks, undefined);
+assert.deepEqual(Object.keys(cleaned.packs), ['pine-core']);
+assert.equal(a.l.prepare(cleaned).recipe.parts.hat, 'pine-core/survey-hat');
+const wardrobeAudience = client();
+const clothesScore = {
+  version: 1,
+  loop: true,
+  steps: [
+    { action: 'drink', actors: [dressed.id] },
+    { action: 'highfive', actors: [dressed.id, cleaned.id] },
+    { action: 'type', actors: [dressed.id] }
+  ]
+};
+const reloaded = wardrobeAudience.w.readScoreFile(
+  clone(a.w.scoreFile(clothesScore, [dressed, cleaned])),
+  true
+);
+const replica = wardrobeAudience.m.characters.get(dressed.id);
+assert.deepEqual(clone(wardrobeAudience.w.saved.get(dressed.id)), clone(beforeWear));
+assert.equal(digest(replica, a.m, 'run'), digest(a.l.build(dressed), a.m, 'run'));
+const [greetA, greetB] = reloaded.sample(reloaded.starts[1] + reloaded.score.steps[1].seconds / 2);
+assert.ok(distance(greetA.contacts.palm, greetB.contacts.palm) < 0.01);
+for (const u of [0, 0.48, 1]) {
+  const pose = a.m.actions.get('drink').sample(u, replica)[0].pose;
+  assert.ok(
+    distance(pose.bottle.lip, a.m.rig.socket(replica, pose, u === 0.48 ? 'mouth' : 'bottleDock')) < 1e-7
+  );
+}
+const noHat = { ...dressed, parts: { ...dressed.parts, hat: 'none' } };
+const spec = a.painter.build(noHat);
+const fitted = a.m.createCharacter({ id: 'look_dock', label: '水壶', ...spec });
+const resting = a.m.actions.get('run').sample(0.31, fitted)[0].pose;
+const carry = spec.art.carriedBottle(resting);
+assert.equal(poseDigest(fitted, resting), poseDigest(fitted, { ...resting, bottle: carry }));
+spec.art.carriedBottle = () => null;
+assert.notEqual(poseDigest(fitted, resting), poseDigest(fitted, { ...resting, bottle: carry }));
+spec.art.carriedBottle = () => {
+  throw Error('drew a second bottle during the drinking clip');
+};
+assert.doesNotThrow(() => digest(fitted, a.m, 'drink', 0.5));
 console.log(
   'PineLooks core ' + a.l.release + ' · 历代存档、全身与五官精度、头型与唇线、扩展体型、发型及双人复演通过'
 );
 console.log(
-  'PineLooks v1 · 两个独立形象跨环境像素一致 · 8 项形体、5 组款式、7 色槽 · 双基型戴帽与喝水通过 · ' +
+  'PineLooks v1 · 角色跨环境像素一致 · 6 套工坊穿搭、8 组可选配件与配色通过 · 双基型戴帽与喝水通过 · ' +
     pairings +
     ' 组击掌 · 编排导入、版本和存档冲突通过'
 );

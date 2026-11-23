@@ -17,6 +17,7 @@
   <script defer src="studio-actions.js"></script>
   <script defer src="duet-clips.js"></script>
   <script defer src="studio-library.js"></script>
+  <script defer src="workshop-wear.js"></script>
   <script defer src="designer-body.js"></script>
   <script defer src="appearance.js"></script>
   <script defer src="appearance-store.js"></script>
@@ -45,7 +46,10 @@
         <h2>动作库</h2>
         <form id="edit-form">
           <div class="fields">
-            <label>人物<select id="who"></select></label>
+            <div class="actor-field">
+              <div><label for="who">人物</label><a id="edit-outfit" href="atelier.html?tab=wear">试穿同款 ↗</a></div>
+              <select id="who"></select>
+            </div>
             <label>动作<select id="which"></select></label>
             <label id="with-field" hidden>搭档<select id="with"></select></label>
             <label>单次秒数<input id="seconds" type="number" min="0" step="any" required></label>

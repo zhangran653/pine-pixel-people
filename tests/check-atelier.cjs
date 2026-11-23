@@ -298,9 +298,53 @@ function checkEditor() {
       PineWardrobe.saved.get(previousFigure.id).packs['pine-core'] === PineLooks.strandRelease,
       'the contour preview changed the original character on disk'
     );
+    byId('tab-wear').click();
+    expect(
+      document.querySelectorAll('.workshop-outfits [data-outfit]').length === 6,
+      'missing workshop outfits'
+    );
+    document.querySelector('[data-outfit="hiker"]').click();
+    expect(
+      byId('edit-bag').value === 'trail-pack' && byId('edit-top').value === 'trail-shell',
+      'hiker outfit'
+    );
+    const change = (id, value) => {
+      const field = byId('edit-' + id);
+      field.value = value;
+      field.dispatchEvent(new Event('change'));
+    };
+    change('glasses', 'round');
+    change('phone', 'rugged');
+    document.querySelector('[data-outfit="surveyor"]').click();
+    expect(
+      byId('edit-glasses').value === '' && byId('edit-phone').value === 'rugged',
+      'wearable vs device selection'
+    );
+    expect(
+      byId('edit-hat').value === 'pine-core/survey-hat@' + PineLooks.release &&
+        byId('edit-attachment').value === 'map-tube',
+      'survey gear'
+    );
+    change('bag', 'school-pack');
+    change('bottle', 'thermos');
+    document.querySelector('[data-try-action="drink"]').click();
+    expect(byId('action').value === 'drink', 'drink preview');
+    document.querySelector('[data-try-action="type"]').click();
+    expect(byId('action').value === 'type', 'typing preview');
+    byId('tab-colors').click();
+    byId('color-bag').value = '#67853e';
+    byId('color-bag').dispatchEvent(new Event('input'));
+    byId('save-look').click();
+    const wearing = PineWardrobe.saved.get(previousFigure.id);
+    expect(
+      wearing.parts.bag === 'school-pack' &&
+        wearing.colors.bag === '#67853e' &&
+        wearing.parts.phone === 'rugged',
+      'saved custom outfit'
+    );
     target.dataset.state = 'pass';
     target.textContent =
-      'Body profiles, legacy saves, head upgrade, scale, hairstyles, dyes, full-body and close-up detail, and slice alignment passed';
+      'Body profiles, legacy saves, head upgrade, scale, hairstyles, dyes, full-body and close-up detail, slice alignment, and configurable workshop outfits passed';
   } catch (err) {
     target.dataset.state = 'fail';
     target.textContent = err.message;

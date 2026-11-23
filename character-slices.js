@@ -6,7 +6,7 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     bottleBand: 'a2ccdc', steel: 'c1cfd0', spout: 'e4e8d9', seal: '465b67'
   };
   const palette = [[0, 0, 0]], ink = {};
-  for (const [name, hex] of Object.entries({...art.materials, ...bottleMaterials, ...accessories?.materials})) {
+  for (const [name, hex] of Object.entries({...art.materials, ...bottleMaterials, ...art.bottleMaterials, ...accessories?.materials})) {
     ink[name] = palette.length;
     palette.push([0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16)));
   }
@@ -29,7 +29,7 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     const length = Math.hypot(...vector);
     if (length < .001) return;
     const axis = vector.map(v => v/length);
-    const [ax,ay,az] = axis, [bx,by,bz] = base, radius = 2.05;
+    const [ax,ay,az] = axis, [bx,by,bz] = base, scale = art.bottleScale || 1, radius = 2.05 * scale;
     const bounds = dim => [Math.min(base[dim],lip[dim])-radius, Math.max(base[dim],lip[dim])+radius];
     stamp(...bounds(0), ...bounds(1), ...bounds(2), (x,y,z) => {
       const dx=x-bx, dy=y-by, dz=z-bz;
@@ -37,10 +37,17 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
       if (t < 0 || t > 1) return 0;
       const rx=dx-along*ax, ry=dy-along*ay, rz=dz-along*az;
       let r = radius;
-      if (t < .10) r = lerp(1.63, radius, t/.10);
-      else if (t > .92) r = 1.05;
-      else if (t > .80) r = .84;
-      else if (t > .61) r = lerp(radius, .94, (t-.61)/.19);
+      if (art.bottleStyle === 'thermos') {
+        r *= t > .77 ? .86 : t < .08 ? .90 : 1;
+        if (rx*rx+ry*ry+rz*rz > r*r) return 0;
+        if (t > .79) return t < .84 || t > .965 ? ink.steel : ink.enamelFoot;
+        if (t > .71 || t < .065) return ink.steel;
+        return rx*.5-ry*.72 > .48*r ? ink.enamelLight : ink.enamel;
+      }
+      if (t < .10) r = lerp(1.63 * scale, radius, t/.10);
+      else if (t > .92) r = 1.05 * scale;
+      else if (t > .80) r = .84 * scale;
+      else if (t > .61) r = lerp(radius, .94 * scale, (t-.61)/.19);
       if (rx*rx+ry*ry+rz*rz > r*r) return 0;
       if (t > .89) return ink.spout;
       if (t > .77) return ink.seal;
@@ -54,18 +61,18 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     const grip = reach.reduce((sum,v,i) => sum+v*axis[i], 0);
     const normal = reach.map((v,i) => v-grip*axis[i]);
     const distance = Math.hypot(...normal);
-    if (distance < .01 || distance > 3.45 || grip < .8 || grip > .77*length) return;
+    if (distance < .01 || distance > 3.45*scale || grip < .8*scale || grip > .77*length) return;
     const [ux,uy,uz] = normal.map(v => v/distance);
     const tangent = [ay*uz-az*uy, az*ux-ax*uz, ax*uy-ay*ux];
     const outward = [ux,uy,uz];
     function onGrip(h, angle) {
-      return base.map((v,i) => v+(grip+h)*axis[i]+radius*(outward[i]*Math.cos(angle)+tangent[i]*Math.sin(angle)));
+      return base.map((v,i) => v+(grip+h*scale)*axis[i]+radius*(outward[i]*Math.cos(angle)+tangent[i]*Math.sin(angle)));
     }
     // Two short finger pads and an opposing thumb leave the enamel band visible.
     for (const h of [-.62,.53]) {
-      link(onGrip(h,.05), onGrip(h-.13,1.13), .68, .51, 1, () => ink.skinLight);
+      link(onGrip(h,.05), onGrip(h-.13,1.13), .68*scale, .51*scale, 1, () => ink.skinLight);
     }
-    link(onGrip(1.12,-.08), onGrip(.46,-.94), .74, .53, 1, () => ink.skin);
+    link(onGrip(1.12,-.08), onGrip(.46,-.94), .74*scale, .53*scale, 1, () => ink.skin);
   }
 
   function samplePose(pose, density, nx, ny, nz, ox, oy, oz, faceDetail) {
@@ -142,8 +149,9 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     const brush = {density, faceDetail, frame(transform) {frame=transform;}, stamp, blob, link};
     art.paint(pose, brush, ink);
     frame = null;
-    if (pose.bottle) paintBottle(pose.bottle, pose.arms.find(arm => arm.side === -1), stamp, link);
-    if (accessories && pose.props?.length) accessories.paint(pose,brush,ink);
+    const bottle = pose.bottle || art.carriedBottle?.(pose);
+    if (bottle) paintBottle(bottle, pose.arms.find(arm => arm.side === -1), stamp, link);
+    if (accessories && pose.props?.length) accessories.paint(pose,brush,ink,art.devices);
 
     const colors = new Uint32Array(cells.length);
     const bounds=[nx,ny,nz,0,0,0];

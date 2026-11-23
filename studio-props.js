@@ -45,7 +45,7 @@ const studioProps = (() => {
   ];
   const phoneColors = { b: 'deviceBlue', c: 'deviceAqua', g: 'deviceGlow' };
 
-  function phone(x, y, z, ink, pad) {
+  function phone(x, y, z, ink, pad, style) {
     // The glass is on x=0. The rear shell extends 0.6 units away from the palm.
     if (x < -pad || x > 0.6 + pad || !roundedPanel(y, z, 1.55, 2.75, 0.42)) return 0;
     if (x >= 0.3) {
@@ -53,6 +53,8 @@ const studioProps = (() => {
       if (Math.abs(y - 0.67) < 0.52 && Math.abs(z - 1.83) < 0.59) {
         return Math.abs(y - 0.67) < 0.22 && z > 1.91 ? ink.deviceAqua : ink.deviceInk;
       }
+      if (style === 'rugged') return Math.abs(y) > 1 || Math.abs(z) > 2.1 ? ink.deviceShade : ink.deviceMain;
+      if (style === 'folio') return y < -0.89 || Math.abs(z - 0.2) < 0.3 ? ink.deviceLight : ink.deviceMain;
       if (y < -0.72 && z > 1.65 && z < 2.08) return ink.deviceShell;
       return z < -2.27 ? ink.deviceSlate : ink.deviceBack;
     }
@@ -107,7 +109,7 @@ const studioProps = (() => {
 
   const lidSin = 0.233,
     lidCos = Math.sqrt(1 - lidSin * lidSin);
-  function laptop(x, y, z, ink, pad) {
+  function laptop(x, y, z, ink, pad, style) {
     const side = Math.abs(y),
       hingeX = x - 4;
     const h = hingeX * lidSin + z * lidCos,
@@ -115,6 +117,17 @@ const studioProps = (() => {
     if (h >= 0 && normal >= -0.38 - pad && normal <= 0.38 + pad && roundedPanel(y, h - 4, 7.5, 4, 0.46)) {
       if (normal >= 0) {
         if (!roundedPanel(y, h - 4, 7.25, 3.75, 0.37)) return ink.deviceEdge;
+        if (style === 'field')
+          return side > 6.3 || h < 1.0 || h > 7.0
+            ? ink.deviceShade
+            : Math.abs(h - 4) < 0.29 && side < 4
+              ? ink.deviceLight
+              : ink.deviceMain;
+        if (style === 'stickers') {
+          if (Math.abs(y + 3.6) + Math.abs(h - 5.5) < 1.55) return ink.deviceGold;
+          if ((y - 2.9) ** 2 + (h - 3) ** 2 < 2.7) return h > 3 ? ink.deviceAqua : ink.devicePine;
+          return ink.deviceMain;
+        }
         if (Math.abs(y) * 1.15 + Math.abs(h - 4.1) < 0.86) return h > 4.1 ? ink.deviceShell : ink.deviceEdge;
         return h < 0.87 ? ink.deviceSlate : ink.deviceBack;
       }
@@ -161,7 +174,7 @@ const studioProps = (() => {
     return 0;
   }
 
-  function paint(pose, brush, ink) {
+  function paint(pose, brush, ink, styles) {
     if (!pose.props?.length) return;
     for (const { kind, frame, scale = 1, rise = 0 } of pose.props) {
       if (!(scale > 0) || !Number.isFinite(scale)) continue;
@@ -201,7 +214,7 @@ const studioProps = (() => {
         );
       }
       brush.stamp(...bounds.map((v) => v * scale), (x, y, z) =>
-        sample(x / scale, y / scale, z / scale, ink, pad)
+        sample(x / scale, y / scale, z / scale, ink, pad, styles?.[kind])
       );
     }
     brush.frame(null);

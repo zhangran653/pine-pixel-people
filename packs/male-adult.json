@@ -6,7 +6,7 @@
   "base": "adult",
   "gender": "male",
   "packs": {
-    "pine-core": "1.6.1"
+    "pine-core": "1.7.0"
   },
   "shape": {
     "height": 1,

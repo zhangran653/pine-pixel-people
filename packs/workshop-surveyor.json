@@ -1,0 +1,52 @@
+{
+  "format": "pine-character",
+  "version": 1,
+  "id": "look_workshop_surveyor",
+  "label": "山野测绘员",
+  "base": "adult",
+  "gender": "female",
+  "packs": {
+    "pine-core": "1.7.0"
+  },
+  "shape": {
+    "height": 1,
+    "shoulders": 1,
+    "arms": 1,
+    "legs": 1,
+    "faceWidth": 1,
+    "eyeSpacing": 1,
+    "jaw": 1,
+    "mouthHeight": 0
+  },
+  "parts": {
+    "hair": "braid",
+    "top": "field-jacket",
+    "bottom": "cuffed-denim",
+    "shoes": "trail-boots",
+    "neck": "scarf",
+    "bag": "survey-satchel",
+    "attachment": "map-tube",
+    "wrist": "watch",
+    "hat": "pine-core/survey-hat"
+  },
+  "face": {
+    "eyes": "almond",
+    "brows": "straight",
+    "nose": "bridge",
+    "mouth": "small"
+  },
+  "colors": {
+    "skin": "#c88a66",
+    "hair": "#393139",
+    "eyes": "#674f3d",
+    "top": "#c99545",
+    "bottom": "#414c5b",
+    "shoes": "#674a42",
+    "accent": "#39868b",
+    "hat": "#cbaa72",
+    "bag": "#61735f",
+    "attachment": "#bba278",
+    "wrist": "#664936"
+  },
+  "baseNotice": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+}
