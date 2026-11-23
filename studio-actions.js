@@ -15,15 +15,7 @@ const soloClips = (() => {
   function entry(person, p, x = 0, y = 0, z = 0, heading = 0) {
     return [{ character: person.id, x, y, z, heading, pose: p }];
   }
-  function seated(r, floor = false) {
-    const depth = r.height * (floor ? 0.09 : 0.157),
-      top = floor ? 0 : r.height * 0.16;
-    return {
-      hipOffset: [-depth, 0, top + r.height * (floor ? 0.108 : 0.064) - r.pelvis[2]],
-      pitch: floor ? 0.07 : 0.045,
-      feet: sides.map((s) => [floor ? r.height * 0.15 : 0, s * r.hip[1] * (floor ? 1.18 : 1), r.ankle])
-    };
-  }
+  const seated = studioRig.seated;
   function waist(r, person) {
     return person.tags.includes('baby') ? seated(r, true) : {};
   }

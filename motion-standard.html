@@ -67,20 +67,35 @@ PineMotion.registerCharacter({
           <tr><td><code>rig.pose(rig, channels)</code></td><td>可指定骨盆偏移 hipOffset、躯干和头部的转角、左右脚踝 feet、手掌目标 hands，以及指引膝肘弯曲方向的 kneePoles 和 elbowPoles。手脚目标均为人物局部坐标。</td></tr>
           <tr><td><code>channels.standing</code></td><td>站姿权重范围为 0 到 1。1 让膝盖自然微屈，0 交给当前动作控制。双脚使用默认站位时权重为 1，自定义 feet 时默认为 0。起身时可从 0 平滑过渡到 1。</td></tr>
           <tr><td><code>pose</code></td><td>torso、head 是按行存储的 3 × 4 刚体矩阵。legs 提供 hip、knee，feet 提供 ankle。arms 提供 shoulder、elbow、wrist、hand。blink 从 0（睁眼）到 1（闭眼）。</td></tr>
-          <tr><td><code>pose.props</code></td><td>数组中的每项为 {kind, frame, scale}，内置 phone、laptop、stool。frame 把道具局部坐标变换到人物空间，scale 统一调整大小。水瓶沿用 pose.bottle 的 base、lip、held。</td></tr>
+          <tr><td><code>pose.props</code></td><td>数组中的每项含 kind、frame 和 scale。内置道具包括 phone、laptop、stool、book、pen、camera、parcel、guitar 等。frame 把道具局部坐标变换到人物空间，scale 统一调整大小。水瓶沿用 pose.bottle 的 base、lip、held。</td></tr>
         </tbody></table>
         <p>让设备和人物对准时，可先用 <code>rig.point(frame, 接触点)</code> 算出目标，再交给手臂求解。手机的玻璃面在道具 x = 0 处，笔记本的键盘面在 z = 0 附近。<a href="studio-actions.js">跑跳、手机和键盘动作</a> · <a href="studio-props.js">设备与坐凳的像素绘制</a></p>
+      </section>
+      <section id="gestures">
+        <h2>用关键帧编写可复用的手势</h2>
+        <p><code>PineMotion.keyframedGesture(keys)</code> 生成一个可注册的单人采样器。每帧的 <code>at</code> 从 0 到 1 严格递增，首尾必填。姿势按平滑曲线插值，可直接跳到任意一帧。下面给成人与儿童增加一个抚胸致意的动作。</p>
+<pre><code>const greet = { right: [0.34, -0.36, -0.08], head: [0, 0.13, 0] };
+PineMotion.registerAction({
+  id: 'hand-on-heart', label: '抚胸致意', group: '手势与情绪',
+  seconds: 2.8, roles: [['adult', 'child']], keywords: '问候 礼仪',
+  sample: PineMotion.keyframedGesture([
+    { at: 0 }, { at: 0.32, ...greet }, { at: 0.65, ...greet }, { at: 1 }
+  ])
+});</code></pre>
+        <p><code>right / left</code> 从各自肩关节起算，三个数依次指向前、向身体外侧、向上，单位为这只手臂的可达长度。<code>head / body</code> 依次为偏航、俯仰、侧倾的弧度。<code>shift</code> 以身高为单位移动骨盆，<code>blink</code> 从 0（睁眼）到 1（闭眼）。每一帧省略的通道取自然姿势。<a href="motion-gestures.js">手势定义与实例</a></p>
+        <p>带物品的动作可在 <code>pose.props</code> 中放入带 <code>kind / frame / scale</code> 的物品。先在道具坐标系声明握点、笔尖或壶嘴，再把它们换算到人物坐标。写字时，一手托住本子，另一手的笔尖沿纸页移动。浇花时，水流从壶嘴落到花土。<a href="daily-clips.js">人和道具的接触</a> · <a href="activity-props.js">物品画法</a></p>
       </section>
       <section id="contact">
         <h2>让两个人碰到同一点</h2>
         <p><code>roles</code> 有几个槽位，就按顺序传入几个人。每个槽位列出允许的标签，命中任意一个即可。击掌的两个槽位都接受 adult、child 或 toddler。托抱和躲猫猫使用 <code>[['mother'], ['baby']]</code>。兼容的新照护者可声明 <code>tags: ['adult', 'mother']</code>，并校准手臂和宝宝接触点。</p>
         <p>每个人物都有命名接触点 <code>mouth</code>、<code>rightEye</code>、<code>leftEye</code>、<code>seat</code>（臀侧）和 <code>upperBack</code>（上背）。换服装或体型后如果锚点有偏移，可在注册人物时传入 <code>sockets: { upperBack: { frame: 'torso', point: [-1.95, -1.18, 11.65] } }</code>。point 是相对于静止人物原点的坐标，frame 选 head 或 torso。<code>PineMotion.rig.socket(actor, pose, 'upperBack')</code> 会给出当前姿势下的人物局部坐标。</p>
-        <p>两个人物共享一个 u。击掌先选一个双方都能触到的场景坐标，再把它分别换算为两人的局部手掌目标。抱起时，宝宝臀侧和上背的接触点随躯干升降，妈妈的两只手分别追踪它们。可从每位演出者的 <code>contacts</code> 读取已求解的场景坐标检查间距。渲染器先把两人投到共同的像素切片，再根据相机角度绘制手臂、衣服和脸的遮挡。</p>
-        <p>新增互动可在正侧面核对接触，再转到背面查看交错的手臂。想让相邻两段衔接平滑，可以为它们绘制相同的收尾和起始姿势。<a href="duet-clips.js">击掌、托抱和躲猫猫的实现</a></p>
+        <p>两个人物共享一个 u。击掌先选一个双方都能触到的场景坐标，再把它分别换算为两人的局部手掌目标。递接包裹时由一人绘制包裹，易手前后使用相同的场景坐标。牵手迈步时双方同步换脚。抱起时，宝宝臀侧和上背的接触点随躯干升降，妈妈的两只手分别追踪它们。可从每位演出者的 <code>contacts</code> 读取已求解的场景坐标检查间距。渲染器先把两人投到共同的像素切片，再根据相机角度绘制手臂、衣服和脸的遮挡。</p>
+        <p>可用 <code>PineMotion.castFor(clip, actor, preferredPartner)</code> 按角色顺序获得匹配的一对演员。<code>PineMotion.findActions(actor, { group, query, eitherRole: true })</code> 同时查找可担当主角或搭档的动作。新增互动可在正侧面核对接触，再转到背面查看交错的手臂。想让相邻两段衔接平滑，可以为它们绘制相同的收尾和起始姿势。<a href="duet-clips.js">击掌、托抱和躲猫猫的实现</a></p>
       </section>
       <section id="score">
         <h2>编排、循环与交换文件</h2>
-        <p>在工坊里选择人物和动作，调整「单次秒数」「重复次数」，再点「加入末尾」。点击时间线中的一段即可修改、替换、移动或删除。「单段试看」只播放编辑中的一段，「返回编排」回到原播放位置。勾选「循环播放」会在整套编排结束后回到第一段。编排本随编辑保存在当前浏览器中，导出的 JSON 可以在其他浏览器导入。</p>
+        <p>动作库收录 77 个动作和 11 套循环编排。用「查找动作」搜索中文用途或英文 ID，也可以展开姿势卡片试演当前人物。示例「周末来访」携带园丁和田径少年两份完整形象，可在另一浏览器导入复演。<a href="packs/weekend-visit.json" download>下载周末来访</a> · <a href="studio.html?demo=outdoors">试演一起出门</a> · <a href="social-clips.js">双人和亲子动作实现</a></p>
+        <p>在工坊里选择人物和动作，调整「单次秒数」「重复次数」，再点「加入末尾」。点击时间线中的一段即可修改、替换、移动或删除。「单段试看」播放编辑中的一段，可以勾选循环反复观察。「三维预览」也会带入该段。点「返回编排」回到原播放位置和整套编排的循环设置。勾选「循环播放」会在整套编排结束后回到第一段。编排本随编辑保存在当前浏览器中，导出的 JSON 可以在其他浏览器导入。</p>
 <pre><code>{
   "version": 1,
   "loop": true,
@@ -101,12 +116,12 @@ plan.sample(plan.duration); // 最后一段的终点姿势</code></pre>
         <p><code>compile</code> 接受对象或 JSON 字符串，验证字段、角色人数和标签，给出段落起点 <code>starts</code>、总时长 <code>duration</code> 和采样器。<code>sample</code> 将越界时间限制在首尾。自定义播放器在 loop 为 true 且总时长大于零时，对播放秒数按总时长取余。结构校验使用下方的 JSON Schema，人物和动作 ID 由当前注册表校验。</p>
         <p class="resource-links"><a href="family-score.json" download>下载八段家庭编排</a><a href="score-v1.schema.json">编排 JSON Schema</a><a href="studio-library.js">注册与播放接口</a><a href="studio.html?demo=play">试播放学活动</a></p>
         <h3>检查新角色和新动作</h3>
-        <p>从项目目录运行 <code>node hiker/check-motion.cjs</code> 可检查所有已注册搭配的关节、采样复现、重复边界，以及击掌和托抱的接触。把自己的扩展脚本路径加在命令末尾，它也会参加检查。然后在工坊中从正面、侧面和背面查看衣物与道具的遮挡。<a href="check-motion.cjs">接入检查脚本</a></p>
+        <p>从项目目录运行 <code>node check-motion.cjs</code> 可检查所有已注册搭配的关节、采样复现和重复边界，也可核对握手、托抱、递物与握持道具的接触位置。把自己的扩展脚本路径加在命令末尾，它也会参加检查。然后在工坊中从正面、侧面和背面查看衣物与道具的遮挡。<a href="check-motion.cjs">接入检查脚本</a></p>
       </section>
       <section id="three">
         <h2>把人物放进 Three.js 场景</h2>
-        <p>在动作工坊中点「三维预览」，即可把当前编排放到溪边木平台上。点「从栏杆侧看」，在同一个姿势下开关「显示栏杆」，能看清哪一条栏杆挡住了腿。拖动镜头可以绕到人物身后，也可以从高处看。<a href="three.html">打开溪畔观景台</a></p>
-        <p>在自己的项目里先加载动作库。示例页面从 <code>motion.js</code> 到 <code>studio-library.js</code> 的十个脚本依次构成 <code>PineMotion</code>，可继续加载自定义人物和动作。将宿主项目使用的 Three.js 传入适配器，得到可添加到场景、可移动和旋转的 <code>THREE.Group</code>。以下代码假定宿主已有 <code>scene</code>、<code>camera</code> 和 <code>renderer</code>。</p>
+        <p>在动作工坊中点「三维预览」，可以把正在试演的单段或整份编排放到溪边木平台上。点「从栏杆侧看」，在同一个姿势下开关「显示栏杆」，能看清哪一条栏杆挡住了腿。拖动镜头可以绕到人物身后，也可以从高处看。<a href="three.html">打开溪畔观景台</a></p>
+        <p>在自己的项目里先加载动作库。示例页面从 <code>motion.js</code> 到 <code>studio-library.js</code> 的脚本按示例页面的加载顺序构成 <code>PineMotion</code>，可继续加载自定义人物和动作。将宿主项目使用的 Three.js 传入适配器，得到可添加到场景、可移动和旋转的 <code>THREE.Group</code>。以下代码假定宿主已有 <code>scene</code>、<code>camera</code> 和 <code>renderer</code>。</p>
 <pre><code>import * as THREE from 'three';
 import { createPineCast } from './pine-three.mjs';
 

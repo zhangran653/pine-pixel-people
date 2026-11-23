@@ -1014,3 +1014,5 @@ dialog p {
 .dye-setting button:disabled {
   opacity: 0.35;
 }
+
+#action-partner { margin: 0 14px 5px; color: #46614c; font-size: .84rem; }

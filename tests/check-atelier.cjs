@@ -405,45 +405,126 @@ function checkEditor() {
   }
 }
 
+function checkStudioMotions() {
+  const byId = (id) => document.getElementById(id);
+  const target = byId('qa-result');
+  const expect = (ok, message) => {
+    if (!ok) throw new Error(message);
+  };
+  const set = (id, value, event = 'change') => {
+    byId(id).value = value;
+    byId(id).dispatchEvent(new Event(event, { bubbles: true }));
+  };
+  try {
+    expect(byId('preset').options.length === Object.keys(PineMotion.presets).length + 1, 'preset list');
+    expect(
+      byId('motion-group').options.length ===
+        new Set([...PineMotion.actions.values()].map((clip) => clip.group)).size + 1,
+      'activity categories'
+    );
+    byId('motion-browser').open = true;
+    set('who', 'child');
+    set('motion-group', '家务');
+    set('motion-query', '打扫', 'input');
+    const card = byId('motion-cards').querySelector('[data-clip="sweep"]');
+    expect(card && byId('which').options.length === 1, 'action search and pose cards');
+    card.click();
+    expect(
+      byId('take-title').textContent === '扫地' && document.activeElement.dataset.clip === 'sweep',
+      'pose card playback and keyboard focus'
+    );
+    byId('return-score').click();
+    set('seconds', '1.8', 'input');
+    set('times', '2', 'input');
+    byId('append').click();
+    expect(byId('cue-list').children.length === 1 && byId('scrub').max === '3.6', 'repeated cue');
+    byId('loop').click();
+    expect(!byId('loop').checked, 'score loop');
+    set('motion-query', 'xyz-无匹配', 'input');
+    expect(
+      byId('try').disabled && byId('append').disabled && byId('replace').disabled,
+      'empty search actions'
+    );
+    set('motion-group', '');
+    set('motion-query', '摄影', 'input');
+    byId('try').click();
+    expect(!byId('loop').checked, 'single clip initial loop');
+    byId('loop').click();
+    byId('preview-three').addEventListener('click', (event) => event.preventDefault(), { once: true });
+    byId('preview-three').click();
+    const handoff = JSON.parse(sessionStorage.getItem('pineCreek.threePreview.v1'));
+    expect(handoff.loop && handoff.steps[0].action === 'photograph', 'pass the active preview to Three.js');
+    byId('return-score').click();
+    expect(!byId('loop').checked && byId('take-title').textContent === '扫地', 'preserve board and its loop');
+    set('preset', 'nursery');
+    expect(byId('who').value === 'mother' && byId('with').value === 'baby', 'nursery role order');
+    expect(byId('orbit').value === '21', 'show both readers and their book');
+    set('orbit', '50', 'input');
+    byId('cue-list').querySelector('[data-index="1"]').click();
+    expect(byId('orbit').value === '50', 'preserve a manually chosen viewing angle');
+    set('who', 'baby');
+    set('motion-query', '踢腿', 'input');
+    expect(byId('which').value === 'baby-kicks', 'infant actions');
+    set('motion-query', '', 'input');
+    const first = byId('motion-page').value;
+    (byId('motion-next').disabled ? byId('motion-prev') : byId('motion-next')).click();
+    expect(
+      byId('motion-page').value !== first && byId('motion-cards').children.length > 0,
+      'pose card pagination'
+    );
+    target.dataset.state = 'pass';
+    target.textContent =
+      'Action search, pose cards, repeated cues, independent single-clip looping, Three.js handoff and age-specific casting passed';
+  } catch (error) {
+    target.dataset.state = 'fail';
+    target.textContent = error.message;
+  }
+}
+
 const root = resolve(__dirname, '..'),
   dir = mkdtempSync(join(tmpdir(), 'pine-atelier-check-'));
 try {
   const base = pathToFileURL(root + sep).href;
-  const page = readFileSync(join(root, 'atelier.html'), 'utf8')
-    .replace('<head>', '<head><base href="' + base + '">')
-    .replace('</head>', '<style>#mirror{width:640px!important;height:360px!important}</style></head>')
-    .replace(
-      '</body>',
-      '<output id="qa-result" data-state="pending"></output><script>document.addEventListener("DOMContentLoaded",' +
-        checkEditor.toString() +
-        ');</script></body>'
-    );
-  const file = join(dir, 'view.html');
-  writeFileSync(file, page);
   const browser =
     process.env.CHROME_BIN ||
     (process.platform === 'darwin'
       ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
       : 'google-chrome');
-  const args = [
-    '--headless',
-    '--disable-gpu',
-    '--no-first-run',
-    '--window-size=1200,850',
-    '--force-device-scale-factor=1',
-    '--user-data-dir=' + join(dir, 'profile'),
-    '--dump-dom',
-    pathToFileURL(file).href + '?bearing=90'
-  ];
-  if (process.env.CI === 'true' && process.platform === 'linux') args.unshift('--no-sandbox');
-  const run = spawnSync(browser, args, { encoding: 'utf8', timeout: 120_000, maxBuffer: 4 * 1024 * 1024 });
-  if (run.error) throw run.error;
-  const result = /<output id="qa-result" data-state="(\w+)">([^<]*)<\/output>/.exec(run.stdout);
-  assert.ok(
-    run.status === 0 && result?.[1] === 'pass',
-    result?.[2] || run.stderr.slice(-1000) || 'Editor did not finish'
-  );
-  console.log(result[2]);
+  for (const [name, check, query] of [
+    ['atelier', checkEditor, '?bearing=90'],
+    ['studio', checkStudioMotions, '?demo=custom']
+  ]) {
+    const page = readFileSync(join(root, name + '.html'), 'utf8')
+      .replace('<head>', '<head><base href="' + base + '">')
+      .replace('</head>', '<style>#mirror{width:640px!important;height:360px!important}</style></head>')
+      .replace(
+        '</body>',
+        '<output id="qa-result" data-state="pending"></output><script>document.addEventListener("DOMContentLoaded",' +
+          check.toString() +
+          ');</script></body>'
+      );
+    const file = join(dir, name + '.html');
+    writeFileSync(file, page);
+    const args = [
+      '--headless',
+      '--disable-gpu',
+      '--no-first-run',
+      '--window-size=1200,850',
+      '--force-device-scale-factor=1',
+      '--user-data-dir=' + join(dir, name + '-profile'),
+      '--dump-dom',
+      pathToFileURL(file).href + query
+    ];
+    if (process.env.CI === 'true' && process.platform === 'linux') args.unshift('--no-sandbox');
+    const run = spawnSync(browser, args, { encoding: 'utf8', timeout: 120_000, maxBuffer: 4 * 1024 * 1024 });
+    if (run.error) throw run.error;
+    const result = /<output id="qa-result" data-state="(\w+)">([^<]*)<\/output>/.exec(run.stdout);
+    assert.ok(
+      run.status === 0 && result?.[1] === 'pass',
+      result?.[2] || run.stderr.slice(-1000) || name + ' did not finish'
+    );
+    console.log(result[2]);
+  }
 } finally {
   rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

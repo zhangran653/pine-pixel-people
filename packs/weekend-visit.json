@@ -1,0 +1,150 @@
+{
+  "format": "pine-cast",
+  "version": 1,
+  "score": {
+    "version": 1,
+    "loop": true,
+    "steps": [
+      {
+        "action": "water-plant",
+        "actors": [
+          "look_style_gardener"
+        ]
+      },
+      {
+        "action": "skip",
+        "actors": [
+          "look_style_runner"
+        ]
+      },
+      {
+        "action": "hold-hands",
+        "actors": [
+          "look_style_gardener",
+          "look_style_runner"
+        ]
+      },
+      {
+        "action": "handover",
+        "actors": [
+          "look_style_runner",
+          "look_style_gardener"
+        ]
+      },
+      {
+        "action": "storytime",
+        "actors": [
+          "look_style_gardener",
+          "look_style_runner"
+        ]
+      },
+      {
+        "action": "cheer",
+        "actors": [
+          "look_style_runner"
+        ]
+      }
+    ]
+  },
+  "characters": [
+    {
+      "format": "pine-character",
+      "version": 1,
+      "id": "look_style_gardener",
+      "label": "社区园丁",
+      "base": "adult",
+      "gender": "female",
+      "packs": {
+        "pine-core": "1.8.0"
+      },
+      "shape": {
+        "height": 1,
+        "shoulders": 1,
+        "arms": 1,
+        "legs": 1,
+        "faceWidth": 1,
+        "eyeSpacing": 1,
+        "jaw": 1,
+        "mouthHeight": 0
+      },
+      "parts": {
+        "hair": "low-bun",
+        "top": "oxford",
+        "bottom": "cargo",
+        "shoes": "boots",
+        "neck": "none",
+        "bag": "messenger",
+        "audio": "hearing-aid",
+        "hat": "none"
+      },
+      "face": {
+        "eyes": "downturned",
+        "brows": "willow",
+        "nose": "rounded",
+        "mouth": "soft-smile",
+        "outline": "pear",
+        "complexion": "fine-lines"
+      },
+      "colors": {
+        "skin": "#c29577",
+        "hair": "#bab1a6",
+        "eyes": "#343a38",
+        "top": "#8f9c71",
+        "bottom": "#536856",
+        "shoes": "#685445",
+        "accent": "#c7dab1",
+        "audio": "#aa8d71"
+      },
+      "baseNotice": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+    },
+    {
+      "format": "pine-character",
+      "version": 1,
+      "id": "look_style_runner",
+      "label": "田径少年",
+      "base": "child",
+      "gender": "unspecified",
+      "packs": {
+        "pine-core": "1.8.0"
+      },
+      "shape": {
+        "height": 1,
+        "shoulders": 1,
+        "arms": 1,
+        "legs": 1,
+        "faceWidth": 1,
+        "eyeSpacing": 1,
+        "jaw": 1,
+        "mouthHeight": 0
+      },
+      "parts": {
+        "hair": "space-buns",
+        "top": "rugby",
+        "bottom": "track-shorts",
+        "shoes": "runners",
+        "neck": "none",
+        "bag": "hip-pack",
+        "hairAccessory": "clips",
+        "hat": "none"
+      },
+      "face": {
+        "eyes": "doe-eye",
+        "brows": "short-brow",
+        "nose": "short",
+        "mouth": "bow",
+        "outline": "round",
+        "complexion": "sunspots"
+      },
+      "colors": {
+        "skin": "#d4946f",
+        "hair": "#573b35",
+        "eyes": "#343a38",
+        "top": "#4f8093",
+        "bottom": "#445e72",
+        "shoes": "#e6dfcd",
+        "accent": "#e8b865"
+      },
+      "baseNotice": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+    }
+  ]
+}

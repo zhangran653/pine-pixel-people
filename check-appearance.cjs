@@ -13,10 +13,15 @@ const sources = [
   'actor',
   'surveyor-art',
   'family-art',
+  'activity-props',
   'studio-props',
   'studio-rig',
   'studio-actions',
   'duet-clips',
+  'motion-gestures',
+  'movement-clips',
+  'daily-clips',
+  'social-clips',
   'studio-library',
   'portrait-styles',
   'hair-styles',
@@ -160,10 +165,26 @@ for (const base of ['adult', 'child'])
       assert.notEqual(digest(a.l.build(capped), a.m), digest(plain, a.m), base + ' · ' + id);
     }
     variants.push(plain);
-    assert.equal([...a.m.actions.values()].filter((clip) => a.m.accepts(clip, 0, plain)).length, 13);
+    assert.deepEqual(
+      [...a.m.actions.values()].filter((clip) => a.m.accepts(clip, 0, plain)).map((clip) => clip.id),
+      [...a.m.findActions(a.m.characters.get(plain.tags.includes('adult') ? 'surveyor' : 'child'))].map(
+        (clip) => clip.id
+      )
+    );
     const drink = a.m.actions.get('drink').sample(0.5, plain)[0].pose;
     assert.ok(distance(a.m.rig.socket(plain, drink, 'mouth'), drink.bottle.lip) < 1e-7);
-    for (const action of ['run', 'jump', 'drink', 'phone', 'type']) {
+    for (const action of [
+      'run',
+      'jump',
+      'drink',
+      'phone',
+      'type',
+      'pivot',
+      'write',
+      'guitar',
+      'recline',
+      'sweep'
+    ]) {
       const e = a.m.actions.get(action).sample(0.5, plain)[0],
         model = plain.body.makePose(e.pose);
       const bounds = Array.from(model.bounds),
@@ -182,6 +203,16 @@ for (const lead of variants)
   for (const partner of variants) {
     const [left, right] = a.m.actions.get('highfive').sample(0.5, lead, partner);
     assert.ok(distance(left.contacts.palm, right.contacts.palm) < 0.01);
+    for (const id of ['handshake', 'fist-bump']) {
+      const [a1, a2] = a.m.actions.get(id).sample(0.5, lead, partner);
+      assert.ok(distance(a1.contacts.palm, a2.contacts.palm) < 1e-6, id);
+    }
+    if (lead.tags.includes('adult') && partner.tags.includes('child')) {
+      for (const u of [0.08, 0.32, 0.5, 0.79, 0.91]) {
+        const [a1, a2] = a.m.actions.get('hold-hands').sample(u, lead, partner);
+        assert.ok(distance(a1.contacts.palm, a2.contacts.palm) < 1e-6, 'custom actors lost hand contact');
+      }
+    }
     pairings++;
   }
 const cast = json('packs/after-school.json'),
@@ -647,7 +678,12 @@ const [female, male] = referenceModels.map((doc) => {
   const person = a.l.build(doc);
   assert.equal(person.gender, doc.gender);
   assert.deepEqual(clone(person.tags), ['adult']);
-  assert.equal([...a.m.actions.values()].filter((clip) => a.m.accepts(clip, 0, person)).length, 13);
+  assert.deepEqual(
+    [...a.m.actions.values()].filter((clip) => a.m.accepts(clip, 0, person)).map((clip) => clip.id),
+    [...a.m.findActions(a.m.characters.get(person.tags.includes('adult') ? 'surveyor' : 'child'))].map(
+      (clip) => clip.id
+    )
+  );
   return person;
 });
 assert.deepEqual(referenceModels[0].parts, referenceModels[1].parts);
@@ -936,6 +972,22 @@ spec.art.carriedBottle = () => {
   throw Error('drew a second bottle during the drinking clip');
 };
 assert.doesNotThrow(() => digest(fitted, a.m, 'drink', 0.5));
+const visitor = client();
+const visit = visitor.w.readScoreFile(json('packs/weekend-visit.json'), true);
+assert.deepEqual([...visitor.w.saved.keys()].sort(), ['look_style_gardener', 'look_style_runner']);
+assert.equal(visit.score.steps.length, 6);
+assert.ok(visit.score.loop);
+const pairStep = visit.score.steps.findIndex((step) => step.action === 'hold-hands');
+const holding = visit.sample(visit.starts[pairStep] + visit.score.steps[pairStep].seconds / 2);
+assert.deepEqual(
+  Array.from(holding, (actor) => actor.character),
+  ['look_style_gardener', 'look_style_runner']
+);
+assert.ok(distance(holding[0].contacts.palm, holding[1].contacts.palm) < 1e-6);
+assert.deepEqual(
+  clone(visitor.w.scoreFile(visit.score).characters),
+  json('packs/weekend-visit.json').characters
+);
 console.log(
   'PineLooks core ' + a.l.release + ' · 历代存档、全身与五官精度、头型与唇线、扩展体型、发型及双人复演通过'
 );

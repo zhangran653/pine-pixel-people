@@ -67,6 +67,27 @@ const studioRig = (() => {
     const u = clamp((t - a) / (b - a));
     return u * u * (3 - 2 * u);
   };
+  function world(root, p) {
+    const c = Math.cos(root.heading),
+      s = Math.sin(root.heading);
+    return [root.x + c * p[0] - s * p[1], root.y + s * p[0] + c * p[1], root.z + p[2]];
+  }
+  function local(root, p) {
+    const c = Math.cos(root.heading),
+      s = Math.sin(root.heading),
+      x = p[0] - root.x,
+      y = p[1] - root.y;
+    return [c * x + s * y, -s * x + c * y, p[2] - root.z];
+  }
+  function seated(r, floor = false) {
+    const depth = r.height * (floor ? 0.09 : 0.157),
+      top = floor ? 0 : r.height * 0.16;
+    return {
+      hipOffset: [-depth, 0, top + r.height * (floor ? 0.108 : 0.064) - r.pelvis[2]],
+      pitch: floor ? 0.07 : 0.045,
+      feet: sides.map((s) => [floor ? r.height * 0.15 : 0, s * r.hip[1] * (floor ? 1.18 : 1), r.ankle])
+    };
+  }
   function validate(rig) {
     if (!rig || typeof rig !== 'object') throw new Error('请提供已登记的体型名称或体型参数');
     for (const key of ['height', 'ankle', 'thigh', 'shin', 'upperArm', 'forearm', 'palm']) {
@@ -169,6 +190,19 @@ const studioRig = (() => {
   }
   return {
     centimetersPerUnit: 3.4,
-    profiles, validate, bindSockets, socket, pose, point, frame, compose, clamp, mix, ramp
+    profiles,
+    seated,
+    world,
+    local,
+    validate,
+    bindSockets,
+    socket,
+    pose,
+    point,
+    frame,
+    compose,
+    clamp,
+    mix,
+    ramp
   };
 })();

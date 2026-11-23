@@ -3,12 +3,15 @@
   const lib = studioLibrary,
     stage = createStudioStage(id('studio-canvas'));
   PineWardrobe.hydrate();
-  let incoming = null, incomingError = '';
+  let incoming = null,
+    incomingError = '';
   if (location.hash) {
     try {
       const snapshot = PineWardrobe.snapshot();
       if (snapshot) incoming = PineWardrobe.readScoreFile(snapshot);
-    } catch (error) { incomingError = error.message; }
+    } catch (error) {
+      incomingError = error.message;
+    }
   }
   const storeKey = 'pineCreek.motionScores.v1',
     url = new URL(location.href),
@@ -22,13 +25,14 @@
   } catch {
     /* Offline storage is optional. */
   }
-  const goodBook = (b) => ['family', 'play', 'work', 'custom'].includes(b);
+  const goodBook = (b) => b === 'custom' || Object.hasOwn(lib.presets, b);
   let book = [url.searchParams.get('demo'), savedBook, 'family'].find(goodBook);
   let plan,
     selected = 0,
     position = 0,
     preview = null,
     previewTime = 0,
+    previewLoop = false,
     playing = false,
     lastStamp = null,
     lastFrame = -1,
@@ -63,26 +67,102 @@
     }
   }
   id('preview-three').addEventListener('click', (event) => {
-    PineWardrobe.handoff(event.currentTarget,plan.score);
+    PineWardrobe.handoff(event.currentTarget, active().score);
   });
   const option = (label, value) => new Option(label, value);
+  const query = id('motion-query'),
+    category = id('motion-group');
+  for (const name of new Set([...lib.actions.values()].map((clip) => clip.group)))
+    category.add(option(name, name));
+  for (const [key, label] of Object.entries(lib.presetLabels)) $preset.add(option(label, key));
+  $preset.add(option('我的编排', 'custom'));
   function refreshActors() {
     const selected = $who.value;
-    $who.replaceChildren(...Array.from(lib.characters.values(), p => option(p.label,p.id)));
+    $who.replaceChildren(...Array.from(lib.characters.values(), (p) => option(p.label, p.id)));
     if (lib.characters.has(selected)) $who.value = selected;
+  }
+  function partnersFor(clip) {
+    return [...lib.characters.values()].filter((person) => lib.accepts(clip, 1, person));
+  }
+  function preferredPartner(partners, wanted) {
+    return (
+      partners.find((p) => p.id === wanted) ||
+      partners.find((p) => p.id === 'mother' && p.id !== $who.value) ||
+      partners.find((p) => p.id !== $who.value) ||
+      partners[0]
+    );
   }
   function listPartners(wanted) {
     const clip = lib.actions.get($which.value);
     $with.replaceChildren();
-    id('with-field').hidden = clip.roles.length < 2;
+    id('with-field').hidden = !clip || clip.roles.length < 2;
+    if (!clip) return;
     if (clip.roles.length === 2) {
-      for (const p of lib.characters.values()) if (lib.accepts(clip, 1, p)) $with.add(option(p.label, p.id));
-      const ids = [...$with.options].map((o) => o.value);
-      $with.value = ids.includes(wanted)
-        ? wanted
-        : ids.find((x) => x !== $who.value && x === 'mother') || ids.find((x) => x !== $who.value) || ids[0];
+      const partners = partnersFor(clip);
+      for (const p of partners) $with.add(option(p.label, p.id));
+      $with.value = preferredPartner(partners, wanted)?.id || '';
     }
   }
+  let matches = [],
+    cardPage = 0,
+    cardTask = 0;
+  function drawCards() {
+    cancelAnimationFrame(cardTask);
+    const browser = id('motion-browser'),
+      cards = id('motion-cards'),
+      pages = id('motion-pages');
+    cards.replaceChildren();
+    pages.hidden = matches.length <= 6;
+    if (!browser.open) return;
+    const who = lib.characters.get($who.value);
+    const total = Math.ceil(matches.length / 6);
+    id('motion-prev').disabled = cardPage === 0;
+    id('motion-next').disabled = cardPage + 1 >= total;
+    id('motion-page').value = total ? cardPage + 1 + ' / ' + total : '';
+    const jobs = [];
+    for (const clip of matches.slice(cardPage * 6, cardPage * 6 + 6)) {
+      const b = document.createElement('button'),
+        c = document.createElement('canvas'),
+        caption = document.createElement('span');
+      c.width = 120;
+      c.height = 86;
+      c.setAttribute('aria-hidden', 'true');
+      caption.textContent = clip.label;
+      b.type = 'button';
+      b.dataset.clip = clip.id;
+      b.setAttribute('aria-pressed', String(clip.id === $which.value));
+      b.append(c, caption);
+      cards.append(b);
+      const cast = clip.roles.length === 1 ? [who] : [who, preferredPartner(partnersFor(clip), $with.value)];
+      if (cast.every(Boolean))
+        jobs.push(() => atelierPreview.actionCard(clip, cast)(c, clip.id === 'jump' ? 0.49 : 0.46));
+      b.onclick = () => {
+        $which.value = clip.id;
+        $which.dispatchEvent(new Event('change'));
+        id('try').click();
+        cards.querySelector('[data-clip="' + clip.id + '"]')?.focus({ preventScroll: true });
+      };
+    }
+    function next() {
+      if (!browser.open || !jobs.length) return;
+      jobs.shift()();
+      if (jobs.length) cardTask = requestAnimationFrame(next);
+    }
+    if (jobs.length) cardTask = requestAnimationFrame(next);
+  }
+  id('motion-browser').ontoggle = drawCards;
+  id('motion-prev').onclick = () => {
+    if (cardPage > 0) {
+      cardPage--;
+      drawCards();
+    }
+  };
+  id('motion-next').onclick = () => {
+    if ((cardPage + 1) * 6 < matches.length) {
+      cardPage++;
+      drawCards();
+    }
+  };
   function listActions(wanted, partner) {
     const groups = new Map(),
       p = lib.characters.get($who.value);
@@ -91,23 +171,42 @@
     const editable = PineWardrobe.saved.has(p.id);
     outfit.hidden = !workshop && !editable;
     outfit.textContent = workshop ? '试穿同款 ↗' : '编辑穿搭 ↗';
-    if (!outfit.hidden) outfit.href = 'atelier.html?tab=wear&' + (workshop ? 'preset=look_workshop_' : 'saved=') + encodeURIComponent(p.id);
+    if (!outfit.hidden)
+      outfit.href =
+        'atelier.html?tab=wear&' + (workshop ? 'preset=look_workshop_' : 'saved=') + encodeURIComponent(p.id);
     $which.replaceChildren();
-    for (const clip of lib.actions.values())
-      if (lib.accepts(clip, 0, p)) {
-        if (!groups.has(clip.group)) {
-          const g = document.createElement('optgroup');
-          g.label = clip.group;
-          groups.set(clip.group, g);
-          $which.append(g);
-        }
-        groups.get(clip.group).append(option(clip.label, clip.id));
+    const available = lib.findActions(p, { group: category.value, query: query.value });
+    for (const clip of available) {
+      if (!groups.has(clip.group)) {
+        const g = document.createElement('optgroup');
+        g.label = clip.group;
+        groups.set(clip.group, g);
+        $which.append(g);
       }
+      groups.get(clip.group).append(option(clip.label, clip.id));
+    }
     if ([...$which.options].some((o) => o.value === wanted)) $which.value = wanted;
-    $duration.value = lib.actions.get($which.value).seconds;
+    const hasMatch = available.length > 0;
+    $which.disabled = !hasMatch;
+    id('try').disabled = id('append').disabled = !hasMatch;
+    id('replace').disabled = selected < 0 || !hasMatch;
+    id('motion-count').textContent = hasMatch
+      ? p.label + '可选 · ' + available.length + ' 个动作'
+      : '没有符合条件的动作，可以更换分类或清空搜索。';
+    if (hasMatch) $duration.value = lib.actions.get($which.value).seconds;
     listPartners(partner);
+    matches = available;
+    cardPage = Math.max(0, Math.floor(matches.findIndex((clip) => clip.id === $which.value) / 6));
+    drawCards();
   }
   function toForm(step) {
+    const actor = lib.characters.get(step.actors[0]);
+    if (
+      !lib.findActions(actor, { group: category.value, query: query.value }).some((c) => c.id === step.action)
+    ) {
+      query.value = '';
+      category.value = '';
+    }
     $who.value = step.actors[0];
     listActions(step.action, step.actors[1]);
     $duration.value = step.seconds;
@@ -125,7 +224,7 @@
     });
   }
   function validated(fn) {
-    if (!id('edit-form').reportValidity()) return;
+    if (!$which.value || !id('edit-form').reportValidity()) return;
     try {
       fn(draft());
     } catch (e) {
@@ -164,7 +263,8 @@
     id('score-length').textContent = plan.score.steps.length + ' 段 · ' + fmt(plan.duration) + ' 秒';
     id('up').disabled = selected <= 0;
     id('down').disabled = selected < 0 || selected >= plan.score.steps.length - 1;
-    id('remove').disabled = id('replace').disabled = selected < 0;
+    id('remove').disabled = selected < 0;
+    id('replace').disabled = selected < 0 || !$which.value;
     id('loop').checked = plan.score.loop;
     lastCue = -1;
   }
@@ -183,6 +283,29 @@
     if (preview) previewTime = t;
     else position = t;
   }
+  // A shared book or joined hands are hidden behind a partner in a side-on shot.
+  // Let the viewer's first orbit take precedence over subsequent automatic cuts.
+  const openingViews = {
+    'hold-hands': [18, 18],
+    storytime: [21, 19],
+    photograph: [324, 18],
+    'water-plant': [303, 21],
+    guitar: [18, 19],
+    phone: [107, 26],
+    type: [107, 26]
+  };
+  let manualBearing = false,
+    framedAction = null;
+  function frameAction(clip) {
+    if (!clip || manualBearing || framedAction === clip.id) return;
+    framedAction = clip.id;
+    const [angle, pitch] = Object.hasOwn(openingViews, clip.id)
+      ? openingViews[clip.id]
+      : book === 'work'
+        ? [107, 26]
+        : [78, 21];
+    if (stage.bearing !== angle || stage.tilt !== pitch) setView(angle, pitch, stage.zoom);
+  }
   function render(force = false) {
     const show = active(),
       t = now(),
@@ -192,13 +315,14 @@
       lastFrame = frame;
       if (cue) stage.setFrame(show.sample(t));
       else stage.setFrame(soloClips.idle(0, lib.characters.get($who.value) || lib.characters.get('child')));
+      frameAction(cue?.clip);
     }
     id('play').disabled = !show.duration;
     id('rewind').disabled = !show.duration;
     id('play').textContent = playing ? '暂停' : preview ? '播放单段' : '播放编排';
     id('play').setAttribute('aria-pressed', String(playing));
     id('return-score').hidden = !preview;
-    id('loop').disabled = !!preview;
+    id('loop').checked = show.score.loop;
     $scrub.max = show.duration || 1;
     $scrub.value = t;
     $scrub.disabled = !show.duration;
@@ -240,7 +364,7 @@
     const show = active();
     let t = now() + dt;
     if (t >= show.duration) {
-      if (!preview && plan.score.loop) t %= show.duration;
+      if (show.score.loop) t %= show.duration;
       else {
         t = show.duration;
         playing = false;
@@ -300,6 +424,8 @@
     preview = null;
     book = key;
     $preset.value = key;
+    query.value = '';
+    category.value = '';
     plan = initialScore(key);
     refreshActors();
     selected = plan.score.steps.length ? 0 : -1;
@@ -316,19 +442,40 @@
     setNote();
     save();
   }
+  function filterActions() {
+    const prior = $which.value,
+      duration = $duration.value;
+    listActions(prior, $with.value);
+    if (prior && $which.value === prior) $duration.value = duration;
+  }
+  query.addEventListener('input', filterActions);
+  category.addEventListener('change', filterActions);
+  query.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      query.value = '';
+      filterActions();
+    }
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      if ($which.value) id('try').click();
+    }
+  });
   $who.addEventListener('change', () => {
     listActions($which.value);
     if (!plan.duration && !preview) render(true);
   });
   $which.addEventListener('change', () => {
     $duration.value = lib.actions.get($which.value).seconds;
-    listPartners();
+    listPartners($with.value);
+    cardPage = Math.max(0, Math.floor(matches.findIndex((clip) => clip.id === $which.value) / 6));
+    drawCards();
   });
+  $with.addEventListener('change', drawCards);
   $preset.addEventListener('change', () => openBook($preset.value, true));
   id('try').addEventListener('click', () =>
     validated((s) => {
       pause();
-      preview = lib.compile({ version: 1, steps: [s] });
+      preview = lib.compile({ version: 1, loop: previewLoop, steps: [s] });
       previewTime = 0;
       invalidateTime();
       playing = true;
@@ -384,12 +531,15 @@
     render(true);
   });
   id('loop').addEventListener('change', () => {
-    plan.score.loop = id('loop').checked;
-    save();
+    active().score.loop = id('loop').checked;
+    if (preview) previewLoop = preview.score.loop;
+    else save();
   });
   id('export').addEventListener('click', () => {
     const link = document.createElement('a'),
-      blob = new Blob([JSON.stringify(PineWardrobe.scoreFile(plan.score), null, 2) + '\n'], { type: 'application/json' });
+      blob = new Blob([JSON.stringify(PineWardrobe.scoreFile(plan.score), null, 2) + '\n'], {
+        type: 'application/json'
+      });
     link.href = URL.createObjectURL(blob);
     link.download = 'pine-motion-' + book + '.json';
     document.body.append(link);
@@ -407,10 +557,15 @@
     try {
       const source = await file.text();
       if (revision !== importRevision) return;
-      const loaded = PineWardrobe.readScoreFile(source,true);
+      const loaded = PineWardrobe.readScoreFile(source, true);
       books.custom = PineWardrobe.scoreFile(loaded.score);
       openBook('custom');
-      setNote('已导入「' + file.name + '」。' + (loaded.charactersPersisted === false ? '存储空间不可用，可导出编排以保留形象。' : ''));
+      setNote(
+        '已导入「' +
+          file.name +
+          '」。' +
+          (loaded.charactersPersisted === false ? '存储空间不可用，可导出编排以保留形象。' : '')
+      );
     } catch (error) {
       if (revision === importRevision) setNote('导入失败 · ' + error.message);
     } finally {
@@ -430,6 +585,7 @@
   }
   orbit.addEventListener('input', () => {
     const value = orbit.valueAsNumber;
+    manualBearing = true;
     setView(value, stage.tilt, stage.zoom);
     if (value === 360) {
       orbit.value = 360;
@@ -445,6 +601,7 @@
   });
   surface.addEventListener('pointermove', (e) => {
     if (drag?.id !== e.pointerId) return;
+    if (e.clientX !== drag.x || e.clientY !== drag.y) manualBearing = true;
     setView(
       drag.a - ((e.clientX - drag.x) * 360) / surface.clientWidth,
       drag.p + ((e.clientY - drag.y) * 45) / surface.clientHeight,
@@ -462,6 +619,7 @@
     }
     if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
       e.preventDefault();
+      manualBearing = true;
       setView(stage.bearing + (e.code === 'ArrowLeft' ? -10 : 10), stage.tilt, stage.zoom);
     }
   });
@@ -482,14 +640,15 @@
       lib.actions.get(requested.tags.includes('baby') ? 'crawl' : 'run');
     if (lib.accepts(clip, 0, requested)) {
       $who.value = requested.id;
-      listActions(clip.id,incomingStep?.actors[1]);
-      $repeat.value = 1;
-      preview = lib.compile({ version: 1, steps: [draft()] });
-      previewTime = autoplay ? 0 : clip.seconds * 0.37;
+      listActions(clip.id, incomingStep?.actors[1] || url.searchParams.get('partner'));
+      $repeat.value = incomingStep?.repeat ?? 1;
+      if (incomingStep) $duration.value = incomingStep.seconds;
+      previewLoop = incoming?.score.loop ?? previewLoop;
+      preview = lib.compile({ version: 1, loop: previewLoop, steps: [draft()] });
+      previewTime = autoplay ? 0 : preview.score.steps[0].seconds * 0.37;
       invalidateTime();
       render(true);
     }
   }
-  if (book === 'work' || ['phone', 'type'].includes(url.searchParams.get('action'))) setView(107, 26, 1);
   if (autoplay && active().duration) togglePlay();
 })();

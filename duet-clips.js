@@ -8,18 +8,7 @@ const duetClips = (() => {
   const between = (a, b, t) => a.map((v, i) => mix(v, b[i], t));
   const window = (u, start, up, down, end) => ramp(u, start, up) * (1 - ramp(u, down, end));
   const blink = (u, t) => window(u, t, t + 0.014, t + 0.019, t + 0.036);
-  function world(root, p) {
-    const c = Math.cos(root.heading),
-      s = Math.sin(root.heading);
-    return [root.x + c * p[0] - s * p[1], root.y + s * p[0] + c * p[1], root.z + p[2]];
-  }
-  function local(root, p) {
-    const c = Math.cos(root.heading),
-      s = Math.sin(root.heading),
-      x = p[0] - root.x,
-      y = p[1] - root.y;
-    return [c * x + s * y, -s * x + c * y, p[2] - root.z];
-  }
+  const { world, local } = studioRig;
   function entry(character, root, body, contacts) {
     return { character: character.id, ...root, pose: body, contacts };
   }

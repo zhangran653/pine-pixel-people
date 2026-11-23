@@ -32,22 +32,23 @@ function lightClearing(scene) {
 function showcases(motion) {
   PineWardrobe.hydrate();
   const choices = new Map();
-  const register = (key, label, score) => choices.set(key, { label, plan: PineWardrobe.readScoreFile(score) });
+  const register = (key, label, score) =>
+    choices.set(key, { label, plan: PineWardrobe.readScoreFile(score) });
   register('greet', '相互击掌', {
     version: 1,
     loop: true,
     steps: [{ action: 'highfive', actors: ['child', 'mother'] }]
   });
-  register('play', '放学活动', motion.presets.play);
-  register('family', '亲子时光', motion.presets.family);
-  register('work', '营地办公', motion.presets.work);
+  for (const [key, label] of Object.entries(motion.presetLabels)) register(key, label, motion.presets[key]);
   try {
     const snapshot = PineWardrobe.snapshot();
     if (snapshot) {
       register('studio', '工坊当前编排', snapshot);
       return choices;
     }
-  } catch { /* A directly opened preview can still use its last saved score. */ }
+  } catch {
+    /* A directly opened preview can still use its last saved score. */
+  }
   try {
     const saved = JSON.parse(localStorage.getItem('pineCreek.motionScores.v1') || 'null');
     if (saved?.books?.[saved.book]) register('studio', '工坊当前编排', saved.books[saved.book]);

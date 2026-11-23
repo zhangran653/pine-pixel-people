@@ -21,7 +21,8 @@ const studioProps = (() => {
     foldTube: '426b71',
     foldGlint: '7d9693',
     foldFoot: '324b51',
-    foldPin: 'e5b874'
+    foldPin: 'e5b874',
+    ...activityProps.materials
   };
 
   function roundedPanel(u, v, halfU, halfV, radius) {
@@ -176,8 +177,10 @@ const studioProps = (() => {
 
   function paint(pose, brush, ink, styles) {
     if (!pose.props?.length) return;
-    for (const { kind, frame, scale = 1, rise = 0 } of pose.props) {
+    for (const item of pose.props) {
+      const { kind, frame, scale = 1, rise = 0 } = item;
       if (!(scale > 0) || !Number.isFinite(scale)) continue;
+      if (activityProps.paint(item, brush, ink)) continue;
       // A subpixel shell can put both faces into the same sample. Include a
       // neighboring sample on the normal axis until each face has its own color.
       const normalX = kind === 'laptop' ? lidCos : 1,

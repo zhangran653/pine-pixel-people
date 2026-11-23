@@ -47,11 +47,23 @@ const studioLibrary = (() => {
     characters.set(item.id, item);
     return item;
   }
-  function registerAction({ id, label, group = '日常', seconds, roles, sample }) {
+  function registerAction({
+    id,
+    label,
+    group = '日常',
+    seconds,
+    roles,
+    sample,
+    keywords = '',
+    previewTurn = false
+  }) {
     if (
       !isId(id) ||
       actions.has(id) ||
       !label ||
+      typeof group !== 'string' ||
+      typeof keywords !== 'string' ||
+      typeof previewTurn !== 'boolean' ||
       typeof sample !== 'function' ||
       !Number.isFinite(seconds) ||
       seconds <= 0
@@ -64,7 +76,7 @@ const studioLibrary = (() => {
       roles.some((r) => !Array.isArray(r) || !r.length || !r.every(isId))
     )
       throw new Error('动作需要一或两个含有效标签的角色槽位');
-    const clip = { id, label, group, seconds, roles, sample };
+    const clip = { id, label, group, seconds, roles, sample, keywords, previewTurn };
     actions.set(id, clip);
     return clip;
   }
@@ -89,25 +101,54 @@ const studioLibrary = (() => {
   const everyone = ['adult', 'child', 'toddler', 'baby'],
     walkers = ['adult', 'child', 'toddler'],
     devices = ['adult', 'child'];
-  for (const [id, label, group, seconds, roles] of [
-    ['idle', '自然待机', '日常', 3.2, [everyone]],
-    ['walk', '散步', '移动', 4, [walkers]],
-    ['run', '跑步', '移动', 2.8, [walkers]],
-    ['jump', '屈膝跳跃', '移动', 1.7, [walkers]],
-    ['crawl', '手膝爬行', '移动', 3.6, [['baby', 'toddler']]],
-    ['sit', '坐着休息', '日常', 2.8, [everyone]],
-    ['sitdown', '坐下再起身', '日常', 3.8, [walkers]],
-    ['sway', '轻晃', '日常', 3.4, [everyone]],
-    ['wave', '挥手', '日常', 2.2, [everyone]],
-    ['clap', '拍手', '日常', 2.4, [everyone]],
-    ['drink', '喝水', '日常', 3.6, [walkers]],
-    ['phone', '看手机', '现代生活', 4.0, [devices]],
-    ['type', '电脑打字', '现代生活', 4.2, [devices]],
-    ['highfive', '相互击掌', '双人', 2.8, [walkers, walkers]],
-    ['cradle', '抱起轻摇', '亲子', 5.8, [['mother'], ['baby']]],
-    ['peekaboo', '躲猫猫', '亲子', 4.0, [['mother'], ['baby']]]
+  for (const [id, label, group, seconds, roles, keywords] of [
+    ['idle', '自然待机', '日常', 3.2, [everyone], '站立 站着 站姿 呼吸 放松'],
+    ['walk', '散步', '移动', 4, [walkers], '走路 行走 步行 漫步 前进'],
+    ['run', '跑步', '移动', 2.8, [walkers], '奔跑 跑动 快跑 运动'],
+    ['jump', '屈膝跳跃', '移动', 1.7, [walkers], '起跳 落地 跳起来'],
+    ['crawl', '手膝爬行', '移动', 3.6, [['baby', 'toddler']], '宝宝爬 爬动 学爬'],
+    ['sit', '坐着休息', '日常', 2.8, [everyone], '坐姿 坐凳 椅子'],
+    ['sitdown', '坐下再起身', '日常', 3.8, [walkers], '起立 落座 坐椅子'],
+    ['sway', '轻晃', '日常', 3.4, [everyone], '摇摆 摇晃 轻微晃动'],
+    ['wave', '挥手', '日常', 2.2, [everyone], '招手 打招呼 你好 告别 再见'],
+    ['clap', '拍手', '日常', 2.4, [everyone], '鼓掌 欢迎 拍巴掌'],
+    ['drink', '喝水', '日常', 3.6, [walkers], '饮水 补水 水瓶 水壶'],
+    ['phone', '看手机', '现代生活', 4.0, [devices], '用手机 玩手机 刷手机 刷屏 看消息'],
+    ['type', '电脑打字', '现代生活', 4.2, [devices], '用电脑 键盘 笔记本 办公 输入'],
+    ['highfive', '相互击掌', '双人', 2.8, [walkers, walkers], '拍掌 庆祝 双人互动'],
+    ['cradle', '抱起轻摇', '亲子', 5.8, [['mother'], ['baby']], '抱宝宝 安抚 哄睡 亲子互动'],
+    ['peekaboo', '躲猫猫', '亲子', 4.0, [['mother'], ['baby']], '捉迷藏 遮眼 逗宝宝 亲子互动']
   ])
-    registerAction({ id, label, group, seconds, roles, sample: soloClips[id] || duetClips[id] });
+    registerAction({ id, label, group, seconds, roles, keywords, sample: soloClips[id] || duetClips[id] });
+  for (const clip of [...gestureActions, ...movementActions, ...dailyActions, ...socialActions])
+    registerAction(clip);
+  function findActions(person, { group = '', query = '', eitherRole = false } = {}) {
+    const words = query.normalize('NFKC').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return [...actions.values()].filter((clip) => {
+      if (!accepts(clip, 0, person) && !(eitherRole && accepts(clip, 1, person))) return false;
+      if (group && clip.group !== group) return false;
+      const text = [clip.label, clip.group, clip.id, ...clip.id.split('-'), clip.keywords]
+        .join(' ')
+        .normalize('NFKC')
+        .toLowerCase();
+      return words.every((word) => text.includes(word));
+    });
+  }
+  function castFor(clip, actor, preferred = null) {
+    if (!actor) return null;
+    if (clip.roles.length === 1) return accepts(clip, 0, actor) ? [actor] : null;
+    const partners = [
+      preferred,
+      characters.get(actor.tags.includes('adult') ? 'child' : 'mother'),
+      ...characters.values()
+    ];
+    for (const partner of partners) {
+      if (!partner || partner === actor) continue;
+      if (accepts(clip, 0, actor) && accepts(clip, 1, partner)) return [actor, partner];
+      if (accepts(clip, 1, actor) && accepts(clip, 0, partner)) return [partner, actor];
+    }
+    return null;
+  }
   function accepts(clip, slot, person) {
     return !!person && clip.roles[slot]?.some((tag) => person.tags.includes(tag));
   }
@@ -159,6 +200,101 @@ const studioLibrary = (() => {
       ]
     }
   };
+  const presetLabels = { family: '亲子时光', play: '放学活动', work: '营地办公' };
+  for (const [id, label, steps] of [
+    [
+      'morning',
+      '清晨起居',
+      [
+        ['wake-stretch', 'mother'],
+        ['brush-teeth', 'mother'],
+        ['comb', 'mother'],
+        ['eat', 'mother'],
+        ['check-watch', 'mother']
+      ]
+    ],
+    [
+      'study',
+      '书桌时光',
+      [
+        ['read', 'child'],
+        ['write', 'child'],
+        ['raise-hand', 'child'],
+        ['think', 'child'],
+        ['type', 'child'],
+        ['doze', 'child']
+      ]
+    ],
+    [
+      'house',
+      '家务午后',
+      [
+        ['carry-box', 'surveyor'],
+        ['sweep', 'surveyor'],
+        ['stir', 'surveyor'],
+        ['water-plant', 'surveyor'],
+        ['recline', 'surveyor']
+      ]
+    ],
+    [
+      'training',
+      '操场热身',
+      [
+        ['march', 'child'],
+        ['side-stretch', 'child'],
+        ['lunge', 'child'],
+        ['jumping-jack', 'child'],
+        ['balance', 'child'],
+        ['bounce-ball', 'child']
+      ]
+    ],
+    [
+      'neighbors',
+      '邻里见面',
+      [
+        ['handshake', 'mother', 'surveyor'],
+        ['chat', 'mother', 'surveyor'],
+        ['handover', 'surveyor', 'mother'],
+        ['bow', 'mother']
+      ]
+    ],
+    [
+      'nursery',
+      '陪宝宝玩',
+      [
+        ['storytime', 'mother', 'baby'],
+        ['follow-rattle', 'mother', 'baby'],
+        ['rattle', 'baby'],
+        ['tummy-time', 'baby'],
+        ['roll-ball', 'mother', 'baby'],
+        ['toy-drum', 'baby']
+      ]
+    ],
+    [
+      'music',
+      '周末排练',
+      [
+        ['guitar', 'surveyor'],
+        ['dance-step', 'child'],
+        ['mirror-game', 'child', 'mother'],
+        ['cheer', 'child']
+      ]
+    ],
+    [
+      'outdoors',
+      '一起出门',
+      [
+        ['hold-hands', 'mother', 'toddler'],
+        ['look-around', 'toddler'],
+        ['pivot', 'mother'],
+        ['photograph', 'mother'],
+        ['skip', 'child']
+      ]
+    ]
+  ]) {
+    presetLabels[id] = label;
+    presets[id] = { version: 1, loop: true, steps: steps.map(([action, ...ids]) => built(action, ids)) };
+  }
   function validateStep(step, index = 0, cast = characters) {
     const fail = (msg) => {
       throw new Error('第 ' + (index + 1) + ' 段 · ' + msg);
@@ -192,7 +328,11 @@ const studioLibrary = (() => {
     if (Object.keys(input).some((k) => !['version', 'loop', 'steps'].includes(k)))
       throw new Error('编排含有未知字段');
     if (input.loop !== undefined && typeof input.loop !== 'boolean') throw new Error('loop 须为布尔值');
-    const score = { version: 1, loop: input.loop ?? false, steps: input.steps.map((step, index) => validateStep(step, index, cast)) },
+    const score = {
+        version: 1,
+        loop: input.loop ?? false,
+        steps: input.steps.map((step, index) => validateStep(step, index, cast))
+      },
       starts = [];
     let duration = 0;
     for (const step of score.steps) {
@@ -238,6 +378,10 @@ const studioLibrary = (() => {
     registerCharacter,
     registerAction,
     accepts,
+    findActions,
+    castFor,
+    keyframedGesture: activityMotion.gesture,
+    presetLabels,
     compile,
     validateStep,
     presets

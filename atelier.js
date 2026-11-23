@@ -120,10 +120,20 @@
     return entries.get($('compare').value);
   }
   function show() {
-    const other = compareDoc();
+    const other = compareDoc(),
+      partner = other ? actorFor(other) : null,
+      clip = PineMotion.actions.get(action);
+    const line = $('action-partner');
+    line.hidden = clip.roles.length !== 2;
+    if (!line.hidden) {
+      const cast = PineMotion.castFor(clip, actor, partner);
+      const label = cast?.find((p) => p !== actor)?.label || '';
+      const text = '试演搭档 · ' + label;
+      if (line.textContent !== text) line.textContent = text;
+    }
     mirror.show({
       actor,
-      compare: other ? actorFor(other) : null,
+      compare: partner,
       action,
       u: phase,
       bearing,
@@ -191,8 +201,17 @@
     $('legacy-body').hidden = profile !== null;
   }
   function refreshAction() {
-    const available = [...PineMotion.actions.values()].filter((clip) => PineMotion.accepts(clip, 0, actor));
-    $('action').replaceChildren(...available.map((clip) => new Option(clip.label, clip.id)));
+    const available = PineMotion.findActions(actor, { eitherRole: true }),
+      groups = new Map();
+    for (const clip of available) {
+      if (!groups.has(clip.group)) {
+        const g = document.createElement('optgroup');
+        g.label = clip.group;
+        groups.set(clip.group, g);
+      }
+      groups.get(clip.group).append(new Option(clip.label, clip.id));
+    }
+    $('action').replaceChildren(...groups.values());
     if (!available.some((clip) => clip.id === action)) action = 'idle';
     $('action').value = action;
   }
@@ -988,16 +1007,19 @@
   }
   function score() {
     const clip = PineMotion.actions.get(action),
-      ids = [draft.id],
+      other = compareDoc(),
+      otherActor = other ? actorFor(other) : null;
+    const cast = PineMotion.castFor(clip, actor, otherActor),
       docs = [draft];
-    if (clip.roles.length === 2) {
-      const other = compareDoc();
-      if (other) {
+    const ids = cast.map((person) => {
+      if (person === actor) return draft.id;
+      if (other && person === otherActor) {
         const doc = other.id === draft.id ? { ...other, id: looks.newId() } : other;
-        ids.push(doc.id);
         docs.push(doc);
-      } else ids.push(draft.base === 'adult' ? 'child' : 'mother');
-    }
+        return doc.id;
+      }
+      return person.id;
+    });
     return { score: { version: 1, loop: true, steps: [{ action, actors: ids }] }, docs };
   }
   let pendingSwitch = null;
@@ -1069,7 +1091,7 @@
   };
   $('action').onchange = () => {
     action = $('action').value;
-    phase = action === 'highfive' ? 0.48 : action === 'drink' ? 0.51 : 0.24;
+    phase = action === 'drink' ? 0.51 : PineMotion.actions.get(action).roles.length === 2 ? 0.48 : 0.37;
     stamp = null;
     show();
   };
@@ -1360,6 +1382,11 @@
     hairGroup = looks.hairGroups[requestedHair];
     changed();
     if (tab === 'hair') fields();
+  }
+  const requestedAction = query.get('action');
+  if (requestedAction && [...$('action').options].some((o) => o.value === requestedAction)) {
+    $('action').value = requestedAction;
+    $('action').dispatchEvent(new Event('change'));
   }
   const openingAngle = Number(query.get('bearing') || NaN);
   if (Number.isInteger(openingAngle) && openingAngle >= 0 && openingAngle <= 360) orbit(openingAngle);

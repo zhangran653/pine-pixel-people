@@ -41,26 +41,6 @@ const atelierPreview = (() => {
     ctx.fillRect(0, 0, w, h);
   }
 
-  function duet(motion, clip, actor, compare) {
-    const partnerFor = (slot) => {
-      if (compare && motion.accepts(clip, slot, compare)) return compare;
-      const candidates = [
-        motion.characters.get(actor.tags.includes('adult') ? 'child' : 'mother'),
-        ...motion.characters.values()
-      ];
-      return candidates.find((p) => p && p !== actor && motion.accepts(clip, slot, p));
-    };
-    if (motion.accepts(clip, 0, actor)) {
-      const other = partnerFor(1);
-      if (other) return [actor, other];
-    }
-    if (motion.accepts(clip, 1, actor)) {
-      const other = partnerFor(0);
-      if (other) return [other, actor];
-    }
-    return null;
-  }
-
   function part(actor, sample) {
     return { ...sample, actor, body: actor.body, model: actor.body.makePose(sample.pose) };
   }
@@ -68,7 +48,7 @@ const atelierPreview = (() => {
   function sampleFrame(motion, actor, compare, clip, phase) {
     if (!actor || !clip) return [];
     if (clip.roles.length === 2) {
-      const pair = duet(motion, clip, actor, compare);
+      const pair = motion.castFor(clip, actor, compare);
       if (pair) {
         const samples = clip.sample(phase, ...pair);
         const parts = pair.map((a, i) => part(a, samples[i]));
@@ -77,10 +57,11 @@ const atelierPreview = (() => {
       clip = motion.actions.get('idle');
     }
     return (compare ? [actor, compare] : [actor]).map((a) => {
-      const sample = clip.sample(phase, a)[0];
+      const solo = motion.accepts(clip, 0, a) ? clip : motion.actions.get('idle');
+      const sample = solo.sample(phase, a)[0];
       // A solo mirror follows the moving root horizontally and keeps the chosen
       // side facing the lens. Ground-relative height and all joint motion survive.
-      const p = part(a, { ...sample, x: 0, y: 0, heading: 0 });
+      const p = part(a, { ...sample, x: 0, y: 0, heading: clip.previewTurn ? sample.heading : 0 });
       return { parts: [p], drawing: p };
     });
   }
@@ -375,7 +356,21 @@ const atelierPreview = (() => {
     });
   }
 
-  function paint(ctx, w, h, groups, motion, action, bearing, view, compact, layer, pixel = 1, detail = true) {
+  function paint(
+    ctx,
+    w,
+    h,
+    groups,
+    motion,
+    action,
+    bearing,
+    view,
+    compact,
+    layer,
+    pixel = 1,
+    detail = true,
+    fixed = null
+  ) {
     if (!groups.length) return;
     const feature = ['eyes', 'brows', 'nose', 'mouth'].includes(view);
     const portrait = view === 'face' || feature,
@@ -384,7 +379,12 @@ const atelierPreview = (() => {
     const measured =
       !portrait && !compact && fullBodyLayout(w, h, groups, frames, motion, pixel, action, camera);
     let scale, origins;
-    if (feature) {
+    if (fixed) {
+      scale = Math.min(w / (fixed.right - fixed.left), h / (fixed.bottom - fixed.top));
+      origins = [
+        [w / 2 - ((fixed.left + fixed.right) * scale) / 2, h / 2 - ((fixed.top + fixed.bottom) * scale) / 2]
+      ];
+    } else if (feature) {
       const person = groups[0].parts[0],
         socket = (name) => motion.rig.socket(person.actor, person.pose, name);
       const left = socket('leftEye'),
@@ -609,5 +609,62 @@ const atelierPreview = (() => {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(image, 0, 0, width, height);
   }
-  return { create, thumbnail };
+  // A single camera box for the whole clip keeps a jump, turning step or rolling ball in world space.
+  function actionCard(clip, cast, bearing) {
+    const motion = globalThis.PineMotion,
+      first = clip.sample(0, ...cast),
+      height = Math.max(...cast.map((p) => p.rig.height));
+    if (bearing === undefined)
+      bearing =
+        cast.length === 1
+          ? -31
+          : Math.abs(first[1].y - first[0].y) > Math.abs(first[1].x - first[0].x)
+            ? 18
+            : 68;
+    const camera = lens(bearing, false),
+      fixed = { left: Infinity, right: -Infinity, top: Infinity, bottom: 0 };
+    for (let n = 0; n <= 10; n++) {
+      clip.sample(n / 10, ...cast).forEach((e, i) => {
+        const rig = cast[i].rig,
+          p = e.pose;
+        const landmarks = [
+          ...p.feet,
+          ...p.arms.flatMap((arm) => [arm.shoulder, arm.elbow, arm.hand]),
+          ...p.legs.map((leg) => leg.knee),
+          motion.rig.point(p.head, [0, 0, rig.height]),
+          ...(p.props || []).map((item) => motion.rig.point(item.frame, [0, 0, 0]))
+        ];
+        for (const loc of landmarks) {
+          const [x, y] = fromPart(e, loc, camera);
+          fixed.left = Math.min(fixed.left, x);
+          fixed.right = Math.max(fixed.right, x);
+          fixed.top = Math.min(fixed.top, y);
+        }
+      });
+    }
+    fixed.left -= 0.115 * height;
+    fixed.right += 0.115 * height;
+    fixed.top -= 0.082 * height;
+    fixed.bottom += 0.024 * height;
+    return (canvas, u = 0.46) => {
+      const groups = [{ parts: clip.sample(u, ...cast).map((e, i) => part(cast[i], e)) }];
+      paper(canvas);
+      paint(
+        canvas.getContext('2d'),
+        canvas.width,
+        canvas.height,
+        groups,
+        motion,
+        clip.id,
+        bearing,
+        'body',
+        true,
+        null,
+        1,
+        canvas.height > 115,
+        fixed
+      );
+    };
+  }
+  return { create, thumbnail, actionCard };
 })();
