@@ -48,14 +48,16 @@
     drag = null;
   let hairAngle = 140,
     priorAngle = 24,
-    swatchKey = '';
+    swatchKey = '',
+    swatchFrame = 0;
   const swatchActors = new Map(),
     thumbnails = new WeakMap();
+  function paintThumbnail(canvas) {
+    const item = thumbnails.get(canvas);
+    if (item) atelierPreview.thumbnail(canvas, item.actor, item.bearing);
+  }
   function paintThumbnails(container) {
-    for (const canvas of container.querySelectorAll('canvas')) {
-      const item = thumbnails.get(canvas);
-      if (item) atelierPreview.thumbnail(canvas, item.actor, item.bearing);
-    }
+    for (const canvas of container.querySelectorAll('canvas')) paintThumbnail(canvas);
   }
   const thumbnailSize = new ResizeObserver((changes) => {
     for (const { target } of changes) paintThumbnails(target);
@@ -151,9 +153,7 @@
   }
   function changed() {
     dirty = true;
-    if (looks.usesExtendedShape(draft.shape)) draft.packs[looks.core] = looks.release;
-    else if (draft.packs[looks.core] === looks.originalRelease && looks.needsNewCore(draft.parts, draft.face))
-      draft.packs[looks.core] = looks.styleRelease;
+    draft.packs[looks.core] = looks.editingRelease(draft);
     actor = looks.build({ ...draft, label: draft.label.trim() || '未命名形象' });
     heading();
     markPresets();
@@ -249,6 +249,8 @@
     }
     for (const b of document.querySelectorAll('[data-hair-style]'))
       b.setAttribute('aria-pressed', String(b.dataset.hairStyle === draft.parts.hair));
+    for (const b of document.querySelectorAll('[data-hair-color]'))
+      b.setAttribute('aria-pressed', String(b.dataset.hairColor === draft.colors.hair));
   }
   function presetGroup(title, choices, type, apply) {
     const group = document.createElement('fieldset'),
@@ -307,25 +309,16 @@
     area.append(grid, ...tabKeys.face.map(slider));
     markPresets();
   }
-  function hairFields(area) {
-    const cards = document.createElement('div');
-    cards.className = 'hair-cards';
-    cards.setAttribute('role', 'group');
-    cards.setAttribute('aria-label', '选择发型');
-    area.append(cards);
+  function paintHairCards(cards, stagger = false) {
+    cancelAnimationFrame(swatchFrame);
     const currentKey = JSON.stringify([draft.base, draft.gender, draft.shape, draft.face, draft.colors]);
     if (swatchKey !== currentKey) {
       swatchKey = currentKey;
       swatchActors.clear();
     }
-    for (const [key, name] of Object.entries(looks.slots.hair)) {
-      const button = document.createElement('button'),
-        canvas = document.createElement('canvas');
-      button.type = 'button';
-      button.dataset.hairStyle = key;
-      canvas.setAttribute('aria-hidden', 'true');
-      button.append(canvas, name);
-      cards.append(button);
+    const pending = [];
+    for (const button of cards.children) {
+      const key = button.dataset.hairStyle;
       if (!swatchActors.has(key)) {
         const sample = {
           ...looks.templates[0],
@@ -339,7 +332,95 @@
         };
         swatchActors.set(key, looks.build(sample));
       }
+      const canvas = button.querySelector('canvas');
       thumbnails.set(canvas, { actor: swatchActors.get(key), bearing: 140 });
+      if (stagger && key !== draft.parts.hair) pending.push(canvas);
+      else paintThumbnail(canvas);
+    }
+    // On a dye change the mirror and selected card update first. Let the picker
+    // accept more input between the remaining voxel portraits.
+    function nextCard() {
+      if (!cards.isConnected) return;
+      paintThumbnail(pending.shift());
+      if (pending.length) swatchFrame = requestAnimationFrame(nextCard);
+    }
+    if (pending.length) swatchFrame = requestAnimationFrame(nextCard);
+  }
+  function colorInput(key, onUpdate) {
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.id = 'color-' + key;
+    input.value = draft.colors[key];
+    input.oninput = () => {
+      if (draft.colors[key] === input.value) return;
+      draft.colors[key] = input.value;
+      changed();
+      onUpdate?.();
+    };
+    input.onchange = input.oninput;
+    return input;
+  }
+  function hairColorFields(cards) {
+    const group = document.createElement('fieldset'),
+      legend = document.createElement('legend');
+    const options = document.createElement('div'),
+      custom = document.createElement('div');
+    const caption = document.createElement('label'),
+      value = document.createElement('output');
+    group.className = 'preset-group hair-dyes';
+    legend.textContent = '发色';
+    options.className = 'hair-color-options';
+    custom.className = 'custom-hair-color';
+    let timer;
+    function refresh() {
+      clearTimeout(timer);
+      if (cards.isConnected) paintHairCards(cards, true);
+    }
+    const input = colorInput('hair', () => {
+      value.value = draft.colors.hair.toUpperCase();
+      clearTimeout(timer);
+      cancelAnimationFrame(swatchFrame);
+      timer = setTimeout(refresh, 110);
+    });
+    input.addEventListener('change', refresh);
+    caption.htmlFor = input.id;
+    caption.textContent = '自定义发色';
+    value.htmlFor = input.id;
+    value.value = draft.colors.hair.toUpperCase();
+    custom.append(input, caption, value);
+    for (const [name, color] of Object.entries(looks.hairColors)) {
+      const button = document.createElement('button'),
+        chip = document.createElement('i');
+      button.type = 'button';
+      button.dataset.hairColor = color;
+      chip.style.backgroundColor = color;
+      chip.setAttribute('aria-hidden', 'true');
+      button.append(chip, name);
+      button.onclick = () => {
+        if (input.value === color) return;
+        input.value = color;
+        input.dispatchEvent(new Event('input'));
+        refresh();
+      };
+      options.append(button);
+    }
+    group.append(legend, options, custom);
+    return group;
+  }
+  function hairFields(area) {
+    const cards = document.createElement('div');
+    cards.className = 'hair-cards';
+    cards.setAttribute('role', 'group');
+    cards.setAttribute('aria-label', '选择发型');
+    area.append(hairColorFields(cards), cards);
+    for (const [key, name] of Object.entries(looks.slots.hair)) {
+      const button = document.createElement('button'),
+        canvas = document.createElement('canvas');
+      button.type = 'button';
+      button.dataset.hairStyle = key;
+      canvas.setAttribute('aria-hidden', 'true');
+      button.append(canvas, name);
+      cards.append(button);
       button.onclick = () => {
         if (draft.parts.hair !== key) {
           draft.parts.hair = key;
@@ -347,7 +428,7 @@
         }
       };
     }
-    paintThumbnails(cards);
+    paintHairCards(cards);
     const row = document.createElement('div'),
       caption = document.createElement('span');
     row.className = 'hair-angles';
@@ -440,16 +521,8 @@
     } else {
       grid.className = 'color-grid';
       for (const [key, text] of Object.entries(looks.colors)) {
-        const label = document.createElement('label'),
-          input = document.createElement('input');
-        input.type = 'color';
-        input.id = 'color-' + key;
-        input.value = draft.colors[key];
-        input.oninput = () => {
-          draft.colors[key] = input.value;
-          changed();
-        };
-        label.append(input, text);
+        const label = document.createElement('label');
+        label.append(colorInput(key), text);
         grid.append(label);
       }
     }
@@ -716,6 +789,9 @@
     (b) => b.dataset.tab === query.get('tab')
   );
   if (openingTab) changeTab(openingTab);
+  const requestedHair = query.get('hair');
+  if (tab === 'hair' && Object.hasOwn(looks.slots.hair, requestedHair))
+    document.querySelector('[data-hair-style="' + requestedHair + '"]').click();
   orientation();
   if (skipped) note('有 ' + skipped + ' 个无效的本地存档，其他形象已载入。', true);
   if (location.protocol !== 'file:')

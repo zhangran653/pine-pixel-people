@@ -95,7 +95,7 @@ function checkEditor() {
     const widened = PineWardrobe.saved.get(legacy.id);
     expect(
       widened.gender === 'female' &&
-        widened.packs['pine-core'] === PineLooks.release &&
+        widened.packs['pine-core'] === PineLooks.proportionRelease &&
         widened.shape.shoulders === 1.35,
       'extended shoulders failed to save on the original look'
     );
@@ -124,7 +124,7 @@ function checkEditor() {
     small.remove();
     byId('tab-hair').click();
     const cards = [...document.querySelectorAll('[data-hair-style]')];
-    expect(cards.length === 7, 'missing hairstyle swatches');
+    expect(cards.length === 12, 'missing hairstyle swatches');
     for (const button of cards) {
       const c = button.querySelector('canvas');
       expect(
@@ -137,9 +137,43 @@ function checkEditor() {
     const single = byId('mirror').toDataURL();
     document.querySelector('[data-hair-style="twin-tails"]').click();
     expect(single !== byId('mirror').toDataURL(), 'single and twin ponytails have identical back views');
+    const loose = document.querySelector('[data-hair-style="shoulder-length"]');
+    loose.click();
+    const beforeDye = byId('mirror').toDataURL(),
+      beforeCard = loose.querySelector('canvas').toDataURL();
+    const palette = [...document.querySelectorAll('[data-hair-color]')];
+    expect(palette.length === 8, 'missing hair colors');
+    const dye = palette.find((b) => b.textContent === '铜红');
+    dye.click();
+    expect(
+      dye.getAttribute('aria-pressed') === 'true' && byId('color-hair').value === dye.dataset.hairColor,
+      'preset and color picker disagree'
+    );
+    expect(
+      beforeDye !== byId('mirror').toDataURL() && beforeCard !== loose.querySelector('canvas').toDataURL(),
+      'dye was not painted on both the mirror and hairstyle card'
+    );
+    byId('tab-colors').click();
+    expect(byId('color-hair').value === dye.dataset.hairColor, 'color was lost when opening the colors tab');
+    byId('color-hair').value = '#a6b784';
+    byId('color-hair').dispatchEvent(new Event('input'));
+    byId('tab-hair').click();
+    expect(
+      byId('color-hair').value === '#a6b784' &&
+        !document.querySelector('[data-hair-color][aria-pressed=true]'),
+      'custom color was replaced by a preset'
+    );
+    byId('save-look').click();
+    const styled = PineWardrobe.saved.get(legacy.id);
+    expect(
+      styled.parts.hair === 'shoulder-length' &&
+        styled.colors.hair === '#a6b784' &&
+        styled.packs['pine-core'] === PineLooks.release,
+      'saved hair style, dye or core version was lost'
+    );
     target.dataset.state = 'pass';
     target.textContent =
-      'Body profiles, legacy saves, fixed scale, shared floor and hairstyle swatches passed';
+      'Body profiles, legacy saves, fixed scale, shared floor, hairstyles and hair colors passed';
   } catch (err) {
     target.dataset.state = 'fail';
     target.textContent = err.message;

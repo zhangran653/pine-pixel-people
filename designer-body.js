@@ -20,6 +20,7 @@ const pineDesignerBody = (() => {
     shoes: '#ae6752',
     accent: '#e6b963'
   };
+  const looseLengths = { 'shoulder-length': 1.78, 'long-waves': 2.25, 'half-up': 1.96 };
   const dimensions = {
     child: {
       head: [0.38, 27.69, 3.98, 4.1, 4.89],
@@ -178,9 +179,14 @@ const pineDesignerBody = (() => {
       cardigan = parts.top === 'cardigan';
     const jacket = parts.top !== 'pullover' && !tee && !hoodie && !cardigan,
       scarf = parts.neck === 'scarf';
-    const hairstyle = ['bob', 'bun', 'ponytail', 'twin-tails', 'braid', 'curly'].includes(parts.hair)
-      ? parts.hair
-      : 'crop';
+    const loose = Object.hasOwn(looseLengths, parts.hair);
+    const hairstyle =
+      loose ||
+      ['bob', 'bun', 'ponytail', 'twin-tails', 'braid', 'curly', 'twin-braids', 'side-part'].includes(
+        parts.hair
+      )
+        ? parts.hair
+        : 'crop';
     const hasHat = !!parts.hat && parts.hat !== 'none' && typeof paintHat === 'function';
     const ankle = base.ankle * s;
     const legChange = (base.hip[2] - base.ankle) * (legs - 1) * s;
@@ -883,6 +889,134 @@ const pineDesignerBody = (() => {
       }
     }
 
+    // A lock follows the head at its root and the upper body where it rests on the shoulders.
+    const headWeight = (height) => clamp((height + 1.52) / 1.12, 0, 1);
+    function lockPoint(pose, u, v, h) {
+      const rest = [fit.x + u * fit.rx, v * fit.ry, fit.z + h * fit.rz];
+      const head = studioRig.point(pose.head, rest),
+        torso = studioRig.point(pose.torso, rest);
+      const follow = headWeight(h);
+      return torso.map((p, i) => p + follow * (head[i] - p));
+    }
+
+    function drawLooseHair(pose, b, k) {
+      const { x: cx, z: cz, rx, ry, rz } = fit;
+      const waves = hairstyle === 'long-waves',
+        gathered = hairstyle === 'half-up';
+      const length = looseLengths[hairstyle];
+      // Sample the sheet in torso space. Above the nape, undo the head rotation about the neck.
+      const axis = (j) =>
+        [0, 1, 2].map(
+          (i) =>
+            pose.head[j] * pose.torso[i] +
+            pose.head[4 + j] * pose.torso[4 + i] +
+            pose.head[8 + j] * pose.torso[8 + i]
+        );
+      const [headX, headY, headZ] = [0, 1, 2].map(axis);
+      const neck = rig.neck;
+      b.frame(pose.torso);
+      b.stamp(
+        cx - 1.72 * rx,
+        cx + 1.5 * rx,
+        -1.75 * ry,
+        1.75 * ry,
+        cz - (length + 0.35) * rz,
+        cz + 0.95 * rz,
+        (x, y, z) => {
+          const follow = headWeight((z - cz) / rz);
+          const dx = x - neck[0],
+            dy = y - neck[1],
+            dz = z - neck[2];
+          const u = (x - cx + follow * (headX[0] * dx + headX[1] * dy + headX[2] * dz - dx)) / rx;
+          const v = (y + follow * (headY[0] * dx + headY[1] * dy + headY[2] * dz - dy)) / ry;
+          const h = (z - cz + follow * (headZ[0] * dx + headZ[1] * dy + headZ[2] * dz - dz)) / rz;
+          if (h > 0.51 || h < -length - 0.12) return 0;
+          const drop = clamp((0.28 - h) / 1.75, 0, 1);
+          const bend = waves ? Math.sin(7.1 * h + 0.55 * v) : 0;
+          const width = 1.015 + (gathered ? 0.035 : 0.1) * drop + (waves ? 0.13 * drop * bend : 0);
+          const crown = 1 - 0.42 * Math.max(h, 0) ** 2;
+          const side = v / (crown * width);
+          const back = (u + 0.16 * drop) / (crown * (1.08 + drop * (waves ? 0.15 : 0.04)));
+          const radius = back * back + side * side;
+          const hem = -length + 0.3 * Math.pow(Math.min(1, Math.abs(side)), 1.6) + 0.09 * Math.cos(10 * side);
+          if (h < hem || radius > 1.1 || radius < 0.46 || u > (gathered ? -0.03 : 0.38) + 0.12 * h) return 0;
+          const lock = Math.cos(11.4 * side + (waves ? 1.38 * bend : 0.42 * h) + 0.5 * u);
+          if (lock > 0.83 && h < 0.05 && h > hem + 0.26 && side < 0.64) return k.hairLight;
+          return radius < 0.61 || lock < -0.61 || (gathered && h > -0.36) ? k.hairShade : k.hair;
+        }
+      );
+      b.frame(null);
+      if (gathered) {
+        const tie = lockPoint(pose, -1.08, 0, 0.1);
+        const middle = lockPoint(pose, -1.38, 0.04, -0.52);
+        const end = lockPoint(pose, -1.28, 0.16, -1.32);
+        const strand = (t, u, v) => (Math.abs(v - (t - 0.5) * 0.13 * ry) < 0.075 * ry ? k.hairLight : k.hair);
+        b.link(tie, middle, rx * 0.19, rx * 0.275, 1.33, strand);
+        b.link(middle, end, rx * 0.275, rx * 0.07, 1.25, strand);
+        b.blob(...tie, rx * 0.18, ry * 0.29, rz * 0.125, k.accent, 2.8);
+      } else {
+        // Two face-framing sections fall in front of the collar. Leave the eyes and mouth open.
+        const front = (chestDepth - cx) / rx + 0.14;
+        for (const side of [-1, 1]) {
+          const root = lockPoint(pose, 0.26, side * 0.95, 0.18);
+          const cheek = lockPoint(pose, 0.42, side * (waves ? 1.17 : 1.01), -0.47);
+          const collar = lockPoint(pose, front, side * (waves ? 0.79 : 0.87), -1.14);
+          const tip = lockPoint(pose, front + 0.08, side * (waves ? 0.98 : 0.69), -length + 0.12 * side);
+          const strand = (t, u, v) =>
+            side * v > 0.085 * ry ? k.hairShade : u > 0.1 * rx ? k.hairLight : k.hair;
+          b.link(root, cheek, 0.2 * rx, 0.24 * rx, 1.06, strand);
+          b.link(cheek, collar, 0.24 * rx, 0.21 * rx, 1.15, strand);
+          b.link(collar, tip, 0.21 * rx, 0.065 * rx, 1.2, strand);
+        }
+      }
+    }
+
+    function drawTwinBraids(pose, b, k) {
+      b.frame(null);
+      for (const side of [-1, 1]) {
+        const root = lockPoint(pose, -0.52, side * 0.88, -0.23);
+        const start = lockPoint(pose, -0.4, side * 1.06, -0.48);
+        b.link(root, start, 0.26 * fit.rx, 0.23 * fit.rx, 1, () => k.hair);
+        for (let i = 0; i < 6; i++) {
+          const t = i / 5,
+            twist = i % 2 ? 1 : -1;
+          const size = 0.255 - 0.075 * t;
+          const p = lockPoint(
+            pose,
+            -0.4 + 1.02 * t + twist * 0.055,
+            side * (1.05 + 0.18 * Math.sin(Math.PI * t) + twist * 0.078),
+            -0.49 - 1.34 * t
+          );
+          b.blob(
+            ...p,
+            size * fit.rx,
+            size * fit.ry,
+            (size + 0.045) * fit.rz,
+            (x, y, z) => {
+              const seam = (side * (y - p[1])) / fit.ry + (twist * 0.67 * (z - p[2])) / fit.rz;
+              return Math.abs(seam) < 0.063 ? k.hairLight : x < p[0] ? k.hairShade : k.hair;
+            },
+            2.35
+          );
+        }
+        b.blob(
+          ...lockPoint(pose, 0.65, side * 1.05, -1.99),
+          0.16 * fit.rx,
+          0.17 * fit.ry,
+          0.1 * fit.rz,
+          k.accent,
+          2.7
+        );
+        b.blob(
+          ...lockPoint(pose, 0.65, side * 1.07, -2.16),
+          0.14 * fit.rx,
+          0.155 * fit.ry,
+          0.19 * fit.rz,
+          k.hair
+        );
+      }
+    }
+
     function drawCurls(b, k) {
       const { x, z, rx, ry, rz } = fit;
       // The lower ring remains visible under a hat. Curls at the temples frame the eyes.
@@ -1163,6 +1297,12 @@ const pineDesignerBody = (() => {
           if (u < -0.33) edge = bob ? -1.06 : bun ? -0.77 : -0.55;
           else if (u > 0.52) edge = (bob ? 0.34 : bun ? 0.45 : 0.39) + 0.19 * v + (bun ? 0.12 : 0.07) * u;
           else edge = bob ? -0.98 + 0.74 * (u + 0.33) : -0.49 + 0.63 * (u + 0.33) + 0.075 * v;
+          if (loose && u > 0.32) {
+            const part = hairstyle === 'long-waves' ? -0.32 : 0.08;
+            edge = 0.3 + 0.37 * Math.max(0, 1 - 1.65 * Math.abs(v - part)) - 0.12 * Math.abs(v);
+          } else if (hairstyle === 'side-part') {
+            edge = u > 0.26 ? 0.34 + 0.44 * v + 0.1 * u : -0.2 + 0.22 * u + 0.15 * v;
+          }
           if (h < edge) return 0;
           const widen = 1 + (bob ? 0.072 : 0.044) * (hasHat ? 1 - clamp((h - 0.28) / 0.65, 0, 1) : 1);
           const ux = (u + 0.018) / (widen * (bob && h < -0.25 ? 1.04 : 1));
@@ -1171,6 +1311,13 @@ const pineDesignerBody = (() => {
           const u2 = ux * ux,
             v2 = vy * vy;
           if (u2 * u2 + v2 * v2 + hh * hh > 1) return 0;
+          if (hairstyle === 'side-part' && Math.abs(v - 0.32 + 0.28 * u) < 0.073 && h > 0.38)
+            return k.hairShade;
+          if (loose && h > 0.47) {
+            const sweep = v + 0.18 * u + (hairstyle === 'long-waves' ? 0.28 : -0.08);
+            if (Math.abs(sweep) < 0.065) return k.hairShade;
+            if (sweep < -0.11 && sweep > -0.24 && u > -0.48) return k.hairLight;
+          }
           if (h > 0.41 && Math.abs(v + 0.2 + 0.26 * u) < 0.06) return k.hairLight;
           if (bob && u < 0.1 && Math.abs(v - 0.2 + 0.2 * h) < 0.055) return k.hairLight;
           return u < -0.43 || (v > 0.55 && h < 0.4) ? k.hairShade : k.hair;
@@ -1197,11 +1344,30 @@ const pineDesignerBody = (() => {
         b.blob(cx + 0.17 * rx, -0.19 * ry, cz + 0.97 * rz, 0.57 * rx, 0.43 * ry, 0.255 * rz, (x, y, z) =>
           z > cz + 1.12 * rz ? k.hairLight : k.hair
         );
+      } else if (hairstyle === 'side-part' && !hasHat) {
+        b.blob(
+          cx + 0.14 * rx,
+          -0.27 * ry,
+          cz + 0.77 * rz,
+          0.78 * rx,
+          0.75 * ry,
+          0.39 * rz,
+          (x, y, z) => {
+            const ridge = y / ry + (0.38 * (x - cx)) / rx + 0.36;
+            return Math.abs(ridge) < 0.075 && z > cz + 0.75 * rz ? k.hairLight : k.hair;
+          },
+          2.35
+        );
       }
       if (hairstyle === 'curly') drawCurls(b, k);
       else if (hairstyle === 'ponytail' || hairstyle === 'twin-tails' || hairstyle === 'braid')
         drawTiedHair(b, k);
-      if (hasHat) paintHat(pose, b, k, fit);
+      else if (loose) drawLooseHair(pose, b, k);
+      else if (hairstyle === 'twin-braids') drawTwinBraids(pose, b, k);
+      if (hasHat) {
+        b.frame(pose.head);
+        paintHat(pose, b, k, fit);
+      }
       b.frame(null);
     }
     const art = {

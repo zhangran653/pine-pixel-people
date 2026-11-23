@@ -458,7 +458,8 @@ h2 {
   align-items: center;
   gap: 7px;
 }
-.color-grid input {
+.color-grid input,
+.custom-hair-color input {
   appearance: none;
   width: 37px;
   height: 33px;
@@ -468,11 +469,13 @@ h2 {
   padding: 2px;
   cursor: pointer;
 }
-.color-grid input::-webkit-color-swatch {
+.color-grid input::-webkit-color-swatch,
+.custom-hair-color input::-webkit-color-swatch {
   border: 0;
   border-radius: 2px;
 }
-.color-grid input::-webkit-color-swatch-wrapper {
+.color-grid input::-webkit-color-swatch-wrapper,
+.custom-hair-color input::-webkit-color-swatch-wrapper {
   padding: 0;
 }
 .save-actions {
@@ -625,6 +628,47 @@ h2 {
 }
 .fabric-swatch i {
   width: 5px;
+}
+.hair-color-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+.hair-color-options button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 2px;
+  min-height: 31px;
+  border-radius: 5px;
+  font-size: 0.82rem;
+}
+.hair-color-options button[aria-pressed='true'] {
+  border-color: #436448;
+  background: #e7eedd;
+  box-shadow: inset 0 0 0 1px #436448;
+}
+.hair-color-options i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px #1e352a30;
+}
+.custom-hair-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.82rem;
+}
+.custom-hair-color label {
+  cursor: pointer;
+}
+.custom-hair-color output {
+  margin-left: auto;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  color: #526657;
 }
 .hair-cards {
   display: grid;
@@ -805,6 +849,7 @@ dialog p {
 
 @media (max-width: 680px) {
   .height-stops button,
+  .hair-color-options button,
   .preset-choices button,
   .hair-angles button {
     min-height: 44px;

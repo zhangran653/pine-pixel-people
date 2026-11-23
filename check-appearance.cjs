@@ -52,7 +52,7 @@ const a = client(),
   first = json('packs/creek-child.json'),
   second = json('packs/maple-child.json');
 assert.equal(a.m.characters.size, 6);
-assert.equal(a.l.catalog.size, 4);
+assert.equal(a.l.catalog.size, 5);
 assert.equal(a.l.prepare(second).recipe.baseNotice, read('LICENSE').trimEnd());
 assert.equal(second.embeddedPacks[0].notice, read('LICENSE').trimEnd());
 assert.deepEqual(clone(a.l.manifest(hat)), clone(a.l.manifest(second.embeddedPacks[0])));
@@ -186,7 +186,7 @@ const corrupt = client(),
 malformed.score.steps[3].action = 'crawl';
 assert.throws(() => corrupt.w.readScoreFile(malformed, true));
 assert.equal(corrupt.m.characters.size, 6);
-assert.equal(corrupt.l.catalog.size, 4);
+assert.equal(corrupt.l.catalog.size, 5);
 assert.equal(corrupt.disk.size, 0);
 const limited = client(new Map(), 1);
 const temporary = limited.w.readScoreFile(clone(cast), true);
@@ -256,6 +256,40 @@ for (const [doc, expected] of archived) {
 }
 const classic = a.l.facePresets.classic.face;
 assert.equal(digest(a.l.build(current), a.m), baseline);
+const addedHair = ['shoulder-length', 'long-waves', 'half-up', 'twin-braids', 'side-part'];
+const schemaHair = json('character-v1.schema.json').properties.parts.properties.hair.enum;
+assert.deepEqual([...Object.keys(a.l.slots.hair)].sort(), schemaHair.sort());
+for (const pin of [a.l.originalRelease, a.l.styleRelease, a.l.profileRelease, a.l.proportionRelease]) {
+  const dye = { ...first, packs: { 'pine-core': pin }, colors: { ...first.colors, hair: '#795cb4' } };
+  assert.equal(a.l.editingRelease(dye), pin);
+  assert.equal(a.l.prepare(dye).recipe.colors.hair, '#795cb4');
+  for (const hair of addedHair) {
+    const styled = { ...dye, parts: { ...dye.parts, hair } };
+    assert.equal(a.l.editingRelease(styled), a.l.release);
+    assert.throws(() => a.l.prepare(styled));
+  }
+}
+// A second dye identifies the actual hair pixels without relying on a preset color or face dimensions.
+for (const base of ['adult', 'child']) {
+  const doc = { ...current, base, parts: { ...first.parts, hair: 'shoulder-length' } };
+  const person = a.l.build(doc);
+  const other = a.l.build({ ...doc, colors: { ...doc.colors, hair: '#56a4de' } });
+  const pose = a.m.rig.pose(person.rig, {}),
+    body = person.body;
+  const original = body.makePose(pose).colors,
+    tinted = other.body.makePose(pose).colors;
+  let front = 0,
+    back = 0;
+  for (let i = 0; i < original.length; i++) {
+    if (original[i] === tinted[i]) continue;
+    assert.ok(original[i] && tinted[i], 'dye changed hair geometry');
+    const z = (Math.floor(i / (body.nx * body.ny)) + 0.5) / body.density;
+    if (z >= person.rig.shoulder[2]) continue;
+    if (i % body.nx >= body.nx / 2) front++;
+    else back++;
+  }
+  assert.ok(front > 5 && back > 20, base + ' loose hair does not reach both sides of the shoulders');
+}
 assert.throws(() => a.l.prepare({ ...first, face: classic }));
 assert.throws(() => a.l.prepare({ ...first, parts: { ...first.parts, hair: 'twin-tails' } }));
 assert.throws(() => a.l.prepare({ ...current, face: { eyes: 'round' } }));
@@ -349,7 +383,7 @@ const wide = a.l.withBodyProfile(
   },
   'male'
 );
-assert.equal(wide.packs['pine-core'], a.l.release);
+assert.equal(wide.packs['pine-core'], a.l.proportionRelease);
 const standard = a.l.build({
   ...wide,
   shape: Object.fromEntries(Object.entries(a.l.shape).map(([k, v]) => [k, v[2]]))
@@ -388,7 +422,16 @@ for (const u of [0.27, 0.43, 0.5, 0.68, 0.79]) {
   phoneFrame = screen;
   keysFrame = keyboard;
 }
-const castDocs = [...referenceModels, childAgain, wide],
+const longHaired = a.l.withBodyProfile(
+  {
+    ...wide,
+    parts: { ...wide.parts, hair: 'long-waves' },
+    colors: { ...wide.colors, hair: '#8058a6' }
+  },
+  'male'
+);
+assert.equal(longHaired.packs['pine-core'], a.l.release);
+const castDocs = [...referenceModels, childAgain, longHaired],
   profilesClient = client(),
   audience = client();
 for (const doc of castDocs) profilesClient.w.save(doc);
@@ -400,7 +443,7 @@ const profileScore = {
     { action: 'run', actors: [male.id] },
     { action: 'highfive', actors: [female.id, male.id] },
     { action: 'highfive', actors: [male.id, childAgain.id] },
-    { action: 'type', actors: [wide.id] }
+    { action: 'type', actors: [longHaired.id] }
   ]
 };
 const restoredProfiles = audience.w.readScoreFile(clone(profilesClient.w.scoreFile(profileScore)), true);
@@ -408,6 +451,8 @@ for (const doc of castDocs) {
   assert.equal(audience.w.saved.get(doc.id).gender, doc.gender);
   assert.deepEqual(clone(audience.w.saved.get(doc.id).shape), clone(doc.shape));
   assert.deepEqual(clone(audience.w.saved.get(doc.id).packs), clone(doc.packs));
+  assert.deepEqual(clone(audience.w.saved.get(doc.id).parts), clone(doc.parts));
+  assert.deepEqual(clone(audience.w.saved.get(doc.id).colors), clone(doc.colors));
   assert.equal(
     digest(audience.m.characters.get(doc.id), audience.m, 'run'),
     digest(a.l.build(doc), a.m, 'run')
@@ -422,7 +467,7 @@ for (const i of [2, 3]) {
   );
   assert.ok(distance(lead.contacts.palm, partner.contacts.palm) < 0.01);
 }
-console.log('PineLooks core ' + a.l.release + ' · 四代存档、扩展体型、五官、发型、服饰及双人复演通过');
+console.log('PineLooks core ' + a.l.release + ' · 五代存档、扩展体型、五官、发型、发色、服饰及双人复演通过');
 console.log(
   'PineLooks v1 · 两个独立形象跨环境像素一致 · 8 项形体、5 组款式、7 色槽 · 双基型戴帽与喝水通过 · ' +
     pairings +

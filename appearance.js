@@ -4,8 +4,9 @@ const PineLooks = (() => {
     originalRelease = '1.0.0',
     styleRelease = '1.1.0',
     profileRelease = '1.2.0',
-    release = '1.3.0';
-  const releases = [originalRelease, styleRelease, profileRelease, release];
+    proportionRelease = '1.3.0',
+    release = '1.4.0';
+  const releases = [originalRelease, styleRelease, profileRelease, proportionRelease, release];
   const shape = pineDesignerBody.shapeRanges;
   const previousBodyRanges = {
     height: [0.9, 1.1],
@@ -52,8 +53,7 @@ SOFTWARE.`;
     const next = JSON.parse(JSON.stringify(recipe));
     next.base = base;
     next.gender = gender;
-    next.packs[core] =
-      next.packs[core] === release || usesExtendedShape(next.shape) ? release : profileRelease;
+    next.packs[core] = editingRelease(next);
     return next;
   }
   const originalSlots = {
@@ -63,9 +63,27 @@ SOFTWARE.`;
     shoes: { sneakers: '运动鞋', boots: '短靴' },
     neck: { none: '无', scarf: '方巾' }
   };
+  const additionalHair = {
+    'shoulder-length': '披肩长发',
+    'long-waves': '长波浪',
+    'half-up': '半扎长发',
+    'twin-braids': '双麻花辫',
+    'side-part': '偏分短发'
+  };
+  const hairColors = {
+    墨黑: '#28262c',
+    深棕: '#49352f',
+    栗棕: '#82513b',
+    铜红: '#ad563e',
+    蜜金: '#d2a763',
+    银灰: '#c1c2c6',
+    雾蓝: '#637f9b',
+    莓紫: '#895a80'
+  };
   const slots = {
     hair: {
       ...originalSlots.hair,
+      ...additionalHair,
       ponytail: '单马尾',
       'twin-tails': '双马尾',
       braid: '编发辫',
@@ -123,6 +141,15 @@ SOFTWARE.`;
       face !== undefined ||
       Object.entries(originalSlots).some(([key, values]) => !Object.hasOwn(values, parts[key]))
     );
+  }
+  function editingRelease(recipe) {
+    const pin = recipe.packs[core];
+    let needed = originalRelease;
+    if (Object.hasOwn(additionalHair, recipe.parts.hair)) needed = release;
+    else if (usesExtendedShape(recipe.shape)) needed = proportionRelease;
+    else if (recipe.gender !== undefined) needed = profileRelease;
+    else if (needsNewCore(recipe.parts, recipe.face)) needed = styleRelease;
+    return releases.indexOf(pin) >= releases.indexOf(needed) ? pin : needed;
   }
   const colors = {
     skin: '肤色',
@@ -303,13 +330,9 @@ SOFTWARE.`;
     fields(raw.packs, owner === core ? [core] : [core, owner]);
     const pin = raw.packs[core];
     requireThat(releases.includes(pin), '不支持的基础部件版本');
-    requireThat(pin === release || !usesExtendedShape(sizes), '扩展体型范围需要 pine-core ' + release);
-    requireThat(
-      pin !== originalRelease || !needsNewCore(parts, raw.face),
-      '所选五官或服饰需要 pine-core ' + styleRelease
-    );
-    const hasProfiles = pin === profileRelease || pin === release;
-    requireThat(hasProfiles || raw.gender === undefined, '性别字段需要 pine-core ' + profileRelease);
+    const required = editingRelease(raw);
+    requireThat(pin === required, '所选形象需要 pine-core ' + required);
+    const hasProfiles = releases.indexOf(pin) >= releases.indexOf(profileRelease);
     const gender = raw.gender === undefined ? 'unspecified' : raw.gender;
     requireThat(['female', 'male', 'unspecified'].includes(gender), '未知的性别值');
     requireThat(raw.base === 'adult' || gender === 'unspecified', '儿童使用中性体型');
@@ -523,6 +546,8 @@ SOFTWARE.`;
     originalRelease,
     styleRelease,
     profileRelease,
+    proportionRelease,
+    editingRelease,
     usesExtendedShape,
     bodyProfiles,
     bodyProfileOf,
@@ -534,6 +559,7 @@ SOFTWARE.`;
     shape,
     slots,
     colors,
+    hairColors,
     catalog,
     templates,
     manifest,
