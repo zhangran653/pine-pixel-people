@@ -31,6 +31,7 @@ function checkEditor() {
     return { top, bottom, height: bottom - top, ruler };
   }
   try {
+    expect(byId('bearing').value === '90', 'profile link did not open at the requested bearing');
     const photos = new Map();
     for (const profile of ['child', 'female', 'male']) {
       const b = document.querySelector('[data-body-profile="' + profile + '"]');
@@ -239,6 +240,24 @@ function checkEditor() {
         'adult and child both need detail at their own head height'
       );
     }
+    const archived = PineWardrobe.importCharacter({
+      ...PineLooks.templates.find((p) => p.id === 'look_body_female'),
+      id: 'look_archived_fringe',
+      packs: { 'pine-core': PineLooks.headRelease }
+    }).recipe;
+    byId('save-look').click();
+    document.querySelector('[data-key="saved:' + archived.id + '"]').click();
+    byId('tab-hair').click();
+    const archivedPhoto = byId('mirror').toDataURL();
+    byId('update-head').click();
+    expect(
+      archivedPhoto !== byId('mirror').toDataURL() && !byId('update-head'),
+      'hair tab failed to preview the new fringe'
+    );
+    expect(
+      PineWardrobe.saved.get(archived.id).packs['pine-core'] === PineLooks.headRelease,
+      'hair preview changed the pinned save'
+    );
     target.dataset.state = 'pass';
     target.textContent =
       'Body profiles, legacy saves, head upgrade, scale, hairstyles, dyes, close-ups and slice alignment passed';
@@ -276,7 +295,7 @@ try {
     '--force-device-scale-factor=1',
     '--user-data-dir=' + join(dir, 'profile'),
     '--dump-dom',
-    pathToFileURL(file).href
+    pathToFileURL(file).href + '?bearing=90'
   ];
   if (process.env.CI === 'true' && process.platform === 'linux') args.unshift('--no-sandbox');
   const run = spawnSync(browser, args, { encoding: 'utf8', timeout: 45000, maxBuffer: 4 * 1024 * 1024 });

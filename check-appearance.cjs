@@ -63,7 +63,7 @@ const a = client(),
   first = json('packs/creek-child.json'),
   second = json('packs/maple-child.json');
 assert.equal(a.m.characters.size, 6);
-assert.equal(a.l.catalog.size, 6);
+assert.equal(a.l.catalog.size, 7);
 assert.equal(a.l.prepare(second).recipe.baseNotice, read('LICENSE').trimEnd());
 assert.equal(second.embeddedPacks[0].notice, read('LICENSE').trimEnd());
 assert.deepEqual(clone(a.l.manifest(hat)), clone(a.l.manifest(second.embeddedPacks[0])));
@@ -197,7 +197,7 @@ const corrupt = client(),
 malformed.score.steps[3].action = 'crawl';
 assert.throws(() => corrupt.w.readScoreFile(malformed, true));
 assert.equal(corrupt.m.characters.size, 6);
-assert.equal(corrupt.l.catalog.size, 6);
+assert.equal(corrupt.l.catalog.size, 7);
 assert.equal(corrupt.disk.size, 0);
 const limited = client(new Map(), 1);
 const temporary = limited.w.readScoreFile(clone(cast), true);
@@ -268,6 +268,24 @@ for (const [doc, expected] of archived) {
 const classic = a.l.facePresets.classic.face;
 assert.equal(digest(a.l.build({ ...first, packs: { 'pine-core': a.l.hairRelease } }), a.m), baseline);
 assert.notEqual(digest(a.l.build(current), a.m), baseline);
+// These two grids were sampled from the published 1.5.0 painter at rest.
+const adultSeed = a.l.templates.find((doc) => doc.id === 'look_body_female');
+const pinnedHead = a.l.build({
+  ...adultSeed,
+  packs: { 'pine-core': a.l.headRelease },
+  parts: { ...adultSeed.parts, hair: 'shoulder-length', hat: 'none' },
+  face: { ...classic, mouth: 'full' }
+});
+const pinnedPose = a.m.rig.pose(pinnedHead.rig, {});
+const pinnedBody = pinnedHead.body.makePose(pinnedPose);
+assert.equal(
+  colorDigest(pinnedBody.colors),
+  'ac13b57c6b4b85fee5e095a5249f7329a651588d8bc4de02452933898b351546'
+);
+assert.equal(
+  colorDigest(a.m.faceLayers(pinnedHead, pinnedPose, pinnedBody)[1].model.colors),
+  '86af616c38608c0b63b2da37ce2a774750b63eac46c0b9b1cb5dfcc92c222f6d'
+);
 // Mark the actual lip pigments and look from the front, including occlusion by skin.
 // Check each visible row, since a slanted lip can still have a centered average.
 function checkLipRows({ body, model, y }, label) {
@@ -354,6 +372,43 @@ for (const base of ['adult', 'child']) {
     base + ' crown should taper from both views'
   );
 }
+// Look straight across the parted fringe. A strand on each side must stand
+// physically forward of the exposed forehead, independent of its pigment.
+for (const base of ['adult', 'child']) {
+  const actor = a.l.build({
+    ...adultSeed,
+    base,
+    gender: base === 'adult' ? 'female' : 'unspecified',
+    parts: { ...adultSeed.parts, hair: 'shoulder-length', hat: 'none' }
+  });
+  const pose = a.m.rig.pose(actor.rig, {});
+  const layer = a.m.faceLayers(actor, pose, actor.body.makePose(pose))[1];
+  const { body, model } = layer,
+    d = body.density;
+  const eye = a.m.rig.socket(actor, pose, 'leftEye'),
+    mouth = a.m.rig.socket(actor, pose, 'mouth');
+  const foreheadZ = Math.floor((eye[2] + (eye[2] - mouth[2]) - layer.z) * d);
+  const center = Math.floor(body.ny / 2 + (mouth[1] - layer.y) * d);
+  const span = Math.round(Math.abs(eye[1] - mouth[1]) * d);
+  const front = (y, z) => {
+    const offset = (z * body.ny + y) * body.nx;
+    let x = body.nx - 1;
+    while (x >= 0 && !model.colors[offset + x]) x--;
+    return x;
+  };
+  for (const side of [-1, 1]) {
+    const crest = Math.max(
+      ...Array.from({ length: span }, (_, i) => front(center + side * (i + 1), foreheadZ))
+    );
+    assert.ok(crest - front(center, foreheadZ) >= 2, base + ' parted locks lost their relief');
+  }
+  const lipZ = Math.floor((mouth[2] - layer.z) * d);
+  const profileX = layer.x + (front(center, lipZ) + 1 - body.nx / 2) / d;
+  assert.ok(Math.abs(profileX - mouth[0]) <= 1 / d, base + ' lip contact floats above the cheek surface');
+  for (let z = lipZ - 2; z <= lipZ + 2; z++) {
+    assert.ok(front(center, z) <= front(center, z + 1), base + ' raised lip ledge in profile');
+  }
+}
 for (const base of ['adult', 'child']) {
   const actor = a.l.build({ ...current, base });
   const rest = a.m.rig.pose(actor.rig, {}),
@@ -431,6 +486,9 @@ assert.throws(() => a.l.prepare({ ...current, face: { ...classic, eyes: 'unregis
 for (const base of ['child', 'adult']) {
   for (const [feature, choices] of Object.entries(a.l.features)) {
     const portraits = new Set();
+    const silhouettes = new Set(),
+      fineSilhouettes = new Set(),
+      contactPoints = new Set();
     const drawings = new Set(
       Object.keys(choices).map((value) => {
         const person = a.l.build({ ...current, base, face: { ...classic, [feature]: value } });
@@ -438,12 +496,24 @@ for (const base of ['child', 'adult']) {
         assert.ok(distance(a.m.rig.socket(person, drinking, 'mouth'), drinking.bottle.lip) < 1e-7);
         const rest = a.m.actions.get('idle').sample(0.31, person)[0].pose;
         const model = person.body.makePose(rest);
-        portraits.add(colorDigest(a.m.faceLayers(person, rest, model)[1].model.colors));
+        const close = a.m.faceLayers(person, rest, model)[1].model;
+        portraits.add(colorDigest(close.colors));
+        if (feature === 'mouth') {
+          const occupied = (grid) => colorDigest(Uint8Array.from(grid.colors, (c) => Number(c !== 0)));
+          silhouettes.add(occupied(model));
+          fineSilhouettes.add(occupied(close));
+          contactPoints.add(JSON.stringify(person.sockets.mouth.point));
+        }
         return colorDigest(model.colors);
       })
     );
     assert.equal(drawings.size, Object.keys(choices).length, base + ' · ' + feature);
     assert.equal(portraits.size, Object.keys(choices).length, base + ' close-up · ' + feature);
+    if (feature === 'mouth') {
+      assert.equal(silhouettes.size, 1, base + ' lips add volume to the face');
+      assert.equal(fineSilhouettes.size, 1, base + ' close-up lips add volume to the face');
+      assert.equal(contactPoints.size, 1, base + ' lip style moved the bottle contact');
+    }
   }
   for (const [slot, choices] of Object.entries(a.l.slots)) {
     const drawings = new Set(

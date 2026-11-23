@@ -299,19 +299,21 @@
     }
     return group;
   }
+  function headUpgrade(area) {
+    if (draft.packs[looks.core] === looks.release) return;
+    const update = document.createElement('button');
+    update.type = 'button';
+    update.id = 'update-head';
+    update.textContent = '试用新版头发与五官';
+    update.onclick = () => {
+      draft.packs[looks.core] = looks.release;
+      changed();
+      fields();
+    };
+    area.append(update);
+  }
   function faceFields(area) {
-    if (!looks.hasRoundedHead(draft)) {
-      const update = document.createElement('button');
-      update.type = 'button';
-      update.id = 'update-head';
-      update.textContent = '采用新版头型';
-      update.onclick = () => {
-        draft.packs[looks.core] = looks.release;
-        changed();
-        fields();
-      };
-      area.append(update);
-    }
+    headUpgrade(area);
     area.append(
       presetGroup('五官组合', looks.facePresets, 'facePreset', (p) => {
         draft.face = { ...p.face };
@@ -332,7 +334,7 @@
   }
   function paintHairCards(cards, stagger = false) {
     cancelAnimationFrame(swatchFrame);
-    const headVersion = looks.hasRoundedHead(draft) ? looks.release : looks.hairRelease;
+    const headVersion = looks.hasRoundedHead(draft) ? draft.packs[looks.core] : looks.hairRelease;
     const currentKey = JSON.stringify([
       headVersion,
       draft.base,
@@ -437,6 +439,7 @@
     return group;
   }
   function hairFields(area) {
+    headUpgrade(area);
     const cards = document.createElement('div');
     cards.className = 'hair-cards';
     cards.setAttribute('role', 'group');
@@ -829,7 +832,9 @@
     draft.parts.hair = requestedHair;
     changed();
   }
-  orientation();
+  const openingAngle = Number(query.get('bearing') || NaN);
+  if (Number.isInteger(openingAngle) && openingAngle >= 0 && openingAngle <= 360) orbit(openingAngle);
+  else orientation();
   if (skipped) note('有 ' + skipped + ' 个无效的本地存档，其他形象已载入。', true);
   if (location.protocol !== 'file:')
     fetch('packs/creek-hats.json')

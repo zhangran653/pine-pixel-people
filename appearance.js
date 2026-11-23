@@ -6,8 +6,17 @@ const PineLooks = (() => {
     profileRelease = '1.2.0',
     proportionRelease = '1.3.0',
     hairRelease = '1.4.0',
-    release = '1.5.0';
-  const releases = [originalRelease, styleRelease, profileRelease, proportionRelease, hairRelease, release];
+    headRelease = '1.5.0',
+    release = '1.6.0';
+  const releases = [
+    originalRelease,
+    styleRelease,
+    profileRelease,
+    proportionRelease,
+    hairRelease,
+    headRelease,
+    release
+  ];
   function hasRoundedHead(recipe) {
     return releases.indexOf(recipe.packs[core]) > releases.indexOf(hairRelease);
   }
@@ -419,7 +428,13 @@ SOFTWARE.`;
     const actor = PineMotion.createCharacter({
       id: recipe.id,
       label: recipe.label,
-      ...pineDesignerBody.build(recipe, paintHat(hat), hat?.primitives, hasRoundedHead(recipe))
+      ...pineDesignerBody.build(
+        recipe,
+        paintHat(hat),
+        hat?.primitives,
+        hasRoundedHead(recipe),
+        recipe.packs[core] === release
+      )
     });
     actor.gender = recipe.gender ?? 'unspecified';
     return actor;
@@ -552,6 +567,7 @@ SOFTWARE.`;
     profileRelease,
     proportionRelease,
     hairRelease,
+    headRelease,
     hasRoundedHead,
     editingRelease,
     usesExtendedShape,

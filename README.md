@@ -29,7 +29,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 全身镜头有固定的地面和厘米标尺。身高读数取站直时的裸头顶位置。拖动「环视」可以从正面和侧面看两种成人体型的差别。两个样本使用相同的身高、发型和衣装。[成人体型并排对照](http://127.0.0.1:8000/atelier.html?preset=look_body_female&compare=look_body_male&tab=shape) · [儿童身高对照](http://127.0.0.1:8000/atelier.html?preset=look_chorus&compare=look_relay&tab=shape) · [双马尾后侧近景](http://127.0.0.1:8000/atelier.html?preset=look_chorus&tab=hair)
 
-在暂停待机时打开「五官」，镜子会对准正面。基础部件 `pine-core 1.5.0` 让唇线和喝水接触点共用脸部中线，头顶和后脑沿椭圆截面过渡到下颌和后颈。拖动环视可看轮廓，右下角的「精细五官」可以切换近景精度。已有形象可以点「采用新版头型」预览，满意后保存。[查看披肩长发正面](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&hair=shoulder-length)
+在暂停待机时打开「五官」，镜子会对准正面。头顶、后脑和下颌沿椭圆截面过渡。当前预设的四种唇形用脸部切片上的色差画出，水壶对准唇心。拖动「环视」观察侧脸，右下角的「精细五官」可切换近景精度。旧存档可在「发型」或「五官」点「试用新版头发与五官」，满意后保存。[查看唇部侧面](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&bearing=90)
 
 ![同一角色修改前后的正面、侧面与后侧，展示唇线中点和头型](face-detail-preview.png)
 
@@ -41,7 +41,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 每种体型都能使用 12 款发型、5 款上衣、4 款下装、4 款鞋和 3 种颈饰。在「五官」先选一组眼眉鼻唇，再单独微调，每个部位各有 4 款。「穿搭」提供四套可拆开搭配的服装，也可通过 JSON 添加帽子。成人体型随基础部件 `pine-core 1.2.0` 引入，打开 1.0.0 或 1.1.0 的角色文件时会按存档还原。旧成人角色在编辑器中显示为「原版成人体型」，可以手动选择新体型。
 
-披肩长发、长波浪、半扎长发、双麻花辫和偏分短发使用基础部件 `pine-core 1.4.0`。所有版本都用 `colors.hair` 保存发色，「配色」和「发型」面板编辑同一个值。
+基础部件 `pine-core 1.6.0` 用有厚度的发束塑造额前的刘海。短碎发的发尾高低错落，披肩长发沿分缝落向两侧，马尾从发际向后梳。转动镜头可以看清发束之间露出的额头。发根的阴影和发束的亮面都取自 `colors.hair`，自定义染色也能保留层次。[查看额前发束](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=hair&hair=crop&bearing=25)
 
 ![同一角色的五款新发型与发色，依次展示正面、侧面和背面](hairstyles-preview.png)
 

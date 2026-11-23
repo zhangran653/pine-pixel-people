@@ -101,6 +101,193 @@ const pineDesignerBody = (() => {
     }
   };
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  // Each lock follows a curved path down the head. Angles run from the forehead
+  // (0°) to the nape (180°). Each entry gives root, bend, tip, tip height,
+  // half-width and an optional starting height for a shorter overlapping lock.
+  const fringeLocks = {
+    crop: [
+      [-92, -94, -83, 0.03, 12],
+      [-81, -66, -58, 0.28, 16],
+      [-68, -59, -36, 0.43, 18],
+      [-55, -40, -13, 0.34, 19],
+      [-38, -20, 10, 0.44, 17],
+      [-20, 3, 32, 0.37, 19],
+      [1, 31, 58, 0.4, 19],
+      [22, 54, 80, 0.13, 14],
+      [-48, -33, -5, 0.28, 7, 0.82]
+    ],
+    sweep: [
+      [-45, -74, -84, 0.04, 13],
+      [15, -39, -64, 0.25, 18],
+      [32, -15, -41, 0.38, 23],
+      [47, 7, -20, 0.42, 25],
+      [50, 28, 3, 0.51, 20],
+      [58, 46, 28, 0.64, 17],
+      [69, 61, 53, 0.48, 17],
+      [80, 82, 79, 0.14, 15]
+    ],
+    curtain: [
+      [-34, -66, -86, -0.11, 15],
+      [-24, -53, -68, 0.18, 19],
+      [-15, -35, -49, 0.35, 23],
+      [-8, -17, -24, 0.55, 20],
+      [8, 19, 35, 0.52, 22],
+      [20, 42, 57, 0.29, 22],
+      [34, 67, 82, -0.1, 16],
+      [-13, -9, -21, 0.47, 7, 0.79],
+      [21, 37, 52, 0.17, 7, 0.72]
+    ],
+    gathered: [
+      [-113, -95, -80, 0.04, 11],
+      [-127, -92, -62, 0.26, 16],
+      [-112, -76, -46, 0.45, 18],
+      [-92, -57, -29, 0.56, 18],
+      [-72, -36, -8, 0.65, 18],
+      [7, -8, -13, 0.73, 15],
+      [69, 44, 17, 0.63, 18],
+      [96, 65, 41, 0.52, 18],
+      [114, 82, 62, 0.34, 15],
+      [130, 99, 81, 0.13, 12]
+    ]
+  };
+  const backLocks = [
+    [-76, -89, -102, -0.32, 17],
+    [-94, -114, -128, -0.53, 20],
+    [-119, -137, -153, -0.7, 23],
+    [-147, -165, -180, -0.82, 24],
+    [174, 159, 145, -0.68, 22],
+    [140, 130, 118, -0.46, 21],
+    [100, 113, 97, -0.26, 17]
+  ];
+  const scalpAngles = 192,
+    scalpRows = 144,
+    scalpBottom = -1.2,
+    scalpTop = 1.23;
+  const scalpStep = (scalpTop - scalpBottom) / scalpRows,
+    scalpMaps = new Map();
+  // A reusable map stores the outer *radius* and pigment of the locks. The
+  // renderer samples a solid in head space, so each lock has a real profile
+  // in Canvas slices and in the Three.js surface extracted from those slices.
+  function hairScalp(style, hasHat) {
+    const bob = style === 'bob',
+      short = style === 'crop' || style === 'side-part';
+    const curtain = Object.hasOwn(looseLengths, style);
+    const group = style === 'side-part' || bob ? 'sweep' : short ? 'crop' : curtain ? 'curtain' : 'gathered';
+    const key = (group === 'gathered' ? group : style) + (hasHat ? '/hat' : '');
+    if (scalpMaps.has(key)) return scalpMaps.get(key);
+    const width = hasHat ? 1.023 : bob ? 1.09 : 1.05;
+    const count = scalpAngles * scalpRows,
+      base = new Float32Array(count);
+    const radii = new Float32Array(count),
+      tones = new Uint8Array(count);
+    const { mix, ramp } = studioRig;
+    const degreesPerCell = 360 / scalpAngles;
+    for (let col = 0; col < scalpAngles; col++) {
+      const theta = ((col + 0.5) / scalpAngles) * 2 * Math.PI;
+      const front = Math.cos(theta),
+        side = Math.sin(theta);
+      const nape = (bob ? -1.02 : -0.78) + 0.24 * side * side;
+      const temple = bob ? -0.8 : -0.14 - 0.17 * Math.max(0, 1 - ((front - 0.23) / 0.3) ** 2);
+      const fringe =
+        group === 'gathered'
+          ? 0.635 - 0.095 * Math.exp(-(((side + 0.07) / 0.23) ** 2)) - 0.12 * side * side
+          : (curtain ? 0.76 : 0.7) + 0.055 * side;
+      const edge = mix(mix(nape, temple, ramp(front, -0.85, -0.03)), fringe, ramp(front, 0.12, 0.72));
+      const crown = hasHat ? 1.015 : 1.075 + ((short ? 0.047 : 0.022) * (1 + Math.cos(theta + 0.55))) / 2;
+      for (let row = 0; row < scalpRows; row++) {
+        const h = scalpBottom + (row + 0.5) * scalpStep;
+        const hh = ((h - 0.024) * (bob && h < 0 ? 0.76 : 1)) / crown;
+        const i = row * scalpAngles + col;
+        base[i] = width * Math.sqrt(Math.max(0, 1 - hh * hh));
+        if (h < edge || !base[i]) continue;
+        radii[i] = base[i];
+        const light = 0.25 * front - 0.32 * side + 0.54 * h;
+        tones[i] = light < -0.38 ? 1 : light < 0.11 ? 2 : 3;
+      }
+    }
+    const guides = [...fringeLocks[group], ...backLocks];
+    guides.forEach(([root, bend, tip, end, span, rootHeight], index) => {
+      const fringe = index < fringeLocks[group].length;
+      const start = rootHeight ?? 1.12 - 0.025 * (index % 3);
+      if (fringe && style === 'long-waves') {
+        root -= 20;
+        bend -= 10;
+      }
+      if (fringe && style === 'half-up') end += 0.07;
+      if (fringe && bob) {
+        root = -root - 12;
+        bend = -bend - 6;
+        tip = -tip;
+        end -= 0.035;
+      }
+      for (let row = Math.max(0, Math.floor((end - scalpBottom) / scalpStep)); row < scalpRows; row++) {
+        const h = scalpBottom + (row + 0.5) * scalpStep,
+          t = (start - h) / (start - end);
+        if (t <= 0 || t >= 1) continue;
+        const at = (1 - t) * (1 - t) * root + 2 * (1 - t) * t * bend + t * t * tip;
+        const taper = Math.sqrt(1 - t ** 4);
+        const spread = (span * taper) / Math.max(0.58, Math.sqrt(Math.max(0, 1 - (h / 1.15) ** 2)));
+        const loft =
+          (fringe && group !== 'gathered' ? 0.115 : 0.071) *
+          (0.45 + 0.55 * Math.sin(Math.PI * t)) *
+          (hasHat ? 1 - 0.92 * ramp(h, 0.22, 0.55) : 1);
+        const shineAt = 0.3 + 0.075 * ((index * 3) % 5);
+        for (
+          let c = Math.floor((at - spread) / degreesPerCell);
+          c <= Math.ceil((at + spread) / degreesPerCell);
+          c++
+        ) {
+          const q = ((c + 0.5) * degreesPerCell - at) / spread;
+          if (Math.abs(q) >= 1) continue;
+          const col = (c + scalpAngles) % scalpAngles,
+            i = row * scalpAngles + col;
+          if (!base[i]) continue;
+          const rib = 1 - q * q;
+          const radius = base[i] + loft * rib * taper;
+          if (radius <= radii[i]) continue;
+          radii[i] = radius;
+          const highlight = 1 - ((q + 0.2 - 0.15 * t) / 0.53) ** 2 - ((t - shineAt) / 0.32) ** 2;
+          const litSide = Math.cos((at * Math.PI) / 180 + 0.65) + 0.45 * h;
+          let tone = 3;
+          if (q > 0.82 || (t > 0.92 && q > 0.35)) tone = 1;
+          else if (q < -0.8 || q > 0.45 || (litSide < -0.65 && (q > 0.1 || q < -0.53))) tone = 2;
+          else if (highlight > 0.76 && litSide > 0.4 && index % 3 !== 1) tone = 5;
+          else if (highlight > 0.07 && litSide > -0.76) tone = 4;
+          tones[i] = group === 'gathered' && fringe ? clamp(tone, 2, 4) : tone;
+        }
+      }
+    });
+    if (!hasHat && (curtain || group === 'sweep')) {
+      const part = style === 'long-waves' ? -0.22 : bob ? -0.29 : group === 'sweep' ? 0.33 : -0.035;
+      for (let col = 0; col < scalpAngles; col++) {
+        const theta = ((col + 0.5) * 2 * Math.PI) / scalpAngles;
+        const fore = Math.cos(theta),
+          side = Math.sin(theta);
+        for (let row = Math.ceil((0.76 - scalpBottom) / scalpStep); row < scalpRows; row++) {
+          const i = row * scalpAngles + col;
+          if (!tones[i]) continue;
+          const u = base[i] * fore,
+            v = base[i] * side;
+          const gap = 0.042 * Math.max(0, 1 - ((u - 0.16) / 0.62) ** 2);
+          const d = Math.abs(v - part * (1 + 0.28 * u) - 0.07 * u * u);
+          if (d >= gap) continue;
+          radii[i] = base[i] + (radii[i] - base[i]) * (d / gap);
+          tones[i] = d < gap * 0.58 ? 6 : 2;
+        }
+      }
+    }
+    const rowMax = new Float32Array(scalpRows);
+    for (let row = 0; row < scalpRows; row++) {
+      const end = (row + 1) * scalpAngles;
+      for (let i = end - scalpAngles; i < end; i++) {
+        radii[i] *= radii[i];
+        rowMax[row] = Math.max(rowMax[row], radii[i]);
+      }
+    }
+    const map = { radiusSquared: radii, rowMax, tones };
+    scalpMaps.set(key, map);
+    return map;
+  }
   function measure(shape, key) {
     const [lo, hi, fallback] = shapeRanges[key];
     const value = shape[key];
@@ -115,7 +302,7 @@ const pineDesignerBody = (() => {
     }
     return packed.toString(16).padStart(6, '0');
   }
-  function palette(colors) {
+  function palette(colors, surfaceDetails) {
     const base = {};
     for (const [key, fallback] of Object.entries(defaults)) {
       const value = colors?.[key];
@@ -124,6 +311,9 @@ const pineDesignerBody = (() => {
     const { skin, hair, eyes, top, bottom, shoes, accent } = base;
     const portraitSkin = tint(skin, 'ffe8ce', 0.24);
     const flush = tint(portraitSkin, tint(skin, 'd68585', 0.42), 0.34);
+    const dye = parseInt(hair, 16);
+    const brightness = 0.2126 * (dye >> 16) + 0.7152 * ((dye >> 8) & 255) + 0.0722 * (dye & 255);
+    const pale = clamp((brightness - 128) / 115, 0, 1);
     return {
       ...base,
       skinLight: tint(skin, 'ffe8ca', 0.31),
@@ -167,13 +357,15 @@ const pineDesignerBody = (() => {
       lipLine: tint(skin, '885651', 0.57),
       upperLip: tint(skin, 'b47370', 0.58),
       lowerLip: tint(skin, 'dc9f93', 0.6),
-      hairMid: tint(hair, '322d36', 0.16),
-      hairDepth: tint(hair, '322d36', 0.32),
-      hairSheen: tint(hair, 'd8b39a', 0.15)
+      hairMid: surfaceDetails ? tint(hair, '211d24', 0.35 - 0.14 * pale) : tint(hair, '322d36', 0.16),
+      hairDepth: surfaceDetails ? tint(hair, '13121a', 0.55 - 0.24 * pale) : tint(hair, '322d36', 0.32),
+      hairSheen: surfaceDetails ? tint(hair, 'cbb39b', 0.25) : tint(hair, 'd8b39a', 0.15),
+      hairHighlight: tint(hair, 'ffecdb', 0.31),
+      hairPart: tint(hair, skin, 0.36)
     };
   }
 
-  function build(recipe, paintHat, hatPrimitives = [], roundedHead = true) {
+  function build(recipe, paintHat, hatPrimitives = [], roundedHead = true, surfaceDetails = roundedHead) {
     const kind = recipe.base === 'adult' ? 'adult' : 'child';
     const base = studioRig.profiles[kind],
       measures = dimensions[kind];
@@ -265,10 +457,16 @@ const pineDesignerBody = (() => {
       const v = y / jawWidth(h);
       return fit.x + fit.rx * Math.sqrt(Math.sqrt(Math.max(0, 1 - h * h - v * v * v * v)));
     }
-    const mouthY = roundedHead ? 0 : -0.062 * fit.ry,
-      mouthZ = (measures.mouth + mouthOffset * (kind === 'child' ? 0.87 : 1.12)) * s;
-    const lipReach =
-      (recipe.face?.mouth === 'full' ? 0.42 : recipe.face?.mouth === 'small' ? 0.22 : 0.31) * s;
+    const mouthY = roundedHead ? 0 : -0.062 * fit.ry;
+    const travel = kind === 'child' ? 0.87 : 1.12;
+    // Leave room for the philtrum at the top of the height control, even on the child face.
+    const rise = surfaceDetails ? Math.min(travel, measures.eye - 0.47 * rz - measures.mouth) : travel;
+    const mouthZ = (measures.mouth + mouthOffset * (mouthOffset > 0 ? rise : travel)) * s;
+    // The rounded head carries the lip pigments on its own surface. The bottle
+    // meets that same surface regardless of the shape or color of the lips.
+    const lipReach = surfaceDetails
+      ? 0
+      : (recipe.face?.mouth === 'full' ? 0.42 : recipe.face?.mouth === 'small' ? 0.22 : 0.31) * s;
     rig.mouth = [faceFront(mouthY, mouthZ) + (roundedHead ? lipReach : 0.14 * s), mouthY, mouthZ];
     const eyeX = faceFront(eyeY, eyeZ);
     const socket = (frame, point) => ({ frame, point });
@@ -283,7 +481,7 @@ const pineDesignerBody = (() => {
       seat: socket('torso', [rig.pelvis[0], 0, rig.pelvis[2] - 0.79 * hipHeight]),
       upperBack: socket('torso', [-0.89 * chestDepth, -0.15 * rig.shoulder[1], rig.shoulder[2] - 0.65 * s])
     };
-    const materials = palette(recipe.colors);
+    const materials = palette(recipe.colors, surfaceDetails);
 
     // The hem follows both upper legs. Its cross-section turns upward over bent
     // knees, and each half follows its own thigh during a running stride.
@@ -978,6 +1176,21 @@ const pineDesignerBody = (() => {
           const back = (u + 0.16 * drop) / (crown * (1.08 + drop * (waves ? 0.15 : 0.04)));
           const radius = back * back + side * side;
           const hem = -length + 0.3 * Math.pow(Math.min(1, Math.abs(side)), 1.6) + 0.09 * Math.cos(10 * side);
+          if (surfaceDetails) {
+            if (radius > 1.23 || radius < 0.52 || u > (gathered ? -0.03 : 0.38) + 0.12 * h) return 0;
+            const angle = Math.atan2(side, -back);
+            const flow =
+              9 * angle +
+              (waves ? 0.98 * Math.sin(3.6 * h + angle) : 0.52 * h) +
+              0.64 * Math.sin(2.3 * angle + 0.86 * h);
+            const ridge = Math.cos(flow),
+              end = hem - 0.1 * ridge;
+            if (h < end || radius > 1.09 + 0.11 * ridge) return 0;
+            if (radius < 0.66 || ridge < -0.69) return k.hairDepth;
+            const light = Math.cos(2.7 * h + 1.7 * angle + 0.32 * Math.sin(flow));
+            if (ridge > 0.65 && light > 0.08 && h > end + 0.16) return k.hairSheen;
+            return ridge < -0.19 || (gathered && h > -0.36) ? k.hairMid : k.hair;
+          }
           if (h < hem || radius > 1.1 || radius < 0.46 || u > (gathered ? -0.03 : 0.38) + 0.12 * h) return 0;
           const lock = Math.cos(11.4 * side + (waves ? 1.38 * bend : 0.42 * h) + 0.5 * u);
           if (lock > 0.83 && h < 0.05 && h > hem + 0.26 && side < 0.64) return k.hairLight;
@@ -1001,11 +1214,19 @@ const pineDesignerBody = (() => {
           const cheek = lockPoint(pose, 0.42, side * (waves ? 1.17 : 1.01), -0.47);
           const collar = lockPoint(pose, front, side * (waves ? 0.79 : 0.87), -1.14);
           const tip = lockPoint(pose, front + 0.08, side * (waves ? 0.98 : 0.69), -length + 0.12 * side);
-          const strand = (t, u, v) =>
-            side * v > 0.085 * ry ? k.hairShade : u > 0.1 * rx ? k.hairLight : k.hair;
-          b.link(root, cheek, 0.2 * rx, 0.24 * rx, 1.06, strand);
-          b.link(cheek, collar, 0.24 * rx, 0.21 * rx, 1.15, strand);
-          b.link(collar, tip, 0.21 * rx, 0.065 * rx, 1.2, strand);
+          const strand = (segment) => (t, u, v) => {
+            if (!surfaceDetails)
+              return side * v > 0.085 * ry ? k.hairShade : u > 0.1 * rx ? k.hairLight : k.hair;
+            const along = (segment + t) / 3;
+            const across = (side * v) / ry + (0.26 * u) / rx;
+            const ribbon = across + 0.06 * Math.sin(5 * along + side);
+            if (ribbon > 0.13 || u < -0.12 * rx) return k.hairDepth;
+            if (ribbon > 0.041 || u < -0.054 * rx) return k.hairMid;
+            return ribbon > -0.1 && ribbon < -0.035 && along > 0.14 && along < 0.81 ? k.hairSheen : k.hair;
+          };
+          b.link(root, cheek, 0.2 * rx, 0.24 * rx, 1.06, strand(0));
+          b.link(cheek, collar, 0.24 * rx, 0.21 * rx, 1.15, strand(1));
+          b.link(collar, tip, 0.21 * rx, (surfaceDetails ? 0.027 : 0.065) * rx, 1.2, strand(2));
         }
       }
     }
@@ -1059,17 +1280,29 @@ const pineDesignerBody = (() => {
     function drawCurls(b, k) {
       const { x, z, rx, ry, rz } = fit;
       // The lower ring remains visible under a hat. Curls at the temples frame the eyes.
-      const rings = hasHat
-        ? [[10, 0.1, 0.97, 0.215]]
-        : [
-            [10, 0.31, 0.97, 0.28],
-            [8, 0.7, 0.79, 0.3],
-            [6, 1.0, 0.43, 0.25]
-          ];
+      const rings = surfaceDetails
+        ? hasHat
+          ? [[14, 0.12, 0.96, 0.17]]
+          : [
+              [15, 0.3, 0.95, 0.19],
+              [16, 0.53, 0.9, 0.2],
+              [14, 0.76, 0.73, 0.2],
+              [11, 0.92, 0.53, 0.19],
+              [7, 1.04, 0.3, 0.16]
+            ]
+        : hasHat
+          ? [[10, 0.1, 0.97, 0.215]]
+          : [
+              [10, 0.31, 0.97, 0.28],
+              [8, 0.7, 0.79, 0.3],
+              [6, 1.0, 0.43, 0.25]
+            ];
       for (let row = 0; row < rings.length; row++) {
         const [count, h, r, size] = rings[row];
         for (let i = 0; i < count; i++) {
-          const angle = (2 * Math.PI * (i + 0.39 * row)) / count,
+          const angle =
+              (2 * Math.PI * (i + 0.39 * row + (surfaceDetails ? 0.12 * Math.sin(2.3 * i + row) : 0))) /
+              count,
             u = Math.cos(angle),
             v = Math.sin(angle);
           if (hasHat && u > 0.48) continue;
@@ -1077,15 +1310,26 @@ const pineDesignerBody = (() => {
             cy = r * ry * v;
           const cz =
             z + rz * (h + (row === 0 ? 0.23 * Math.max(0, u) - 0.26 * Math.max(0, -u) : 0) + 0.042 * (i % 3));
-          const q = size * (0.91 + 0.075 * (i % 3));
+          const q =
+            size * (surfaceDetails ? 0.93 + 0.15 * Math.sin(2.4 * i + 1.7 * row) : 0.91 + 0.075 * (i % 3));
           b.blob(
             cx,
             cy,
             cz,
             rx * q,
             ry * q,
-            rz * q,
+            rz * q * (surfaceDetails ? 0.85 : 1),
             (px, py, pz) => {
+              if (surfaceDetails) {
+                const across = ((-(px - cx) * v) / rx + ((py - cy) * u) / ry) / q;
+                const height = (pz - cz) / (rz * q);
+                const curl = ((across + 0.14 * Math.sin(i)) / 0.83) ** 2 + ((height - 0.12) / 0.73) ** 2;
+                if (height < -0.61 && across > 0.12) return k.hairDepth;
+                if (curl < 0.16 && height < 0.2) return k.hairMid;
+                if (curl > 0.31 && curl < 0.73 && height > 0.02 && across < 0.38 && (row + i) % 3 !== 1)
+                  return k.hairSheen;
+                return across > 0.56 || height < -0.24 ? k.hairMid : k.hair;
+              }
               const light = (py - cy) / ry + (0.54 * (pz - cz)) / rz;
               if ((i + row) % 3 !== 0 && light > 0.25 * q && light < 0.54 * q && pz > cz - 0.08 * rz)
                 return k.hairLight;
@@ -1275,7 +1519,7 @@ const pineDesignerBody = (() => {
             if (color) return color;
           }
         }
-        if (roundedHead ? h > 0.72 : h > 0.63 || (u < -0.52 && h > -0.6)) return k.hair;
+        if (!surfaceDetails && (roundedHead ? h > 0.72 : h > 0.63 || (u < -0.52 && h > -0.6))) return k.hair;
         if (b.faceDetail) {
           const blush = ((a / ry - 0.62) / 0.22) ** 2 + ((z - eyeZ + 0.275 * rz) / (0.13 * rz)) ** 2;
           if (u > 0.35 && blush < 1.25) return blush < 0.54 ? k.rose : k.roseVeil;
@@ -1389,42 +1633,45 @@ const pineDesignerBody = (() => {
           z > noseZ - 0.035 * rz ? k.skinLight : k.skinShade
         );
       }
-      if (mouth === 'classic' && !b.faceDetail && !roundedHead) {
-        b.blob(
-          rig.mouth[0] - 0.095 * s,
-          mouthY,
-          mouthZ,
-          0.48 * s,
-          0.205 * ry,
-          0.098 * rz,
-          (x, y, z) => (z > mouthZ - 0.035 * rz ? k.lips : k.cheek),
-          2.5
-        );
-      } else {
-        b.stamp(
-          rig.mouth[0] - 0.7 * rx,
-          rig.mouth[0] + 0.67 * s,
-          mouthY - (roundedHead ? 0.32 : 0.3) * ry,
-          mouthY + (roundedHead ? 0.32 : 0.3) * ry,
-          mouthZ - 0.18 * rz,
-          mouthZ + 0.24 * rz,
-          (x, y, z) => {
-            const color = lipInk(y, z);
-            if (!color) return 0;
-            const front = surface(y, z);
-            const reach = roundedHead
-              ? lipReach * Math.max(0.12, 1 - ((y - mouthY) / (0.32 * ry)) ** 2)
-              : (mouth === 'full' ? 0.58 : mouth === 'small' ? 0.29 : 0.36) * s;
-            return x >= front - 0.32 * s && x <= front + reach ? color : 0;
-          }
-        );
+      // Reproduce the lip geometry of pinned releases through 1.5.0.
+      if (!surfaceDetails) {
+        if (mouth === 'classic' && !b.faceDetail && !roundedHead) {
+          b.blob(
+            rig.mouth[0] - 0.095 * s,
+            mouthY,
+            mouthZ,
+            0.48 * s,
+            0.205 * ry,
+            0.098 * rz,
+            (x, y, z) => (z > mouthZ - 0.035 * rz ? k.lips : k.cheek),
+            2.5
+          );
+        } else {
+          b.stamp(
+            rig.mouth[0] - 0.7 * rx,
+            rig.mouth[0] + 0.67 * s,
+            mouthY - (roundedHead ? 0.32 : 0.3) * ry,
+            mouthY + (roundedHead ? 0.32 : 0.3) * ry,
+            mouthZ - 0.18 * rz,
+            mouthZ + 0.24 * rz,
+            (x, y, z) => {
+              const color = lipInk(y, z);
+              if (!color) return 0;
+              const front = surface(y, z);
+              const reach = roundedHead
+                ? lipReach * Math.max(0.12, 1 - ((y - mouthY) / (0.32 * ry)) ** 2)
+                : (mouth === 'full' ? 0.58 : mouth === 'small' ? 0.29 : 0.36) * s;
+              return x >= front - 0.32 * s && x <= front + reach ? color : 0;
+            }
+          );
+        }
       }
       const bob = hairstyle === 'bob',
         bun = hairstyle === 'bun';
       const long = bob ? 0.255 : 0,
         crown = hasHat ? 1.018 : 1.075;
       const { mix, ramp } = studioRig;
-      function roundedHair(u, v, h) {
+      function archivedRoundHair(u, v, h) {
         // The hair follows the skull, with continuous transitions over the ear
         // and down to the nape. The part adds volume to one side of the crown.
         const short = hairstyle === 'crop' || hairstyle === 'side-part';
@@ -1462,18 +1709,32 @@ const pineDesignerBody = (() => {
         if (u < -0.35 && h > 0.05 && h < 0.76 && lock > 0.9 && light > 0.12) return k.hairSheen;
         return k.hair;
       }
+      const scalp = surfaceDetails ? hairScalp(hairstyle, hasHat) : null;
+      const hairTones = [0, k.hairDepth, k.hairMid, k.hair, k.hairSheen, k.hairHighlight, k.hairPart];
+      const scalpWidth = surfaceDetails ? 1.24 : 1.115;
       b.stamp(
-        cx - (roundedHead ? 1.4 : 1.12) * rx,
-        cx + (roundedHead ? 1.22 : 1.12) * rx,
-        -1.115 * ry,
-        1.115 * ry,
+        cx - (surfaceDetails ? 1.48 : roundedHead ? 1.4 : 1.12) * rx,
+        cx + (surfaceDetails ? 1.3 : roundedHead ? 1.22 : 1.12) * rx,
+        -scalpWidth * ry,
+        scalpWidth * ry,
         cz - (1.18 + long) * rz,
         cz + 1.22 * rz,
         (x, y, z) => {
           const u = (x - cx) / rx,
             v = y / ry,
             h = (z - cz) / rz;
-          if (roundedHead) return roundedHair(u, v, h);
+          if (scalp) {
+            const row = Math.floor((h - scalpBottom) / scalpStep);
+            if (row < 0 || row >= scalpRows) return 0;
+            const dx = u - skullAxis(h) + 0.022;
+            const depth = dx / (dx < 0 ? occiput : forehead);
+            const radius = depth * depth + v * v;
+            if (radius > scalp.rowMax[row] || radius + h * h < 0.85) return 0;
+            const col = Math.floor(Math.atan2(v, depth) * (scalpAngles / (2 * Math.PI)));
+            const i = row * scalpAngles + ((col + scalpAngles) % scalpAngles);
+            return radius <= scalp.radiusSquared[i] ? hairTones[scalp.tones[i]] : 0;
+          }
+          if (roundedHead) return archivedRoundHair(u, v, h);
           let edge;
           if (u < -0.33) edge = bob ? -1.06 : bun ? -0.77 : -0.55;
           else if (u > 0.52) edge = (bob ? 0.34 : bun ? 0.45 : 0.39) + 0.19 * v + (bun ? 0.12 : 0.07) * u;
@@ -1563,7 +1824,8 @@ const pineDesignerBody = (() => {
           'cheek',
           'lips',
           'eyelid',
-          ...(roundedHead ? ['hair', 'hairLight', 'hairShade', 'hairMid', 'hairDepth', 'hairSheen'] : [])
+          ...(roundedHead ? ['hair', 'hairLight', 'hairShade', 'hairMid', 'hairDepth', 'hairSheen'] : []),
+          ...(surfaceDetails ? ['hairHighlight', 'hairPart'] : [])
         ],
         painted: [
           'faceLight',
