@@ -36,14 +36,33 @@ function checkEditor() {
       const b = document.querySelector('[data-body-profile="' + profile + '"]');
       b.click();
       expect(b.getAttribute('aria-pressed') === 'true', 'incorrect selected body profile ' + profile);
+      for (const [key, min, max] of [
+        ['height', 0.75, 1.3],
+        ['shoulders', 0.7, 1.35],
+        ['arms', 0.8, 1.25],
+        ['legs', 0.8, 1.25]
+      ]) {
+        const field = byId('edit-' + key);
+        expect(
+          +field.min === min && +field.max === max && +field.step === 0.01,
+          'incorrect slider limits for ' + key
+        );
+        if (key !== 'height') {
+          const hint = field.labels[0].querySelector('.slider-limits');
+          expect(
+            hint?.textContent === Math.round(min * 100) + '%–' + Math.round(max * 100) + '%',
+            'incorrect range shown for ' + key
+          );
+        }
+      }
       const height = byId('edit-height');
-      height.value = 0.9;
+      height.value = height.min;
       height.dispatchEvent(new Event('input'));
       const low = contour();
-      height.value = 1.1;
+      height.value = height.max;
       height.dispatchEvent(new Event('input'));
       const high = contour();
-      expect(low.height > 50 && high.height > 1.16 * low.height, profile + ' does not visibly grow');
+      expect(low.height > 45 && high.height > 1.63 * low.height, profile + ' does not visibly grow');
       expect(Math.abs(low.bottom - high.bottom) <= 4, profile + ' moved off the baseline');
       expect(low.ruler === high.ruler, profile + ' rescaled the centimeter ruler');
       photos.set(profile, byId('mirror').toDataURL());
@@ -64,13 +83,32 @@ function checkEditor() {
     expect(!document.querySelector('[data-body-profile][aria-pressed=true]'), 'a legacy gender was inferred');
     document.querySelector('[data-body-profile="female"]').click();
     byId('save-look').click();
-    expect(PineWardrobe.saved.get(legacy.id).gender === 'female', 'body profile was lost on save');
+    const profiled = PineWardrobe.saved.get(legacy.id);
+    expect(
+      profiled.gender === 'female' && profiled.packs['pine-core'] === PineLooks.profileRelease,
+      'body profile or compatible version was lost on save'
+    );
+    const shoulders = byId('edit-shoulders');
+    shoulders.value = shoulders.max;
+    shoulders.dispatchEvent(new Event('input'));
+    byId('save-look').click();
+    const widened = PineWardrobe.saved.get(legacy.id);
+    expect(
+      widened.gender === 'female' &&
+        widened.packs['pine-core'] === PineLooks.release &&
+        widened.shape.shoulders === 1.35,
+      'extended shoulders failed to save on the original look'
+    );
     const small = document.createElement('canvas');
     small.style.cssText = 'width:288px;height:224px;display:block';
     document.body.append(small);
     const mirror = atelierPreview.create(small, PineMotion);
     const model = PineLooks.templates.find((p) => p.id === 'look_camper');
-    const wide = { ...model, shape: { ...model.shape, shoulders: 1.15, arms: 1.08, height: 1.1 } };
+    const wide = {
+      ...model,
+      packs: { 'pine-core': PineLooks.release },
+      shape: { ...model.shape, shoulders: 1.35, arms: 1.25, legs: 1.25, height: 1.3 }
+    };
     const lead = PineLooks.build(wide),
       partner = PineLooks.build({ ...wide, id: 'look_peer' });
     for (const action of ['wave', 'highfive', 'jump']) {

@@ -3,7 +3,19 @@ const PineLooks = (() => {
   const core = 'pine-core',
     originalRelease = '1.0.0',
     styleRelease = '1.1.0',
-    release = '1.2.0';
+    profileRelease = '1.2.0',
+    release = '1.3.0';
+  const releases = [originalRelease, styleRelease, profileRelease, release];
+  const shape = pineDesignerBody.shapeRanges;
+  const previousBodyRanges = {
+    height: [0.9, 1.1],
+    shoulders: [0.85, 1.15],
+    arms: [0.92, 1.08],
+    legs: [0.92, 1.08]
+  };
+  function usesExtendedShape(sizes) {
+    return Object.entries(previousBodyRanges).some(([key, [lo, hi]]) => sizes[key] < lo || sizes[key] > hi);
+  }
   const baseNotice = `MIT License
 
 Copyright (c) 2026 zhangran653 and contributors
@@ -40,19 +52,10 @@ SOFTWARE.`;
     const next = JSON.parse(JSON.stringify(recipe));
     next.base = base;
     next.gender = gender;
-    next.packs[core] = release;
+    next.packs[core] =
+      next.packs[core] === release || usesExtendedShape(next.shape) ? release : profileRelease;
     return next;
   }
-  const shape = {
-    height: [0.9, 1.1, 1],
-    shoulders: [0.85, 1.15, 1],
-    arms: [0.92, 1.08, 1],
-    legs: [0.92, 1.08, 1],
-    faceWidth: [0.84, 1.16, 1],
-    eyeSpacing: [0.8, 1.2, 1],
-    jaw: [0.8, 1.2, 1],
-    mouthHeight: [-1, 1, 0]
-  };
   const originalSlots = {
     hair: { crop: '短碎发', bob: '齐耳发', bun: '盘发' },
     top: { jacket: '拉链夹克', pullover: '套头衫' },
@@ -246,9 +249,7 @@ SOFTWARE.`;
       }
     ]
   });
-  for (const prior of [originalRelease, styleRelease])
-    catalog.set(core + '@' + prior, manifest({ ...sunhat, release: prior }));
-  catalog.set(core + '@' + release, sunhat);
+  for (const pin of releases) catalog.set(core + '@' + pin, manifest({ ...sunhat, release: pin }));
   function prepare(raw, source = catalog) {
     fields(
       raw,
@@ -301,12 +302,14 @@ SOFTWARE.`;
     }
     fields(raw.packs, owner === core ? [core] : [core, owner]);
     const pin = raw.packs[core];
-    requireThat([originalRelease, styleRelease, release].includes(pin), '不支持的基础部件版本');
+    requireThat(releases.includes(pin), '不支持的基础部件版本');
+    requireThat(pin === release || !usesExtendedShape(sizes), '扩展体型范围需要 pine-core ' + release);
     requireThat(
       pin !== originalRelease || !needsNewCore(parts, raw.face),
       '所选五官或服饰需要 pine-core ' + styleRelease
     );
-    requireThat(pin === release || raw.gender === undefined, '性别字段需要 pine-core ' + release);
+    const hasProfiles = pin === profileRelease || pin === release;
+    requireThat(hasProfiles || raw.gender === undefined, '性别字段需要 pine-core ' + profileRelease);
     const gender = raw.gender === undefined ? 'unspecified' : raw.gender;
     requireThat(['female', 'male', 'unspecified'].includes(gender), '未知的性别值');
     requireThat(raw.base === 'adult' || gender === 'unspecified', '儿童使用中性体型');
@@ -353,7 +356,7 @@ SOFTWARE.`;
       id: raw.id,
       label,
       base: raw.base,
-      ...(pin === release ? { gender } : {}),
+      ...(hasProfiles ? { gender } : {}),
       packs: pins,
       shape: sizes,
       parts,
@@ -432,7 +435,7 @@ SOFTWARE.`;
     label,
     base: bodyProfiles[profile].base,
     gender: bodyProfiles[profile].gender,
-    packs: { [core]: release },
+    packs: { [core]: profileRelease },
     shape: { ...Object.fromEntries(Object.entries(shape).map(([k, v]) => [k, v[2]])), ...sizes },
     parts: Object.fromEntries([...Object.keys(slots), 'hat'].map((k, i) => [k, items[i]])),
     colors: Object.fromEntries(Object.keys(colors).map((k, i) => [k, palette[i]]))
@@ -496,7 +499,7 @@ SOFTWARE.`;
       label: style.label,
       base: bodyProfiles[style.profile].base,
       gender: bodyProfiles[style.profile].gender,
-      packs: { [core]: release },
+      packs: { [core]: profileRelease },
       shape: { ...seed.shape, ...style.shape },
       parts: { hair: style.hair, ...outfit.parts, hat: 'none' },
       face: { ...facePresets[style.face].face },
@@ -519,6 +522,8 @@ SOFTWARE.`;
     release,
     originalRelease,
     styleRelease,
+    profileRelease,
+    usesExtendedShape,
     bodyProfiles,
     bodyProfileOf,
     withBodyProfile,

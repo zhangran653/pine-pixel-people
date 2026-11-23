@@ -151,7 +151,8 @@
   }
   function changed() {
     dirty = true;
-    if (draft.packs[looks.core] === looks.originalRelease && looks.needsNewCore(draft.parts, draft.face))
+    if (looks.usesExtendedShape(draft.shape)) draft.packs[looks.core] = looks.release;
+    else if (draft.packs[looks.core] === looks.originalRelease && looks.needsNewCore(draft.parts, draft.face))
       draft.packs[looks.core] = looks.styleRelease;
     actor = looks.build({ ...draft, label: draft.label.trim() || '未命名形象' });
     heading();
@@ -166,7 +167,16 @@
       field = document.createElement('input');
     label.className = 'slider-label';
     label.htmlFor = 'edit-' + key;
-    label.append(names[key], output, field);
+    const caption = document.createElement('span');
+    caption.textContent = names[key];
+    if (key !== 'height' && tabKeys.shape.includes(key)) {
+      const limits = document.createElement('small');
+      limits.className = 'slider-limits';
+      limits.setAttribute('aria-hidden', 'true');
+      limits.textContent = Math.round(min * 100) + '%–' + Math.round(max * 100) + '%';
+      caption.append(limits);
+    }
+    label.append(caption, output, field);
     field.id = 'edit-' + key;
     field.type = 'range';
     field.min = min;
@@ -319,6 +329,7 @@
       if (!swatchActors.has(key)) {
         const sample = {
           ...looks.templates[0],
+          packs: { [looks.core]: looks.release },
           base: draft.base,
           gender: draft.gender ?? 'unspecified',
           shape: draft.shape,

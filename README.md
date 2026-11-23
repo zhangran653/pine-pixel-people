@@ -25,6 +25,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 4. 用「对照人物」选择另一个形象，试跑或相互击掌。导出角色 JSON 可以在另一台设备重新打开，文件内含所穿外部帽饰的版本、素材和声明。
 5. 也可以直接把 [放学后的双人编排](packs/after-school.json) 导入动作工坊，试看跑步、跳跃、击掌与喝水的完整循环。
 
+「体型」面板以每种默认体型为 100%。身高可调至 75%–130%，肩宽 70%–135%，臂长和腿长各为 80%–125%，步长均为 1%。成人站姿约为 117–203 cm，儿童约为 83–144 cm。已有形象首次使用扩展范围时会自动采用基础部件 `pine-core 1.3.0`。
+
 全身镜头有固定的地面和厘米标尺。身高读数取站直时的裸头顶位置。拖动「环视」可以从正面和侧面看两种成人体型的差别。两个样本使用相同的身高、发型和衣装。[成人体型并排对照](http://127.0.0.1:8000/atelier.html?preset=look_body_female&compare=look_body_male&tab=shape) · [儿童身高对照](http://127.0.0.1:8000/atelier.html?preset=look_chorus&compare=look_relay&tab=shape) · [双马尾后侧近景](http://127.0.0.1:8000/atelier.html?preset=look_chorus&tab=hair)
 
 ## 角色与动作怎样复用

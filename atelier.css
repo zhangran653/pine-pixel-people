@@ -423,6 +423,13 @@ h2 {
     monospace;
   color: #5e6d62;
 }
+.slider-limits {
+  margin-inline-start: 0.65em;
+  color: #5e6d62;
+  font-size: 0.76rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
 .slider-label input {
   grid-column: 1/-1;
   margin: 3px 0 0;

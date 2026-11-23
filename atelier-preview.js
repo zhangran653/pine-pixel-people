@@ -223,7 +223,7 @@ const atelierPreview = (() => {
   function fullBodyLayout(w, h, groups, frames, motion, pixel, action, camera) {
     const cm = motion.rig.centimetersPerUnit;
     const jumping = action === 'jump';
-    const normalCeiling = jumping ? 240 : 200;
+    const normalCeiling = jumping ? 300 : 240;
     const axis = Math.min(49 * pixel, Math.max(32 * pixel, w * 0.068));
     const left = axis + 13 * pixel,
       right = w - Math.max(10 * pixel, w * 0.036);
@@ -233,10 +233,17 @@ const atelierPreview = (() => {
     // Hold one scale throughout a clip, including room for the tallest standard
     // adult. Contributed headwear can reserve a higher interval for the whole clip.
     let needed = Math.max(...frames.map((f) => -f.top * cm));
+    const gap = 3;
+    let sideBySideSpan = gap;
     for (const group of groups) {
       for (const { actor, body } of group.parts) {
         const base = actor.tags.map((tag) => motion.rig.profiles[tag]).find(Boolean);
-        const maxHeight = Math.max(actor.rig.height, (base?.height || actor.rig.height) * 1.1);
+        const maxHeight = Math.max(
+          actor.rig.height,
+          (base?.height || 0) * pineDesignerBody.shapeRanges.height[1]
+        );
+        // Reserve space for fully extended arms before playback on a narrow mirror.
+        if (groups.length === 2) sideBySideSpan += base?.height || actor.rig.height;
         const envelope = (body.nz / body.density + 1) / actor.rig.height;
         const clearance = jumping ? envelope : envelope - 0.24;
         needed = Math.max(needed, clearance * maxHeight * cm);
@@ -245,8 +252,7 @@ const atelierPreview = (() => {
     const ceiling = needed <= normalCeiling ? normalCeiling : Math.ceil(needed / 50) * 50;
     const width = Math.max(1, right - left),
       verticalScale = ((baseline - top) * cm) / ceiling;
-    const normalSpan = 74,
-      gap = 3;
+    const normalSpan = Math.max(74, sideBySideSpan);
     const occupied = (edges) => edges.reduce((sum, f) => sum + f.right - f.left, gap * (edges.length - 1));
     let edges = frames,
       span = occupied(edges);

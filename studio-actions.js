@@ -229,11 +229,28 @@ const soloClips = (() => {
       raised = ramp(u, 0.03, 0.23) * (1 - ramp(u, 0.81, 0.99));
     const tap = Math.sin(tau * u * 5),
       swiping = Math.sin(tau * u * 2.5);
-    const center = [h * (0.065 + 0.09 * raised), h * 0.085, r.shoulder[2] - h * (0.18 - 0.115 * raised)];
-    const screen = frame(zero, center, 0.13, -0.19 - 0.07 * raised, 0);
     const ch = { headPitch: 0.25 * raised, headYaw: 0.12 * raised, blink: blink(u) };
-    const rest = pose(r, ch),
-      gripping = point(screen, [0.45 * s, 1.48 * s, -0.8 * s]);
+    const rest = pose(r, ch);
+    const center = [h * (0.065 + 0.09 * raised), h * 0.085, r.shoulder[2] - h * (0.18 - 0.115 * raised)];
+    const close = [h * 0.11, 0, r.shoulder[2] - h * 0.03];
+    const screen = frame(zero, center, 0.13, -0.19 - 0.07 * raised, 0);
+    const travel = add(center, close, -1);
+    const reach = r.upperArm + r.forearm + r.palm;
+    const gripOffset = [0.45 * s, 1.48 * s, -0.8 * s];
+    function reachableFraction(arm, offset, radius) {
+      const fromShoulder = add(point(screen, offset), arm.shoulder, -1);
+      const far = Math.hypot(...fromShoulder);
+      if (far <= radius) return 1;
+      const near = Math.hypot(...add(fromShoulder, travel, -1));
+      return far > near ? clamp((radius - near) / (far - near)) : 0;
+    }
+    // Reserve the whole tapping area, so the phone stays steady between finger taps.
+    const fraction = Math.min(
+      reachableFraction(rest.arms[0], [-1.25 * s, -0.24 * s, 0], reach - 1.21 * s),
+      reachableFraction(rest.arms[1], gripOffset, reach)
+    );
+    for (let i = 0; i < 3; i++) screen[4 * i + 3] = mix(close[i], center[i], fraction);
+    const gripping = point(screen, gripOffset);
     const tapping = point(screen, [
       (-1.25 + 0.72 * tap) * s,
       (-0.24 + 0.75 * swiping) * s,
@@ -254,7 +271,16 @@ const soloClips = (() => {
     ch.blink = blink(u);
     const seatedPose = pose(r, ch),
       knee = seatedPose.legs[0].knee;
-    const keyboard = frame(zero, [knee[0] - 1.2 * s, 0, knee[2] + 2.0 * s], 0, 0, 0);
+    const x = knee[0] - 1.2 * s,
+      lap = knee[2] + 2.0 * s;
+    const shoulder = seatedPose.arms[1].shoulder,
+      reach = r.upperArm + r.forearm + r.palm;
+    // The lowest and farthest key must stay within reach for the whole cycle.
+    const dx = Math.abs(x + 0.7 * s - shoulder[0]) + 0.65 * s;
+    const dy = Math.abs(shoulder[1] - 2.8 * s) + 0.72 * s;
+    const down = Math.sqrt(Math.max(0, reach * reach - dx * dx - dy * dy));
+    const rise = Math.max(0, shoulder[2] - down - 0.7 * s - lap);
+    const keyboard = frame(zero, [x, 0, lap + rise], 0, 0, 0);
     ch.hands = sides.map((side, i) => {
       const beat = Math.sin(tau * (u * (i ? 7 : 9) + i * 0.27));
       return point(keyboard, [
@@ -266,7 +292,7 @@ const soloClips = (() => {
     const p = pose(r, ch);
     p.props = [
       { kind: 'stool', scale: s, frame: frame(zero, [ch.hipOffset[0], 0, h * 0.16], 0, 0, 0) },
-      { kind: 'laptop', frame: keyboard, scale: s }
+      { kind: 'laptop', frame: keyboard, scale: s, rise }
     ];
     return entry(a, p);
   }

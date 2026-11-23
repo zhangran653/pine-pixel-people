@@ -52,7 +52,8 @@
           "enum": [
             "1.0.0",
             "1.1.0",
-            "1.2.0"
+            "1.2.0",
+            "1.3.0"
           ]
         }
       },
@@ -77,26 +78,26 @@
       "properties": {
         "height": {
           "type": "number",
-          "minimum": 0.9,
-          "maximum": 1.1,
+          "minimum": 0.75,
+          "maximum": 1.3,
           "default": 1
         },
         "shoulders": {
           "type": "number",
-          "minimum": 0.85,
-          "maximum": 1.15,
+          "minimum": 0.7,
+          "maximum": 1.35,
           "default": 1
         },
         "arms": {
           "type": "number",
-          "minimum": 0.92,
-          "maximum": 1.08,
+          "minimum": 0.8,
+          "maximum": 1.25,
           "default": 1
         },
         "legs": {
           "type": "number",
-          "minimum": 0.92,
-          "maximum": 1.08,
+          "minimum": 0.8,
+          "maximum": 1.25,
           "default": 1
         },
         "faceWidth": {
@@ -419,6 +420,47 @@
         "properties": {
           "gender": {
             "const": "unspecified"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "packs": {
+            "properties": {
+              "pine-core": {
+                "enum": [
+                  "1.0.0",
+                  "1.1.0",
+                  "1.2.0"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "shape": {
+            "properties": {
+              "height": {
+                "minimum": 0.9,
+                "maximum": 1.1
+              },
+              "shoulders": {
+                "minimum": 0.85,
+                "maximum": 1.15
+              },
+              "arms": {
+                "minimum": 0.92,
+                "maximum": 1.08
+              },
+              "legs": {
+                "minimum": 0.92,
+                "maximum": 1.08
+              }
+            }
           }
         }
       }

@@ -1,5 +1,16 @@
 // An editable body uses the same joint frames, material brushes and action sockets as the cast.
 const pineDesignerBody = (() => {
+  // Relative to the selected body. The editor, recipe validator and painter share these limits.
+  const shapeRanges = {
+    height: [0.75, 1.3, 1],
+    shoulders: [0.7, 1.35, 1],
+    arms: [0.8, 1.25, 1],
+    legs: [0.8, 1.25, 1],
+    faceWidth: [0.84, 1.16, 1],
+    eyeSpacing: [0.8, 1.2, 1],
+    jaw: [0.8, 1.2, 1],
+    mouthHeight: [-1, 1, 0]
+  };
   const defaults = {
     skin: '#d59773',
     hair: '#59413b',
@@ -89,7 +100,9 @@ const pineDesignerBody = (() => {
     }
   };
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  function number(value, fallback, lo, hi) {
+  function measure(shape, key) {
+    const [lo, hi, fallback] = shapeRanges[key];
+    const value = shape[key];
     return Number.isFinite(value) ? clamp(value, lo, hi) : fallback;
   }
   function tint(color, target, amount) {
@@ -146,14 +159,14 @@ const pineDesignerBody = (() => {
     const cut = selectedCut ? torsoCuts[recipe.gender] : torsoCuts.original;
     const shape = recipe.shape || {},
       parts = recipe.parts || {};
-    const s = number(shape.height, 1, 0.9, 1.1);
-    const shoulders = number(shape.shoulders, 1, 0.85, 1.15);
-    const arms = number(shape.arms, 1, 0.92, 1.08),
-      legs = number(shape.legs, 1, 0.92, 1.08);
-    const width = number(shape.faceWidth, 1, 0.84, 1.16),
-      spacing = number(shape.eyeSpacing, 1, 0.8, 1.2);
-    const jaw = number(shape.jaw, 1, 0.8, 1.2),
-      mouthOffset = number(shape.mouthHeight, 0, -1, 1);
+    const s = measure(shape, 'height'),
+      shoulders = measure(shape, 'shoulders');
+    const arms = measure(shape, 'arms'),
+      legs = measure(shape, 'legs');
+    const width = measure(shape, 'faceWidth'),
+      spacing = measure(shape, 'eyeSpacing');
+    const jaw = measure(shape, 'jaw'),
+      mouthOffset = measure(shape, 'mouthHeight');
     const jeans = parts.bottom === 'trousers',
       boots = parts.shoes === 'boots';
     const skirt = parts.bottom === 'skirt',
@@ -1223,5 +1236,5 @@ const pineDesignerBody = (() => {
     const [, centerZ, , , radiusZ] = dimensions[kind].head;
     return (centerZ + radiusZ) * scale;
   }
-  return { build, standingHeight };
+  return { build, standingHeight, shapeRanges };
 })();

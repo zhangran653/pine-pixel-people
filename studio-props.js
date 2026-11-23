@@ -163,7 +163,7 @@ const studioProps = (() => {
 
   function paint(pose, brush, ink) {
     if (!pose.props?.length) return;
-    for (const { kind, frame, scale = 1 } of pose.props) {
+    for (const { kind, frame, scale = 1, rise = 0 } of pose.props) {
       if (!(scale > 0) || !Number.isFinite(scale)) continue;
       // A subpixel shell can put both faces into the same sample. Include a
       // neighboring sample on the normal axis until each face has its own color.
@@ -187,6 +187,19 @@ const studioProps = (() => {
         bounds = [-4, 4, -7, 7, -8, 0];
       } else continue;
       brush.frame(frame);
+      if (kind === 'laptop' && rise > 0) {
+        const middle = -0.9 * scale - rise / 2;
+        brush.blob(
+          0,
+          0,
+          middle,
+          3.65 * scale,
+          5.8 * scale,
+          rise / 2,
+          (_x, _y, z) => (z > middle ? ink.deviceBack : ink.deviceSlate),
+          3.5
+        );
+      }
       brush.stamp(...bounds.map((v) => v * scale), (x, y, z) =>
         sample(x / scale, y / scale, z / scale, ink, pad)
       );
