@@ -101,6 +101,53 @@ const pineDesignerBody = (() => {
     }
   };
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  function swell(t, center, span) {
+    const d = (t - center) / span;
+    return Math.abs(d) >= 1 ? 0 : (1 - d * d) ** 2;
+  }
+  // A small change in radius and a fore/aft offset around the original bone.
+  // Both return to zero at the joints. Lengths, resting pose and sockets stay on the authored rig.
+  function contour(center, span, fullness, shift, taperAt, taper) {
+    return Array.from({ length: 97 }, (_, i) => {
+      const t = i / 96,
+        belly = swell(t, center, span);
+      return [1 + fullness * belly - taper * swell(t, taperAt, 0.16), shift * belly];
+    });
+  }
+  const limbContours = {
+    thigh: contour(0.34, 0.34, 0.045, 0.028, 0.8, 0.025),
+    shin: contour(0.36, 0.36, 0.078, -0.082, 0.83, 0.03),
+    upperArm: contour(0.27, 0.27, 0.047, -0.021, 0.81, 0.035),
+    forearm: contour(0.29, 0.29, 0.064, 0.033, 0.82, 0.047)
+  };
+  function contouredLink(brush, torso, sections) {
+    return (a, b, r0, r1, width, pigment) => {
+      const dx = b[0] - a[0],
+        dy = b[1] - a[1],
+        dz = b[2] - a[2];
+      const length2 = dx * dx + dy * dy + dz * dz;
+      if (length2 < 1e-8) return brush.blob(...a, r0, r0 * width, r0, pigment(0, 0, 0, 0));
+      // Project the actor's forward direction onto the cross-section. The calf
+      // fullness stays behind the shin, including when the knee bends.
+      const along = (torso[0] * dx + torso[4] * dy + torso[8] * dz) / length2;
+      const fx = torso[0] - along * dx,
+        fy = torso[4] - along * dy,
+        fz = torso[8] - along * dz;
+      const pad = Math.max(r0, r1) * Math.max(1, width) * 1.18;
+      const bounds = (j) => [Math.min(a[j], b[j]) - pad, Math.max(a[j], b[j]) + pad];
+      brush.stamp(...bounds(0), ...bounds(1), ...bounds(2), (x, y, z) => {
+        const t = clamp(((x - a[0]) * dx + (y - a[1]) * dy + (z - a[2]) * dz) / length2, 0, 1);
+        const shape = sections[Math.round(96 * t)],
+          base = r0 + (r1 - r0) * t;
+        const shift = base * shape[1],
+          radius = base * shape[0];
+        const u = x - a[0] - dx * t - shift * fx,
+          v = (y - a[1] - dy * t - shift * fy) / width,
+          w = z - a[2] - dz * t - shift * fz;
+        return u * u + v * v + w * w <= radius * radius ? pigment(t, u, v, w) : 0;
+      });
+    };
+  }
   // Each lock follows a curved path down the head. Angles run from the forehead
   // (0°) to the nape (180°). Each entry gives root, bend, tip, tip height,
   // half-width and an optional starting height for a shorter overlapping lock.
@@ -365,7 +412,14 @@ const pineDesignerBody = (() => {
     };
   }
 
-  function build(recipe, paintHat, hatPrimitives = [], roundedHead = true, surfaceDetails = roundedHead) {
+  function build(
+    recipe,
+    paintHat,
+    hatPrimitives = [],
+    roundedHead = true,
+    surfaceDetails = roundedHead,
+    softContours = surfaceDetails
+  ) {
     const kind = recipe.base === 'adult' ? 'adult' : 'child';
     const base = studioRig.profiles[kind],
       measures = dimensions[kind];
@@ -446,7 +500,14 @@ const pineDesignerBody = (() => {
     }
     function ovalWidth(h) {
       const lower = Math.max(0, -h);
-      return jawWidth(h) * (1 - (kind === 'child' ? 0.045 : 0.085) * lower * lower);
+      const original = jawWidth(h) * (1 - (kind === 'child' ? 0.045 : 0.085) * lower * lower);
+      if (!softContours) return original;
+      const adjustment = 0.021 * swell(h, -0.27, 0.26) - 0.041 * swell(h, -0.69, 0.3);
+      return original * (1 + (kind === 'child' ? 0.72 : 1) * adjustment);
+    }
+    function rearDepth(h) {
+      if (!softContours) return occiput;
+      return occiput * (1 + 0.016 * swell(h, 0.23, 0.38) - 0.075 * swell(h, -0.59, 0.4));
     }
     function faceFront(y, z) {
       const h = (z - fit.z) / fit.rz;
@@ -551,16 +612,18 @@ const pineDesignerBody = (() => {
       const shoeX = measures.shoe[0] * s,
         shoeY = measures.shoe[1] * s;
       b.frame(null);
+      const thighLink = softContours ? contouredLink(b, pose.torso, limbContours.thigh) : b.link;
+      const shinLink = softContours ? contouredLink(b, pose.torso, limbContours.shin) : b.link;
       for (let i = 0; i < 2; i++) {
         const side = i ? 1 : -1,
           foot = pose.feet[i],
           { hip, knee } = pose.legs[i];
         if (cargo) {
-          b.link(hip, knee, 1.11 * thigh, 1.13 * kneeRadius, 1, (t, u, v) => {
+          thighLink(hip, knee, 1.11 * thigh, 1.13 * kneeRadius, 1, (t, u, v) => {
             if (t > 0.77 && u > 0.48 * kneeRadius) return k.bottomLight;
             return side * v < -0.69 * thigh ? k.bottomShade : k.bottom;
           });
-          b.link(knee, foot, 1.14 * kneeRadius, 1.13 * ankleRadius, 0.98, (t, u, v) => {
+          shinLink(knee, foot, 1.14 * kneeRadius, 1.13 * ankleRadius, 0.98, (t, u, v) => {
             if (t > 0.84) return t > 0.92 ? k.bottomShade : k.bottomLight;
             if (t < 0.24 && u > 0.56 * kneeRadius) return k.bottomLight;
             return side * v < -0.72 * kneeRadius ? k.bottomShade : k.bottom;
@@ -576,35 +639,35 @@ const pineDesignerBody = (() => {
           );
           b.blob(...pocket(0.385, 1.28), 0.14 * thigh, 0.105 * thigh, 0.16 * thigh, k.trimShade);
         } else if (skirt) {
-          b.link(hip, knee, 0.82 * thigh, 0.87 * kneeRadius, 0.94, (t, u, v) =>
+          thighLink(hip, knee, 0.82 * thigh, 0.87 * kneeRadius, 0.94, (t, u, v) =>
             side * v < -0.38 * thigh ? k.skin : k.skinLight
           );
           const lining = hip.map((n, j) => n + 0.36 * (knee[j] - n));
           b.link(hip, lining, 0.91 * thigh, 0.89 * thigh, 0.95, () => k.bottomShade);
-          b.link(knee, foot, 0.88 * kneeRadius, 0.86 * ankleRadius, 0.91, (t, u, v) => {
+          shinLink(knee, foot, 0.88 * kneeRadius, 0.86 * ankleRadius, 0.91, (t, u, v) => {
             if (!flats && t > 0.68) return t < 0.76 ? k.accent : k.rubber;
             return side * v < -0.39 * kneeRadius ? k.skin : k.skinLight;
           });
         } else if (jeans) {
-          b.link(hip, knee, thigh, kneeRadius, 0.95, (t, u, v) =>
+          thighLink(hip, knee, thigh, kneeRadius, 0.95, (t, u, v) =>
             side * v > thigh * 0.48 && Math.abs(u - 0.05 * s) < 0.24 * s
               ? k.bottomLight
               : side * v < -0.82 * s
                 ? k.bottomShade
                 : k.bottom
           );
-          b.link(knee, foot, kneeRadius, ankleRadius, 0.93, (t, u, v) =>
+          shinLink(knee, foot, kneeRadius, ankleRadius, 0.93, (t, u, v) =>
             t > 0.78 && t < 0.91 ? k.bottomLight : side * v < -0.65 * s ? k.bottomShade : k.bottom
           );
         } else {
-          b.link(hip, knee, 0.79 * thigh, 0.9 * kneeRadius, 0.95, (t, u, v) =>
+          thighLink(hip, knee, 0.79 * thigh, 0.9 * kneeRadius, 0.95, (t, u, v) =>
             side * v < -0.73 * s ? k.skin : k.skinLight
           );
           const hem = hip.map((v, j) => v + 0.71 * (knee[j] - v));
-          b.link(hip, hem, 1.06 * thigh, 1.09 * kneeRadius, 1, (t, u, v) =>
+          thighLink(hip, hem, 1.06 * thigh, 1.09 * kneeRadius, 1, (t, u, v) =>
             t > 0.81 ? k.bottomLight : side * v < -0.76 * s ? k.bottomShade : k.bottom
           );
-          b.link(knee, foot, 0.91 * kneeRadius, ankleRadius, 0.94, (t, u, v) =>
+          shinLink(knee, foot, 0.91 * kneeRadius, ankleRadius, 0.94, (t, u, v) =>
             t > 0.62 ? k.rubber : t > 0.5 ? k.accent : side * v < -0.7 * s ? k.skin : k.skinLight
           );
         }
@@ -725,21 +788,23 @@ const pineDesignerBody = (() => {
         cuff = measures.cuff * s,
         palm = measures.hand * s;
       b.frame(null);
+      const upperLink = softContours ? contouredLink(b, pose.torso, limbContours.upperArm) : b.link;
+      const foreLink = softContours ? contouredLink(b, pose.torso, limbContours.forearm) : b.link;
       for (const { side, shoulder, elbow, wrist, hand } of pose.arms) {
         if (tee) {
-          b.link(shoulder, elbow, upper * 0.85, elbowR * 0.82, 0.91, (t, u, v) =>
+          upperLink(shoulder, elbow, upper * 0.85, elbowR * 0.82, 0.91, (t, u, v) =>
             side * v < -0.43 * elbowR ? k.skin : k.skinLight
           );
-          b.link(elbow, wrist, elbowR * 0.83, cuff * 0.82, 0.91, (t, u, v) =>
+          foreLink(elbow, wrist, elbowR * 0.83, cuff * 0.82, 0.91, (t, u, v) =>
             side * v < -0.43 * cuff ? k.skin : k.skinLight
           );
           const hem = shoulder.map((v, i) => v + 0.44 * (elbow[i] - v));
-          b.link(shoulder, hem, upper * 1.06, elbowR * 1.11, 0.99, (t, u, v) => {
+          upperLink(shoulder, hem, upper * 1.06, elbowR * 1.11, 0.99, (t, u, v) => {
             if (t > 0.8) return t > 0.92 ? k.topShade : k.topLight;
             return side * v < -0.56 * elbowR ? k.topShade : k.top;
           });
         } else if (hoodie || cardigan) {
-          b.link(
+          upperLink(
             shoulder,
             elbow,
             upper * (hoodie ? 1.1 : 1.02),
@@ -750,7 +815,7 @@ const pineDesignerBody = (() => {
               return side * v < -0.55 * elbowR ? k.topShade : k.top;
             }
           );
-          b.link(
+          foreLink(
             elbow,
             wrist,
             elbowR * (hoodie ? 1.13 : 1.01),
@@ -765,12 +830,12 @@ const pineDesignerBody = (() => {
             }
           );
         } else {
-          b.link(shoulder, elbow, upper, elbowR, 0.95, (t, u, v) => {
+          upperLink(shoulder, elbow, upper, elbowR, 0.95, (t, u, v) => {
             if (!jacket && t > 0.4 && t < 0.59) return k.accent;
             if (jacket && t < 0.25) return k.topLight;
             return side * v < -0.74 * s ? k.topShade : k.top;
           });
-          b.link(elbow, wrist, elbowR, cuff, 0.93, (t, u, v) =>
+          foreLink(elbow, wrist, elbowR, cuff, 0.93, (t, u, v) =>
             t > 0.77 ? (jacket ? k.topStitch : k.topShade) : side * v < -0.69 * s ? k.topShade : k.top
           );
         }
@@ -833,7 +898,11 @@ const pineDesignerBody = (() => {
           u = (x - 0.07 * s - cut.chestForward * s * ribWeight) / depth;
         const u2 = u * u,
           v2 = v * v;
-        if (t < 0 || t > 1 - cut.shoulderSlope * v2 || u2 * u2 + v2 * v2 > 1) return 0;
+        // Round the outer shoulder and the corners of the upper rib cage.
+        const shoulderDrop = softContours ? 0.047 * u2 + 0.013 * v2 : 0;
+        const corner = softContours ? 0.2 * clamp((t - 0.38) / 0.4, 0, 1) : 0;
+        const section = u2 * u2 + v2 * v2 + corner * (u2 * (1 - u2) + v2 * (1 - v2));
+        if (t < 0 || t > 1 - cut.shoulderSlope * v2 - shoulderDrop || section > 1) return 0;
         const a = Math.abs(v);
         if (tee) {
           const crew = 0.852 + 0.37 * a * a;
@@ -1496,7 +1565,7 @@ const pineDesignerBody = (() => {
           u = (x - cx) / rx;
         if (roundedHead) {
           const dx = u - skullAxis(h),
-            depth = dx / (dx < 0 ? occiput : forehead);
+            depth = dx / (dx < 0 ? rearDepth(h) : forehead);
           const v = y / ovalWidth(h);
           if (depth * depth + v * v + h * h > 1) return 0;
         } else {
@@ -1727,7 +1796,7 @@ const pineDesignerBody = (() => {
             const row = Math.floor((h - scalpBottom) / scalpStep);
             if (row < 0 || row >= scalpRows) return 0;
             const dx = u - skullAxis(h) + 0.022;
-            const depth = dx / (dx < 0 ? occiput : forehead);
+            const depth = dx / (dx < 0 ? rearDepth(h) : forehead);
             const radius = depth * depth + v * v;
             if (radius > scalp.rowMax[row] || radius + h * h < 0.85) return 0;
             const col = Math.floor(Math.atan2(v, depth) * (scalpAngles / (2 * Math.PI)));

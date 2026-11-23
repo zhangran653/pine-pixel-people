@@ -283,6 +283,21 @@ function checkEditor() {
       PineWardrobe.saved.get(archived.id).packs['pine-core'] === PineLooks.headRelease,
       'hair preview changed the pinned save'
     );
+    const previousFigure = PineWardrobe.importCharacter({
+      ...PineLooks.templates.find((p) => p.id === 'look_body_female'),
+      id: 'look_prior_figure',
+      packs: { 'pine-core': PineLooks.strandRelease }
+    }).recipe;
+    byId('save-look').click();
+    document.querySelector('[data-key="saved:' + previousFigure.id + '"]').click();
+    byId('tab-shape').click();
+    const beforeContour = byId('mirror').toDataURL();
+    byId('update-head').click();
+    expect(beforeContour !== byId('mirror').toDataURL(), 'the full-body contour preview is missing');
+    expect(
+      PineWardrobe.saved.get(previousFigure.id).packs['pine-core'] === PineLooks.strandRelease,
+      'the contour preview changed the original character on disk'
+    );
     target.dataset.state = 'pass';
     target.textContent =
       'Body profiles, legacy saves, head upgrade, scale, hairstyles, dyes, full-body and close-up detail, and slice alignment passed';

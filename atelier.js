@@ -299,12 +299,12 @@
     }
     return group;
   }
-  function headUpgrade(area) {
+  function figureUpgrade(area) {
     if (draft.packs[looks.core] === looks.release) return;
     const update = document.createElement('button');
     update.type = 'button';
     update.id = 'update-head';
-    update.textContent = '试用新版头发与五官';
+    update.textContent = '试用细调轮廓';
     update.onclick = () => {
       draft.packs[looks.core] = looks.release;
       changed();
@@ -313,7 +313,7 @@
     area.append(update);
   }
   function faceFields(area) {
-    headUpgrade(area);
+    figureUpgrade(area);
     area.append(
       presetGroup('五官组合', looks.facePresets, 'facePreset', (p) => {
         draft.face = { ...p.face };
@@ -439,7 +439,7 @@
     return group;
   }
   function hairFields(area) {
-    headUpgrade(area);
+    figureUpgrade(area);
     const cards = document.createElement('div');
     cards.className = 'hair-cards';
     cards.setAttribute('role', 'group');
@@ -493,6 +493,7 @@
       b.tabIndex = active ? 0 : -1;
     }
     if (tab === 'shape') {
+      figureUpgrade(area);
       area.append(...tabKeys.shape.map(slider));
       return;
     }

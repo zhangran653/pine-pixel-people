@@ -7,7 +7,8 @@ const PineLooks = (() => {
     proportionRelease = '1.3.0',
     hairRelease = '1.4.0',
     headRelease = '1.5.0',
-    release = '1.6.0';
+    strandRelease = '1.6.0',
+    release = '1.6.1';
   const releases = [
     originalRelease,
     styleRelease,
@@ -15,6 +16,7 @@ const PineLooks = (() => {
     proportionRelease,
     hairRelease,
     headRelease,
+    strandRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -433,6 +435,7 @@ SOFTWARE.`;
         paintHat(hat),
         hat?.primitives,
         hasRoundedHead(recipe),
+        releases.indexOf(recipe.packs[core]) >= releases.indexOf(strandRelease),
         recipe.packs[core] === release
       )
     });
@@ -568,6 +571,7 @@ SOFTWARE.`;
     proportionRelease,
     hairRelease,
     headRelease,
+    strandRelease,
     hasRoundedHead,
     editingRelease,
     usesExtendedShape,

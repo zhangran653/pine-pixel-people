@@ -29,9 +29,13 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 全身和脸部镜头默认开启「精细人物」。全身沿用五官编辑的头脸切片，衣领、手、裤脚和鞋也会加密。动作工坊和 Three.js 观景台也使用精细全身。[查看全身](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=shape&hair=shoulder-length&bearing=16) · [同一全身镜头的前后对照图](full-body-detail-preview.png)
 
+`pine-core 1.6.1` 沿用 Q 版的头身比和骨架。后脑向颈部稍稍收拢，肩和上胸的外沿更圆，前臂与小腿在关节附近逐渐收细。下图的每一对都取自相同的镜头和动作帧。
+
+![原版与细调版在成人正面、成人侧面和儿童跑步时的全身对照](figure-contour-preview.png)
+
 全身镜头有固定的地面和厘米标尺。身高读数取站直时的裸头顶位置。拖动「环视」可以从正面和侧面看两种成人体型的差别。两个样本使用相同的身高、发型和衣装。[成人体型并排对照](http://127.0.0.1:8000/atelier.html?preset=look_body_female&compare=look_body_male&tab=shape) · [儿童身高对照](http://127.0.0.1:8000/atelier.html?preset=look_chorus&compare=look_relay&tab=shape) · [双马尾后侧近景](http://127.0.0.1:8000/atelier.html?preset=look_chorus&tab=hair)
 
-在暂停待机时打开「五官」，镜子会对准正面。头顶、后脑和下颌沿椭圆截面过渡。当前预设的四种唇形用脸部切片上的色差画出，水壶对准唇心。右下角的「精细人物」可随时切换精度。旧存档也可在「发型」或「五官」点「试用新版头发与五官」预览新版造型，满意后保存。[查看唇部侧面](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&bearing=90)
+在暂停待机时打开「五官」，镜子会对准正面。头顶、后脑和下颌沿椭圆截面过渡。当前预设的四种唇形用脸部切片上的色差画出，水壶对准唇心。右下角的「精细人物」可随时切换精度。旧存档可在「体型」「发型」或「五官」点「试用细调轮廓」预览当前基础部件，满意后保存。[查看唇部侧面](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&bearing=90)
 
 ![同一角色修改前后的正面、侧面与后侧，展示唇线中点和头型](face-detail-preview.png)
 

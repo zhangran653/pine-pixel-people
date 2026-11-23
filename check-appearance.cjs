@@ -63,7 +63,11 @@ const a = client(),
   first = json('packs/creek-child.json'),
   second = json('packs/maple-child.json');
 assert.equal(a.m.characters.size, 6);
-assert.equal(a.l.catalog.size, 7);
+const coreVersions = json('character-v1.schema.json').properties.packs.properties['pine-core'].enum;
+assert.deepEqual(
+  [...a.l.catalog.keys()],
+  coreVersions.map((pin) => 'pine-core@' + pin)
+);
 assert.equal(a.l.prepare(second).recipe.baseNotice, read('LICENSE').trimEnd());
 assert.equal(second.embeddedPacks[0].notice, read('LICENSE').trimEnd());
 assert.deepEqual(clone(a.l.manifest(hat)), clone(a.l.manifest(second.embeddedPacks[0])));
@@ -197,7 +201,7 @@ const corrupt = client(),
 malformed.score.steps[3].action = 'crawl';
 assert.throws(() => corrupt.w.readScoreFile(malformed, true));
 assert.equal(corrupt.m.characters.size, 6);
-assert.equal(corrupt.l.catalog.size, 7);
+assert.equal(corrupt.l.catalog.size, coreVersions.length);
 assert.equal(corrupt.disk.size, 0);
 const limited = client(new Map(), 1);
 const temporary = limited.w.readScoreFile(clone(cast), true);
@@ -268,8 +272,69 @@ for (const [doc, expected] of archived) {
 const classic = a.l.facePresets.classic.face;
 assert.equal(digest(a.l.build({ ...first, packs: { 'pine-core': a.l.hairRelease } }), a.m), baseline);
 assert.notEqual(digest(a.l.build(current), a.m), baseline);
-// These two grids were sampled from the published 1.5.0 painter at rest.
 const adultSeed = a.l.templates.find((doc) => doc.id === 'look_body_female');
+// The published 1.6.0 grids cover both editable bases at the same idle phase.
+for (const [id, bodyHash, headHash] of [
+  [
+    'look_body_female',
+    'b6a3f20854a45f62673506b45799efbe7741091a73f78d339e9125cc9390445b',
+    '9a4950084782591456fb6efc9a6610dff6e4bb1686cf50058ce56f952f92df12'
+  ],
+  [
+    'look_relay',
+    'cb15156a048e7bad797b33f578b4426a311a6be6694ee81500accbc76470b3b0',
+    '82865472b2d14a851c75a578f6e0912a786a37bfe9b1f4df796b7c02a644262d'
+  ]
+]) {
+  const doc = a.l.templates.find((d) => d.id === id);
+  const prior = a.l.build({ ...doc, packs: { 'pine-core': a.l.strandRelease } });
+  const pose = a.m.actions.get('idle').sample(0.2, prior)[0].pose,
+    model = prior.body.makePose(pose);
+  assert.equal(colorDigest(model.colors), bodyHash);
+  assert.equal(colorDigest(a.m.faceLayers(prior, pose, model)[1].model.colors), headHash);
+}
+// Project the occupied cells onto front and side masks independent of pigment,
+// camera framing or resolution. This edition should read as the same character in motion.
+function outlines(body, model) {
+  const front = new Uint8Array(body.nz * body.ny),
+    side = new Uint8Array(body.nz * body.nx);
+  const [x0, y0, z0, x1, y1, z1] = model.bounds;
+  for (let z = z0; z < z1; z++)
+    for (let y = y0; y < y1; y++)
+      for (let x = x0; x < x1; x++) {
+        if (model.colors[(z * body.ny + y) * body.nx + x]) {
+          front[z * body.ny + y] = 1;
+          side[z * body.nx + x] = 1;
+        }
+      }
+  return [front, side];
+}
+for (const id of ['look_body_female', 'look_body_male', 'look_relay']) {
+  const doc = a.l.templates.find((d) => d.id === id);
+  const prior = a.l.build({ ...doc, packs: { 'pine-core': '1.6.0' } });
+  const refined = a.l.build({ ...doc, packs: { 'pine-core': '1.6.1' } });
+  assert.deepEqual(refined.rig, prior.rig);
+  assert.deepEqual(refined.sockets, prior.sockets);
+  for (const [action, phase] of [
+    ['idle', 0],
+    ['run', 0.37],
+    ['sit', 0.5]
+  ]) {
+    const pose = a.m.actions.get(action).sample(phase, prior)[0].pose;
+    const old = outlines(prior.body, prior.body.makePose(pose));
+    const updated = outlines(refined.body, refined.body.makePose(pose));
+    updated.forEach((mask, view) => {
+      let overlap = 0,
+        union = 0;
+      mask.forEach((cell, i) => {
+        overlap += cell & old[view][i];
+        union += cell | old[view][i];
+      });
+      assert.ok(overlap < union && overlap / union > 0.97, id + ' ' + action + ' contour drift');
+    });
+  }
+}
+// These two grids were sampled from the published 1.5.0 painter at rest.
 const pinnedHead = a.l.build({
   ...adultSeed,
   packs: { 'pine-core': a.l.headRelease },
@@ -705,7 +770,9 @@ for (const i of [2, 3]) {
   );
   assert.ok(distance(lead.contacts.palm, partner.contacts.palm) < 0.01);
 }
-console.log('PineLooks core ' + a.l.release + ' · 历代存档、全身与五官精度、头型与唇线、扩展体型、发型及双人复演通过');
+console.log(
+  'PineLooks core ' + a.l.release + ' · 历代存档、全身与五官精度、头型与唇线、扩展体型、发型及双人复演通过'
+);
 console.log(
   'PineLooks v1 · 两个独立形象跨环境像素一致 · 8 项形体、5 组款式、7 色槽 · 双基型戴帽与喝水通过 · ' +
     pairings +
