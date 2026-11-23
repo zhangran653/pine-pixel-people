@@ -1,7 +1,8 @@
 // Versioned appearance recipes and declarative headwear. Usable without a DOM.
 const PineLooks = (() => {
   const core = 'pine-core',
-    release = '1.0.0';
+    originalRelease = '1.0.0',
+    release = '1.1.0';
   const baseNotice = `MIT License
 
 Copyright (c) 2026 zhangran653 and contributors
@@ -33,13 +34,74 @@ SOFTWARE.`;
     jaw: [0.8, 1.2, 1],
     mouthHeight: [-1, 1, 0]
   };
-  const slots = {
+  const originalSlots = {
     hair: { crop: '短碎发', bob: '齐耳发', bun: '盘发' },
     top: { jacket: '拉链夹克', pullover: '套头衫' },
     bottom: { shorts: '短裤', trousers: '长裤' },
     shoes: { sneakers: '运动鞋', boots: '短靴' },
     neck: { none: '无', scarf: '方巾' }
   };
+  const slots = {
+    hair: {
+      ...originalSlots.hair,
+      ponytail: '单马尾',
+      'twin-tails': '双马尾',
+      braid: '编发辫',
+      curly: '短卷发'
+    },
+    top: { ...originalSlots.top, tee: '短袖 T 恤', hoodie: '连帽卫衣', cardigan: '针织开衫' },
+    bottom: { ...originalSlots.bottom, skirt: '百褶裙', cargo: '工装裤' },
+    shoes: { ...originalSlots.shoes, 'high-tops': '高帮鞋', flats: '浅口鞋' },
+    neck: { ...originalSlots.neck, bow: '领结' }
+  };
+  const features = {
+    eyes: { classic: '自然眼', round: '圆眼', almond: '杏眼', narrow: '细长眼' },
+    brows: { classic: '自然眉', straight: '平眉', arched: '弯眉', thick: '浓眉' },
+    nose: { classic: '自然鼻', button: '圆鼻头', bridge: '高鼻梁', wide: '宽鼻翼' },
+    mouth: { classic: '自然唇', smile: '微笑唇', full: '饱满唇', small: '小巧唇' }
+  };
+  const facePresets = {
+    classic: {
+      label: '自然五官',
+      face: { eyes: 'classic', brows: 'classic', nose: 'classic', mouth: 'classic' }
+    },
+    cheerful: { label: '圆眼微笑', face: { eyes: 'round', brows: 'arched', nose: 'button', mouth: 'smile' } },
+    almond: {
+      label: '平眉杏眼',
+      face: { eyes: 'almond', brows: 'straight', nose: 'bridge', mouth: 'small' }
+    },
+    bold: { label: '浓眉细眼', face: { eyes: 'narrow', brows: 'thick', nose: 'wide', mouth: 'full' } },
+    gentle: { label: '弯眉小嘴', face: { eyes: 'round', brows: 'arched', nose: 'classic', mouth: 'small' } }
+  };
+  // Outfit presets dress the body. Hair, headwear, skin and eyes remain separately editable.
+  const outfits = {
+    track: {
+      label: '球场短袖',
+      parts: { top: 'tee', bottom: 'shorts', shoes: 'high-tops', neck: 'none' },
+      colors: { top: '#4e8c89', bottom: '#435775', shoes: '#dcd4b7', accent: '#eab857' }
+    },
+    choir: {
+      label: '合唱开衫',
+      parts: { top: 'cardigan', bottom: 'skirt', shoes: 'flats', neck: 'bow' },
+      colors: { top: '#a25749', bottom: '#495c71', shoes: '#684d48', accent: '#dec18c' }
+    },
+    camp: {
+      label: '露营卫衣',
+      parts: { top: 'hoodie', bottom: 'cargo', shoes: 'boots', neck: 'none' },
+      colors: { top: '#ad7945', bottom: '#536856', shoes: '#685445', accent: '#c7dab1' }
+    },
+    work: {
+      label: '工装夹克',
+      parts: { top: 'jacket', bottom: 'cargo', shoes: 'high-tops', neck: 'scarf' },
+      colors: { top: '#526e86', bottom: '#77644c', shoes: '#81594f', accent: '#dbac6a' }
+    }
+  };
+  function needsNewCore(parts, face) {
+    return (
+      face !== undefined ||
+      Object.entries(originalSlots).some(([key, values]) => !Object.hasOwn(values, parts[key]))
+    );
+  }
   const colors = {
     skin: '肤色',
     hair: '发色',
@@ -165,12 +227,13 @@ SOFTWARE.`;
       }
     ]
   });
+  catalog.set(core + '@' + originalRelease, manifest({ ...sunhat, release: originalRelease }));
   catalog.set(core + '@' + release, sunhat);
   function prepare(raw, source = catalog) {
     fields(
       raw,
       ['format', 'version', 'id', 'label', 'base', 'packs', 'parts', 'shape', 'colors'],
-      ['embeddedPacks', 'baseNotice']
+      ['embeddedPacks', 'baseNotice', 'face']
     );
     requireThat(raw.baseNotice === undefined || raw.baseNotice === baseNotice, '基础素材许可声明与版本不符');
     requireThat(
@@ -217,8 +280,23 @@ SOFTWARE.`;
       [owner] = parts.hat.split('/');
     }
     fields(raw.packs, owner === core ? [core] : [core, owner]);
-    requireThat(raw.packs[core] === release, '不支持的基础部件版本');
-    const pins = { [core]: release };
+    const pin = raw.packs[core];
+    requireThat(pin === originalRelease || pin === release, '不支持的基础部件版本');
+    requireThat(pin === release || !needsNewCore(parts, raw.face), '所选五官或服饰需要 pine-core ' + release);
+    const pins = { [core]: pin };
+    let face;
+    if (pin === release) {
+      const selected = raw.face === undefined ? facePresets.classic.face : raw.face;
+      fields(selected, Object.keys(features));
+      face = {};
+      for (const [key, values] of Object.entries(features)) {
+        requireThat(
+          typeof selected[key] === 'string' && Object.hasOwn(values, selected[key]),
+          '未知五官款式 · ' + key
+        );
+        face[key] = selected[key];
+      }
+    }
     if (owner !== core) {
       requireThat(
         typeof raw.packs[owner] === 'string' && semver.test(raw.packs[owner]),
@@ -251,6 +329,7 @@ SOFTWARE.`;
       packs: pins,
       shape: sizes,
       parts,
+      ...(face ? { face } : {}),
       colors: palette,
       baseNotice
     };
@@ -327,9 +406,79 @@ SOFTWARE.`;
     parts: Object.fromEntries([...Object.keys(slots), 'hat'].map((k, i) => [k, items[i]])),
     colors: Object.fromEntries(Object.keys(colors).map((k, i) => [k, palette[i]]))
   }));
+  const additions = [
+    {
+      key: 'chorus',
+      label: '合唱队员',
+      base: 'child',
+      hair: 'twin-tails',
+      face: 'cheerful',
+      outfit: 'choir',
+      shape: { height: 0.94, eyeSpacing: 1.08, faceWidth: 1.06 },
+      skin: '#d69979',
+      hairColor: '#533630',
+      eyes: '#514137'
+    },
+    {
+      key: 'relay',
+      label: '接力跑手',
+      base: 'child',
+      hair: 'ponytail',
+      face: 'almond',
+      outfit: 'track',
+      shape: { height: 1.08, legs: 1.05, jaw: 0.94 },
+      skin: '#ad765a',
+      hairColor: '#422d32',
+      eyes: '#3b353a'
+    },
+    {
+      key: 'camper',
+      label: '露营领队',
+      base: 'adult',
+      hair: 'braid',
+      face: 'bold',
+      outfit: 'camp',
+      shape: { height: 1.07, shoulders: 1.08, faceWidth: 1.03 },
+      skin: '#b98569',
+      hairColor: '#4b352e',
+      eyes: '#514533'
+    },
+    {
+      key: 'painter',
+      label: '街角画师',
+      base: 'adult',
+      hair: 'curly',
+      face: 'gentle',
+      outfit: 'work',
+      shape: { height: 0.96, jaw: 0.94 },
+      skin: '#985f49',
+      hairColor: '#392d33',
+      eyes: '#41333c'
+    }
+  ];
+  for (const style of additions) {
+    const outfit = outfits[style.outfit],
+      seed = templates[0];
+    templates.push({
+      ...seed,
+      id: 'look_' + style.key,
+      label: style.label,
+      base: style.base,
+      packs: { [core]: release },
+      shape: { ...seed.shape, ...style.shape },
+      parts: { hair: style.hair, ...outfit.parts, hat: 'none' },
+      face: { ...facePresets[style.face].face },
+      colors: { skin: style.skin, hair: style.hairColor, eyes: style.eyes, ...outfit.colors }
+    });
+  }
   return {
     core,
     release,
+    originalRelease,
+    features,
+    facePresets,
+    outfits,
+    needsNewCore,
     shape,
     slots,
     colors,

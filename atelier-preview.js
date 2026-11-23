@@ -86,8 +86,9 @@ const atelierPreview = (() => {
   }
 
   function lens(bearing, portrait) {
+    // A level full-body lens puts every point on the floor on the same scanline.
     const yaw = bearing * radians,
-      tilt = (portrait ? 5 : 9) * radians;
+      tilt = (portrait ? 5 : 0) * radians;
     const ca = Math.cos(yaw),
       sa = Math.sin(yaw),
       ce = Math.cos(tilt),
@@ -129,16 +130,7 @@ const atelierPreview = (() => {
     return [x - ex, y - ey, x + ex, y + ey];
   }
 
-  function standingHeight(actor, action) {
-    if (action === 'jump') return actor.rig.height * 1.28;
-    if (action === 'crawl') return actor.rig.height * 0.73;
-    if (action === 'sit' || action === 'type' || action === 'peekaboo') return actor.rig.height * 0.85;
-    if (actor.tags.includes('baby') && ['idle', 'wave', 'clap', 'sway'].includes(action))
-      return actor.rig.height * 0.82;
-    return actor.rig.height;
-  }
-
-  function framing(group, motion, action, camera, portrait, sharedFloor) {
+  function framing(group, motion, camera, portrait, sharedFloor) {
     let left = Infinity,
       top = Infinity,
       right = -Infinity,
@@ -164,9 +156,8 @@ const atelierPreview = (() => {
         top = Math.min(top, y - h * 0.2, b[1]);
         bottom = Math.max(bottom, y + h * 0.27);
       } else {
-        // The nominal height keeps squats and jumps visible against a steady floor.
-        top = Math.min(top, -standingHeight(p.actor, action) * camera.ce, b[1]);
-        bottom = Math.max(bottom, h * 0.035, b[3]);
+        top = Math.min(top, b[1]);
+        bottom = Math.max(bottom, b[3]);
       }
     }
     const x = portrait ? (firstHeadX + lastHeadX) / 2 : group.parts.length === 1 ? 0 : (left + right) / 2;
@@ -174,11 +165,166 @@ const atelierPreview = (() => {
     return {
       x,
       y,
+      left: left - x,
+      right: right - x,
       halfWidth: Math.max(right - x, x - left, height * (portrait ? 0.15 : 0.205)),
       top: top - y,
       bottom: bottom - y,
       height
     };
+  }
+
+  // A rectangular sampling box includes empty corners around a swinging arm.
+  // Read the outer painted cells only when a tight side-by-side crop needs them.
+  function horizontalInk(group, camera, origin) {
+    let left = Infinity,
+      right = -Infinity;
+    for (const p of group.parts) {
+      const { body, model } = p,
+        d = body.density;
+      if (!p.columns) {
+        const [x0, y0, z0, x1, y1, z1] = model.bounds;
+        const low = new Int32Array(x1 - x0).fill(y1);
+        const high = new Int32Array(x1 - x0).fill(y0 - 1);
+        for (let z = z0; z < z1; z++) {
+          for (let y = y0; y < y1; y++) {
+            const row = (z * body.ny + y) * body.nx + x0;
+            for (let i = 0; i < low.length; i++) {
+              if (!model.colors[row + i]) continue;
+              low[i] = Math.min(low[i], y);
+              high[i] = Math.max(high[i], y);
+            }
+          }
+        }
+        p.columns = [];
+        for (let i = 0; i < low.length; i++) {
+          if (high[i] >= low[i])
+            p.columns.push([
+              (x0 + i + 0.5 - body.nx / 2) / d,
+              (low[i] - body.ny / 2) / d,
+              (high[i] + 1 - body.ny / 2) / d
+            ]);
+        }
+      }
+      const a = camera.yaw - p.heading,
+        dx = -Math.sin(a),
+        dy = Math.cos(a);
+      const base = camera.project(p.x, p.y, p.z)[0] - origin,
+        half = Math.abs(dx) / (2 * d);
+      for (const [x, y0, y1] of p.columns) {
+        const center = base + dx * x;
+        left = Math.min(left, center + dy * (dy < 0 ? y1 : y0) - half);
+        right = Math.max(right, center + dy * (dy < 0 ? y0 : y1) + half);
+      }
+    }
+    return { left, right };
+  }
+
+  function fullBodyLayout(w, h, groups, frames, motion, pixel, action, camera) {
+    const cm = motion.rig.centimetersPerUnit;
+    const jumping = action === 'jump';
+    const normalCeiling = jumping ? 240 : 200;
+    const axis = Math.min(49 * pixel, Math.max(32 * pixel, w * 0.068));
+    const left = axis + 13 * pixel,
+      right = w - Math.max(10 * pixel, w * 0.036);
+    const baseline = h - Math.min(h * 0.25, Math.max(35 * pixel, h * 0.112));
+    const top = Math.min(h * 0.12, Math.max(7 * pixel, h * 0.025));
+
+    // Hold one scale throughout a clip, including room for the tallest standard
+    // adult. Contributed headwear can reserve a higher interval for the whole clip.
+    let needed = Math.max(...frames.map((f) => -f.top * cm));
+    for (const group of groups) {
+      for (const { actor, body } of group.parts) {
+        const base = actor.tags.map((tag) => motion.rig.profiles[tag]).find(Boolean);
+        const maxHeight = Math.max(actor.rig.height, (base?.height || actor.rig.height) * 1.1);
+        const envelope = (body.nz / body.density + 1) / actor.rig.height;
+        const clearance = jumping ? envelope : envelope - 0.24;
+        needed = Math.max(needed, clearance * maxHeight * cm);
+      }
+    }
+    const ceiling = needed <= normalCeiling ? normalCeiling : Math.ceil(needed / 50) * 50;
+    const width = Math.max(1, right - left),
+      verticalScale = ((baseline - top) * cm) / ceiling;
+    const normalSpan = 74,
+      gap = 3;
+    const occupied = (edges) => edges.reduce((sum, f) => sum + f.right - f.left, gap * (edges.length - 1));
+    let edges = frames,
+      span = occupied(edges);
+    if (span > Math.max(normalSpan, width / verticalScale)) {
+      edges = groups.map((group, i) => horizontalInk(group, camera, frames[i].x));
+      span = occupied(edges);
+    }
+    const scale = Math.max(0.001, Math.min(verticalScale, width / Math.max(normalSpan, span)));
+    const room = width / scale;
+    const pair = edges.length === 2;
+    const separation = pair
+      ? Math.min(room + edges[0].left - edges[1].right, Math.max(38, edges[0].right - edges[1].left + gap))
+      : 0;
+    const finalRight = separation + edges[edges.length - 1].right;
+    const start = Math.max(-room / 2 - edges[0].left, Math.min(-separation / 2, room / 2 - finalRight));
+    const middle = (left + right) / 2;
+    return {
+      scale,
+      baseline,
+      axis,
+      top,
+      pixel,
+      cm,
+      ceiling,
+      origins: frames.map((f, i) => [middle + (start + i * separation - f.x) * scale, baseline])
+    };
+  }
+
+  function referenceLines(ctx, w, layout) {
+    const { axis, baseline, scale, cm, pixel } = layout;
+    const left = axis + 9 * pixel,
+      right = w - 8 * pixel;
+    const fade = ctx.createLinearGradient(left, 0, right, 0);
+    fade.addColorStop(0, 'rgba(119,105,75,.31)');
+    fade.addColorStop(0.72, 'rgba(119,105,75,.15)');
+    fade.addColorStop(1, 'rgba(119,105,75,0)');
+    ctx.save();
+    ctx.strokeStyle = fade;
+    ctx.lineWidth = pixel;
+    ctx.beginPath();
+    ctx.moveTo(left, baseline);
+    ctx.lineTo(right, baseline);
+    ctx.stroke();
+    const hundred = baseline - (scale * 100) / cm;
+    ctx.setLineDash([3 * pixel, 5 * pixel]);
+    ctx.beginPath();
+    ctx.moveTo(left, hundred);
+    ctx.lineTo(right, hundred);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function ruler(ctx, layout) {
+    const { axis, baseline, scale, top, cm, pixel, ceiling } = layout;
+    const spacing = scale / cm;
+    const minor = spacing * 10 < 5 * pixel ? 25 : 10;
+    const max = Math.floor((Math.min(ceiling, (baseline - top) / spacing) + 1e-7) / minor) * minor;
+    ctx.save();
+    ctx.lineWidth = Math.max(0.8 * pixel, 0.65);
+    ctx.strokeStyle = '#9a907a';
+    ctx.fillStyle = '#675f4f';
+    ctx.font = '500 ' + 11 * pixel + 'px ui-monospace, Menlo, Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('cm', axis + 11 * pixel, baseline - max * spacing);
+    ctx.textAlign = 'right';
+    ctx.beginPath();
+    ctx.moveTo(axis, baseline);
+    ctx.lineTo(axis, baseline - max * spacing);
+    for (let n = 0; n <= max; n += minor) {
+      const y = baseline - n * spacing,
+        major = n % 50 === 0;
+      ctx.moveTo(axis, y);
+      ctx.lineTo(axis + (major ? 8 : 4) * pixel, y);
+      if (major) ctx.fillText(String(n), axis - 5 * pixel, y);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   function softShadow(ctx, x, y, rx, ry, opacity) {
@@ -223,25 +369,33 @@ const atelierPreview = (() => {
     });
   }
 
-  function paint(ctx, w, h, groups, motion, action, bearing, view, compact, layer) {
+  function paint(ctx, w, h, groups, motion, action, bearing, view, compact, layer, pixel = 1) {
     if (!groups.length) return;
     const portrait = view === 'face',
       camera = lens(bearing, portrait);
-    const frames = groups.map((g) => framing(g, motion, action, camera, portrait, groups.length > 1));
-    const height = Math.max(...frames.map((f) => f.height));
-    const gap = height * (portrait ? 0.13 : 0.22) * (groups.length - 1);
-    const span = gap + frames.reduce((sum, f) => sum + 2 * f.halfWidth, 0);
-    const top = Math.min(...frames.map((f) => f.top)),
-      bottom = Math.max(...frames.map((f) => f.bottom));
-    const padTop = h * (compact ? 0.055 : portrait ? 0.055 : 0.085);
-    const padBottom = h * (portrait ? 0 : 0.11);
-    const scale = Math.min((w * (compact ? 0.94 : 0.87)) / span, (h - padTop - padBottom) / (bottom - top));
-    let cursor = (w - scale * span) / 2;
-    const baseline = padTop + (h - padTop - padBottom - (bottom - top) * scale) / 2 - top * scale;
+    const frames = groups.map((g) => framing(g, motion, camera, portrait, groups.length > 1));
+    const measured = !portrait && fullBodyLayout(w, h, groups, frames, motion, pixel, action, camera);
+    let scale, origins;
+    if (measured) {
+      ({ scale, origins } = measured);
+      referenceLines(ctx, w, measured);
+    } else {
+      const gap = Math.max(...frames.map((f) => f.height)) * 0.13 * (groups.length - 1);
+      const span = gap + frames.reduce((sum, f) => sum + 2 * f.halfWidth, 0);
+      const top = Math.min(...frames.map((f) => f.top)),
+        bottom = Math.max(...frames.map((f) => f.bottom));
+      const padTop = h * 0.055;
+      scale = Math.min((w * (compact ? 0.94 : 0.87)) / span, (h - padTop) / (bottom - top));
+      let cursor = (w - scale * span) / 2;
+      const baseline = padTop + (h - padTop - (bottom - top) * scale) / 2 - top * scale;
+      origins = frames.map((f) => {
+        const origin = [cursor + (f.halfWidth - f.x) * scale, baseline - f.y * scale];
+        cursor += (2 * f.halfWidth + gap) * scale;
+        return origin;
+      });
+    }
     groups.forEach((g, i) => {
-      const f = frames[i],
-        ox = cursor + (f.halfWidth - f.x) * scale,
-        oy = baseline - f.y * scale;
+      const [ox, oy] = origins[i];
       for (const p of g.parts) shadows(ctx, p, camera, scale, ox, oy);
       const d = g.drawing,
         pos = camera.project(d.x, d.y, d.z);
@@ -260,8 +414,8 @@ const atelierPreview = (() => {
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(layer, 0, 0, layer.width / ratio, layer.height / ratio);
       }
-      cursor += (2 * f.halfWidth + gap) * scale;
     });
+    return measured;
   }
 
   function dimensions(canvas, compact) {
@@ -305,10 +459,30 @@ const atelierPreview = (() => {
       }
       resizeTo(stage, w, h);
       ctx.drawImage(backdrop, 0, 0);
-      if (previous)
-        paint(ctx, w, h, groups, motion, previous.clip.id, previous.bearing, previous.view, false, layer);
+      const measured =
+        previous &&
+        paint(
+          ctx,
+          w,
+          h,
+          groups,
+          motion,
+          previous.clip.id,
+          previous.bearing,
+          previous.view,
+          false,
+          layer,
+          w / logicalSizes.get(canvas)[0]
+        );
       display.imageSmoothingEnabled = false;
       display.drawImage(stage, 0, 0, width, height);
+      if (measured) {
+        // Put small numerals on device pixels after enlarging the pixel art.
+        display.save();
+        display.scale(width / w, height / h);
+        ruler(display, measured);
+        display.restore();
+      }
     }
     function show({ actor, compare = null, action = 'idle', u = 0, bearing = 25, view = 'body' }) {
       if (disposed) return;
@@ -354,24 +528,31 @@ const atelierPreview = (() => {
     };
   }
 
-  function thumbnail(canvas, actor) {
+  function thumbnail(canvas, actor, bearing = 24) {
     const [width, height, w, h] = dimensions(canvas, true);
     resizeTo(canvas, width, height);
+    const angle = Number.isFinite(bearing) ? ((bearing % 360) + 360) % 360 : 24;
+    const key = [w, h, angle].join('/');
     let saved = portraits.get(actor);
-    if (!saved || saved.w !== w || saved.h !== h || saved.body !== actor.body) {
-      const image = document.createElement('canvas');
+    if (!saved || saved.body !== actor.body) {
+      saved = { body: actor.body, angles: new Map() };
+      portraits.set(actor, saved);
+    }
+    let image = saved.angles.get(key);
+    if (!image) {
+      image = document.createElement('canvas');
       resizeTo(image, w, h);
       paper(image);
       const motion = globalThis.PineMotion,
         clip = motion.actions.get('idle');
       const groups = sampleFrame(motion, actor, null, clip, 0.17);
-      paint(image.getContext('2d'), w, h, groups, motion, clip.id, 24, 'face', true);
-      saved = { w, h, body: actor.body, image };
-      portraits.set(actor, saved);
+      paint(image.getContext('2d'), w, h, groups, motion, clip.id, angle, 'face', true);
+      if (saved.angles.size >= 4) saved.angles.delete(saved.angles.keys().next().value);
+      saved.angles.set(key, image);
     }
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(saved.image, 0, 0, width, height);
+    ctx.drawImage(image, 0, 0, width, height);
   }
   return { create, thumbnail };
 })();

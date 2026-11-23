@@ -161,7 +161,11 @@ function writeSurface(T, mesh, body, model, scratch) {
   g.boundingBox.getBoundingSphere(g.boundingSphere);
 }
 
-export function createPineCast(THREE, motion, { metersPerUnit = 0.034, sampleRate = 20, material } = {}) {
+export function createPineCast(
+  THREE,
+  motion,
+  { metersPerUnit = (motion?.rig?.centimetersPerUnit ?? 3.4) / 100, sampleRate = 20, material } = {}
+) {
   if (![metersPerUnit, sampleRate].every((n) => Number.isFinite(n) && n > 0))
     throw new RangeError('比例与采样率须为正数');
   const group = new THREE.Group(),

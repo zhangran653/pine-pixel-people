@@ -164,5 +164,8 @@ const studioRig = (() => {
     });
     return { torso, head, feet, legs, arms, blink: channels.blink || 0, props: [], bottle: null, bob: 0 };
   }
-  return { profiles, validate, bindSockets, socket, pose, point, frame, compose, clamp, mix, ramp };
+  return {
+    centimetersPerUnit: 3.4,
+    profiles, validate, bindSockets, socket, pose, point, frame, compose, clamp, mix, ramp
+  };
 })();

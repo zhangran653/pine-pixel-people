@@ -49,7 +49,10 @@
       },
       "properties": {
         "pine-core": {
-          "const": "1.0.0"
+          "enum": [
+            "1.0.0",
+            "1.1.0"
+          ]
         }
       },
       "additionalProperties": {
@@ -137,31 +140,43 @@
           "enum": [
             "crop",
             "bob",
-            "bun"
+            "bun",
+            "ponytail",
+            "twin-tails",
+            "braid",
+            "curly"
           ]
         },
         "top": {
           "enum": [
             "jacket",
-            "pullover"
+            "pullover",
+            "tee",
+            "hoodie",
+            "cardigan"
           ]
         },
         "bottom": {
           "enum": [
             "shorts",
-            "trousers"
+            "trousers",
+            "skirt",
+            "cargo"
           ]
         },
         "shoes": {
           "enum": [
             "sneakers",
-            "boots"
+            "boots",
+            "high-tops",
+            "flats"
           ]
         },
         "neck": {
           "enum": [
             "none",
-            "scarf"
+            "scarf",
+            "bow"
           ]
         },
         "hat": {
@@ -223,6 +238,55 @@
     },
     "baseNotice": {
       "const": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+    },
+    "face": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eyes",
+        "brows",
+        "nose",
+        "mouth"
+      ],
+      "properties": {
+        "eyes": {
+          "enum": [
+            "classic",
+            "round",
+            "almond",
+            "narrow"
+          ],
+          "default": "classic"
+        },
+        "brows": {
+          "enum": [
+            "classic",
+            "straight",
+            "arched",
+            "thick"
+          ],
+          "default": "classic"
+        },
+        "nose": {
+          "enum": [
+            "classic",
+            "button",
+            "bridge",
+            "wide"
+          ],
+          "default": "classic"
+        },
+        "mouth": {
+          "enum": [
+            "classic",
+            "smile",
+            "full",
+            "small"
+          ],
+          "default": "classic"
+        }
+      },
+      "description": "pine-core 1.1.0 的眼型、眉形、鼻型和唇形。省略时使用自然五官。"
     }
   },
   "if": {
@@ -252,5 +316,64 @@
         "minProperties": 2
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "packs": {
+            "properties": {
+              "pine-core": {
+                "const": "1.0.0"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "face"
+          ]
+        },
+        "properties": {
+          "parts": {
+            "properties": {
+              "hair": {
+                "enum": [
+                  "crop",
+                  "bob",
+                  "bun"
+                ]
+              },
+              "top": {
+                "enum": [
+                  "jacket",
+                  "pullover"
+                ]
+              },
+              "bottom": {
+                "enum": [
+                  "shorts",
+                  "trousers"
+                ]
+              },
+              "shoes": {
+                "enum": [
+                  "sneakers",
+                  "boots"
+                ]
+              },
+              "neck": {
+                "enum": [
+                  "none",
+                  "scarf"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

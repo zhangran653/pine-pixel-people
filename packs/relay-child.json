@@ -1,0 +1,44 @@
+{
+  "format": "pine-character",
+  "version": 1,
+  "id": "look_relay",
+  "label": "接力跑手",
+  "base": "child",
+  "packs": {
+    "pine-core": "1.1.0"
+  },
+  "shape": {
+    "height": 1.08,
+    "shoulders": 1,
+    "arms": 1,
+    "legs": 1.05,
+    "faceWidth": 1,
+    "eyeSpacing": 1,
+    "jaw": 0.94,
+    "mouthHeight": 0
+  },
+  "parts": {
+    "hair": "ponytail",
+    "top": "tee",
+    "bottom": "shorts",
+    "shoes": "high-tops",
+    "neck": "none",
+    "hat": "none"
+  },
+  "face": {
+    "eyes": "almond",
+    "brows": "straight",
+    "nose": "bridge",
+    "mouth": "small"
+  },
+  "colors": {
+    "skin": "#ad765a",
+    "hair": "#422d32",
+    "eyes": "#3b353a",
+    "top": "#4e8c89",
+    "bottom": "#435775",
+    "shoes": "#dcd4b7",
+    "accent": "#eab857"
+  },
+  "baseNotice": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+}

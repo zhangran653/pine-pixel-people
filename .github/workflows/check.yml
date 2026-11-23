@@ -12,3 +12,4 @@ jobs:
           node-version: '22'
       - run: node check-motion.cjs
       - run: node check-appearance.cjs
+      - run: node tests/check-atelier.cjs

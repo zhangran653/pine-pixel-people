@@ -48,7 +48,10 @@
       <div class="workbench">
         <section class="preview-panel" aria-label="人物试衣镜">
           <div class="stage-head">
-            <h2 id="mirror-name">溪谷学童</h2>
+            <div class="stage-name">
+              <h2 id="mirror-name">溪谷学童</h2>
+              <span id="stage-size" title="自然站姿身高，不计发型和帽饰"></span>
+            </div>
             <div class="switch" aria-label="取景">
               <button data-view="body" aria-pressed="true">全身</button
               ><button data-view="face" aria-pressed="false">脸部</button>
@@ -110,6 +113,15 @@
               data-tab="face"
             >
               五官
+            </button>
+            <button
+              id="tab-hair"
+              role="tab"
+              aria-controls="editor-fields"
+              aria-selected="false"
+              data-tab="hair"
+            >
+              发型
             </button>
             <button
               id="tab-wear"

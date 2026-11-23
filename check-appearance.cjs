@@ -50,7 +50,7 @@ const a = client(),
   first = json('packs/creek-child.json'),
   second = json('packs/maple-child.json');
 assert.equal(a.m.characters.size, 6);
-assert.equal(a.l.catalog.size, 1);
+assert.equal(a.l.catalog.size, 2);
 assert.equal(a.l.prepare(second).recipe.baseNotice, read('LICENSE').trimEnd());
 assert.equal(second.embeddedPacks[0].notice, read('LICENSE').trimEnd());
 assert.deepEqual(clone(a.l.manifest(hat)), clone(a.l.manifest(second.embeddedPacks[0])));
@@ -171,7 +171,7 @@ const corrupt = client(),
 malformed.score.steps[3].action = 'crawl';
 assert.throws(() => corrupt.w.readScoreFile(malformed, true));
 assert.equal(corrupt.m.characters.size, 6);
-assert.equal(corrupt.l.catalog.size, 1);
+assert.equal(corrupt.l.catalog.size, 2);
 assert.equal(corrupt.disk.size, 0);
 const limited = client(new Map(), 1);
 const temporary = limited.w.readScoreFile(clone(cast), true);
@@ -211,6 +211,63 @@ assert.throws(() => b.w.save({ ...first, label: '较旧的草稿' }));
 const garbage = client(new Map([['pineCreek.look.v1.broken', '{']]));
 assert.equal(garbage.w.hydrate(), 1);
 assert.equal(garbage.m.characters.size, 6);
+// Frozen images from core 1.0.0 catch changes to old art even if both import and export change together.
+assert.deepEqual(clone(a.l.prepare(first).recipe), first);
+assert.deepEqual(clone(a.l.prepare(second).recipe), second);
+const archived = [
+  [first, 'e47e0e446e167d0613115204817ccde8461ddb9de804563dec6359313808fb6a'],
+  [second, '8951ad26dc67bfe486d3e0abe082d3fc7cae7c7fac7777e816432db9f3485352'],
+  [
+    a.l.templates.find((p) => p.id === 'look_ridge'),
+    '0569981e7d8ff0c5b2decb9ac9175b9d32cc4cdd5e69317c35bb20bc05d85827'
+  ]
+];
+for (const [doc, expected] of archived) assert.equal(digest(a.l.build(doc), a.m), expected, doc.id);
+const current = { ...first, packs: { 'pine-core': a.l.release } },
+  classic = a.l.facePresets.classic.face;
+assert.equal(digest(a.l.build(current), a.m), baseline);
+assert.throws(() => a.l.prepare({ ...first, face: classic }));
+assert.throws(() => a.l.prepare({ ...first, parts: { ...first.parts, hair: 'twin-tails' } }));
+assert.throws(() => a.l.prepare({ ...current, face: { eyes: 'round' } }));
+assert.throws(() => a.l.prepare({ ...current, face: { ...classic, eyes: 'unregistered' } }));
+for (const base of ['child', 'adult']) {
+  for (const [feature, choices] of Object.entries(a.l.features)) {
+    const drawings = new Set(
+      Object.keys(choices).map((value) => {
+        const person = a.l.build({ ...current, base, face: { ...classic, [feature]: value } });
+        const drinking = a.m.actions.get('drink').sample(0.5, person)[0].pose;
+        assert.ok(distance(a.m.rig.socket(person, drinking, 'mouth'), drinking.bottle.lip) < 1e-7);
+        return digest(person, a.m);
+      })
+    );
+    assert.equal(drawings.size, Object.keys(choices).length, base + ' · ' + feature);
+  }
+  for (const [slot, choices] of Object.entries(a.l.slots)) {
+    const drawings = new Set(
+      Object.keys(choices).map((value) =>
+        digest(a.l.build({ ...current, base, parts: { ...first.parts, [slot]: value } }), a.m)
+      )
+    );
+    assert.equal(drawings.size, Object.keys(choices).length, base + ' · ' + slot);
+  }
+}
+const examples = ['chorus-child', 'relay-child'].map((name) => json('packs/' + name + '.json')),
+  empty = client();
+for (const doc of examples) {
+  assert.deepEqual(clone(a.l.prepare(a.l.templates.find((p) => p.id === doc.id)).recipe), doc);
+  assert.deepEqual(clone(empty.w.importCharacter(doc).recipe), doc);
+}
+const savedScore = empty.w.scoreFile({
+  version: 1,
+  loop: true,
+  steps: [{ action: 'highfive', actors: examples.map((p) => p.id) }]
+});
+const clean = client(),
+  both = clean.w.readScoreFile(clone(savedScore)).sample(1.4);
+assert.ok(distance(both[0].contacts.palm, both[1].contacts.palm) < 0.01);
+for (const doc of examples)
+  assert.equal(digest(clean.m.characters.get(doc.id), clean.m, 'run'), digest(a.l.build(doc), a.m, 'run'));
+console.log('PineLooks core ' + a.l.release + ' · 两代存档、四组五官、七种发型、全部服饰和双人复演通过');
 console.log(
   'PineLooks v1 · 两个独立形象跨环境像素一致 · 8 项形体、5 组款式、7 色槽 · 双基型戴帽与喝水通过 · ' +
     pairings +

@@ -1,0 +1,44 @@
+{
+  "format": "pine-character",
+  "version": 1,
+  "id": "look_chorus",
+  "label": "合唱队员",
+  "base": "child",
+  "packs": {
+    "pine-core": "1.1.0"
+  },
+  "shape": {
+    "height": 0.94,
+    "shoulders": 1,
+    "arms": 1,
+    "legs": 1,
+    "faceWidth": 1.06,
+    "eyeSpacing": 1.08,
+    "jaw": 1,
+    "mouthHeight": 0
+  },
+  "parts": {
+    "hair": "twin-tails",
+    "top": "cardigan",
+    "bottom": "skirt",
+    "shoes": "flats",
+    "neck": "bow",
+    "hat": "none"
+  },
+  "face": {
+    "eyes": "round",
+    "brows": "arched",
+    "nose": "button",
+    "mouth": "smile"
+  },
+  "colors": {
+    "skin": "#d69979",
+    "hair": "#533630",
+    "eyes": "#514137",
+    "top": "#a25749",
+    "bottom": "#495c71",
+    "shoes": "#684d48",
+    "accent": "#dec18c"
+  },
+  "baseNotice": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+}

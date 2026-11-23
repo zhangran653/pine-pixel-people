@@ -75,6 +75,8 @@
         <p>
           <a href="packs/creek-child.json">溪谷学童 JSON</a> ·
           <a href="packs/maple-child.json">枫林信使 JSON</a> ·
+          <a href="packs/chorus-child.json">双马尾合唱队员</a> ·
+          <a href="packs/relay-child.json">单马尾接力跑手</a> ·
           <a href="character-v1.schema.json">角色 JSON Schema</a>
         </p>
         <table>
@@ -97,6 +99,14 @@
               </td>
             </tr>
             <tr>
+              <td><code>face</code></td>
+              <td>
+                从 pine-core 1.1.0 起，eyes、brows、nose、mouth
+                分别指定眼、眉、鼻、唇的款式。每项有四款，省略整个 face
+                时使用自然五官。五官组合和成套穿搭会展开成实际字段值，后续可单独修改。
+              </td>
+            </tr>
+            <tr>
               <td><code>parts / colors</code></td>
               <td>
                 六个部位分别为头发、上衣、下装、鞋、颈饰和帽子。七个 RGB
@@ -116,6 +126,16 @@
             </tr>
           </tbody>
         </table>
+        <h2>试穿与身高参照</h2>
+        <p>
+          在「发型」面板可以从后侧比较七款发型，包括单马尾、双马尾和编发辫。全身镜头把两位演员放在同一地面，厘米标尺采用默认
+          Three.js 场景的比例，每单位为 3.4
+          cm。滑杆读数取站直时从地面到裸头顶的高度。发饰、屈膝和跳跃会改变轮廓与刻度的交点。
+        </p>
+        <p>
+          导入的 1.0.0 形象保留原有部件版本。选用新增五官或穿戴新增款式时，创作室把基础部件升级到
+          1.1.0，外部帽包使用原先固定的版本。角色文件格式仍为 pine-character v1。
+        </p>
         <h2>从参数到 360° 像素</h2>
         <p>
           先按基型缩放骨长和关节位置，再在头、躯干、四肢的局部坐标系绘制头发、衣服和皮肤。每个姿势在三维格点上采样，沿高度切成透明的二维像素层。Canvas
@@ -184,10 +204,11 @@ const pose = plan.sample(0.4)[0].pose;
 const slices = actor.body.makePose(pose);</code></pre>
         <p>
           在 Three.js 场景中，用 PineWardrobe.readScoreFile(bundle) 注册编排包中的演员并取得 plan，再将 plan
-          传给 createPineCast 返回的 setTime。可用 Node 执行下面两个检查。
+          传给 createPineCast 返回的 setTime。可用 Node 执行下面的检查。
         </p>
         <pre><code>node check-motion.cjs
-node check-appearance.cjs</code></pre>
+node check-appearance.cjs
+node tests/check-atelier.cjs</code></pre>
         <h2>许可与来源</h2>
         <p>
           本项目原创代码、角色、服饰、动作、切片示例与场景素材统一采用
