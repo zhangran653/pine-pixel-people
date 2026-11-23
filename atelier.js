@@ -62,13 +62,28 @@
     thumbnails = new WeakMap();
   function paintThumbnail(canvas) {
     const item = thumbnails.get(canvas);
-    if (item) atelierPreview.thumbnail(canvas, item.actor, item.bearing, item.view);
+    if (item) atelierPreview.thumbnail(canvas, item.actor || actorFor(item.doc), item.bearing, item.view);
   }
   function paintThumbnails(container) {
     for (const canvas of container.querySelectorAll('canvas')) paintThumbnail(canvas);
   }
+  const visibleShelfCards = new Set();
+  const shelfVisibility = new IntersectionObserver(
+    (changes) => {
+      for (const { target, isIntersecting } of changes) {
+        if (isIntersecting && target.isConnected) {
+          visibleShelfCards.add(target);
+          paintThumbnail(target);
+        } else visibleShelfCards.delete(target);
+      }
+    },
+    { rootMargin: '96px' }
+  );
   const thumbnailSize = new ResizeObserver((changes) => {
-    for (const { target } of changes) paintThumbnails(target);
+    for (const { target } of changes) {
+      if (target === $('look-shelf')) visibleShelfCards.forEach(paintThumbnail);
+      else paintThumbnails(target);
+    }
   });
   thumbnailSize.observe($('look-shelf'));
   thumbnailSize.observe($('editor-fields'));
@@ -666,6 +681,8 @@
     const root = $('look-shelf'),
       compare = $('compare'),
       previous = compare.value;
+    shelfVisibility.disconnect();
+    visibleShelfCards.clear();
     root.replaceChildren();
     entries.clear();
     const datasets = [
@@ -692,12 +709,12 @@
         title.textContent = doc.label;
         b.append(image, title);
         root.append(b);
-        thumbnails.set(image, { actor: actorFor(doc), bearing: 24 });
+        thumbnails.set(image, { doc, bearing: 24 });
+        shelfVisibility.observe(image);
         b.onclick = () => switchTo(() => activate(doc, key, section === '已保存'));
         if (key !== cardKey) compare.add(new Option(section + ' · ' + doc.label, key));
       }
     }
-    paintThumbnails(root);
     if ([...compare.options].some((o) => o.value === previous)) compare.value = previous;
     measurements();
     $('shelf-count').textContent = looks.templates.length + ' 款预置 · 已保存 ' + wardrobe.saved.size + ' 个';

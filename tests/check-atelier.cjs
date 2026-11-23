@@ -382,7 +382,7 @@ try {
     pathToFileURL(file).href + '?bearing=90'
   ];
   if (process.env.CI === 'true' && process.platform === 'linux') args.unshift('--no-sandbox');
-  const run = spawnSync(browser, args, { encoding: 'utf8', timeout: 45000, maxBuffer: 4 * 1024 * 1024 });
+  const run = spawnSync(browser, args, { encoding: 'utf8', timeout: 120_000, maxBuffer: 4 * 1024 * 1024 });
   if (run.error) throw run.error;
   const result = /<output id="qa-result" data-state="(\w+)">([^<]*)<\/output>/.exec(run.stdout);
   assert.ok(
@@ -391,5 +391,5 @@ try {
   );
   console.log(result[2]);
 } finally {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

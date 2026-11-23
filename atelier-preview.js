@@ -584,7 +584,9 @@ const atelierPreview = (() => {
       const motion = globalThis.PineMotion,
         clip = motion.actions.get('idle');
       const groups = sampleFrame(motion, actor, null, clip, 0.17);
-      paint(image.getContext('2d'), w, h, groups, motion, clip.id, angle, view, true);
+      // At outfit-card size the ordinary body grid already resolves the displayed pixels.
+      const detail = view === 'face' || Math.max(w, h) > 120;
+      paint(image.getContext('2d'), w, h, groups, motion, clip.id, angle, view, true, null, 1, detail);
       if (saved.angles.size >= 4) saved.angles.delete(saved.angles.keys().next().value);
       saved.angles.set(key, image);
     }
