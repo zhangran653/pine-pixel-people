@@ -50,7 +50,7 @@ const a = client(),
   first = json('packs/creek-child.json'),
   second = json('packs/maple-child.json');
 assert.equal(a.m.characters.size, 6);
-assert.equal(a.l.catalog.size, 2);
+assert.equal(a.l.catalog.size, 3);
 assert.equal(a.l.prepare(second).recipe.baseNotice, read('LICENSE').trimEnd());
 assert.equal(second.embeddedPacks[0].notice, read('LICENSE').trimEnd());
 assert.deepEqual(clone(a.l.manifest(hat)), clone(a.l.manifest(second.embeddedPacks[0])));
@@ -171,7 +171,7 @@ const corrupt = client(),
 malformed.score.steps[3].action = 'crawl';
 assert.throws(() => corrupt.w.readScoreFile(malformed, true));
 assert.equal(corrupt.m.characters.size, 6);
-assert.equal(corrupt.l.catalog.size, 2);
+assert.equal(corrupt.l.catalog.size, 3);
 assert.equal(corrupt.disk.size, 0);
 const limited = client(new Map(), 1);
 const temporary = limited.w.readScoreFile(clone(cast), true);
@@ -214,11 +214,17 @@ assert.equal(garbage.m.characters.size, 6);
 // Frozen images from core 1.0.0 catch changes to old art even if both import and export change together.
 assert.deepEqual(clone(a.l.prepare(first).recipe), first);
 assert.deepEqual(clone(a.l.prepare(second).recipe), second);
+function asPriorStyle(doc) {
+  const prior = clone(doc);
+  delete prior.gender;
+  prior.packs['pine-core'] = a.l.styleRelease;
+  return prior;
+}
 const archived = [
   [first, 'e47e0e446e167d0613115204817ccde8461ddb9de804563dec6359313808fb6a'],
   [second, '8951ad26dc67bfe486d3e0abe082d3fc7cae7c7fac7777e816432db9f3485352'],
   [
-    a.l.templates.find((p) => p.id === 'look_ridge'),
+    asPriorStyle(a.l.templates.find((p) => p.id === 'look_ridge')),
     '0569981e7d8ff0c5b2decb9ac9175b9d32cc4cdd5e69317c35bb20bc05d85827'
   ]
 ];
@@ -254,7 +260,9 @@ for (const base of ['child', 'adult']) {
 const examples = ['chorus-child', 'relay-child'].map((name) => json('packs/' + name + '.json')),
   empty = client();
 for (const doc of examples) {
-  assert.deepEqual(clone(a.l.prepare(a.l.templates.find((p) => p.id === doc.id)).recipe), doc);
+  const edited = a.l.templates.find((p) => p.id === doc.id);
+  assert.deepEqual(clone(a.l.prepare(asPriorStyle(edited)).recipe), doc);
+  assert.equal(digest(a.l.build(edited), a.m), digest(a.l.build(doc), a.m));
   assert.deepEqual(clone(empty.w.importCharacter(doc).recipe), doc);
 }
 const savedScore = empty.w.scoreFile({
@@ -267,7 +275,80 @@ const clean = client(),
 assert.ok(distance(both[0].contacts.palm, both[1].contacts.palm) < 0.01);
 for (const doc of examples)
   assert.equal(digest(clean.m.characters.get(doc.id), clean.m, 'run'), digest(a.l.build(doc), a.m, 'run'));
-console.log('PineLooks core ' + a.l.release + ' · 两代存档、四组五官、七种发型、全部服饰和双人复演通过');
+const referenceModels = ['female', 'male'].map((gender) => json('packs/' + gender + '-adult.json'));
+const [female, male] = referenceModels.map((doc) => {
+  assert.deepEqual(clone(a.l.prepare(a.l.templates.find((p) => p.id === doc.id)).recipe), doc);
+  const person = a.l.build(doc);
+  assert.equal(person.gender, doc.gender);
+  assert.deepEqual(clone(person.tags), ['adult']);
+  assert.equal([...a.m.actions.values()].filter((clip) => a.m.accepts(clip, 0, person)).length, 13);
+  return person;
+});
+assert.deepEqual(referenceModels[0].parts, referenceModels[1].parts);
+assert.deepEqual(referenceModels[0].shape, referenceModels[1].shape);
+assert.deepEqual(referenceModels[0].colors, referenceModels[1].colors);
+assert.equal(female.rig.height, male.rig.height);
+assert.ok(female.rig.shoulder[1] < male.rig.shoulder[1]);
+assert.ok(female.rig.hip[1] > male.rig.hip[1]);
+assert.notEqual(digest(female, a.m), digest(male, a.m));
+const unmarked = asPriorStyle(referenceModels[0]);
+assert.ok(!Object.hasOwn(a.l.prepare(unmarked).recipe, 'gender'));
+assert.equal(a.l.bodyProfileOf(unmarked), null);
+assert.equal(
+  digest(a.l.build(unmarked), a.m),
+  digest(a.l.build({ ...unmarked, packs: { 'pine-core': a.l.release }, gender: 'unspecified' }), a.m)
+);
+for (const version of [a.l.originalRelease, a.l.styleRelease]) {
+  assert.throws(() => a.l.prepare({ ...first, packs: { 'pine-core': version }, gender: 'female' }));
+}
+for (const gender of ['female', 'male', 'unknown', null]) {
+  assert.throws(() => a.l.prepare({ ...current, base: 'child', gender }));
+}
+const fromHat = a.l.withBodyProfile(second, 'female'),
+  childAgain = a.l.withBodyProfile(fromHat, 'child');
+assert.equal(fromHat.id, second.id);
+assert.equal(fromHat.packs['pine-core'], a.l.release);
+assert.equal(fromHat.packs['creek-hats'], second.packs['creek-hats']);
+for (const k of ['parts', 'colors', 'shape', 'embeddedPacks']) {
+  assert.deepEqual(clone(fromHat[k]), second[k]);
+  assert.notEqual(fromHat[k], second[k]);
+}
+assert.equal(childAgain.gender, 'unspecified');
+assert.equal(digest(a.l.build(childAgain), a.m), digest(a.l.build(second), a.m));
+assert.equal(a.l.bodyProfileOf(childAgain), 'child');
+assert.throws(() => a.l.withBodyProfile(first, 'invalid'));
+const castDocs = [...referenceModels, childAgain],
+  profilesClient = client(),
+  audience = client();
+for (const doc of castDocs) profilesClient.w.save(doc);
+const profileScore = {
+  version: 1,
+  loop: true,
+  steps: [
+    { action: 'drink', actors: [female.id] },
+    { action: 'run', actors: [male.id] },
+    { action: 'highfive', actors: [female.id, male.id] },
+    { action: 'highfive', actors: [male.id, childAgain.id] }
+  ]
+};
+const restoredProfiles = audience.w.readScoreFile(clone(profilesClient.w.scoreFile(profileScore)), true);
+for (const doc of castDocs) {
+  assert.equal(audience.w.saved.get(doc.id).gender, doc.gender);
+  assert.equal(
+    digest(audience.m.characters.get(doc.id), audience.m, 'run'),
+    digest(a.l.build(doc), a.m, 'run')
+  );
+  const person = audience.m.characters.get(doc.id),
+    pose = a.m.actions.get('drink').sample(0.5, person)[0].pose;
+  assert.ok(distance(a.m.rig.socket(person, pose, 'mouth'), pose.bottle.lip) < 1e-7);
+}
+for (const i of [2, 3]) {
+  const [lead, partner] = restoredProfiles.sample(
+    restoredProfiles.starts[i] + restoredProfiles.score.steps[i].seconds / 2
+  );
+  assert.ok(distance(lead.contacts.palm, partner.contacts.palm) < 0.01);
+}
+console.log('PineLooks core ' + a.l.release + ' · 三代存档、女/男/儿童体型、五官、发型、服饰及双人复演通过');
 console.log(
   'PineLooks v1 · 两个独立形象跨环境像素一致 · 8 项形体、5 组款式、7 色槽 · 双基型戴帽与喝水通过 · ' +
     pairings +

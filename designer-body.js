@@ -43,6 +43,51 @@ const pineDesignerBody = (() => {
       hips: 3.73
     }
   };
+  // These are starting cuts. The shoulder and height controls still act on each cut.
+  const torsoCuts = {
+    original: {
+      shoulderSpan: 1,
+      shoulderLift: 0,
+      shoulderSlope: 0.125,
+      upperArm: 1,
+      hipSpan: 1,
+      hipAllowance: 0,
+      hipDepth: 1,
+      chestDepth: 1,
+      waistAt: 0.31,
+      waistInset: 0.105,
+      waistDepthInset: 0,
+      chestForward: 0
+    },
+    female: {
+      shoulderSpan: 0.93,
+      shoulderLift: -0.22,
+      shoulderSlope: 0.17,
+      upperArm: 0.96,
+      hipSpan: 1.11,
+      hipAllowance: 0.22,
+      hipDepth: 1.055,
+      chestDepth: 0.98,
+      waistAt: 0.405,
+      waistInset: 0.205,
+      waistDepthInset: 0.095,
+      chestForward: 0.24
+    },
+    male: {
+      shoulderSpan: 1.105,
+      shoulderLift: 0.18,
+      shoulderSlope: 0.085,
+      upperArm: 1.055,
+      hipSpan: 0.94,
+      hipAllowance: -0.13,
+      hipDepth: 0.975,
+      chestDepth: 1.075,
+      waistAt: 0.325,
+      waistInset: 0.071,
+      waistDepthInset: 0.025,
+      chestForward: 0.05
+    }
+  };
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   function number(value, fallback, lo, hi) {
     return Number.isFinite(value) ? clamp(value, lo, hi) : fallback;
@@ -97,6 +142,8 @@ const pineDesignerBody = (() => {
     const kind = recipe.base === 'adult' ? 'adult' : 'child';
     const base = studioRig.profiles[kind],
       measures = dimensions[kind];
+    const selectedCut = kind === 'adult' && (recipe.gender === 'female' || recipe.gender === 'male');
+    const cut = selectedCut ? torsoCuts[recipe.gender] : torsoCuts.original;
     const shape = recipe.shape || {},
       parts = recipe.parts || {};
     const s = number(shape.height, 1, 0.9, 1.1);
@@ -124,7 +171,7 @@ const pineDesignerBody = (() => {
     const hasHat = !!parts.hat && parts.hat !== 'none' && typeof paintHat === 'function';
     const ankle = base.ankle * s;
     const legChange = (base.hip[2] - base.ankle) * (legs - 1) * s;
-    const hipBreadth = base.hip[1] * s * (1 + 0.17 * (shoulders - 1));
+    const hipBreadth = base.hip[1] * s * (1 + 0.17 * (shoulders - 1)) * cut.hipSpan;
     const rig = {
       height: base.height * s,
       ankle,
@@ -132,8 +179,8 @@ const pineDesignerBody = (() => {
       pelvis: [base.pelvis[0] * s, 0, base.pelvis[2] * s + legChange],
       shoulder: [
         base.shoulder[0] * s,
-        base.shoulder[1] * s * shoulders,
-        base.shoulder[2] * s + 0.14 * legChange
+        base.shoulder[1] * s * shoulders * cut.shoulderSpan,
+        base.shoulder[2] * s + 0.14 * legChange + cut.shoulderLift * s
       ],
       neck: base.neck.map((v) => v * s),
       mouth: null,
@@ -167,14 +214,15 @@ const pineDesignerBody = (() => {
     rig.mouth = [faceFront(mouthY, mouthZ) + 0.14 * s, mouthY, mouthZ];
     const eyeX = faceFront(eyeY, eyeZ);
     const socket = (frame, point) => ({ frame, point });
-    const chestDepth = measures.chest * s * (1 + 0.19 * (shoulders - 1));
-    const hipThickness = measures.hips * s;
-    const hipHalf = hipBreadth + measures.thigh * s * 0.76;
+    const chestDepth = measures.chest * s * (1 + 0.19 * (shoulders - 1)) * cut.chestDepth;
+    const hipHeight = measures.hips * s;
+    const hipThickness = hipHeight * cut.hipDepth;
+    const hipHalf = hipBreadth + measures.thigh * s * 0.76 + cut.hipAllowance * s;
     const sockets = {
       mouth: socket('head', rig.mouth),
       rightEye: socket('head', [eyeX, -eyeY, eyeZ]),
       leftEye: socket('head', [eyeX, eyeY, eyeZ]),
-      seat: socket('torso', [rig.pelvis[0], 0, rig.pelvis[2] - 0.79 * hipThickness]),
+      seat: socket('torso', [rig.pelvis[0], 0, rig.pelvis[2] - 0.79 * hipHeight]),
       upperBack: socket('torso', [-0.89 * chestDepth, -0.15 * rig.shoulder[1], rig.shoulder[2] - 0.65 * s])
     };
     const materials = palette(recipe.colors);
@@ -415,7 +463,7 @@ const pineDesignerBody = (() => {
       if (skirt) drawSkirt(pose, b, k, thigh);
     }
     function drawArms(pose, b, k) {
-      const breadth = s * (1 + 0.31 * (shoulders - 1)),
+      const breadth = s * (1 + 0.31 * (shoulders - 1)) * cut.upperArm,
         upper = measures.upper * breadth;
       const elbowR = measures.elbow * breadth,
         cuff = measures.cuff * s,
@@ -488,41 +536,48 @@ const pineDesignerBody = (() => {
     }
     function drawTorso(pose, b, k) {
       b.frame(pose.torso);
-      const low = rig.pelvis[2] - hipThickness * 0.47 - (hoodie ? 0.42 * s : cardigan ? 0.52 * s : 0),
+      const low = rig.pelvis[2] - hipHeight * 0.47 - (hoodie ? 0.42 * s : cardigan ? 0.52 * s : 0),
         high = rig.neck[2] - 0.1 * s,
         tall = high - low;
       const ease = hoodie ? 1.085 : cardigan ? 1.025 : 1;
       const broad = rig.shoulder[1] * 1.06,
         maxW = Math.max(hipHalf * 1.11, broad) * 1.05 * ease;
+      const fittedDepth = ease * Math.max(chestDepth * 1.28, hipThickness + 0.77 * s);
+      const back = selectedCut ? -fittedDepth : -1.14 * chestDepth;
+      const front = selectedCut ? fittedDepth : 1.19 * chestDepth;
       b.blob(
         rig.pelvis[0],
         0,
         rig.pelvis[2],
         hipThickness,
         hipHalf,
-        0.79 * hipThickness,
+        0.79 * hipHeight,
         (x, y, z) =>
-          z > rig.pelvis[2] + 0.42 * hipThickness
+          z > rig.pelvis[2] + 0.42 * hipHeight
             ? k.bottomShade
             : x < -s && Math.abs(y) > hipBreadth * 0.65
               ? k.bottomLight
               : k.bottom,
         2.7
       );
-      b.stamp(-1.14 * chestDepth, 1.19 * chestDepth, -maxW, maxW, low, high, (x, y, z) => {
+      b.stamp(back, front, -maxW, maxW, low, high, (x, y, z) => {
         const t = (z - low) / tall,
           w = hipHalf * (1 - t) + broad * t;
-        const waist = w * (1 - 0.105 * Math.max(0, 1 - Math.abs(t - 0.31) / 0.34));
+        const waistWeight = Math.max(0, 1 - Math.abs(t - cut.waistAt) / 0.34);
+        const waist = w * (1 - cut.waistInset * waistWeight);
         const easeOverHips = clamp((0.34 - t) / 0.13, 0, 1);
         const widthAt = (waist + easeOverHips * Math.max(0, hipHalf + 0.29 * s - waist)) * ease;
         const chest = chestDepth * (0.92 + 0.08 * t);
         const depth =
-          (chest + easeOverHips * Math.max(0, hipThickness - rig.pelvis[0] + 0.34 * s - chest)) * ease;
+          (chest + easeOverHips * Math.max(0, hipThickness - rig.pelvis[0] + 0.34 * s - chest)) *
+          ease *
+          (1 - cut.waistDepthInset * waistWeight);
+        const ribWeight = Math.max(0, 1 - Math.abs(t - 0.67) / 0.29);
         const v = y / widthAt,
-          u = (x - 0.07 * s) / depth;
+          u = (x - 0.07 * s - cut.chestForward * s * ribWeight) / depth;
         const u2 = u * u,
           v2 = v * v;
-        if (t < 0 || t > 1 - 0.125 * v2 || u2 * u2 + v2 * v2 > 1) return 0;
+        if (t < 0 || t > 1 - cut.shoulderSlope * v2 || u2 * u2 + v2 * v2 > 1) return 0;
         const a = Math.abs(v);
         if (tee) {
           const crew = 0.852 + 0.37 * a * a;

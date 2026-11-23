@@ -2,7 +2,8 @@
 const PineLooks = (() => {
   const core = 'pine-core',
     originalRelease = '1.0.0',
-    release = '1.1.0';
+    styleRelease = '1.1.0',
+    release = '1.2.0';
   const baseNotice = `MIT License
 
 Copyright (c) 2026 zhangran653 and contributors
@@ -24,6 +25,24 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`;
+  const bodyProfiles = {
+    female: { base: 'adult', gender: 'female', label: '女性' },
+    male: { base: 'adult', gender: 'male', label: '男性' },
+    child: { base: 'child', gender: 'unspecified', label: '儿童' }
+  };
+  function bodyProfileOf(recipe) {
+    if (recipe.base === 'child') return 'child';
+    return recipe.gender === 'female' || recipe.gender === 'male' ? recipe.gender : null;
+  }
+  function withBodyProfile(recipe, profile) {
+    if (!Object.hasOwn(bodyProfiles, profile)) throw new Error('未知的默认体型');
+    const { base, gender } = bodyProfiles[profile];
+    const next = JSON.parse(JSON.stringify(recipe));
+    next.base = base;
+    next.gender = gender;
+    next.packs[core] = release;
+    return next;
+  }
   const shape = {
     height: [0.9, 1.1, 1],
     shoulders: [0.85, 1.15, 1],
@@ -227,13 +246,14 @@ SOFTWARE.`;
       }
     ]
   });
-  catalog.set(core + '@' + originalRelease, manifest({ ...sunhat, release: originalRelease }));
+  for (const prior of [originalRelease, styleRelease])
+    catalog.set(core + '@' + prior, manifest({ ...sunhat, release: prior }));
   catalog.set(core + '@' + release, sunhat);
   function prepare(raw, source = catalog) {
     fields(
       raw,
       ['format', 'version', 'id', 'label', 'base', 'packs', 'parts', 'shape', 'colors'],
-      ['embeddedPacks', 'baseNotice', 'face']
+      ['embeddedPacks', 'baseNotice', 'face', 'gender']
     );
     requireThat(raw.baseNotice === undefined || raw.baseNotice === baseNotice, '基础素材许可声明与版本不符');
     requireThat(
@@ -281,11 +301,18 @@ SOFTWARE.`;
     }
     fields(raw.packs, owner === core ? [core] : [core, owner]);
     const pin = raw.packs[core];
-    requireThat(pin === originalRelease || pin === release, '不支持的基础部件版本');
-    requireThat(pin === release || !needsNewCore(parts, raw.face), '所选五官或服饰需要 pine-core ' + release);
+    requireThat([originalRelease, styleRelease, release].includes(pin), '不支持的基础部件版本');
+    requireThat(
+      pin !== originalRelease || !needsNewCore(parts, raw.face),
+      '所选五官或服饰需要 pine-core ' + styleRelease
+    );
+    requireThat(pin === release || raw.gender === undefined, '性别字段需要 pine-core ' + release);
+    const gender = raw.gender === undefined ? 'unspecified' : raw.gender;
+    requireThat(['female', 'male', 'unspecified'].includes(gender), '未知的性别值');
+    requireThat(raw.base === 'adult' || gender === 'unspecified', '儿童使用中性体型');
     const pins = { [core]: pin };
     let face;
-    if (pin === release) {
+    if (pin !== originalRelease) {
       const selected = raw.face === undefined ? facePresets.classic.face : raw.face;
       fields(selected, Object.keys(features));
       face = {};
@@ -326,6 +353,7 @@ SOFTWARE.`;
       id: raw.id,
       label,
       base: raw.base,
+      ...(pin === release ? { gender } : {}),
       packs: pins,
       shape: sizes,
       parts,
@@ -358,11 +386,13 @@ SOFTWARE.`;
   }
   function build(raw, source) {
     const { recipe, hat } = prepare(raw, source);
-    return PineMotion.createCharacter({
+    const actor = PineMotion.createCharacter({
       id: recipe.id,
       label: recipe.label,
       ...pineDesignerBody.build(recipe, paintHat(hat), hat?.primitives)
     });
+    actor.gender = recipe.gender ?? 'unspecified';
+    return actor;
   }
   function newId() {
     const bytes = new Uint8Array(12);
@@ -389,18 +419,19 @@ SOFTWARE.`;
     [
       'ridge',
       '山野访客',
-      'adult',
+      'female',
       ['bun', 'jacket', 'trousers', 'boots', 'scarf', 'none'],
       ['#cc966f', '#493128', '#3c4744', '#586e9e', '#4a585a', '#935c45', '#d99a65'],
       { height: 1.04, shoulders: 1.09, jaw: 0.88 }
     ]
   ];
-  const templates = seeds.map(([key, label, base, items, palette, sizes]) => ({
+  const templates = seeds.map(([key, label, profile, items, palette, sizes]) => ({
     format: 'pine-character',
     version: 1,
     id: 'look_' + key,
     label,
-    base,
+    base: bodyProfiles[profile].base,
+    gender: bodyProfiles[profile].gender,
     packs: { [core]: release },
     shape: { ...Object.fromEntries(Object.entries(shape).map(([k, v]) => [k, v[2]])), ...sizes },
     parts: Object.fromEntries([...Object.keys(slots), 'hat'].map((k, i) => [k, items[i]])),
@@ -410,7 +441,7 @@ SOFTWARE.`;
     {
       key: 'chorus',
       label: '合唱队员',
-      base: 'child',
+      profile: 'child',
       hair: 'twin-tails',
       face: 'cheerful',
       outfit: 'choir',
@@ -422,7 +453,7 @@ SOFTWARE.`;
     {
       key: 'relay',
       label: '接力跑手',
-      base: 'child',
+      profile: 'child',
       hair: 'ponytail',
       face: 'almond',
       outfit: 'track',
@@ -434,7 +465,7 @@ SOFTWARE.`;
     {
       key: 'camper',
       label: '露营领队',
-      base: 'adult',
+      profile: 'male',
       hair: 'braid',
       face: 'bold',
       outfit: 'camp',
@@ -446,7 +477,7 @@ SOFTWARE.`;
     {
       key: 'painter',
       label: '街角画师',
-      base: 'adult',
+      profile: 'female',
       hair: 'curly',
       face: 'gentle',
       outfit: 'work',
@@ -463,7 +494,8 @@ SOFTWARE.`;
       ...seed,
       id: 'look_' + style.key,
       label: style.label,
-      base: style.base,
+      base: bodyProfiles[style.profile].base,
+      gender: bodyProfiles[style.profile].gender,
       packs: { [core]: release },
       shape: { ...seed.shape, ...style.shape },
       parts: { hair: style.hair, ...outfit.parts, hat: 'none' },
@@ -471,10 +503,25 @@ SOFTWARE.`;
       colors: { skin: style.skin, hair: style.hairColor, eyes: style.eyes, ...outfit.colors }
     });
   }
+  // Same clothes, neutral pose and 100% height make the two adult silhouettes directly comparable.
+  for (const profile of ['female', 'male']) {
+    const model = withBodyProfile(templates[0], profile);
+    templates.push({
+      ...model,
+      id: 'look_body_' + profile,
+      label: bodyProfiles[profile].label + '体型样本',
+      parts: { ...model.parts, hair: 'crop', top: 'tee', bottom: 'trousers', neck: 'none' },
+      colors: { ...model.colors, top: '#59877b', bottom: '#526174', shoes: '#83664d' }
+    });
+  }
   return {
     core,
     release,
     originalRelease,
+    styleRelease,
+    bodyProfiles,
+    bodyProfileOf,
+    withBodyProfile,
     features,
     facePresets,
     outfits,

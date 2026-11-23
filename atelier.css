@@ -382,6 +382,14 @@ h2 {
   margin: 12px 0 18px;
   justify-content: flex-start;
   gap: 17px;
+  flex-wrap: wrap;
+}
+.base-row .switch button {
+  min-width: 46px;
+}
+#legacy-body {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 .tabs {
   display: grid;

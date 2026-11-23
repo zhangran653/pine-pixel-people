@@ -89,11 +89,19 @@
             >角色名<input id="look-name" maxlength="48" required autocomplete="off"
           /></label>
           <div class="base-row">
-            <span>人体基型</span>
-            <div class="switch" aria-label="人体基型">
-              <button data-base="child" aria-pressed="true">儿童</button
-              ><button data-base="adult" aria-pressed="false">成人</button>
+            <span id="profile-label">默认体型</span>
+            <div class="switch" role="group" aria-labelledby="profile-label">
+              <button type="button" data-body-profile="female" aria-label="成年女性体型" aria-pressed="false">
+                女
+              </button>
+              <button type="button" data-body-profile="male" aria-label="成年男性体型" aria-pressed="false">
+                男
+              </button>
+              <button type="button" data-body-profile="child" aria-label="儿童中性体型" aria-pressed="true">
+                儿童
+              </button>
             </div>
+            <small id="legacy-body" hidden>原版成人体型</small>
           </div>
           <div class="tabs" role="tablist" aria-label="编辑类别">
             <button

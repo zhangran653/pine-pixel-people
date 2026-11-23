@@ -138,8 +138,10 @@
     $('mirror-name').textContent = draft.label || '未命名形象';
     measurements();
     $('save-state').textContent = dirty ? '有未保存的修改' : saved ? '已保存' : '新形象';
-    for (const b of document.querySelectorAll('[data-base]'))
-      b.setAttribute('aria-pressed', String(b.dataset.base === draft.base));
+    const profile = looks.bodyProfileOf(draft);
+    for (const b of document.querySelectorAll('[data-body-profile]'))
+      b.setAttribute('aria-pressed', String(b.dataset.bodyProfile === profile));
+    $('legacy-body').hidden = profile !== null;
   }
   function refreshAction() {
     const available = [...PineMotion.actions.values()].filter((clip) => PineMotion.accepts(clip, 0, actor));
@@ -150,7 +152,7 @@
   function changed() {
     dirty = true;
     if (draft.packs[looks.core] === looks.originalRelease && looks.needsNewCore(draft.parts, draft.face))
-      draft.packs[looks.core] = looks.release;
+      draft.packs[looks.core] = looks.styleRelease;
     actor = looks.build({ ...draft, label: draft.label.trim() || '未命名形象' });
     heading();
     markPresets();
@@ -301,7 +303,7 @@
     cards.setAttribute('role', 'group');
     cards.setAttribute('aria-label', '选择发型');
     area.append(cards);
-    const currentKey = JSON.stringify([draft.base, draft.shape, draft.face, draft.colors]);
+    const currentKey = JSON.stringify([draft.base, draft.gender, draft.shape, draft.face, draft.colors]);
     if (swatchKey !== currentKey) {
       swatchKey = currentKey;
       swatchActors.clear();
@@ -318,6 +320,7 @@
         const sample = {
           ...looks.templates[0],
           base: draft.base,
+          gender: draft.gender ?? 'unspecified',
           shape: draft.shape,
           face: draft.face || looks.facePresets.classic.face,
           colors: draft.colors,
@@ -569,10 +572,10 @@
       tabs[i].focus();
     };
   }
-  for (const b of document.querySelectorAll('[data-base]'))
+  for (const b of document.querySelectorAll('[data-body-profile]'))
     b.onclick = () => {
-      if (draft.base === b.dataset.base) return;
-      draft.base = b.dataset.base;
+      if (looks.bodyProfileOf(draft) === b.dataset.bodyProfile) return;
+      draft = looks.withBodyProfile(draft, b.dataset.bodyProfile);
       changed();
       fields();
       refreshAction();

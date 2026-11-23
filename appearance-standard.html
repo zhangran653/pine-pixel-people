@@ -77,6 +77,8 @@
           <a href="packs/maple-child.json">枫林信使 JSON</a> ·
           <a href="packs/chorus-child.json">双马尾合唱队员</a> ·
           <a href="packs/relay-child.json">单马尾接力跑手</a> ·
+          <a href="packs/female-adult.json">女性体型样本</a> ·
+          <a href="packs/male-adult.json">男性体型样本</a> ·
           <a href="character-v1.schema.json">角色 JSON Schema</a>
         </p>
         <table>
@@ -96,6 +98,15 @@
               <td>
                 child、adult 各有独立静止骨架。身高、肩宽、臂长、腿长、脸宽、眼距、下颌宽度均以 1
                 为基准，嘴高以 0 为基准。范围由 Schema 给出。
+              </td>
+            </tr>
+            <tr>
+              <td><code>gender</code></td>
+              <td>
+                pine-core 1.2.0 起可指定默认体型。成人用 <code>female</code> 或
+                <code>male</code> 选择肩、腰、胯的起始比例。
+                <code>unspecified</code>
+                表示沿用基型本身的轮廓，也是省略字段时的默认值。儿童统一使用中性轮廓。
               </td>
             </tr>
             <tr>
@@ -128,13 +139,21 @@
         </table>
         <h2>试穿与身高参照</h2>
         <p>
+          在「默认体型」选女、男或儿童后，可以单独调整身高、肩宽与四肢比例。切换体型会保留这些滑杆的相对值，以及角色的五官、发型、衣服和配色。
+          两个成人样本使用相同身高、短发和短袖长裤，拖动镜头可以并排观察肩线、腰胯和侧面厚度。
+          <a href="atelier.html?preset=look_body_female&amp;compare=look_body_male&amp;tab=shape"
+            >打开同装对照</a
+          >
+        </p>
+        <p>
           在「发型」面板可以从后侧比较七款发型，包括单马尾、双马尾和编发辫。全身镜头把两位演员放在同一地面，厘米标尺采用默认
           Three.js 场景的比例，每单位为 3.4
           cm。滑杆读数取站直时从地面到裸头顶的高度。发饰、屈膝和跳跃会改变轮廓与刻度的交点。
         </p>
         <p>
-          导入的 1.0.0 形象保留原有部件版本。选用新增五官或穿戴新增款式时，创作室把基础部件升级到
-          1.1.0，外部帽包使用原先固定的版本。角色文件格式仍为 pine-character v1。
+          导入 1.0.0 或 1.1.0 的形象会还原原有轮廓。旧成人在面板中显示为「原版成人体型」。给 1.0.0 角色选用
+          1.1.0 新增的五官或衣装会升级到 1.1.0。选择新的默认体型会升级到
+          1.2.0，外部帽包继续使用原先固定的版本。角色文件格式为 pine-character v1。
         </p>
         <h2>从参数到 360° 像素</h2>
         <p>
@@ -174,8 +193,10 @@
         </p>
         <h2>动作与接触点</h2>
         <p>
-          动作根据角色标签选演员，然后查询该角色的骨骼、嘴和手等接触点。喝水时瓶口追踪当前头部的嘴，击掌时两人共同求解手掌的世界坐标。儿童与成人基型可使用
-          13 个动作，其中击掌需要搭档。婴儿爬行以及妈妈与宝宝的抱摇、躲猫猫使用动作库中已有的相应角色。
+          动作根据角色标签选演员，然后查询该角色的骨骼、嘴和手等接触点。两种成人体型都使用 adult
+          标签，儿童使用 child
+          标签。喝水时瓶口追踪嘴的位置，击掌时两人共同求解手掌的世界坐标。三种体型都能使用 13
+          个动作，其中击掌需要搭档。婴儿爬行以及妈妈与宝宝的抱摇、躲猫猫使用动作库中已有的相应角色。
         </p>
         <p>
           编排内的 steps 引用动作 ID 和角色 ID。含自定义角色的导出采用 pine-cast
@@ -191,7 +212,9 @@
         <h2>在自己的页面使用</h2>
         <p>
           按创作室页面的顺序加载人物、动作、designer-body、appearance 和 appearance-store
-          脚本。无界面程序可直接用 JavaScript 构建演员与采样编排。
+          脚本。可以把形象文件和 <code>female</code>、<code>male</code> 或 <code>child</code> 传给
+          <code>PineLooks.withBodyProfile(characterFile, profile)</code
+          >，取得同一角色的新体型副本。用下面的代码构建演员与采样编排。
         </p>
         <pre><code>const actor = PineLooks.build(characterFile);
 const cast = new Map(PineMotion.characters);

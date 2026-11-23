@@ -51,7 +51,8 @@
         "pine-core": {
           "enum": [
             "1.0.0",
-            "1.1.0"
+            "1.1.0",
+            "1.2.0"
           ]
         }
       },
@@ -287,6 +288,14 @@
         }
       },
       "description": "pine-core 1.1.0 的眼型、眉形、鼻型和唇形。省略时使用自然五官。"
+    },
+    "gender": {
+      "enum": [
+        "female",
+        "male",
+        "unspecified"
+      ],
+      "description": "pine-core 1.2.0 的成人体型选择。儿童使用 unspecified。省略时沿用未指定的基础外形。"
     }
   },
   "if": {
@@ -371,6 +380,45 @@
                 ]
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "packs": {
+            "properties": {
+              "pine-core": {
+                "enum": [
+                  "1.0.0",
+                  "1.1.0"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "gender"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "base": {
+            "const": "child"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "gender": {
+            "const": "unspecified"
           }
         }
       }

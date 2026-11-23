@@ -31,8 +31,11 @@ function checkEditor() {
     return { top, bottom, height: bottom - top, ruler };
   }
   try {
-    for (const base of ['child', 'adult']) {
-      document.querySelector('[data-base="' + base + '"]').click();
+    const photos = new Map();
+    for (const profile of ['child', 'female', 'male']) {
+      const b = document.querySelector('[data-body-profile="' + profile + '"]');
+      b.click();
+      expect(b.getAttribute('aria-pressed') === 'true', 'incorrect selected body profile ' + profile);
       const height = byId('edit-height');
       height.value = 0.9;
       height.dispatchEvent(new Event('input'));
@@ -40,10 +43,28 @@ function checkEditor() {
       height.value = 1.1;
       height.dispatchEvent(new Event('input'));
       const high = contour();
-      expect(low.height > 50 && high.height > 1.16 * low.height, base + ' does not visibly grow');
-      expect(Math.abs(low.bottom - high.bottom) <= 4, base + ' moved off the baseline');
-      expect(low.ruler === high.ruler, base + ' rescaled the centimeter ruler');
+      expect(low.height > 50 && high.height > 1.16 * low.height, profile + ' does not visibly grow');
+      expect(Math.abs(low.bottom - high.bottom) <= 4, profile + ' moved off the baseline');
+      expect(low.ruler === high.ruler, profile + ' rescaled the centimeter ruler');
+      photos.set(profile, byId('mirror').toDataURL());
     }
+    expect(photos.get('female') !== photos.get('male'), 'adult profiles have the same visible pixels');
+    document.querySelector('[data-body-profile="child"]').click();
+    expect(photos.get('child') === byId('mirror').toDataURL(), 'switching back changed the child');
+    const legacy = {
+      ...PineLooks.templates.find((p) => p.id === 'look_body_female'),
+      id: 'look_check_legacy',
+      packs: { 'pine-core': PineLooks.styleRelease }
+    };
+    delete legacy.gender;
+    const loaded = PineWardrobe.importCharacter(legacy);
+    byId('save-look').click(); // Refresh the library through the editor.
+    document.querySelector('[data-key="saved:' + loaded.recipe.id + '"]').click();
+    expect(!byId('legacy-body').hidden, 'unmarked adults need their own visible state');
+    expect(!document.querySelector('[data-body-profile][aria-pressed=true]'), 'a legacy gender was inferred');
+    document.querySelector('[data-body-profile="female"]').click();
+    byId('save-look').click();
+    expect(PineWardrobe.saved.get(legacy.id).gender === 'female', 'body profile was lost on save');
     const small = document.createElement('canvas');
     small.style.cssText = 'width:288px;height:224px;display:block';
     document.body.append(small);
@@ -79,7 +100,8 @@ function checkEditor() {
     document.querySelector('[data-hair-style="twin-tails"]').click();
     expect(single !== byId('mirror').toDataURL(), 'single and twin ponytails have identical back views');
     target.dataset.state = 'pass';
-    target.textContent = 'Fixed scale, shared floor and hairstyle swatches passed';
+    target.textContent =
+      'Body profiles, legacy saves, fixed scale, shared floor and hairstyle swatches passed';
   } catch (err) {
     target.dataset.state = 'fail';
     target.textContent = err.message;
