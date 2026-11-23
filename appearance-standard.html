@@ -115,8 +115,8 @@
               <td><code>face</code></td>
               <td>
                 从 pine-core 1.1.0 起，eyes、brows、nose、mouth
-                分别指定眼、眉、鼻、唇的款式。每项有四款，省略整个 face
-                时使用自然五官。五官组合和成套穿搭会展开成实际字段值，后续可单独修改。
+                分别指定眼、眉、鼻、唇。提供 face 时，这四项均为必填。省略整个 face 时使用自然五官。
+                从 1.8.0 起还可以指定 <code>outline</code>（脸型）、<code>iris</code>（虹膜）、<code>complexion</code>（肌肤印记）、<code>makeup</code>（妆容）、<code>facialHair</code>（胡须）。每项独立选一款，移除细节时省略对应字段。
               </td>
             </tr>
             <tr>
@@ -150,7 +150,7 @@
           >
         </p>
         <p>
-          「发型」面板提供十二款发型、八种预设发色与自定义取色器。披肩长发等款式从 pine-core 1.4.0 起可用。
+          「发型」面板提供 42 款发型、20 种预设发色与自定义取色器，可按短发、中长发、束发、卷发、编发筛选。披肩长发等款式从 pine-core 1.4.0 起可用。
           披肩长发（<code>shoulder-length</code>）、长波浪（<code>long-waves</code>）、半扎长发（<code>half-up</code>）、
           双麻花辫（<code>twin-braids</code>）与偏分短发（<code>side-part</code>）均可用于成人和儿童。单独修改发色可沿用存档的基础部件版本。
           <a href="atelier.html?preset=look_body_female&amp;tab=hair&amp;hair=shoulder-length"
@@ -171,7 +171,7 @@
           pine-core 1.6.1 对轮廓做了微调，沿用 1.6.0 的头身比、骨长和接触点。下颌和后脑下缘轻微收拢，肩线过渡到胸背，大腿、小腿、上臂和前臂各有一条沿骨骼变化的截面曲线。儿童的下颌调整幅度较小。<a href="figure-contour-preview.png">查看同一姿势的全身轮廓对照</a>
         </p>
         <p>
-          四种唇形直接画在脸面上，用唇线、嘴角和上下唇的色差区分款式。唇心位于头部局部坐标 Y = 0，水壶在这里接触脸面。旧存档按各自版本绘制。在「体型」「发型」或「五官」点「试用细调轮廓」可预览当前基础部件，点击「保存」后会记录新版本。<a href="atelier.html?preset=look_body_female&amp;tab=face&amp;bearing=90">从正侧面查看唇线</a>
+          12 种唇形直接画在脸面上，用唇线、嘴角和上下唇的色差区分款式。唇心位于头部局部坐标 Y = 0，水壶在这里接触脸面。旧存档按各自版本绘制。在「体型」「发型」或「五官」点「试用细调轮廓」可预览当前基础部件，点击「保存」后会记录新版本。<a href="atelier.html?preset=look_body_female&amp;tab=face&amp;bearing=90">从正侧面查看唇线</a>
         </p>
         <p>
           额前发束用从发根经过弯折点到发梢的曲线定义，越靠近末端越窄。每个高度与方位保存发束的外径和颜色档位，交叠处取外侧的一束，再采样为像素切片。多个人物可复用同款发型的形状，各自按 <code>colors.hair</code> 着色。戴帽时帽冠下的发量会收拢。<a href="atelier.html?preset=look_body_female&amp;tab=hair&amp;hair=shoulder-length&amp;bearing=35">旋转查看披肩长发</a>
@@ -219,7 +219,7 @@
         <h2 id="wardrobe">工坊穿搭与随身物</h2>
         <p>
           pine-core 1.7.0 的套装会展开成独立的上衣、下装、鞋、帽、颈饰、随身物和颜色。选择套装时保留人物的五官、头发、身材和电子设备配置。
-          旧角色选用新款式或新增色槽后，保存的形象会记录依赖版本 1.7.0。
+          选用部件时，创作室按实际款式确定所需版本。只使用 1.7.0 工坊配件的旧角色可继续保留该版本。
           <a href="atelier.html?preset=look_workshop_hiker&amp;tab=wear&amp;bearing=145">查看徒步者的包和卷垫</a>
         </p>
         <table>
@@ -227,16 +227,35 @@
           <tbody>
             <tr><td><code>parts.bag / attachment</code></td><td>背包、挎包与外挂独立选用。包与肩带跟随躯干，卷垫横挂，图筒斜挂。</td></tr>
             <tr><td><code>parts.glasses / ears / wrist</code></td><td>镜框与耳饰跟随头，腕表与手环贴合左前臂。</td></tr>
+            <tr><td><code>parts.hairAccessory / audio</code></td><td>发饰和耳机各占一个独立部位，可与发型、帽子和眼镜一起佩戴。</td></tr>
+            <tr><td><code>parts.belt / brooch / gloves</code></td><td>腰带和胸针随躯干，手套随双手运动。</td></tr>
             <tr><td><code>parts.bottle</code></td><td>搪瓷水壶或保温杯使用躯干上的 <code>bottleDock</code>。喝水动作取下随身水壶、对准 <code>mouth</code>，再放回挂点。</td></tr>
             <tr><td><code>parts.phone / laptop</code></td><td>手机壳与笔记本外壳分别在看手机与打字时出现。省略款式时，动作使用工坊原款。</td></tr>
           </tbody>
         </table>
         <p>
-          可选 RGB 色槽为 <code>hat</code>、<code>bag</code>、<code>attachment</code>、<code>glasses</code>、<code>ears</code>、<code>wrist</code>、<code>bottle</code> 与 <code>device</code>。
+          工坊随身物的可选 RGB 色槽为 <code>hat</code>、<code>bag</code>、<code>attachment</code>、<code>glasses</code>、<code>ears</code>、<code>wrist</code>、<code>bottle</code> 与 <code>device</code>。
           卸下随身物时省略对应的部位字段，其染色可以保留。上衣、下装与鞋沿用必填字段，背带裤的胸兜和背带由下装绘制。
           运行时可从 <code>PineLooks.slots</code> 和 <code>PineLooks.wearables</code> 读取合法款式，用
           <code>PineLooks.applyOutfit(recipe, PineLooks.workshopOutfits.surveyor)</code> 修改草稿，再调用 <code>PineLooks.prepare</code> 或 <code>PineLooks.build</code>。
           <a href="packs/workshop-surveyor.json">完整示例</a> · <a href="character-v1.schema.json">字段与取值</a>
+        </p>
+        <h2 id="collection">基础部件 1.8.0 的外观目录</h2>
+        <p>
+          这一版有 28 个可选部位、263 款外观。查询 <code>PineLooks.features</code> 可取得四项基本五官的名称和 ID，<code>PineLooks.faceDetails</code> 列出五项可叠加的脸部细节。
+          <code>PineLooks.slots</code> 与 <code>PineLooks.wearables</code> 列出穿戴部位，内置帽子和扩展包帽子从 <code>PineLooks.catalog</code> 读取。发型分类见 <code>PineLooks.hairGroups</code>。
+        </p>
+        <p>
+          七个基础色槽仍为必填。<code>colors.brow</code>、<code>beard</code> 省略时随发色，<code>leftEye</code> 省略时两眼共用 <code>eyes</code>。
+          <code>lip</code>、<code>makeup</code> 可以分别覆盖唇色和妆色。发饰、耳机、腰带、胸针、手套分别使用同名可选色槽。
+          所有颜色均为六位 RGB。<code>PineLooks.portraitColors</code> 列出五官色槽。
+          <code>PineLooks.colorPresets</code> 和 <code>PineLooks.hairColors</code> 提供命名色卡。
+        </p>
+        <p>
+          旧人物按 <code>packs["pine-core"]</code> 还原。编辑草稿后，可调用
+          <code>recipe.packs["pine-core"] = PineLooks.editingRelease(recipe)</code> 选取所需版本，再验证或保存。
+          1.8.0 的新款式沿用原有骨架、接触点和 <code>pine-character</code> v1 文件格式。
+          <a href="packs/style-reader.json">含雀斑、眼镜与胸花的完整角色</a> · <a href="atelier.html?preset=look_style_reader&amp;tab=face">打开这个角色</a>
         </p>
         <h2>动作与接触点</h2>
         <p>
@@ -258,8 +277,7 @@
         </p>
         <h2>在自己的页面使用</h2>
         <p>
-          按创作室页面的顺序加载人物、动作、workshop-wear、designer-body、appearance 和 appearance-store
-          脚本。可以把形象文件和 <code>female</code>、<code>male</code> 或 <code>child</code> 传给
+          按创作室页面的顺序先加载人物与动作模块，再加载 portrait-styles、hair-styles、everyday-styles、workshop-wear、designer-body、appearance 和 appearance-store。可以把形象文件和 <code>female</code>、<code>male</code> 或 <code>child</code> 传给
           <code>PineLooks.withBodyProfile(characterFile, profile)</code
           >，取得同一角色的新体型副本。用下面的代码构建演员与采样编排。
         </p>

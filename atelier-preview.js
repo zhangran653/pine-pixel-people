@@ -377,13 +377,28 @@ const atelierPreview = (() => {
 
   function paint(ctx, w, h, groups, motion, action, bearing, view, compact, layer, pixel = 1, detail = true) {
     if (!groups.length) return;
-    const portrait = view === 'face',
+    const feature = ['eyes', 'brows', 'nose', 'mouth'].includes(view);
+    const portrait = view === 'face' || feature,
       camera = lens(bearing, portrait);
     const frames = groups.map((g) => framing(g, motion, camera, portrait, groups.length > 1));
     const measured =
       !portrait && !compact && fullBodyLayout(w, h, groups, frames, motion, pixel, action, camera);
     let scale, origins;
-    if (measured) {
+    if (feature) {
+      const person = groups[0].parts[0],
+        socket = (name) => motion.rig.socket(person.actor, person.pose, name);
+      const left = socket('leftEye'),
+        right = socket('rightEye'),
+        mouth = socket('mouth'),
+        span = Math.hypot(...left.map((v, i) => v - right[i]));
+      const focus = left.map((v, i) => (v + right[i]) / 2);
+      if (view === 'brows') focus[2] += 0.27 * span;
+      if (view === 'mouth') focus.splice(0, 3, ...mouth);
+      if (view === 'nose') for (let i = 0; i < 3; i++) focus[i] += 0.54 * (mouth[i] - focus[i]);
+      const screen = fromPart(person, focus, camera);
+      scale = Math.min(w / (span * (view === 'eyes' || view === 'brows' ? 1.98 : 1.18)), h / (0.71 * span));
+      origins = [[w / 2 - screen[0] * scale, h / 2 - screen[1] * scale]];
+    } else if (measured) {
       ({ scale, origins } = measured);
       referenceLines(ctx, w, measured);
     } else {
@@ -585,7 +600,7 @@ const atelierPreview = (() => {
         clip = motion.actions.get('idle');
       const groups = sampleFrame(motion, actor, null, clip, 0.17);
       // At outfit-card size the ordinary body grid already resolves the displayed pixels.
-      const detail = view === 'face' || Math.max(w, h) > 120;
+      const detail = view !== 'body' || Math.max(w, h) > 120;
       paint(image.getContext('2d'), w, h, groups, motion, clip.id, angle, view, true, null, 1, detail);
       if (saved.angles.size >= 4) saved.angles.delete(saved.angles.keys().next().value);
       saved.angles.set(key, image);

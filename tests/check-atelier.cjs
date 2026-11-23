@@ -124,8 +124,9 @@ function checkEditor() {
     mirror.dispose();
     small.remove();
     byId('tab-hair').click();
+    document.querySelector('[data-hair-group="全部"]').click();
     const cards = [...document.querySelectorAll('[data-hair-style]')];
-    expect(cards.length === 12, 'missing hairstyle swatches');
+    expect(cards.length === Object.keys(PineLooks.slots.hair).length, 'missing hairstyle swatches');
     for (const button of cards) {
       const c = button.querySelector('canvas');
       expect(
@@ -143,7 +144,7 @@ function checkEditor() {
     const beforeDye = byId('mirror').toDataURL(),
       beforeCard = loose.querySelector('canvas').toDataURL();
     const palette = [...document.querySelectorAll('[data-hair-color]')];
-    expect(palette.length === 8, 'missing hair colors');
+    expect(palette.length === Object.keys(PineLooks.hairColors).length, 'missing hair colors');
     const dye = palette.find((b) => b.textContent === '铜红');
     dye.click();
     expect(
@@ -342,9 +343,62 @@ function checkEditor() {
         wearing.parts.phone === 'rugged',
       'saved custom outfit'
     );
+    const query = byId('style-query');
+    function search(term) {
+      query.value = term;
+      query.dispatchEvent(new Event('input'));
+    }
+    function choose(term, expected) {
+      search(term);
+      const firstMatch = byId('style-matches').querySelector('button');
+      expect(firstMatch?.dataset.match === expected, 'search order for ' + term);
+      query.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      expect(byId('style-results').hidden, 'search selection did not close');
+    }
+    search('眼睛');
+    expect(!!byId('style-matches').querySelector('.more-results'), 'missing search pagination');
+    byId('style-matches').querySelector('.more-results').click();
+    expect(byId('style-matches').querySelectorAll('[data-match]').length > 12, 'search pagination');
+    search('不存在xyz');
+    expect(!byId('style-matches').children.length, 'irrelevant search results');
+    query.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(byId('style-results').hidden, 'escape did not dismiss results');
+    choose('鱼骨辫', 'hair/fishtail');
+    expect(
+      document.querySelector('[data-hair-group="编发"]').getAttribute('aria-pressed') === 'true',
+      'filtered hairstyle group'
+    );
+    choose('眉峰眉', 'brows/angled');
+    expect(byId('edit-brows').value === 'angled', 'brows not applied');
+    choose('琥珀内环', 'iris/amber');
+    choose('头戴耳机', 'audio/headphones');
+    expect(byId('edit-audio').value === 'headphones', 'earphones not applied');
+    byId('tab-colors').click();
+    const setDye = (key, value) => {
+      const field = byId('color-' + key);
+      field.value = value;
+      field.dispatchEvent(new Event('input'));
+    };
+    setDye('eyes', '#267a8f');
+    expect(byId('color-leftEye').value === '#267a8f', 'left eye failed to inherit a changed eye color');
+    setDye('leftEye', '#855840');
+    byId('color-leftEye').closest('.dye-setting').querySelector('button').click();
+    expect(byId('color-leftEye').value === '#267a8f', 'reset eye dye');
+    setDye('brow', '#50372b');
+    byId('save-look').click();
+    const mixed = PineWardrobe.saved.get(previousFigure.id);
+    expect(
+      mixed.parts.hair === 'fishtail' &&
+        mixed.parts.audio === 'headphones' &&
+        mixed.face.brows === 'angled' &&
+        mixed.face.iris === 'amber' &&
+        mixed.colors.brow === '#50372b' &&
+        !Object.hasOwn(mixed.colors, 'leftEye'),
+      'saved mixed collection'
+    );
     target.dataset.state = 'pass';
     target.textContent =
-      'Body profiles, legacy saves, head upgrade, scale, hairstyles, dyes, full-body and close-up detail, slice alignment, and configurable workshop outfits passed';
+      'Body profiles, legacy saves, head upgrade, scale, hairstyles, dyes, full-body and close-up detail, slice alignment, configurable workshop outfits, style search, hair filters, and independent portrait dyes passed';
   } catch (err) {
     target.dataset.state = 'fail';
     target.textContent = err.message;

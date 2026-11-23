@@ -18,6 +18,9 @@ const sources = [
   'studio-actions',
   'duet-clips',
   'studio-library',
+  'portrait-styles',
+  'hair-styles',
+  'everyday-styles',
   'workshop-wear',
   'designer-body',
   'appearance',
@@ -639,7 +642,8 @@ for (const doc of examples)
   assert.equal(digest(clean.m.characters.get(doc.id), clean.m, 'run'), digest(a.l.build(doc), a.m, 'run'));
 const referenceModels = ['female', 'male'].map((gender) => json('packs/' + gender + '-adult.json'));
 const [female, male] = referenceModels.map((doc) => {
-  assert.deepEqual(clone(a.l.prepare(a.l.templates.find((p) => p.id === doc.id)).recipe), doc);
+  const template = a.l.templates.find((p) => p.id === doc.id);
+  assert.deepEqual(clone(a.l.prepare({ ...template, packs: doc.packs }).recipe), doc);
   const person = a.l.build(doc);
   assert.equal(person.gender, doc.gender);
   assert.deepEqual(clone(person.tags), ['adult']);
@@ -779,10 +783,8 @@ for (const id of ['look_body_female', 'look_relay']) {
   assert.equal(digest(a.l.build(doc), a.m, 'run'), digest(a.l.build(prior), a.m, 'run'));
 }
 const surveyExample = json('packs/workshop-surveyor.json');
-assert.deepEqual(
-  clone(a.l.prepare(a.l.templates.find((p) => p.id === surveyExample.id)).recipe),
-  surveyExample
-);
+const surveyTemplate = a.l.templates.find((p) => p.id === surveyExample.id);
+assert.deepEqual(clone(a.l.prepare({ ...surveyTemplate, packs: surveyExample.packs }).recipe), surveyExample);
 for (const [slot, options] of Object.entries(a.l.wearables)) {
   assert.deepEqual([...Object.keys(options)].sort(), [...wardrobeSchema.parts.properties[slot].enum].sort());
   const action = slot === 'phone' ? 'phone' : slot === 'laptop' ? 'type' : 'idle';
@@ -803,13 +805,78 @@ for (const [slot, options] of Object.entries(a.l.wearables)) {
     assert.throws(() => a.l.prepare({ ...plain, parts: { ...plain.parts, [slot]: 'absent-style' } }));
   }
 }
+// Optional portrait layers share the pinned schema and remain independently visible on both bases.
+function finePortrait(doc) {
+  const actor = a.l.build(doc),
+    pose = a.m.rig.pose(actor.rig, {});
+  return colorDigest(a.m.faceLayers(actor, pose, actor.body.makePose(pose))[1].model.colors);
+}
+for (const base of ['adult', 'child']) {
+  const plain = { ...current, base, face: { ...classic }, parts: { ...current.parts, hair: 'crop' } };
+  const neutral = finePortrait(plain);
+  const hats = a.l.catalog.get(a.l.core + '@' + a.l.release).parts;
+  const capped = new Set([neutral]);
+  for (const hat of hats) {
+    const recipe = { ...plain, parts: { ...plain.parts, hat: a.l.core + '/' + hat.id } };
+    const drawing = finePortrait(recipe);
+    assert.ok(!capped.has(drawing), base + ' headwear ' + hat.id);
+    capped.add(drawing);
+  }
+
+  for (const [slot, choices] of Object.entries(a.l.faceDetails)) {
+    assert.deepEqual(Object.keys(choices).sort(), [...wardrobeSchema.face.properties[slot].enum].sort());
+    const samples = new Map([[neutral, 'original']]);
+    for (const value of Object.keys(choices)) {
+      const recipe = { ...plain, face: { ...plain.face, [slot]: value } };
+      assert.equal(
+        a.l.editingRelease({ ...recipe, packs: { 'pine-core': a.l.wardrobeRelease } }),
+        a.l.collectionRelease
+      );
+      assert.throws(() => a.l.prepare({ ...recipe, packs: { 'pine-core': a.l.wardrobeRelease } }));
+      const painted = finePortrait(recipe);
+      assert.ok(!samples.has(painted), base + ' ' + slot + '/' + value + ' matches ' + samples.get(painted));
+      samples.set(painted, value);
+    }
+  }
+}
+const collectionExample = json('packs/style-reader.json');
+assert.deepEqual(
+  clone(a.l.prepare(a.l.templates.find((doc) => doc.id === collectionExample.id)).recipe),
+  collectionExample
+);
+const dyedFace = {
+  ...collectionExample,
+  parts: { ...current.parts, hair: 'crop' },
+  face: {
+    ...classic,
+    eyes: 'upturned',
+    brows: 'angled',
+    facialHair: 'beard',
+    makeup: 'blush',
+    iris: 'sunburst'
+  }
+};
+const undyed = finePortrait(dyedFace);
+for (const key of Object.keys(a.l.portraitColors)) {
+  const recipe = { ...dyedFace, colors: { ...dyedFace.colors, [key]: '#176ebe' } };
+  assert.notEqual(finePortrait(recipe), undyed, key + ' portrait dye');
+  assert.throws(() => a.l.prepare({ ...recipe, colors: { ...recipe.colors, [key]: 'invalid' } }));
+}
+assert.equal(a.l.editingRelease(surveyExample), a.l.wardrobeRelease);
+assert.equal(finePortrait(surveyTemplate), finePortrait(surveyExample));
+assert.equal(digest(a.l.build(surveyTemplate), a.m, 'run'), digest(a.l.build(surveyExample), a.m, 'run'));
 const dressed = clone(a.l.templates.find((d) => d.id === 'look_workshop_hiker'));
 Object.assign(dressed.parts, {
   glasses: 'round',
   wrist: 'watch',
   ears: 'hoops',
   phone: 'rugged',
-  laptop: 'field'
+  laptop: 'field',
+  hairAccessory: 'ribbon',
+  audio: 'earbuds',
+  belt: 'utility',
+  brooch: 'rosette',
+  gloves: 'fingerless'
 });
 for (const key of Object.keys(a.l.gearColors)) {
   assert.ok(wardrobeSchema.colors.properties[key]);
@@ -818,6 +885,9 @@ for (const key of Object.keys(a.l.gearColors)) {
   assert.notEqual(digest(a.l.build(doc), a.m, action), digest(a.l.build(dressed), a.m, action), key + ' dye');
   assert.throws(() => a.l.prepare({ ...doc, colors: { ...doc.colors, [key]: 'invalid' } }));
 }
+dressed.parts.hair = 'fishtail';
+dressed.face = { ...dyedFace.face, outline: 'heart', complexion: 'freckles' };
+dressed.colors.leftEye = '#698fa3';
 const { recipe: beforeWear } = a.l.prepare(dressed);
 const custom = a.l.applyOutfit(clone(beforeWear), a.l.workshopOutfits.mother);
 assert.deepEqual(custom.shape, clone(beforeWear.shape));
@@ -870,7 +940,7 @@ console.log(
   'PineLooks core ' + a.l.release + ' · 历代存档、全身与五官精度、头型与唇线、扩展体型、发型及双人复演通过'
 );
 console.log(
-  'PineLooks v1 · 角色跨环境像素一致 · 6 套工坊穿搭、8 组可选配件与配色通过 · 双基型戴帽与喝水通过 · ' +
+  'PineLooks v1 · 角色跨环境像素一致 · 穿搭、随身物、独立脸部细节与染色通过 · 双基型戴帽与喝水通过 · ' +
     pairings +
     ' 组击掌 · 编排导入、版本和存档冲突通过'
 );

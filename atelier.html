@@ -16,6 +16,9 @@
     <script defer src="studio-actions.js"></script>
     <script defer src="duet-clips.js"></script>
     <script defer src="studio-library.js"></script>
+    <script defer src="portrait-styles.js"></script>
+    <script defer src="hair-styles.js"></script>
+    <script defer src="everyday-styles.js"></script>
     <script defer src="workshop-wear.js"></script>
     <script defer src="designer-body.js"></script>
     <script defer src="appearance.js"></script>
@@ -152,6 +155,20 @@
             >
               配色
             </button>
+          </div>
+          <div class="style-search" role="search" aria-label="查找形象款式">
+            <label for="style-query">查找款式</label>
+            <input
+              id="style-query"
+              type="search"
+              placeholder="搜眼型、发型、衣服或配饰"
+              autocomplete="off"
+              aria-controls="style-results"
+            />
+            <section id="style-results" aria-label="匹配的款式" hidden>
+              <p id="style-count" role="status"></p>
+              <div id="style-matches"></div>
+            </section>
           </div>
           <div id="editor-fields" class="fields" role="tabpanel" aria-labelledby="tab-shape"></div>
           <div class="save-actions">

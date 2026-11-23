@@ -243,7 +243,8 @@ const pineWorkshopWear = (() => {
   }
   function straps(bag, attachment, u, v, t, k) {
     if (u < 0.26) return 0;
-    if (bag === 'survey-satchel' || (!bag && attachment)) {
+    if (bag === 'hip-pack') return t > 0.17 && t < 0.25 ? k.bagShade : 0;
+    if (bag === 'survey-satchel' || bag === 'messenger' || bag === 'camera' || (!bag && attachment)) {
       const d = Math.abs(v - (0.91 - 1.61 * t));
       if (d < 0.1) return d > 0.066 ? k.bagShade : k.bagMain;
     } else if (bag) {
@@ -377,14 +378,20 @@ const pineWorkshopWear = (() => {
   function luggage(parts, b, k, depth, width, low, height) {
     const { bag, attachment } = parts;
     if (!bag && !attachment) return;
-    const satchel = bag === 'survey-satchel',
-      school = bag === 'school-pack';
-    const cx = -depth * (satchel ? 1.18 : 1.45),
-      cy = satchel ? 0.6 * width : 0;
-    const cz = low + height * (satchel ? 0.3 : 0.49);
-    const rx = depth * (satchel ? 0.44 : 0.59),
-      ry = width * (satchel ? 0.69 : school ? 0.8 : 0.86);
-    const rz = height * (satchel ? 0.29 : school ? 0.38 : 0.43);
+    const satchel = ['survey-satchel', 'messenger', 'camera', 'hip-pack'].includes(bag),
+      school = bag === 'school-pack',
+      hip = bag === 'hip-pack',
+      camera = bag === 'camera',
+      messenger = bag === 'messenger',
+      tall = bag === 'rucksack';
+    const cx = -depth * (hip ? 0.84 : satchel ? 1.18 : 1.45),
+      cy = hip ? 0.87 * width : satchel ? 0.6 * width : 0;
+    const cz = low + height * (hip ? 0.19 : camera ? 0.37 : satchel ? 0.3 : 0.49);
+    const rx = depth * (hip ? 0.35 : camera ? 0.63 : satchel ? 0.44 : 0.59),
+      ry =
+        width *
+        (hip ? 0.43 : camera ? 0.46 : messenger ? 0.87 : tall ? 0.74 : satchel ? 0.69 : school ? 0.8 : 0.86);
+    const rz = height * (hip ? 0.14 : camera ? 0.22 : tall ? 0.49 : satchel ? 0.29 : school ? 0.38 : 0.43);
     if (bag) {
       // The flap and pocket sit on the outward (-X) face of the bag.
       b.blob(
@@ -413,6 +420,9 @@ const pineWorkshopWear = (() => {
         (x, y, z) => {
           const a = (y - cy) / ry,
             h = (z - cz) / rz;
+          if (hip || camera) return h > 0.2 && h < 0.39 ? k.webbing : h > 0.65 ? k.bagLight : k.bagMain;
+          if (messenger) return h < 0.12 ? k.bagShade : Math.abs(a) < 0.12 && h < 0.47 ? k.brass : k.bagLight;
+          if (tall) return h > 0.46 ? (Math.abs(a) < 0.15 ? k.brassShade : k.bagLight) : k.bagMain;
           if (school) return h > 0.03 && h < 0.19 ? k.webbing : h < -0.56 ? k.bagShade : k.bagLight;
           if (h < 0.12) return k.bagShade;
           if (Math.abs(Math.abs(a) - (satchel ? 0.53 : 0.45)) < 0.12 && h < 0.46)
@@ -421,6 +431,22 @@ const pineWorkshopWear = (() => {
         },
         3.35
       );
+      if (camera)
+        b.blob(cx - rx, cy, cz, 0.43 * rx, 0.55 * ry, 0.56 * rz, (x, y, z) => {
+          const rr = ((y - cy) / ry) ** 2 + ((z - cz) / rz) ** 2;
+          return rr < 0.09 ? k.lens : rr < 0.18 ? k.lensGlint : k.bagShade;
+        });
+      if (tall)
+        b.blob(
+          cx,
+          cy,
+          cz + 0.82 * rz,
+          0.84 * rx,
+          0.85 * ry,
+          0.22 * rz,
+          (x, y, z) => (Math.abs(Math.sin((y / ry) * 12)) < 0.3 ? k.webbing : k.bagLight),
+          3
+        );
       if (!satchel) {
         for (const side of [-1, 1]) {
           const sy = side * width;
@@ -482,32 +508,53 @@ const pineWorkshopWear = (() => {
       ears = parts.ears;
     for (const side of [-1, 1]) {
       if (glasses) {
+        const spec = pineEverydayStyles.glasses[glasses];
         const wy = Math.min(0.41 * fit.ry, eyeY * 0.88),
-          hz = fit.rz * (glasses === 'round' ? 0.217 : 0.176);
+          hz = fit.rz * (spec ? spec[0] : glasses === 'round' ? 0.217 : 0.176);
         const cy = side * eyeY,
           cz = eyeZ + 0.009 * fit.rz,
           plane = (y, z) => front(y, z) + 0.061 * fit.rx;
-        const power = glasses === 'round' ? 2 : 3.8;
+        const power = spec ? spec[1] : glasses === 'round' ? 2 : 3.8;
+        const margin = hz * 1.07 + (spec ? Math.abs(spec[2]) * fit.rz : 0);
         b.stamp(
           fit.x - 0.08 * fit.rx,
           fit.x + 1.43 * fit.rx,
           cy - wy * 1.06,
           cy + wy * 1.06,
-          cz - hz * 1.07,
-          cz + hz * 1.07,
+          cz - margin,
+          cz + margin,
           (x, y, z) => {
-            const ring = Math.abs((y - cy) / wy) ** power + Math.abs((z - cz) / hz) ** power;
-            if (ring > 1 || x < plane(y, z) - 0.035 * fit.rx || x > plane(y, z) + 0.041 * fit.rx) return 0;
-            if (ring > (glasses === 'shades' ? 0.49 : 0.6))
+            const q = (y - cy) / wy,
+              h = (z - cz - (spec ? spec[2] * fit.rz * q * side : 0)) / hz;
+            const ring = Math.abs(q) ** power + Math.abs(h) ** power;
+            if (
+              ring > 1 ||
+              x < plane(y, z) - (spec ? 0.063 : 0.035) * fit.rx ||
+              x > plane(y, z) + (spec ? 0.076 : 0.041) * fit.rx
+            )
+              return 0;
+            if (glasses === 'rimless')
+              return Math.abs(q) > 0.78 && Math.abs(h) < 0.24
+                ? k.glassesMain
+                : h < -0.6 && ring > 0.75
+                  ? k.glassesLight
+                  : 0;
+            if (glasses === 'browline' && h < 0 && ring < 0.84) return 0;
+            if (ring > (glasses === 'shades' || glasses === 'goggles' ? 0.49 : 0.6))
               return z > cz + 0.57 * hz ? k.glassesLight : k.glassesMain;
-            return glasses === 'shades'
+            return glasses === 'shades' || spec?.[3]
               ? z > cz + 0.23 * hz && (y - cy) * side < 0
                 ? k.lensGlint
                 : k.lens
               : 0;
           }
         );
-        const bridge = [plane(side * (eyeY - wy * 0.83), cz), side * (eyeY - wy * 0.83), cz];
+        const bridgeHeight = glasses === 'rimless' ? cz + 0.085 * fit.rz : cz;
+        const bridge = [
+          plane(side * (eyeY - wy * 0.83), bridgeHeight),
+          side * (eyeY - wy * 0.83),
+          bridgeHeight
+        ];
         b.link(
           bridge,
           [front(0, cz) + 0.078 * fit.rx, 0, cz + 0.041 * fit.rz],
@@ -526,7 +573,9 @@ const pineWorkshopWear = (() => {
           () => k.glassesMain
         );
       }
-      if (ears) {
+      if (Object.hasOwn(pineEverydayStyles.wearables.ears, ears))
+        pineEverydayStyles.earring(ears, b, k, fit, side);
+      else if (ears) {
         const y = side * fit.ry * 1.015,
           x = fit.x + 0.05 * fit.rx,
           z = fit.z - 0.24 * fit.rz;
@@ -553,6 +602,8 @@ const pineWorkshopWear = (() => {
     }
   }
   function wristwear(style, b, k, arm, r) {
+    if (Object.hasOwn(pineEverydayStyles.wearables.wrist, style))
+      return pineEverydayStyles.wrist(style, b, k, arm, r);
     const { elbow, wrist } = arm,
       on = (t) => elbow.map((v, i) => v + t * (wrist[i] - v));
     b.link(on(0.73), on(0.95), 1.16 * r, 1.14 * r, 1, (t, u, v) => {

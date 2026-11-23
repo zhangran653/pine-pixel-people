@@ -58,7 +58,8 @@
             "1.5.0",
             "1.6.0",
             "1.6.1",
-            "1.7.0"
+            "1.7.0",
+            "1.8.0"
           ]
         }
       },
@@ -148,15 +149,45 @@
             "crop",
             "bob",
             "bun",
-            "ponytail",
-            "twin-tails",
-            "braid",
-            "curly",
             "shoulder-length",
             "long-waves",
             "half-up",
             "twin-braids",
-            "side-part"
+            "side-part",
+            "ponytail",
+            "twin-tails",
+            "braid",
+            "curly",
+            "bald",
+            "buzz",
+            "fade",
+            "crew",
+            "pixie",
+            "quiff",
+            "undercut",
+            "slick-back",
+            "french-bob",
+            "angled-bob",
+            "lob",
+            "wolf",
+            "mullet",
+            "curtain",
+            "hime",
+            "waist-length",
+            "beach-waves",
+            "curly-lob",
+            "afro",
+            "tapered-coils",
+            "low-bun",
+            "top-knot",
+            "space-buns",
+            "low-pony",
+            "side-pony",
+            "bubble-pony",
+            "fishtail",
+            "box-braids",
+            "locs",
+            "crown-braid"
           ]
         },
         "top": {
@@ -171,7 +202,17 @@
             "striped-cardigan",
             "rain-anorak",
             "sailor-knit",
-            "snap-knit"
+            "snap-knit",
+            "oxford",
+            "blazer",
+            "polo",
+            "denim-jacket",
+            "knit-vest",
+            "trench",
+            "rugby",
+            "breton",
+            "argyle",
+            "kimono"
           ]
         },
         "bottom": {
@@ -182,7 +223,13 @@
             "cargo",
             "cuffed-denim",
             "knee-pants",
-            "bib-overalls"
+            "bib-overalls",
+            "wide-leg",
+            "pinstripe",
+            "capris",
+            "joggers",
+            "plaid-skirt",
+            "track-shorts"
           ]
         },
         "shoes": {
@@ -194,14 +241,26 @@
             "trail-boots",
             "strap-sneakers",
             "canvas-shoes",
-            "soft-booties"
+            "soft-booties",
+            "loafers",
+            "mary-janes",
+            "chelsea",
+            "sandals",
+            "runners",
+            "oxfords"
           ]
         },
         "neck": {
           "enum": [
             "none",
             "scarf",
-            "bow"
+            "bow",
+            "pendant",
+            "pearls",
+            "tie",
+            "choker",
+            "winter-scarf",
+            "bolo"
           ]
         },
         "hat": {
@@ -212,7 +271,11 @@
           "enum": [
             "trail-pack",
             "survey-satchel",
-            "school-pack"
+            "school-pack",
+            "messenger",
+            "camera",
+            "hip-pack",
+            "rucksack"
           ]
         },
         "attachment": {
@@ -225,19 +288,36 @@
           "enum": [
             "round",
             "square",
-            "shades"
+            "shades",
+            "oval",
+            "aviator",
+            "cat-eye",
+            "browline",
+            "rimless",
+            "geometric",
+            "goggles"
           ]
         },
         "ears": {
           "enum": [
             "studs",
-            "hoops"
+            "hoops",
+            "pearl",
+            "drop",
+            "bar",
+            "huggies",
+            "star"
           ]
         },
         "wrist": {
           "enum": [
             "watch",
-            "sport-band"
+            "sport-band",
+            "bangle",
+            "beads",
+            "woven",
+            "digital",
+            "cuff"
           ]
         },
         "bottle": {
@@ -256,6 +336,51 @@
           "enum": [
             "field",
             "stickers"
+          ]
+        },
+        "hairAccessory": {
+          "enum": [
+            "band",
+            "ribbon",
+            "clips",
+            "barrette",
+            "flower",
+            "pins",
+            "tiara",
+            "scrunchie"
+          ]
+        },
+        "audio": {
+          "enum": [
+            "headphones",
+            "earbuds",
+            "ear-hooks",
+            "earmuffs",
+            "hearing-aid"
+          ]
+        },
+        "belt": {
+          "enum": [
+            "leather",
+            "woven",
+            "sash",
+            "utility"
+          ]
+        },
+        "brooch": {
+          "enum": [
+            "rosette",
+            "badge",
+            "star",
+            "nameplate"
+          ]
+        },
+        "gloves": {
+          "enum": [
+            "fingerless",
+            "mittens",
+            "leather",
+            "knit"
           ]
         }
       }
@@ -332,6 +457,46 @@
         "device": {
           "type": "string",
           "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "hairAccessory": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "audio": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "belt": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "brooch": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "gloves": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "brow": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "lip": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "leftEye": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "makeup": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "beard": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
         }
       }
     },
@@ -361,36 +526,126 @@
             "classic",
             "round",
             "almond",
-            "narrow"
-          ],
-          "default": "classic"
+            "narrow",
+            "upturned",
+            "downturned",
+            "monolid",
+            "hooded",
+            "double-lid",
+            "deep-set",
+            "doe-eye",
+            "crescent",
+            "long-almond",
+            "sleepy",
+            "soft-oval",
+            "level-eye"
+          ]
         },
         "brows": {
           "enum": [
             "classic",
             "straight",
             "arched",
-            "thick"
-          ],
-          "default": "classic"
+            "thick",
+            "willow",
+            "angled",
+            "feathered",
+            "fine",
+            "short-brow",
+            "tapered",
+            "descending",
+            "lifted",
+            "low-flat",
+            "brow-slit"
+          ]
         },
         "nose": {
           "enum": [
             "classic",
             "button",
             "bridge",
-            "wide"
-          ],
-          "default": "classic"
+            "wide",
+            "straight",
+            "upturned",
+            "slender",
+            "rounded",
+            "aquiline",
+            "broad",
+            "short",
+            "long"
+          ]
         },
         "mouth": {
           "enum": [
             "classic",
             "smile",
             "full",
-            "small"
-          ],
-          "default": "classic"
+            "small",
+            "bow",
+            "thin",
+            "lower-full",
+            "upper-full",
+            "wide",
+            "relaxed",
+            "pursed",
+            "soft-smile"
+          ]
+        },
+        "outline": {
+          "enum": [
+            "oval",
+            "round",
+            "square",
+            "heart",
+            "long",
+            "diamond",
+            "pear"
+          ]
+        },
+        "iris": {
+          "enum": [
+            "limbal",
+            "sunburst",
+            "two-tone",
+            "amber",
+            "large"
+          ]
+        },
+        "complexion": {
+          "enum": [
+            "freckles",
+            "sunspots",
+            "left-mole",
+            "lip-mole",
+            "dimples",
+            "beauty-spots",
+            "fine-lines",
+            "smile-lines",
+            "birthmark",
+            "cheek-scar"
+          ]
+        },
+        "makeup": {
+          "enum": [
+            "blush",
+            "draping",
+            "eyeliner",
+            "winged",
+            "shadow",
+            "shimmer"
+          ]
+        },
+        "facialHair": {
+          "enum": [
+            "stubble",
+            "moustache",
+            "pencil",
+            "handlebar",
+            "goatee",
+            "chinstrap",
+            "beard",
+            "sideburns"
+          ]
         }
       },
       "description": "pine-core 1.1.0 的眼型、眉形、鼻型和唇形。省略时使用自然五官。"
@@ -612,9 +867,16 @@
           "packs": {
             "properties": {
               "pine-core": {
-                "not": {
-                  "const": "1.7.0"
-                }
+                "enum": [
+                  "1.0.0",
+                  "1.1.0",
+                  "1.2.0",
+                  "1.3.0",
+                  "1.4.0",
+                  "1.5.0",
+                  "1.6.0",
+                  "1.6.1"
+                ]
               }
             }
           }
@@ -678,6 +940,197 @@
               "wrist": false,
               "bottle": false,
               "device": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "packs": {
+            "properties": {
+              "pine-core": {
+                "enum": [
+                  "1.0.0",
+                  "1.1.0",
+                  "1.2.0",
+                  "1.3.0",
+                  "1.4.0",
+                  "1.5.0",
+                  "1.6.0",
+                  "1.6.1",
+                  "1.7.0"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "parts": {
+            "properties": {
+              "hair": {
+                "enum": [
+                  "crop",
+                  "bob",
+                  "bun",
+                  "ponytail",
+                  "twin-tails",
+                  "braid",
+                  "curly",
+                  "shoulder-length",
+                  "long-waves",
+                  "half-up",
+                  "twin-braids",
+                  "side-part"
+                ]
+              },
+              "top": {
+                "enum": [
+                  "jacket",
+                  "pullover",
+                  "tee",
+                  "hoodie",
+                  "cardigan",
+                  "trail-shell",
+                  "field-jacket",
+                  "striped-cardigan",
+                  "rain-anorak",
+                  "sailor-knit",
+                  "snap-knit"
+                ]
+              },
+              "bottom": {
+                "enum": [
+                  "shorts",
+                  "trousers",
+                  "skirt",
+                  "cargo",
+                  "cuffed-denim",
+                  "knee-pants",
+                  "bib-overalls"
+                ]
+              },
+              "shoes": {
+                "enum": [
+                  "sneakers",
+                  "boots",
+                  "high-tops",
+                  "flats",
+                  "trail-boots",
+                  "strap-sneakers",
+                  "canvas-shoes",
+                  "soft-booties"
+                ]
+              },
+              "neck": {
+                "enum": [
+                  "none",
+                  "scarf",
+                  "bow"
+                ]
+              },
+              "bag": {
+                "enum": [
+                  "trail-pack",
+                  "survey-satchel",
+                  "school-pack"
+                ]
+              },
+              "glasses": {
+                "enum": [
+                  "round",
+                  "square",
+                  "shades"
+                ]
+              },
+              "ears": {
+                "enum": [
+                  "studs",
+                  "hoops"
+                ]
+              },
+              "wrist": {
+                "enum": [
+                  "watch",
+                  "sport-band"
+                ]
+              },
+              "hairAccessory": false,
+              "audio": false,
+              "belt": false,
+              "brooch": false,
+              "gloves": false,
+              "hat": {
+                "not": {
+                  "enum": [
+                    "pine-core/beret",
+                    "pine-core/bucket",
+                    "pine-core/pom-beanie",
+                    "pine-core/visor",
+                    "pine-core/newsboy",
+                    "pine-core/fedora",
+                    "pine-core/sailor-cap"
+                  ]
+                }
+              }
+            }
+          },
+          "face": {
+            "properties": {
+              "eyes": {
+                "enum": [
+                  "classic",
+                  "round",
+                  "almond",
+                  "narrow"
+                ]
+              },
+              "brows": {
+                "enum": [
+                  "classic",
+                  "straight",
+                  "arched",
+                  "thick"
+                ]
+              },
+              "nose": {
+                "enum": [
+                  "classic",
+                  "button",
+                  "bridge",
+                  "wide"
+                ]
+              },
+              "mouth": {
+                "enum": [
+                  "classic",
+                  "smile",
+                  "full",
+                  "small"
+                ]
+              },
+              "outline": false,
+              "iris": false,
+              "complexion": false,
+              "makeup": false,
+              "facialHair": false
+            }
+          },
+          "colors": {
+            "properties": {
+              "hairAccessory": false,
+              "audio": false,
+              "belt": false,
+              "brooch": false,
+              "gloves": false,
+              "brow": false,
+              "lip": false,
+              "leftEye": false,
+              "makeup": false,
+              "beard": false
             }
           }
         }

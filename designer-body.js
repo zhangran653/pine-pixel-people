@@ -437,7 +437,7 @@ const pineDesignerBody = (() => {
       mouthOffset = measure(shape, 'mouthHeight');
     const jeans = parts.bottom === 'trousers',
       boots = parts.shoes === 'boots';
-    const skirt = parts.bottom === 'skirt',
+    const skirt = parts.bottom === 'skirt' || parts.bottom === 'plaid-skirt',
       cargo = parts.bottom === 'cargo';
     const highTops = parts.shoes === 'high-tops',
       flats = parts.shoes === 'flats';
@@ -447,14 +447,20 @@ const pineDesignerBody = (() => {
     const workshopTop = Object.hasOwn(pineWorkshopWear.clothes.top, parts.top),
       workshopBottom = Object.hasOwn(pineWorkshopWear.clothes.bottom, parts.bottom),
       workshopShoes = Object.hasOwn(pineWorkshopWear.clothes.shoes, parts.shoes);
-    const jacket = !workshopTop && parts.top !== 'pullover' && !tee && !hoodie && !cardigan,
+    const collectionTop = Object.hasOwn(pineEverydayStyles.clothes.top, parts.top),
+      collectionBottom = Object.hasOwn(pineEverydayStyles.clothes.bottom, parts.bottom),
+      collectionShoes = Object.hasOwn(pineEverydayStyles.clothes.shoes, parts.shoes);
+    const hairStyle = pineHairStyles.styles[parts.hair];
+    const faceOutline = pinePortraitStyles.outlines[recipe.face?.outline];
+    const jacket = !collectionTop && !workshopTop && parts.top !== 'pullover' && !tee && !hoodie && !cardigan,
       scarf = parts.neck === 'scarf';
-    const loose = Object.hasOwn(looseLengths, parts.hair);
-    const hairstyle =
-      loose ||
-      ['bob', 'bun', 'ponytail', 'twin-tails', 'braid', 'curly', 'twin-braids', 'side-part'].includes(
-        parts.hair
-      )
+    const loose = Object.hasOwn(looseLengths, parts.hair) || !!hairStyle?.length;
+    const hairstyle = hairStyle
+      ? hairStyle.base
+      : loose ||
+          ['bob', 'bun', 'ponytail', 'twin-tails', 'braid', 'curly', 'twin-braids', 'side-part'].includes(
+            parts.hair
+          )
         ? parts.hair
         : 'crop';
     const hasHat = !!parts.hat && parts.hat !== 'none' && typeof paintHat === 'function';
@@ -506,7 +512,8 @@ const pineDesignerBody = (() => {
       const original = jawWidth(h) * (1 - (kind === 'child' ? 0.045 : 0.085) * lower * lower);
       if (!softContours) return original;
       const adjustment = 0.021 * swell(h, -0.27, 0.26) - 0.041 * swell(h, -0.69, 0.3);
-      return original * (1 + (kind === 'child' ? 0.72 : 1) * adjustment);
+      const outline = faceOutline ? pinePortraitStyles.outlineWidth(faceOutline, h) : 1;
+      return original * outline * (1 + (kind === 'child' ? 0.72 : 1) * adjustment);
     }
     function rearDepth(h) {
       if (!softContours) return occiput;
@@ -547,11 +554,27 @@ const pineDesignerBody = (() => {
     };
     const materials = palette(recipe.colors, surfaceDetails);
     const equipped = pineWorkshopWear.needsRelease(parts, recipe.colors);
-    if (equipped) Object.assign(materials, pineWorkshopWear.materials(recipe.colors, tint));
+    const everyday =
+      collectionTop ||
+      collectionBottom ||
+      collectionShoes ||
+      Object.hasOwn(pineEverydayStyles.clothes.neck, parts.neck) ||
+      Object.entries(pineEverydayStyles.wearables).some(([slot, options]) =>
+        Object.hasOwn(options, parts[slot])
+      );
+    if (equipped || everyday) Object.assign(materials, pineWorkshopWear.materials(recipe.colors, tint));
+    if (everyday) Object.assign(materials, pineEverydayStyles.materials(recipe.colors, tint));
+    const detailedFace =
+      Object.keys(recipe.face || {}).some(
+        (k) =>
+          Object.hasOwn(pinePortraitStyles.details, k) ||
+          Object.hasOwn(pinePortraitStyles.features[k] || {}, recipe.face[k])
+      ) || Object.keys(recipe.colors || {}).some((k) => Object.hasOwn(pinePortraitStyles.dyes, k));
+    if (detailedFace) Object.assign(materials, pinePortraitStyles.materials(recipe.colors, tint));
     const bottleLength = rig.height * 0.136;
     if (parts.bottle) {
       const dock =
-        parts.bag === 'trail-pack' || parts.bag === 'school-pack'
+        parts.bag === 'trail-pack' || parts.bag === 'school-pack' || parts.bag === 'rucksack'
           ? [
               -1.43 * chestDepth,
               -1.07 * rig.shoulder[1],
@@ -617,6 +640,11 @@ const pineDesignerBody = (() => {
         const fold = Math.cos(12 * Math.atan2(v, u) + 0.2 * along);
         const rim = 1 - 0.048 * along * (1 + fold);
         if (Math.abs(u) ** 2.8 + Math.abs(v) ** 2.8 > rim ** 2.8 || along > 1 - 0.021 * (1 + fold)) return 0;
+        if (parts.bottom === 'plaid-skirt') {
+          if (along < 0.12 || along > 0.95) return k.bottomShade;
+          if (Math.abs(Math.sin(12 * v)) < 0.2 || Math.abs(Math.sin(along * 14)) < 0.19) return k.accent;
+          if (Math.cos(11 * v) * Math.cos(along * 13) > 0.15) return k.bottomLight;
+        }
         if (along < 0.14 || along > 0.94) return k.bottomShade;
         if (along > 0.87 && along < 0.92) return k.bottomLight;
         return fold > 0.54 ? k.bottomShade : fold < -0.67 ? k.bottomLight : k.bottom;
@@ -635,7 +663,22 @@ const pineDesignerBody = (() => {
         const side = i ? 1 : -1,
           foot = pose.feet[i],
           { hip, knee } = pose.legs[i];
-        if (workshopBottom) {
+        if (collectionBottom && !skirt) {
+          pineEverydayStyles.pants(
+            parts.bottom,
+            b,
+            thighLink,
+            shinLink,
+            k,
+            hip,
+            knee,
+            foot,
+            side,
+            thigh,
+            kneeRadius,
+            ankleRadius
+          );
+        } else if (workshopBottom) {
           const denim = parts.bottom === 'cuffed-denim',
             patches = parts.bottom === 'knee-pants';
           thighLink(hip, knee, 1.015 * thigh, 1.04 * kneeRadius, 0.96, (t, u, v) => {
@@ -711,6 +754,22 @@ const pineDesignerBody = (() => {
         const forward = 1 - 2 * clamp((dx / (Math.hypot(dx, dz) || 1) - 0.7) / 0.29, 0, 1);
         const toe = shoeX * 0.25 * forward,
           sh = ankle * (boots ? 0.73 : 0.64);
+        if (collectionShoes) {
+          pineEverydayStyles.shoe(
+            parts.shoes,
+            b,
+            k,
+            foot,
+            knee,
+            side,
+            shoeX,
+            shoeY,
+            ankle,
+            ankleRadius,
+            forward
+          );
+          continue;
+        }
         if (workshopShoes) {
           pineWorkshopWear.shoe(
             parts.shoes,
@@ -840,12 +899,13 @@ const pineDesignerBody = (() => {
       const upperLink = softContours ? contouredLink(b, pose.torso, limbContours.upperArm) : b.link;
       const foreLink = softContours ? contouredLink(b, pose.torso, limbContours.forearm) : b.link;
       for (const { side, shoulder, elbow, wrist, hand } of pose.arms) {
-        if (workshopTop) {
+        if (collectionTop || workshopTop) {
+          const sleeve = collectionTop ? pineEverydayStyles.sleeve : pineWorkshopWear.sleeve;
           upperLink(shoulder, elbow, 1.035 * upper, 1.02 * elbowR, 0.97, (t, u, v) =>
-            pineWorkshopWear.sleeve(parts.top, t, u, v, side, elbowR, false, k)
+            sleeve(parts.top, t, u, v, side, elbowR, false, k)
           );
           foreLink(elbow, wrist, 1.02 * elbowR, cuff, 0.96, (t, u, v) =>
-            pineWorkshopWear.sleeve(parts.top, t, u, v, side, cuff, true, k)
+            sleeve(parts.top, t, u, v, side, cuff, true, k)
           );
         } else if (tee) {
           upperLink(shoulder, elbow, upper * 0.85, elbowR * 0.82, 0.91, (t, u, v) =>
@@ -910,13 +970,18 @@ const pineDesignerBody = (() => {
           0.61 * palm,
           k.skinLight
         );
+        if (parts.gloves) pineEverydayStyles.hand(parts.gloves, b, k, { side, wrist, hand }, palm);
       }
     }
     function drawTorso(pose, b, k) {
       b.frame(pose.torso);
       const coatDrop =
         parts.top === 'striped-cardigan' ? 1.48 * s : parts.top === 'field-jacket' ? 0.52 * s : 0;
-      const low = rig.pelvis[2] - hipHeight * 0.47 - (hoodie ? 0.42 * s : cardigan ? 0.52 * s : coatDrop),
+      const low =
+          rig.pelvis[2] -
+          hipHeight * 0.47 -
+          (parts.top === 'trench' ? 2.46 * s : 0) -
+          (hoodie ? 0.42 * s : cardigan ? 0.52 * s : coatDrop),
         high = rig.neck[2] - 0.1 * s,
         tall = high - low;
       const ease = hoodie ? 1.085 : cardigan ? 1.025 : 1;
@@ -971,6 +1036,7 @@ const pineDesignerBody = (() => {
           const bib = pineWorkshopWear.bib(u, v, t, k);
           if (bib) return bib;
         }
+        if (collectionTop) return pineEverydayStyles.overlay(parts.top, u, v, t, k);
         if (workshopTop) return pineWorkshopWear.fabric(parts.top, u, v, t, k);
         if (tee) {
           const crew = 0.852 + 0.37 * a * a;
@@ -1159,6 +1225,8 @@ const pineDesignerBody = (() => {
         );
       }
       b.blob(rig.neck[0], 0, rig.neck[2], fit.rx * 0.397, fit.ry * 0.41, fit.rz * 0.235, k.skin, 2.3);
+      if (parts.belt || parts.brooch || Object.hasOwn(pineEverydayStyles.clothes.neck, parts.neck))
+        pineEverydayStyles.torso(parts, b, k, chestDepth, broad, low, tall);
       if (parts.neck === 'bow') {
         const mid = high - 0.07 * tall,
           wing = 0.48 * broad;
@@ -1292,9 +1360,9 @@ const pineDesignerBody = (() => {
 
     function drawLooseHair(pose, b, k) {
       const { x: cx, z: cz, rx, ry, rz } = fit;
-      const waves = hairstyle === 'long-waves',
+      const waves = hairStyle ? !!hairStyle.wave : hairstyle === 'long-waves',
         gathered = hairstyle === 'half-up';
-      const length = looseLengths[hairstyle];
+      const length = hairStyle?.length || looseLengths[hairstyle];
       // Sample the sheet in torso space. Above the nape, undo the head rotation about the neck.
       const axis = (j) =>
         [0, 1, 2].map(
@@ -1323,13 +1391,18 @@ const pineDesignerBody = (() => {
           const h = (z - cz + follow * (headZ[0] * dx + headZ[1] * dy + headZ[2] * dz - dz)) / rz;
           if (h > 0.51 || h < -length - 0.12) return 0;
           const drop = clamp((0.28 - h) / 1.75, 0, 1);
-          const bend = waves ? Math.sin(7.1 * h + 0.55 * v) : 0;
+          const bend = waves ? Math.sin(7.1 * h + 0.55 * v) * (hairStyle?.wave || 1) : 0;
           const width = 1.015 + (gathered ? 0.035 : 0.1) * drop + (waves ? 0.13 * drop * bend : 0);
           const crown = 1 - 0.42 * Math.max(h, 0) ** 2;
           const side = v / (crown * width);
           const back = (u + 0.16 * drop) / (crown * (1.08 + drop * (waves ? 0.15 : 0.04)));
           const radius = back * back + side * side;
-          const hem = -length + 0.3 * Math.pow(Math.min(1, Math.abs(side)), 1.6) + 0.09 * Math.cos(10 * side);
+          if (hairStyle?.nape && u > -0.3) return 0;
+          const hem =
+            -length +
+            (hairStyle?.asym || 0) * side +
+            (hairStyle?.hem || 0.3) * Math.pow(Math.min(1, Math.abs(side)), 1.6) +
+            0.09 * Math.cos(10 * side);
           if (surfaceDetails) {
             if (radius > 1.23 || radius < 0.52 || u > (gathered ? -0.03 : 0.38) + 0.12 * h) return 0;
             const angle = Math.atan2(side, -back);
@@ -1360,7 +1433,7 @@ const pineDesignerBody = (() => {
         b.link(tie, middle, rx * 0.19, rx * 0.275, 1.33, strand);
         b.link(middle, end, rx * 0.275, rx * 0.07, 1.25, strand);
         b.blob(...tie, rx * 0.18, ry * 0.29, rz * 0.125, k.accent, 2.8);
-      } else {
+      } else if (!hairStyle?.nape) {
         // Two face-framing sections fall in front of the collar. Leave the eyes and mouth open.
         const front = (chestDepth - cx) / rx + 0.14;
         for (const side of [-1, 1]) {
@@ -1516,7 +1589,15 @@ const pineDesignerBody = (() => {
         return cx + rx * Math.cbrt(Math.max(0, 1 - h * h - v * v * v));
       }
       const surface = roundedHead || !b.faceDetail ? faceFront : portraitFront;
+      const eyeStyle = pinePortraitStyles.eyes[eyes],
+        browStyle = pinePortraitStyles.brows[brows],
+        noseStyle = pinePortraitStyles.noses[nose],
+        lipStyle = pinePortraitStyles.mouths[mouth];
+      const skinDetails = face.complexion || face.facialHair || face.makeup;
+      const dyeBrow = !!recipe.colors.brow,
+        dyeEye = !!recipe.colors.leftEye;
       function eyebrowInk(off, z) {
+        if (browStyle) return pinePortraitStyles.brow(browStyle, off / ry, (z - eyeZ) / rz, k);
         if (b.faceDetail) {
           const q = off / (ry * (brows === 'straight' ? 0.305 : 0.285));
           if (Math.abs(q) >= 1) return 0;
@@ -1553,6 +1634,7 @@ const pineDesignerBody = (() => {
         return brows === 'thick' && d > half * 0.42 ? k.hair : k.hairShade;
       }
       function eyeInk(off, z, side) {
+        if (eyeStyle) return pinePortraitStyles.eye(eyeStyle, off / ry, (z - eyeZ) / rz, blink, side, k);
         if (b.faceDetail) {
           const halfWidth = eyes === 'round' ? 0.24 : eyes === 'almond' ? 0.272 : 0.251;
           const q = off / (ry * halfWidth);
@@ -1602,6 +1684,14 @@ const pineDesignerBody = (() => {
         return a < 0.22 && h > 0.014 ? k.eyeRim : k.eyes;
       }
       function lipInk(y, z) {
+        if (lipStyle)
+          return pinePortraitStyles.mouth(
+            lipStyle,
+            (y - mouthY) / ry,
+            (z - mouthZ) / rz,
+            k,
+            0.5 / (b.density * rz)
+          );
         const a = Math.abs(y - mouthY) / ry,
           h = (z - mouthZ) / rz;
         if (b.faceDetail) {
@@ -1645,7 +1735,8 @@ const pineDesignerBody = (() => {
       }
       const rearX = cx - (roundedHead ? 1.25 : 1) * rx,
         frontX = cx + (roundedHead ? 1.1 : 1) * rx;
-      b.stamp(rearX, frontX, -1.075 * ry, 1.075 * ry, cz - rz, cz + rz, (x, y, z) => {
+      const headHalf = faceOutline ? 1.22 * ry : 1.075 * ry;
+      b.stamp(rearX, frontX, -headHalf, headHalf, cz - rz, cz + rz, (x, y, z) => {
         const h = (z - cz) / rz,
           u = (x - cx) / rx;
         if (roundedHead) {
@@ -1662,8 +1753,14 @@ const pineDesignerBody = (() => {
         const a = Math.abs(y),
           off = a - eyeY;
         if (u > 0.49 && Math.abs(off) < 0.345 * ry) {
-          const color = eyebrowInk(off, z) || eyeInk(off, z, Math.sign(y));
-          if (color) return color;
+          const browInk = eyebrowInk(off, z);
+          if (browInk) return dyeBrow ? (browInk === k.browSoft ? k.browPigment : k.browDeep) : browInk;
+          const side = Math.sign(y),
+            color = eyeInk(off, z, side);
+          if (color)
+            return face.iris || dyeEye
+              ? pinePortraitStyles.iris(face.iris, color, off / ry, (z - eyeZ) / rz, side, dyeEye, k)
+              : color;
         }
         if (u > 0.64) {
           if (mouth === 'classic' && !b.faceDetail) {
@@ -1672,6 +1769,19 @@ const pineDesignerBody = (() => {
             const color = lipInk(y, z);
             if (color) return color;
           }
+        }
+        if (skinDetails) {
+          const pigment = pinePortraitStyles.skinInk(
+            face,
+            u,
+            y / ry,
+            h,
+            (eyeZ - cz) / rz,
+            (mouthZ - cz) / rz,
+            eyeY / ry,
+            k
+          );
+          if (pigment) return pigment;
         }
         if (!surfaceDetails && (roundedHead ? h > 0.72 : h > 0.63 || (u < -0.52 && h > -0.6))) return k.hair;
         if (b.faceDetail) {
@@ -1696,7 +1806,8 @@ const pineDesignerBody = (() => {
       }
       const noseZ = eyeZ - 0.205 * rz,
         noseX = faceFront(0, noseZ) - 0.1 * rx;
-      if (b.faceDetail) {
+      if (noseStyle) pinePortraitStyles.nose(noseStyle, b, k, fit, eyeZ, surface);
+      else if (b.faceDetail) {
         const root = eyeZ + 0.1 * rz,
           tip = eyeZ - (nose === 'button' ? 0.26 : 0.32) * rz;
         const width = ry * (nose === 'wide' ? 0.224 : nose === 'button' ? 0.158 : 0.172);
@@ -1863,65 +1974,76 @@ const pineDesignerBody = (() => {
         if (u < -0.35 && h > 0.05 && h < 0.76 && lock > 0.9 && light > 0.12) return k.hairSheen;
         return k.hair;
       }
-      const scalp = surfaceDetails ? hairScalp(hairstyle, hasHat) : null;
+      const scalp = surfaceDetails && !hairStyle?.shave ? hairScalp(hairstyle, hasHat) : null;
       const hairTones = [0, k.hairDepth, k.hairMid, k.hair, k.hairSheen, k.hairHighlight, k.hairPart];
       const scalpWidth = surfaceDetails ? 1.24 : 1.115;
-      b.stamp(
-        cx - (surfaceDetails ? 1.48 : roundedHead ? 1.4 : 1.12) * rx,
-        cx + (surfaceDetails ? 1.3 : roundedHead ? 1.22 : 1.12) * rx,
-        -scalpWidth * ry,
-        scalpWidth * ry,
-        cz - (1.18 + long) * rz,
-        cz + 1.22 * rz,
-        (x, y, z) => {
-          const u = (x - cx) / rx,
-            v = y / ry,
-            h = (z - cz) / rz;
-          if (scalp) {
-            const row = Math.floor((h - scalpBottom) / scalpStep);
-            if (row < 0 || row >= scalpRows) return 0;
-            const dx = u - skullAxis(h) + 0.022;
-            const depth = dx / (dx < 0 ? rearDepth(h) : forehead);
-            const radius = depth * depth + v * v;
-            if (radius > scalp.rowMax[row] || radius + h * h < 0.85) return 0;
-            const col = Math.floor(Math.atan2(v, depth) * (scalpAngles / (2 * Math.PI)));
-            const i = row * scalpAngles + ((col + scalpAngles) % scalpAngles);
-            return radius <= scalp.radiusSquared[i] ? hairTones[scalp.tones[i]] : 0;
+      if (hairStyle?.shave !== 'bare')
+        b.stamp(
+          cx - (surfaceDetails ? 1.48 : roundedHead ? 1.4 : 1.12) * rx,
+          cx + (surfaceDetails ? 1.3 : roundedHead ? 1.22 : 1.12) * rx,
+          -scalpWidth * ry,
+          scalpWidth * ry,
+          cz - (1.18 + long) * rz,
+          cz + 1.22 * rz,
+          (x, y, z) => {
+            const u = (x - cx) / rx,
+              v = y / ry,
+              h = (z - cz) / rz;
+            if (hairStyle?.shave) {
+              const dx = u - skullAxis(h) + 0.022;
+              return pineHairStyles.cropped(
+                hairStyle.shave,
+                dx / (dx < 0 ? rearDepth(h) : forehead),
+                v,
+                h,
+                k
+              );
+            }
+            if (scalp) {
+              const row = Math.floor((h - scalpBottom) / scalpStep);
+              if (row < 0 || row >= scalpRows) return 0;
+              const dx = u - skullAxis(h) + 0.022;
+              const depth = dx / (dx < 0 ? rearDepth(h) : forehead);
+              const radius = depth * depth + v * v;
+              if (radius > scalp.rowMax[row] || radius + h * h < 0.85) return 0;
+              const col = Math.floor(Math.atan2(v, depth) * (scalpAngles / (2 * Math.PI)));
+              const i = row * scalpAngles + ((col + scalpAngles) % scalpAngles);
+              return radius <= scalp.radiusSquared[i] ? hairTones[scalp.tones[i]] : 0;
+            }
+            if (roundedHead) return archivedRoundHair(u, v, h);
+            let edge;
+            if (u < -0.33) edge = bob ? -1.06 : bun ? -0.77 : -0.55;
+            else if (u > 0.52) edge = (bob ? 0.34 : bun ? 0.45 : 0.39) + 0.19 * v + (bun ? 0.12 : 0.07) * u;
+            else edge = bob ? -0.98 + 0.74 * (u + 0.33) : -0.49 + 0.63 * (u + 0.33) + 0.075 * v;
+            if (loose && u > 0.32) {
+              const part = hairstyle === 'long-waves' ? -0.32 : 0.08;
+              edge = b.faceDetail
+                ? 0.38 + 0.26 * Math.max(0, 1 - 1.45 * Math.abs(v - part)) - 0.085 * Math.abs(v)
+                : 0.3 + 0.37 * Math.max(0, 1 - 1.65 * Math.abs(v - part)) - 0.12 * Math.abs(v);
+            } else if (hairstyle === 'side-part') {
+              edge = u > 0.26 ? 0.34 + 0.44 * v + 0.1 * u : -0.2 + 0.22 * u + 0.15 * v;
+            }
+            if (h < edge) return 0;
+            const widen = 1 + (bob ? 0.072 : 0.044) * (hasHat ? 1 - clamp((h - 0.28) / 0.65, 0, 1) : 1);
+            const ux = (u + 0.018) / (widen * (bob && h < -0.25 ? 1.04 : 1));
+            const vy = v / (widen * (bob && h < -0.27 ? 1.055 : 1));
+            const hh = h < 0 && bob ? h * 0.7 : (h - 0.017) / crown;
+            const u2 = ux * ux,
+              v2 = vy * vy;
+            if (u2 * u2 + v2 * v2 + hh * hh > 1) return 0;
+            if (hairstyle === 'side-part' && Math.abs(v - 0.32 + 0.28 * u) < 0.073 && h > 0.38)
+              return k.hairShade;
+            if (loose && h > 0.47) {
+              const sweep = v + 0.18 * u + (hairstyle === 'long-waves' ? 0.28 : -0.08);
+              if (Math.abs(sweep) < 0.065) return k.hairShade;
+              if (sweep < -0.11 && sweep > -0.24 && u > -0.48) return k.hairLight;
+            }
+            if (h > 0.41 && Math.abs(v + 0.2 + 0.26 * u) < 0.06) return k.hairLight;
+            if (bob && u < 0.1 && Math.abs(v - 0.2 + 0.2 * h) < 0.055) return k.hairLight;
+            return u < -0.43 || (v > 0.55 && h < 0.4) ? k.hairShade : k.hair;
           }
-          if (roundedHead) return archivedRoundHair(u, v, h);
-          let edge;
-          if (u < -0.33) edge = bob ? -1.06 : bun ? -0.77 : -0.55;
-          else if (u > 0.52) edge = (bob ? 0.34 : bun ? 0.45 : 0.39) + 0.19 * v + (bun ? 0.12 : 0.07) * u;
-          else edge = bob ? -0.98 + 0.74 * (u + 0.33) : -0.49 + 0.63 * (u + 0.33) + 0.075 * v;
-          if (loose && u > 0.32) {
-            const part = hairstyle === 'long-waves' ? -0.32 : 0.08;
-            edge = b.faceDetail
-              ? 0.38 + 0.26 * Math.max(0, 1 - 1.45 * Math.abs(v - part)) - 0.085 * Math.abs(v)
-              : 0.3 + 0.37 * Math.max(0, 1 - 1.65 * Math.abs(v - part)) - 0.12 * Math.abs(v);
-          } else if (hairstyle === 'side-part') {
-            edge = u > 0.26 ? 0.34 + 0.44 * v + 0.1 * u : -0.2 + 0.22 * u + 0.15 * v;
-          }
-          if (h < edge) return 0;
-          const widen = 1 + (bob ? 0.072 : 0.044) * (hasHat ? 1 - clamp((h - 0.28) / 0.65, 0, 1) : 1);
-          const ux = (u + 0.018) / (widen * (bob && h < -0.25 ? 1.04 : 1));
-          const vy = v / (widen * (bob && h < -0.27 ? 1.055 : 1));
-          const hh = h < 0 && bob ? h * 0.7 : (h - 0.017) / crown;
-          const u2 = ux * ux,
-            v2 = vy * vy;
-          if (u2 * u2 + v2 * v2 + hh * hh > 1) return 0;
-          if (hairstyle === 'side-part' && Math.abs(v - 0.32 + 0.28 * u) < 0.073 && h > 0.38)
-            return k.hairShade;
-          if (loose && h > 0.47) {
-            const sweep = v + 0.18 * u + (hairstyle === 'long-waves' ? 0.28 : -0.08);
-            if (Math.abs(sweep) < 0.065) return k.hairShade;
-            if (sweep < -0.11 && sweep > -0.24 && u > -0.48) return k.hairLight;
-          }
-          if (h > 0.41 && Math.abs(v + 0.2 + 0.26 * u) < 0.06) return k.hairLight;
-          if (bob && u < 0.1 && Math.abs(v - 0.2 + 0.2 * h) < 0.055) return k.hairLight;
-          return u < -0.43 || (v > 0.55 && h < 0.4) ? k.hairShade : k.hair;
-        }
-      );
-      if (bun && !hasHat) {
+        );
+      if (bun && !hasHat && !hairStyle) {
         b.blob(cx - 0.79 * rx, 0.14 * ry, cz + 0.78 * rz, 0.43 * rx, 0.44 * ry, 0.3 * rz, k.accent);
         b.blob(
           cx - 0.91 * rx,
@@ -1957,7 +2079,11 @@ const pineDesignerBody = (() => {
           2.35
         );
       }
-      if (hairstyle === 'curly') drawCurls(b, k);
+      if (hairStyle) {
+        if (hairStyle.length) drawLooseHair(pose, b, k);
+        b.frame(pose.head);
+        pineHairStyles.draw(hairStyle, b, k, fit, hasHat, (u, v, h) => lockPoint(pose, u, v, h));
+      } else if (hairstyle === 'curly') drawCurls(b, k);
       else if (hairstyle === 'ponytail' || hairstyle === 'twin-tails' || hairstyle === 'braid')
         drawTiedHair(b, k);
       else if (loose) drawLooseHair(pose, b, k);
@@ -1966,9 +2092,17 @@ const pineDesignerBody = (() => {
         b.frame(pose.head);
         pineWorkshopWear.facewear(parts, b, k, fit, eyeY, eyeZ, faceFront);
       }
+      if (parts.hairAccessory) {
+        b.frame(pose.head);
+        pineEverydayStyles.headItem('hairAccessory', parts.hairAccessory, b, k, fit, hasHat);
+      }
       if (hasHat) {
         b.frame(pose.head);
         paintHat(pose, b, k, fit);
+      }
+      if (parts.audio) {
+        b.frame(pose.head);
+        pineEverydayStyles.headItem('audio', parts.audio, b, k, fit, hasHat);
       }
       b.frame(null);
     }

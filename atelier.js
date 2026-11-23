@@ -33,7 +33,17 @@
     wrist: '腕饰',
     bottle: '随身水壶',
     phone: '手机外壳',
-    laptop: '笔记本外壳'
+    laptop: '笔记本外壳',
+    outline: '脸型',
+    iris: '虹膜纹理',
+    complexion: '面部印记',
+    makeup: '妆容',
+    facialHair: '胡须',
+    hairAccessory: '发饰',
+    audio: '耳机与耳罩',
+    belt: '腰带',
+    brooch: '胸针',
+    gloves: '手套'
   };
   const tabKeys = {
     shape: ['height', 'shoulders', 'arms', 'legs'],
@@ -54,6 +64,9 @@
     stamp = null,
     lastSample = -1,
     drag = null;
+  let hairGroup = '',
+    comparisonSlot = 'eyes',
+    paletteSlot = 'skin';
   let hairAngle = 140,
     priorAngle = 24,
     swatchKey = '',
@@ -189,6 +202,9 @@
     actor = looks.build({ ...draft, label: draft.label.trim() || '未命名形象' });
     heading();
     markPresets();
+    $('editor-fields')
+      .querySelector('.feature-comparison[open]')
+      ?.dispatchEvent(new Event('refresh-comparison'));
     show();
     note('');
   }
@@ -343,7 +359,8 @@
     return group;
   }
   function figureUpgrade(area) {
-    if ([looks.release, looks.contourRelease].includes(draft.packs[looks.core])) return;
+    if ([looks.release, looks.wardrobeRelease, looks.contourRelease].includes(draft.packs[looks.core]))
+      return;
     const update = document.createElement('button');
     update.type = 'button';
     update.id = 'update-head';
@@ -359,7 +376,7 @@
     figureUpgrade(area);
     area.append(
       presetGroup('五官组合', looks.facePresets, 'facePreset', (p) => {
-        draft.face = { ...p.face };
+        draft.face = { ...draft.face, ...p.face };
       })
     );
     const grid = document.createElement('div');
@@ -372,8 +389,123 @@
         })
       );
     }
-    area.append(grid, ...tabKeys.face.map(slider));
+    const more = document.createElement('fieldset'),
+      legend = document.createElement('legend'),
+      details = document.createElement('div');
+    more.className = 'preset-group';
+    legend.textContent = '脸型与细节';
+    details.className = 'wardrobe-grid';
+    for (const [slot, options] of Object.entries(looks.faceDetails))
+      details.append(
+        picker(
+          names[slot],
+          slot,
+          [['', slot === 'outline' ? '原始轮廓' : '无'], ...Object.entries(options)],
+          selected[slot] || '',
+          (v) => {
+            draft.face = { ...(draft.face || looks.facePresets.classic.face) };
+            if (v) draft.face[slot] = v;
+            else delete draft.face[slot];
+          }
+        )
+      );
+    more.append(legend, details);
+    area.append(grid, featureComparison(), more, ...tabKeys.face.map(slider));
     markPresets();
+  }
+  function featureComparison() {
+    const panel = document.createElement('details'),
+      summary = document.createElement('summary'),
+      row = document.createElement('div'),
+      cards = document.createElement('div');
+    panel.className = 'feature-comparison';
+    summary.textContent = '比较五官局部';
+    row.className = 'category-buttons';
+    cards.className = 'feature-cards';
+    panel.append(summary, row, cards);
+    let pending = 0,
+      revision = '';
+    function fill() {
+      if (!panel.open || !panel.isConnected) return;
+      const compared = { ...(draft.face || looks.facePresets.classic.face) };
+      const chosen = compared[comparisonSlot];
+      delete compared[comparisonSlot];
+      const signature = JSON.stringify([
+        comparisonSlot,
+        compared,
+        draft.shape,
+        draft.parts,
+        draft.colors,
+        draft.packs,
+        draft.base,
+        draft.gender
+      ]);
+      if (revision === signature) {
+        for (const b of cards.children)
+          b.setAttribute('aria-pressed', String(b.dataset.featureValue === chosen));
+        return;
+      }
+      cancelAnimationFrame(pending);
+      revision = signature;
+      cards.replaceChildren();
+      for (const button of row.children)
+        button.setAttribute('aria-pressed', String(button.dataset.compareSlot === comparisonSlot));
+      for (const [value, label] of Object.entries(looks.features[comparisonSlot])) {
+        const button = document.createElement('button'),
+          canvas = document.createElement('canvas'),
+          slot = comparisonSlot;
+        button.type = 'button';
+        button.dataset.featureValue = value;
+        button.setAttribute(
+          'aria-pressed',
+          String((draft.face || looks.facePresets.classic.face)[slot] === value)
+        );
+        canvas.setAttribute('aria-hidden', 'true');
+        button.append(canvas, label);
+        cards.append(button);
+        button.onclick = () => {
+          const field = $('edit-' + slot);
+          field.value = value;
+          field.dispatchEvent(new Event('change'));
+        };
+      }
+      const queue = [...cards.children];
+      function render() {
+        if (!panel.open || !panel.isConnected || !queue.length) return;
+        const button = queue.shift(),
+          sample = clone(draft);
+        sample.face = {
+          ...(draft.face || looks.facePresets.classic.face),
+          [comparisonSlot]: button.dataset.featureValue
+        };
+        // Remove face coverings from the comparison crop. The mirror still shows the worn outfit.
+        delete sample.parts.glasses;
+        sample.packs[looks.core] = looks.editingRelease(sample);
+        const preview = looks.build({ ...sample, label: sample.label.trim() || '试选' });
+        atelierPreview.thumbnail(button.firstChild, preview, 0, comparisonSlot);
+        if (queue.length) pending = requestAnimationFrame(render);
+      }
+      render();
+    }
+    for (const key of Object.keys(looks.features)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = names[key];
+      b.dataset.compareSlot = key;
+      b.onclick = () => {
+        comparisonSlot = key;
+        fill();
+      };
+      row.append(b);
+    }
+    panel.ontoggle = () => {
+      if (panel.open) {
+        revision = '';
+        fill();
+      } else cancelAnimationFrame(pending);
+    };
+    panel.addEventListener('refresh-comparison', fill);
+    return panel;
   }
   function paintHairCards(cards, stagger = false) {
     cancelAnimationFrame(swatchFrame);
@@ -393,29 +525,38 @@
     const pending = [];
     for (const button of cards.children) {
       const key = button.dataset.hairStyle;
-      if (!swatchActors.has(key)) {
-        const sample = {
-          ...looks.templates[0],
-          packs: { [looks.core]: headVersion },
-          base: draft.base,
-          gender: draft.gender ?? 'unspecified',
-          shape: draft.shape,
-          face: draft.face || looks.facePresets.classic.face,
-          colors: draft.colors,
-          parts: { ...looks.templates[0].parts, hair: key, neck: 'none', hat: 'none' }
-        };
-        swatchActors.set(key, looks.build(sample));
-      }
       const canvas = button.querySelector('canvas');
-      thumbnails.set(canvas, { actor: swatchActors.get(key), bearing: 140 });
-      if (stagger && key !== draft.parts.hair) pending.push(canvas);
-      else paintThumbnail(canvas);
+      function draw() {
+        if (!swatchActors.has(key)) {
+          const sample = {
+            ...looks.templates[0],
+            packs: { [looks.core]: headVersion },
+            base: draft.base,
+            gender: draft.gender ?? 'unspecified',
+            shape: draft.shape,
+            face: draft.face || looks.facePresets.classic.face,
+            colors: draft.colors,
+            parts: { ...looks.templates[0].parts, hair: key, neck: 'none', hat: 'none' }
+          };
+          sample.packs[looks.core] = looks.editingRelease(sample);
+          swatchActors.set(key, looks.build(sample));
+        }
+        thumbnails.set(canvas, { actor: swatchActors.get(key), bearing: 140 });
+        paintThumbnail(canvas);
+      }
+      if (stagger && key !== draft.parts.hair) {
+        if (!thumbnails.has(canvas)) {
+          canvas.width = Math.max(1, canvas.clientWidth);
+          canvas.height = Math.max(1, canvas.clientHeight);
+        }
+        pending.push(draw);
+      } else draw();
     }
     // On a dye change the mirror and selected card update first. Let the picker
     // accept more input between the remaining voxel portraits.
     function nextCard() {
       if (!cards.isConnected) return;
-      paintThumbnail(pending.shift());
+      pending.shift()();
       if (pending.length) swatchFrame = requestAnimationFrame(nextCard);
     }
     if (pending.length) swatchFrame = requestAnimationFrame(nextCard);
@@ -487,8 +628,27 @@
     cards.className = 'hair-cards';
     cards.setAttribute('role', 'group');
     cards.setAttribute('aria-label', '选择发型');
-    area.append(hairColorFields(cards), cards);
+    const filters = document.createElement('div');
+    filters.className = 'category-buttons';
+    filters.setAttribute('role', 'group');
+    filters.setAttribute('aria-label', '发型类别');
+    if (!hairGroup) hairGroup = looks.hairGroups[draft.parts.hair] || '短发';
+    for (const group of ['全部', '短发', '中长发', '束发', '卷发', '编发']) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = group;
+      b.dataset.hairGroup = group;
+      b.setAttribute('aria-pressed', String(group === hairGroup));
+      b.onclick = () => {
+        hairGroup = group;
+        fields();
+        document.querySelector('[data-hair-group="' + group + '"]')?.focus({ preventScroll: true });
+      };
+      filters.append(b);
+    }
+    area.append(filters, cards);
     for (const [key, name] of Object.entries(looks.slots.hair)) {
+      if (hairGroup !== '全部' && looks.hairGroups[key] !== hairGroup) continue;
       const button = document.createElement('button'),
         canvas = document.createElement('canvas');
       button.type = 'button';
@@ -503,7 +663,7 @@
         }
       };
     }
-    paintHairCards(cards);
+    paintHairCards(cards, true);
     const row = document.createElement('div'),
       caption = document.createElement('span');
     row.className = 'hair-angles';
@@ -522,7 +682,7 @@
       b.onclick = () => orbit(angle);
       row.append(b);
     }
-    area.append(row);
+    area.append(row, hairColorFields(cards));
     orientation();
     markPresets();
   }
@@ -553,14 +713,105 @@
       markPresets();
       return;
     }
-    const grid = document.createElement('div');
-    grid.className = 'color-grid';
-    for (const [key, text] of Object.entries({ ...looks.colors, ...looks.gearColors })) {
-      const label = document.createElement('label');
-      label.append(colorInput(key), text);
-      grid.append(label);
+    colorFields(area);
+  }
+  function colorFields(area) {
+    const palette = document.createElement('fieldset'),
+      legend = document.createElement('legend'),
+      tabs = document.createElement('div'),
+      swatches = document.createElement('div');
+    palette.className = 'preset-group';
+    legend.textContent = '预设色卡';
+    tabs.className = 'category-buttons';
+    swatches.className = 'hair-color-options';
+    const colorNames = { ...looks.colors, ...looks.portraitColors, ...looks.gearColors };
+    const palettes = { ...looks.colorPresets, hair: looks.hairColors };
+    function refresh() {
+      swatches.replaceChildren();
+      for (const b of tabs.children)
+        b.setAttribute('aria-pressed', String(b.dataset.palette === paletteSlot));
+      for (const [label, value] of Object.entries(palettes[paletteSlot])) {
+        const b = document.createElement('button'),
+          chip = document.createElement('i');
+        b.type = 'button';
+        b.dataset.swatch = value;
+        b.setAttribute(
+          'aria-pressed',
+          String((draft.colors[paletteSlot] || looks.gearColor(draft.colors, paletteSlot)) === value)
+        );
+        chip.setAttribute('aria-hidden', 'true');
+        chip.style.backgroundColor = value;
+        b.append(chip, label);
+        b.onclick = () => {
+          const field = $('color-' + paletteSlot);
+          field.value = value;
+          field.dispatchEvent(new Event('input'));
+        };
+        swatches.append(b);
+      }
     }
-    area.append(grid);
+    for (const key of Object.keys(palettes)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.palette = key;
+      b.textContent = colorNames[key];
+      b.onclick = () => {
+        paletteSlot = key;
+        refresh();
+      };
+      tabs.append(b);
+    }
+    palette.append(legend, tabs, swatches);
+    area.append(palette);
+    const sections = [
+      ['人物配色', ['skin', 'hair', 'eyes', ...Object.keys(looks.portraitColors)]],
+      ['衣物配色', ['top', 'bottom', 'shoes', 'accent', 'hat']],
+      ['配件配色', Object.keys(looks.gearColors).filter((k) => k !== 'hat')]
+    ];
+    for (const [caption, keys] of sections) {
+      const section = document.createElement('fieldset'),
+        title = document.createElement('legend'),
+        grid = document.createElement('div');
+      section.className = 'preset-group';
+      title.textContent = caption;
+      grid.className = 'color-grid';
+      for (const key of keys) {
+        const item = document.createElement('div'),
+          label = document.createElement('label'),
+          reset = document.createElement('button');
+        item.className = 'dye-setting';
+        const input = colorInput(key, () => {
+          reset.disabled = false;
+          for (const inherited of Object.keys({ ...looks.portraitColors, ...looks.gearColors })) {
+            const field = $('color-' + inherited);
+            if (field && !Object.hasOwn(draft.colors, inherited))
+              field.value = looks.gearColor(draft.colors, inherited);
+          }
+          if (paletteSlot === key) refresh();
+        });
+        label.append(input, colorNames[key]);
+        item.append(label);
+        if (!Object.hasOwn(looks.colors, key)) {
+          reset.type = 'button';
+          reset.textContent = '↺';
+          reset.title = '恢复默认' + colorNames[key];
+          reset.setAttribute('aria-label', reset.title);
+          reset.disabled = !Object.hasOwn(draft.colors, key);
+          reset.onclick = () => {
+            delete draft.colors[key];
+            input.value = looks.gearColor(draft.colors, key);
+            reset.disabled = true;
+            changed();
+            if (paletteSlot === key) refresh();
+          };
+          item.append(reset);
+        }
+        grid.append(item);
+      }
+      section.append(title, grid);
+      area.append(section);
+    }
+    refresh();
   }
   function wearFields(area) {
     const apply = (outfit) => looks.applyOutfit(draft, outfit);
@@ -587,6 +838,7 @@
       clothing.append(
         picker(names[slot], slot, Object.entries(options), draft.parts[slot], (v) => {
           draft.parts[slot] = v;
+          if (slot === 'hair') hairGroup = looks.hairGroups[v];
         })
       );
     }
@@ -620,11 +872,12 @@
         }
       )
     );
-    const gear = group('随身配件'),
+    const head = group('头部配件'),
+      gear = group('随身与衣物配件'),
       devices = group('动作道具');
     for (const [slot, options] of Object.entries(looks.wearables)) {
       const device = slot === 'phone' || slot === 'laptop';
-      (device ? devices : gear).append(
+      (device ? devices : ['glasses', 'ears', 'audio', 'hairAccessory'].includes(slot) ? head : gear).append(
         picker(
           names[slot],
           slot,
@@ -664,6 +917,7 @@
   }
   function activate(doc, key, isSaved) {
     draft = clone(doc);
+    hairGroup = looks.hairGroups[draft.parts.hair] || '短发';
     if (!isSaved) draft.id = looks.newId();
     saved = isSaved;
     dirty = false;
@@ -919,6 +1173,173 @@
     stamp = null;
     schedule();
   });
+  const queryField = $('style-query'),
+    searchPanel = $('style-results'),
+    matches = $('style-matches');
+  const aliases = {
+    eyes: '眼睛 眼皮 眼尾',
+    brows: '眉毛',
+    nose: '鼻子 鼻尖 鼻梁',
+    mouth: '嘴 嘴巴 嘴唇',
+    iris: '眼珠 瞳孔 虹膜',
+    complexion: '皮肤 印记',
+    facialHair: '胡子 胡须',
+    makeup: '化妆 彩妆',
+    hair: '头发 发型',
+    hairAccessory: '头饰 发饰 发夹',
+    ears: '耳环 耳钉 耳坠',
+    wrist: '手链 手镯 手表',
+    audio: '耳机 耳罩 助听器',
+    bag: '包 背包 挎包',
+    top: '服饰 服装 衣服 上装',
+    bottom: '服饰 裤子 裙子',
+    shoes: '鞋子 鞋靴',
+    neck: '项链 围巾 领带',
+    hat: '帽饰 帽子',
+    gloves: '手套'
+  };
+  function searchStyles() {
+    matches.replaceChildren();
+    const words = queryField.value.normalize('NFKC').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    searchPanel.hidden = !words.length;
+    if (!words.length) return;
+    const results = [];
+    function collect(slot, value, label, tab, caption = names[slot], hint = '') {
+      const haystack = [label, caption, value, slot, aliases[slot], hint]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      if (words.every((word) => haystack.includes(word)))
+        results.push({
+          slot,
+          value,
+          label,
+          tab,
+          caption,
+          rank: words.every((w) => label.toLowerCase().includes(w)) ? 0 : 1
+        });
+    }
+    for (const [slot, options] of Object.entries({
+      ...looks.features,
+      ...looks.faceDetails,
+      ...looks.slots,
+      ...looks.wearables
+    })) {
+      const dest =
+        Object.hasOwn(looks.features, slot) || Object.hasOwn(looks.faceDetails, slot)
+          ? 'face'
+          : slot === 'hair'
+            ? 'hair'
+            : 'wear';
+      const category =
+        dest === 'face'
+          ? '五官 脸部'
+          : slot === 'hair'
+            ? ''
+            : Object.hasOwn(looks.wearables, slot) || slot === 'neck'
+              ? '配饰 配件'
+              : '服饰 衣物';
+      for (const [id, label] of Object.entries(options))
+        collect(slot, id, label, dest, names[slot], slot === 'hair' ? looks.hairGroups[id] : category);
+    }
+    for (const pack of looks.catalog.values()) {
+      if (pack.id === looks.core && pack.release !== looks.release) continue;
+      for (const h of pack.parts) collect('hat', pack.id + '/' + h.id + '@' + pack.release, h.label, 'wear');
+    }
+    for (const [id, outfit] of Object.entries(looks.outfits))
+      collect('outfit', id, outfit.label, 'wear', '成套穿搭');
+    for (const [id, p] of Object.entries(looks.facePresets))
+      collect('facePreset', id, p.label, 'face', '五官组合');
+    for (const [name, id] of Object.entries(looks.hairColors)) collect('hairColor', id, name, 'hair', '发色');
+    for (const [slot, swatches] of Object.entries(looks.colorPresets))
+      for (const [label, value] of Object.entries(swatches))
+        collect(
+          'color-' + slot,
+          value,
+          label,
+          'colors',
+          looks.colors[slot] || looks.portraitColors[slot],
+          '配色'
+        );
+    results.sort((a, b) => a.rank - b.rank);
+    $('style-count').textContent = results.length ? '找到 ' + results.length + ' 款' : '没有匹配的款式';
+    let offset = 0;
+    function display() {
+      matches.querySelector('.more-results')?.remove();
+      for (const item of results.slice(offset, offset + 12)) {
+        const b = document.createElement('button'),
+          part = document.createElement('small');
+        b.type = 'button';
+        b.dataset.match = item.slot + '/' + item.value;
+        part.textContent = item.caption;
+        b.append(item.label, part);
+        b.onclick = () => {
+          queryField.value = '';
+          searchStyles();
+          if (item.slot === 'hair') hairGroup = looks.hairGroups[item.value];
+          if (tab !== item.tab) changeTab($('tab-' + item.tab));
+          else if (item.slot === 'hair') fields();
+          if (item.slot.startsWith('color-')) {
+            const key = item.slot.slice(6);
+            document.querySelector('[data-palette="' + key + '"]')?.click();
+            const field = $(item.slot);
+            field.value = item.value;
+            field.dispatchEvent(new Event('input'));
+            field.focus({ preventScroll: true });
+            return;
+          }
+          const data = {
+            hair: 'hair-style',
+            outfit: 'outfit',
+            facePreset: 'face-preset',
+            hairColor: 'hair-color'
+          }[item.slot];
+          if (data) {
+            const option = document.querySelector('[data-' + data + '="' + item.value + '"]');
+            option?.click();
+            document
+              .querySelector('[data-' + data + '="' + item.value + '"]')
+              ?.focus({ preventScroll: true });
+          } else {
+            let field = $('edit-' + item.slot),
+              value = item.value;
+            if (item.slot === 'hat' && value.startsWith(looks.core + '/'))
+              value = [...field.options].find((o) => o.value.split('@')[0] === value.split('@')[0])?.value;
+            if (!field || !value) return;
+            field.value = value;
+            field.dispatchEvent(new Event('change'));
+            $('edit-' + item.slot)?.focus({ preventScroll: true });
+          }
+        };
+        matches.append(b);
+      }
+      offset += 12;
+      if (offset < results.length) {
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'more-results';
+        more.textContent = '显示更多';
+        more.onclick = display;
+        matches.append(more);
+      }
+    }
+    display();
+  }
+  queryField.oninput = searchStyles;
+  queryField.onkeydown = (e) => {
+    if (e.key === 'Escape') {
+      queryField.value = '';
+      searchStyles();
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      matches.querySelector('button')?.focus();
+    }
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      matches.querySelector('button')?.click();
+    }
+  };
   const query = new URLSearchParams(location.search);
   const stored = wardrobe.saved.get(query.get('saved'));
   const first = stored || looks.templates.find((doc) => doc.id === query.get('preset')) || looks.templates[0];
@@ -936,7 +1357,9 @@
   const requestedHair = query.get('hair');
   if (Object.hasOwn(looks.slots.hair, requestedHair) && requestedHair !== draft.parts.hair) {
     draft.parts.hair = requestedHair;
+    hairGroup = looks.hairGroups[requestedHair];
     changed();
+    if (tab === 'hair') fields();
   }
   const openingAngle = Number(query.get('bearing') || NaN);
   if (Number.isInteger(openingAngle) && openingAngle >= 0 && openingAngle <= 360) orbit(openingAngle);
