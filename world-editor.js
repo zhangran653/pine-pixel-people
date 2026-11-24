@@ -253,6 +253,7 @@
     hint.hidden = !hasSpaces && !isCast;
     hint.textContent = target !== undefined ? '首段动作跟随「' + labelAt(list, target) + '」。这里设置自由动作的起点。' :
       item?.parent !== undefined ? '坐标相对「' + labelAt(list, item.parent) + '」，高度 0 是室内地面。' :
+      isCast && hasSpaces ? '高度相对场景地面。人物走进有底座的建筑，会自动站到地板上。' :
       (item?.kind && W.items.get(item.kind).interior ? '移动或旋转建筑，里面的人物和物件会一起移动。' : '坐标相对整个场景。');
     for (const k of ['x', 'y', 'z', 'heading']) {
       const field = $('place-' + k);

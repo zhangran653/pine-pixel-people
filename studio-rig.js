@@ -144,6 +144,21 @@ const studioRig = (() => {
     const glide = reach * 0.075 * open * open;
     return frame(rig.jawPivot, [glide, 0, -0.35 * glide], 0, 0.38 * open, 0);
   }
+  // A fixed desk or a planted foot can straddle a step. Keep the upper-body pose and its contacts.
+  function clearFootSurfaces(rig, pose, surfaces, rootZ, baseZ) {
+    if (!pose.legs || !pose.feet) return pose;
+    const feet = pose.feet.slice(), legs = pose.legs.slice();
+    let changed = false;
+    for (const [i, old] of pose.feet.entries()) {
+      const ankle = surfaces[i] - rootZ + rig.ankle;
+      if (surfaces[i] <= baseZ + 1e-8 || ankle <= old[2] + 1e-8) continue;
+      const { hip, knee } = legs[i], pole = knee.map((v, j) => v - hip[j]);
+      feet[i] = [old[0], old[1], ankle];
+      legs[i] = { ...legs[i], knee: joint(hip, feet[i], rig.thigh, rig.shin, pole) };
+      changed = true;
+    }
+    return changed ? { ...pose, feet, legs } : pose;
+  }
   function pose(rig, channels = {}) {
     const torso = frame(
       rig.pelvis,
@@ -225,6 +240,7 @@ const studioRig = (() => {
     bindSockets,
     socket,
     mandibleFrame,
+    clearFootSurfaces,
     pose,
     point,
     frame,

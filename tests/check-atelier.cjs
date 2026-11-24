@@ -730,7 +730,7 @@ function checkWorldEditor() {
     set('place-x', 32);
     set('place-heading', 90);
     const nested = scenePlan(), lamp = nested.worldScene[lampIndex];
-    check(nested.score.scene[lampIndex].parent === 0 && Math.abs(lamp.z - 26.71) < 1e-7, 'lamp height round-trips');
+    check(nested.score.scene[lampIndex].parent === 0 && Math.abs(lamp.z - 26.2) < 1e-7, 'lamp height round-trips');
     check(Math.abs(nested.castFrame.x - 25) < 1e-7 && nested.score.actorPlacement.parent === 0, 'the room rotates the cast');
     get('remove-place').click();
     const freed = scenePlan(), removed = freed.worldScene[lampIndex - 1];
@@ -754,7 +754,25 @@ function checkWorldEditor() {
     set('place-parent', String(roomIndex));
     check(get('place-x').valueAsNumber === 0 && get('place-z').valueAsNumber === 0, 'move a distant item onto the indoor floor');
     set('place-parent', '');
-    check(Math.abs(get('place-z').valueAsNumber - 5.61) < 0.001, 'moving back out keeps its height');
+    check(Math.abs(get('place-z').valueAsNumber - 5.1) < 0.001, 'moving back out keeps its height');
+    set('world-scene', 'study');
+    set('world-query', '摊位', 'input');
+    get('place-item').click();
+    set('place-x', -17);
+    set('place-y', 18);
+    const covered = scenePlan();
+    check(covered.score.actorPlacement === undefined && covered.score.scene[0].z === 0,
+      'adding a stall preserves the original authoring coordinates and hierarchy');
+    check(Math.abs(covered.sample(0)[0].z - 4.7) < 1e-7 &&
+      Math.abs(covered.worldScene.find(p => p.kind === 'lamp').z - 25.8) < 1e-7,
+      'the actor, desk and lamp move onto the actual floor before grouping anything');
+    set('world-clip', 'idle');
+    get('select-cast').click();
+    set('place-x', 70);
+    check(scenePlan().sample(0)[0].z === 0, 'walkable support ends outside the stall footprint');
+    set('place-x', -17);
+    set('world-detail', 'standard');
+    check(Math.abs(scenePlan().sample(0)[0].z - 4.7) < 1e-7, 'returning to the stall uses its floor at standard quality too');
     status.dataset.state = 'pass';
     status.textContent =
       'World filters, scene placement, interior views, hierarchy edits, rotation, quality, playback, and score handoff passed';

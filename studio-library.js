@@ -370,6 +370,7 @@ const studioLibrary = (() => {
       version: 1,
       loop: true,
       scene: PineWorld.scenes[scene].objects.map((p) => ({ ...p })),
+      ...(PineWorld.scenes[scene].actorPlacement ? { actorPlacement: { ...PineWorld.scenes[scene].actorPlacement } } : {}),
       steps: steps.map(([action, person]) => built(action, ['look_' + person]))
     };
   }
@@ -419,7 +420,8 @@ const studioLibrary = (() => {
     if (input.loop !== undefined && typeof input.loop !== 'boolean') throw new Error('loop 须为布尔值');
     const layout = input.scene !== undefined || input.actorPlacement !== undefined
       ? PineWorld.layout(input.scene === undefined ? [] : input.scene, input.actorPlacement) : { worldScene: [] };
-    const { worldScene, castFrame } = layout;
+    const { worldScene, castFrame, floorAt } = layout;
+    const origin = { x: 0, y: 0, z: 0, heading: 0 };
     const score = {
         version: 1,
         ...(input.detail === undefined ? {} : { detail: PineWorld.detailMode(input.detail) }),
@@ -472,20 +474,42 @@ const studioLibrary = (() => {
         frame = { x: destination.x - c * origin[0] + s * origin[1],
           y: destination.y - s * origin[0] - c * origin[1], z: destination.z - origin[2], heading };
       }
+      let surfaces;
+      if (floorAt && entries.length) {
+        const base = frame || origin;
+        surfaces = entries.map(e => {
+          const [x, y] = studioRig.world(base, [e.x, e.y, 0]);
+          const root = { x, y, z: 0, heading: base.heading + e.heading };
+          if (!e.pose.feet?.length) return [floorAt(x, y, base.z)];
+          return e.pose.feet.map(foot => {
+            const [fx, fy] = studioRig.world(root, foot);
+            return floorAt(fx, fy, base.z);
+          });
+        });
+        if (cue.step.target === undefined) {
+          // The planted shoe sets the common base even while running or carrying another actor.
+          const feet = entries[0].pose.feet, levels = surfaces[0];
+          const level = feet?.length === 2 && Math.abs(feet[0][2] - feet[1][2]) > 1e-6
+            ? levels[feet[0][2] < feet[1][2] ? 0 : 1] : Math.min(...levels);
+          if (level > base.z) frame = { ...base, z: level };
+        }
+        if (!frame && surfaces.some(levels => levels.some(z => z > 0))) frame = origin;
+      }
       if (!frame) return entries;
       return entries.map((e, i) => {
         const [x, y, z] = studioRig.world(frame, [e.x, e.y, e.z]);
         const result = { ...e, x, y, z, heading: e.heading + frame.heading };
+        if (surfaces?.[i].some(h => h > frame.z + 1e-8))
+          result.pose = studioRig.clearFootSurfaces(cast.get(e.character).rig, e.pose, surfaces[i], z, frame.z);
         if (e.contacts) result.contacts = Object.fromEntries(Object.entries(e.contacts)
           .map(([name, point]) => [name, studioRig.world(frame, point)]));
         if (i === 0 && cue.step.target !== undefined && cue.clip.station === 'lamp')
-          result.pose = { ...e.pose, props: e.pose.props.filter(p => p.kind !== 'desk') };
+          result.pose = { ...result.pose, props: result.pose.props.filter(p => p.kind !== 'desk') };
         return result;
       });
     }
     function scenery(t) {
-      const target = locate(t)?.step.target;
-      return target === undefined ? worldScene : worldScene.filter((_, index) => index !== target);
+      return layout.scenery ? layout.scenery(locate(t)?.step.target) : worldScene;
     }
     return { score, worldScene, castFrame, starts, duration, locate, sample, scenery };
   }

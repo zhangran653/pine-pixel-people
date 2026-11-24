@@ -239,19 +239,21 @@ const PineWorld = (() => {
     ])
       oval([x, y, z], [1.7, 1.5, 0.8], k.crystal);
   });
+  // Both sampling densities have a voxel boundary at these floor heights.
+  const stoneFloor = 2, domeFloor = 6, stallEaves = 28;
   function building(style) {
     return ({ box, oval, line, k }) => {
       if (style === 'dome') {
         oval([0, 0, 3], [22, 20, 3], k.iron, 3);
         oval([0, 0, 5], [20, 18, 17], (x, y, z) =>
-          z <= 6 || (x / 18.5) ** 2 + (y / 16.5) ** 2 + ((z - 5) / 15.5) ** 2 >= 1 ? k.steelBlue : 0);
+          z <= domeFloor || (x / 18.5) ** 2 + (y / 16.5) ** 2 + ((z - 5) / 15.5) ** 2 >= 1 ? k.steelBlue : 0);
         for (const y of [-8, 0, 8]) box([16, y, 9], [2.3, 2.2, 2], k.crystal);
         box([19, 0, 5], [3, 4.5, 5], k.night);
         return;
       }
       const pavilion = style === 'pavilion',
         stall = style === 'stall';
-      box([0, 0, 1.1], [16, 14, 1.1], k.stone);
+      box([0, 0, stoneFloor / 2], [16, 14, stoneFloor / 2], k.stone);
       if (!pavilion && !stall) {
         for (const side of [-1, 1]) {
           box([side * 13.2, 0, 11.4], [0.6, 11.8, 9.4], k.linen);
@@ -263,11 +265,13 @@ const PineWorld = (() => {
           box([14.55, y, 13], [0.3, 0.4, 2.5], k.timber);
         }
       }
+      const postTop = stall ? stallEaves + 1.2 : 21.8, postBase = 1.8;
       for (const x of [-12, 12])
-        for (const y of [-10, 10]) box([x, y, 11.8], [1.15, 1.15, 10], pavilion ? k.tile : k.wood);
+        for (const y of [-10, 10]) box([x, y, (postTop + postBase) / 2],
+          [1.15, 1.15, (postTop - postBase) / 2], pavilion ? k.tile : k.wood);
       if (stall) {
         box([9, 0, 10], [4, 11.8, 1], k.timber);
-        for (let j = -3; j <= 3; j++) box([0, j * 4, 22], [16, 2, 1.2], j % 2 ? k.teal : k.linen);
+        for (let j = -3; j <= 3; j++) box([0, j * 4, stallEaves + 1.2], [16, 2, 1.2], j % 2 ? k.teal : k.linen);
       } else
         for (let i = 0; i < 8; i++) {
           const rx = pavilion ? 17 - i : 16,
@@ -284,6 +288,7 @@ const PineWorld = (() => {
     ['dome', '观测站穹顶', ['scifi']]
   ])
     item(id, label, 'buildings', eras, [48, 44, 36], 0, {}, building(id));
+  const deskTop = { x: 10, y: 17, height: 21.1 };
   function furniture(kind) {
     return ({ box, line, oval, k, item }) => {
       if (kind === 'lamp') {
@@ -297,8 +302,8 @@ const PineWorld = (() => {
       }
       const desk = kind === 'desk',
         bench = kind === 'bench',
-        x = desk ? 10 : 5.2,
-        y = desk ? 17 : bench ? 14 : 5.4,
+        x = desk ? deskTop.x : 5.2,
+        y = desk ? deskTop.y : bench ? 14 : 5.4,
         z = desk ? 20 : 12;
       for (const dx of [-1, 1])
         for (const dy of [-1, 1]) box([dx * (x - 1.4), dy * (y - 1.4), z / 2], [0.9, 0.9, z / 2], k.bark);
@@ -313,7 +318,7 @@ const PineWorld = (() => {
       }
     };
   }
-  item('desk', '木制书桌', 'furniture', all, [24, 38, 24], 0, { surface: [0, 0, 21.1] }, furniture('desk'));
+  item('desk', '木制书桌', 'furniture', all, [24, 38, 24], 0, { surface: [0, 0, deskTop.height] }, furniture('desk'));
   item('chair', '靠背椅', 'furniture', all, [15, 15, 24], 0, { seat: [0, 0, 13.1] }, furniture('chair'));
   item('bench', '公园长椅', 'furniture', all, [16, 33, 24], 0, { seat: [0, 0, 13.1] }, furniture('bench'));
   item('lamp', '可开关台灯', 'furniture', both, [17, 11, 16], 0, { switch: [2, 0, 1.4] }, furniture('lamp'));
@@ -484,8 +489,8 @@ const PineWorld = (() => {
   for (const def of items.values()) def.scale = scales[def.id] || 1;
   // Heights in the asset's sampling box, before its display scale.
   for (const [id, floor, cutHeight, halfX, halfY] of [
-    ['pavilion', 2.2, 20, 16, 14], ['stall', 2.2, 20, 16, 14],
-    ['cottage', 2.2, 19.8, 12.6, 10.6], ['dome', 6, 13, 13, 11]
+    ['pavilion', stoneFloor, 20, 16, 14], ['stall', stoneFloor, stallEaves, 16, 14],
+    ['cottage', stoneFloor, 19.8, 12.6, 10.6], ['dome', domeFloor, 13, 13, 11]
   ]) items.get(id).interior = { floor, cutHeight, footprint: [halfX, halfY] };
   function register(def, paint) {
     const { id, label, family, realms: eras, box, lift = 0, scale = 1, anchors = {} } = def;
@@ -647,6 +652,7 @@ const PineWorld = (() => {
     },
     market: {
       label: '古镇集市',
+      actorPlacement: { parent: 0, x: -8, y: 8, heading: 0.2 },
       objects: [place('stall', -36, 38), place('handcart', -8, -21), place('lantern', -10, 22, 11)]
     },
     grove: {
@@ -694,6 +700,52 @@ const PineWorld = (() => {
       heading: Math.abs(angle) <= Math.PI ? angle : Math.atan2(Math.sin(angle), Math.cos(angle))
     };
   }
+  function horizontalSurface(p, halfX, halfY, bottom, top) {
+    return { x: p.x, y: p.y, c: Math.cos(p.heading), s: Math.sin(p.heading), halfX, halfY, bottom, top };
+  }
+  function covers(surface, x, y) {
+    const dx = x - surface.x, dy = y - surface.y;
+    return Math.abs(surface.c * dx + surface.s * dy) <= surface.halfX + 1e-8 &&
+      Math.abs(surface.c * dy - surface.s * dx) <= surface.halfY + 1e-8;
+  }
+  function supportScene(placements) {
+    const floors = [];
+    for (const p of placements) {
+      const { interior, scale } = items.get(p.kind);
+      if (interior) floors.push(horizontalSurface(p, interior.footprint[0] * scale, interior.footprint[1] * scale,
+        p.z, p.z + interior.floor * scale));
+    }
+    if (!floors.length) return;
+    // Walk up connected slabs in order. A raised building with air underneath stays overhead.
+    floors.sort((a, b) => a.bottom - b.bottom);
+    function floorAt(x, y, z = 0) {
+      let height = z;
+      for (const floor of floors) {
+        if (floor.bottom > Math.max(0, height) + 1e-8) break;
+        if (floor.top > height && covers(floor, x, y)) height = floor.top;
+      }
+      return height;
+    }
+    const liftedDesks = [];
+    placements.forEach((p, i) => {
+      if (items.get(p.kind).interior) return;
+      const z = floorAt(p.x, p.y, p.z);
+      if (z === p.z) return;
+      placements[i] = { ...p, z };
+      if (p.kind === 'desk') liftedDesks.push(horizontalSurface(p, deskTop.x, deskTop.y,
+        p.z + deskTop.height, z + deskTop.height));
+    });
+    // Keep articles resting on a moved desktop in contact with it, including a bound lamp.
+    if (liftedDesks.length) placements.forEach((p, i) => {
+      if (items.get(p.kind).interior || p.kind === 'desk') return;
+      let z = p.z;
+      for (const top of liftedDesks)
+        if (Math.abs(p.z - top.bottom) < 1e-6 && covers(top, p.x, p.y)) z = Math.max(z, top.top);
+      if (z !== p.z) placements[i] = { ...p, z };
+    });
+    return floorAt;
+  }
+  const resolvedScenes = new WeakSet();
   function layout(raw, actor) {
     if (!Array.isArray(raw) || raw.length > 64) throw Error('场景最多容纳 64 个物件');
     const scene = Array.from(raw, p => placement(p, raw)), worldScene = [], visiting = new Set();
@@ -707,13 +759,24 @@ const PineWorld = (() => {
       return worldScene[i];
     }
     scene.forEach((_, i) => resolve(i));
+    const floorAt = supportScene(worldScene);
+    resolvedScenes.add(worldScene);
+    const views = new Map([[undefined, worldScene]]);
+    function scenery(target) {
+      if (!views.has(target)) {
+        const visible = worldScene.filter((_, i) => i !== target);
+        resolvedScenes.add(visible);
+        views.set(target, visible);
+      }
+      return views.get(target);
+    }
     const actorPlacement = actor === undefined ? undefined : placement(actor, raw, true);
     const castFrame = actorPlacement?.parent === undefined ? actorPlacement :
       inside(worldScene[actorPlacement.parent], actorPlacement);
-    return { scene, worldScene, actorPlacement, castFrame };
+    return { scene, worldScene, actorPlacement, castFrame, floorAt, scenery };
   }
   const normalize = raw => layout(raw).scene;
-  const resolveScene = raw => layout(raw).worldScene;
+  const resolveScene = raw => resolvedScenes.has(raw) ? raw : layout(raw).worldScene;
   function ancestors(scene, i) {
     const path = [];
     while (i !== undefined) {

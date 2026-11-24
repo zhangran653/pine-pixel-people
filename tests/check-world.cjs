@@ -47,7 +47,7 @@ const pavilionBook = {
 };
 {
   const plan = motion.compile(pavilionBook), xyz = p => [p.x, p.y, p.z];
-  const floor = 4 + 2.2 * 2.55 + 1 + 2.2 * 2.35;
+  const floor = 4 + 2 * 2.55 + 1 + 2 * 2.35;
   const close = (a, b) => assert.ok(distance(a, b) < 1e-7, JSON.stringify([a, b]));
   close(xyz(plan.worldScene[0]), [24, -2, floor + 21.1]);
   close(xyz(plan.castFrame), [16, -4, floor]);
@@ -113,8 +113,8 @@ const pavilionBook = {
   const collected = motion.compile(world.collectContents(gather, 0));
   assert.deepEqual(Array.from(collected.score.scene, p => p.parent), [undefined, 0, 0, undefined]);
   assert.equal(collected.score.actorPlacement.parent, 0);
-  close(xyz(collected.worldScene[1]), [6, 10, 2.55 * 2.2]);
-  close(xyz(collected.worldScene[2]), [9, 13, 21.1 + 2.55 * 2.2]);
+  close(xyz(collected.worldScene[1]), [6, 10, 5.1]);
+  close(xyz(collected.worldScene[2]), [9, 13, 21.1 + 5.1]);
   assert.equal(world.collectContents(collected.score, 0), collected.score);
   for (const kind of ['pavilion', 'stall', 'cottage', 'dome']) {
     for (const detail of ['standard', 'figure']) {
@@ -125,6 +125,94 @@ const pavilionBook = {
       assert.equal(far[1].model.bounds[3], opposite[1].model.bounds[0]);
       assert.deepEqual([...world.geometry(kind, detail).model.bounds], bounds);
     }
+  }
+}
+// Check against the actual first empty voxel above the slab, independently of building metadata.
+const flatStall = { version: 1, scene: [world.place('stall')], steps: [{ action: 'idle', actors: ['look_scholar'] }] };
+const stallOffice = { ...flatStall, scene: [
+  world.place('desk', -8, 0), world.place('lamp', -8, 3, 21.1), world.place('book', -7, -4, 21.1),
+  world.place('book', 34, 0, 21.1), world.place('stall')],
+  steps: [{ action: 'desk-code', actors: ['look_programmer'], target: 0 },
+    { action: 'switch-lamp', actors: ['look_programmer'], target: 1 }] };
+{
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-7, a + ' vs ' + b);
+  for (const detail of ['standard', 'figure']) {
+    for (const kind of ['stall', 'pavilion', 'cottage', 'dome']) {
+      const { body, model } = world.geometry(kind, detail), { nx, ny, density } = body;
+      const column = z => model.colors[(z * ny + (ny >> 1)) * nx + (nx >> 1)];
+      let layer = 0;
+      while (layer < body.nz && column(layer)) layer++;
+      const surface = layer / density;
+      assert.ok(surface > 0 && layer < body.nz);
+      const score = { ...flatStall, detail, scene: [world.place(kind)] };
+      const natural = motion.compile(score), member = motion.compile({ ...score, actorPlacement: { parent: 0 } });
+      near(natural.sample(0)[0].z, surface);
+      near(member.sample(0)[0].z, surface);
+      near(motion.compile({ ...score, actorPlacement: { parent: 0, z: 3 } }).sample(0)[0].z, surface + 3);
+      assert.deepEqual(clone(store.readScoreFile(store.scoreFile(natural.score)).score), clone(natural.score));
+      assert.ok(!Object.hasOwn(natural.score, 'actorPlacement'));
+      if (kind === 'stall') {
+        let roof = layer;
+        while (roof < body.nz && !column(roof)) roof++;
+        const actor = find('look_scholar'), pose = natural.sample(0)[0].pose;
+        assert.ok(roof / density > surface + actor.body.makePose(pose).bounds[5] / actor.body.density);
+      }
+    }
+  }
+  const height = score => motion.compile({ ...flatStall, ...score }).sample(0)[0].z;
+  near(height({ actorPlacement: { z: 2 } }), 4.7);
+  near(height({ actorPlacement: { z: 12 } }), 12);
+  near(height({ actorPlacement: { x: 64 } }), 0);
+  near(height({ scene: [world.place('stall', 0, 0, 30)] }), 0);
+  near(height({ scene: [world.place('stall', 0, 0, 30)], actorPlacement: { parent: 0 } }), 34.7);
+  const nested = [world.place('pavilion'), { kind: 'stall', parent: 0 }];
+  near(height({ scene: nested }), 5.1 + 4.7);
+  near(height({ scene: [{ kind: 'stall', parent: 1 }, nested[0]] }), 5.1 + 4.7);
+  near(height({ scene: [world.place('pavilion'), world.place('stall')] }), 5.1);
+  const rot = world.layout([world.place('stall', 20, 30, 0, Math.PI / 2)]);
+  near(rot.floorAt(20, 65), 4.7);
+  near(rot.floorAt(55, 30), 0);
+  for (const action of ['run', 'jump', 'cradle']) {
+    const steps = [{ action, actors: action === 'cradle' ? ['mother', 'baby'] : ['look_scholar'] }];
+    const flat = motion.compile({ version: 1, steps }), raised = motion.compile({ ...flatStall, steps });
+    for (const phase of [0, 0.16, 0.5, 0.73, 1]) {
+      const at = phase * flat.duration, old = flat.sample(at), onFloor = raised.sample(at);
+      old.forEach((e, i) => {
+        near(onFloor[i].z, e.z + 4.7);
+        if (e.contacts) for (const [key, pt] of Object.entries(e.contacts)) near(onFloor[i].contacts[key][2], pt[2] + 4.7);
+      });
+    }
+  }
+  const run = motion.compile({ ...flatStall, scene: [world.place('stall', 0, -20)],
+    steps: [{ action: 'run', actors: ['look_scholar'] }] });
+  near(run.sample(0)[0].z, 4.7);
+  near(run.sample(run.duration / 2)[0].z, 0);
+  near(run.sample(run.duration)[0].z, 4.7);
+  const edge = motion.compile({ ...flatStall, actorPlacement: { y: 32.9 } }).sample(0)[0];
+  const ordinary = motion.compile({ ...flatStall, scene: [] }).sample(0)[0];
+  const ankle = find('look_scholar').rig.ankle;
+  for (const [i, foot] of edge.pose.feet.entries()) {
+    const p = motion.rig.world(edge, foot);
+    near(p[2] - ankle, p[1] <= 32.9 ? 4.7 : 0);
+    if (p[1] <= 32.9) assert.notDeepEqual(clone(edge.pose.legs[i].knee), clone(ordinary.pose.legs[i].knee));
+  }
+  assert.deepEqual(clone(edge.pose.arms), clone(ordinary.pose.arms));
+  const office = motion.compile(stallOffice);
+  near(office.worldScene[0].z, 4.7);
+  near(office.worldScene[1].z, 25.8);
+  near(office.worldScene[2].z, 25.8);
+  near(office.worldScene[3].z, 21.1);
+  for (const [i, cue] of office.score.steps.entries()) {
+    const t = office.starts[i] + cue.seconds * 0.3, e = office.sample(t)[0];
+    const destination = office.worldScene[cue.target], fixture = e.pose.props.find(p => p.kind === destination.kind);
+    near(e.z, 4.7);
+    near(motion.rig.world(e, [fixture.frame[3], fixture.frame[7], fixture.frame[11]])[2], destination.z);
+    assert.equal(world.resolveScene(office.scenery(t)), office.scenery(t));
+  }
+  for (const id of ['shop', 'manuscript']) {
+    const plan = motion.compile(motion.presets[id]);
+    assert.equal(plan.score.actorPlacement.parent, 0);
+    near(plan.sample(0)[0].z, 4.7);
   }
 }
 for (const [id, asset] of world.items) {
@@ -728,6 +816,9 @@ async function three() {
   const shape = desk.geometry;
   cast.setScene([world.place('desk', 18, 6), world.place('test-cushion')]);
   assert.equal(cast.group.getObjectByName('world/desk').geometry, shape);
+  cast.setScene(stallOffice.scene);
+  assert.ok(Math.abs(cast.group.getObjectByName('world/desk').position.z - 4.7) < 1e-7);
+  assert.ok(Math.abs(cast.group.getObjectByName('world/lamp').position.z - 25.8) < 1e-7);
   const room = motion.compile(pavilionBook);
   cast.setScene(room.score.scene);
   const deskMesh = cast.group.getObjectByName('world/desk'), deskAt = room.worldScene[3];
