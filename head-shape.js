@@ -1,5 +1,5 @@
 // Reconstruct the CC0 reference sections in the character’s head frame.
-// Positive X faces forward. The lowest section closes under the chin, ahead of the neck.
+// Positive X faces forward; the lower face is fitted to the character's own neck.
 const pineHeadShape = (() => {
   const count = 600,
     lateralSteps = 96;
@@ -28,8 +28,45 @@ const pineHeadShape = (() => {
       d = b[0] - a[0];
     return curve(a[channel], b[channel], derivatives[interval], derivatives[interval + 1], d, (h - a[0]) / d);
   }
-  function profile(child) {
-    const sections = pineHeadSections[child ? 'child' : 'adult'];
+  // The reference mesh was cut at the jaw to remove its neck. The pixel rig has a shorter
+  // neck, so carry the underside of the chin back to the throat in the same cross-section.
+  // Height, half-width, back of the throat, widest lateral point, front of the chin.
+  function jawSections(reference, child) {
+    const lower = [
+      [-1, 0.37, -0.415, -0.04, 0.32],
+      [-0.96, 0.38, -0.42, -0.035, 0.325],
+      [-0.925, 0.392, -0.42, -0.022, 0.35],
+      [-0.904, 0.407, -0.415, 0.005, 0.42],
+      [-0.886, 0.426, -0.405, 0.045, 0.63],
+      [-0.864, 0.452, -0.4, 0.082, 0.804],
+      [-0.835, 0.485, -0.38, 0.12, 0.915],
+      [-0.795, 0.535, -0.35, 0.18, 0.985],
+      [-0.745, 0.594, -0.321, 0.24, 1.017],
+      [-0.69, 0.66, -0.288, 0.31, 1.001],
+      [-0.635, 0.717, -0.265, 0.363, 0.974],
+      [-0.59, 0.755, -0.279, 0.383, 0.998]
+    ];
+    const chinArc = [1, 0.978, 0.892, 0.739, 0.546, 0.357];
+    const rings = lower.map(([h, width, back, side, front]) => {
+      const t = clamp((h + 1) / 0.41, 0, 1);
+      // A child's chin pad is shallower and the underside turns into the neck a little sooner.
+      if (child) {
+        front -= 0.055 * Math.sin(Math.PI * t) + 0.018 * (1 - t);
+        width *= 1 + 0.04 * Math.sin(Math.PI * t);
+        back += 0.025;
+      }
+      const surface = chinArc.map((w, i) => {
+        const round = Math.sqrt(1 - lateral[i] ** 2);
+        const weight = round + (w - round) * t;
+        return side + (front - side) * weight;
+      });
+      return [h, width, back, side, ...surface];
+    });
+    return [...rings, ...reference.filter(([h]) => h >= -0.54)];
+  }
+  function profile(child, fittedJaw = false) {
+    const reference = pineHeadSections[child ? 'child' : 'adult'];
+    const sections = fittedJaw ? jawSections(reference, child) : reference;
     const gradients = sections[0].map((_, i) => slopes(sections, i));
     const neutral = posterior(1);
     const angles = lateral.map(Math.asin);
@@ -50,7 +87,7 @@ const pineHeadShape = (() => {
       const front = lateral.slice(0, -1).map((_, j) => value(4 + j));
       // Seat the measured chin on the shorter neck of the pixel rig.
       const underChin = clamp((-h - 0.65) / 0.35, 0, 1);
-      const inset = (child ? 0.13 : 0.19) * underChin * underChin * (3 - 2 * underChin);
+      const inset = fittedJaw ? 0 : (child ? 0.13 : 0.19) * underChin * underChin * (3 - 2 * underChin);
       back -= inset;
       side -= inset;
       front.forEach((_, j) => (front[j] -= inset));
@@ -203,5 +240,10 @@ const pineHeadShape = (() => {
       unfit: (x, h) => (x >= ear ? x : ear + (x - ear) / width(h))
     };
   }
-  return { adult: profile(false), child: profile(true), posterior };
+  const jaws = new Map();
+  function withJaw(base) {
+    if (!jaws.has(base)) jaws.set(base, profile(base === 'child', true));
+    return jaws.get(base);
+  }
+  return { adult: profile(false), child: profile(true), posterior, withJaw };
 })();

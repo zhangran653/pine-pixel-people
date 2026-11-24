@@ -389,7 +389,8 @@
     return group;
   }
   function upgradeLabel() {
-    return looks.hasSculptedHead(draft) ? '试用立体短发' : '试用新头型与短发';
+    if (draft.packs[looks.core] === looks.volumeRelease) return '试用新下颌';
+    return looks.hasSculptedHead(draft) ? '试用新下颌与立体短发' : '试用新头型与短发';
   }
   function figureUpgrade(area) {
     if (draft.packs[looks.core] === looks.release) return;

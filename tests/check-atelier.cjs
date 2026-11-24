@@ -432,7 +432,7 @@ function checkEditor() {
     depth.dispatchEvent(new Event('input'));
     const shallow = byId('mirror').toDataURL();
     expect(
-      byId('update-head')?.textContent === '试用立体短发' &&
+      byId('update-head')?.textContent === '试用新下颌与立体短发' &&
         PineWardrobe.saved.get(oldCut.id).packs['pine-core'] === PineLooks.collectionRelease,
       'profile edit overwrote archived hair'
     );
@@ -461,8 +461,24 @@ function checkEditor() {
     byId('save-look').click();
     const lifted = PineWardrobe.saved.get(oldCut.id);
     expect(
-      lifted.packs['pine-core'] === PineLooks.volumeRelease && lifted.shape.occiput === 1.2,
+      lifted.packs['pine-core'] === PineLooks.release && lifted.shape.occiput === 1.2,
       'short hair upgrade lost shape or pack version'
+    );
+    const priorJaw = PineWardrobe.importCharacter({
+      ...lifted,
+      id: 'look_prior_jaw',
+      packs: { 'pine-core': PineLooks.volumeRelease }
+    }).recipe;
+    byId('save-look').click();
+    document.querySelector('[data-key="saved:' + priorJaw.id + '"]').click();
+    byId('tab-face').click();
+    expect(byId('update-head')?.textContent === '试用新下颌', 'missing jaw-only upgrade');
+    const oldJaw = byId('mirror').toDataURL();
+    byId('update-head').click();
+    expect(
+      oldJaw !== byId('mirror').toDataURL() &&
+        PineWardrobe.saved.get(priorJaw.id).packs['pine-core'] === PineLooks.volumeRelease,
+      'jaw preview did not preserve the prior save'
     );
     target.dataset.state = 'pass';
     target.textContent =

@@ -420,8 +420,9 @@ const pineDesignerBody = (() => {
     roundedHead = true,
     surfaceDetails = roundedHead,
     softContours = surfaceDetails,
-    sculptedHead = ['1.9.0', '1.9.1'].includes(recipe.packs?.['pine-core']),
-    layeredHair = recipe.packs?.['pine-core'] === '1.9.1'
+    sculptedHead = ['1.9.0', '1.9.1', '1.9.2'].includes(recipe.packs?.['pine-core']),
+    layeredHair = ['1.9.1', '1.9.2'].includes(recipe.packs?.['pine-core']),
+    fittedJaw = recipe.packs?.['pine-core'] === '1.9.2'
   ) {
     const kind = recipe.base === 'adult' ? 'adult' : 'child';
     const base = studioRig.profiles[kind],
@@ -468,6 +469,7 @@ const pineDesignerBody = (() => {
         : 'crop';
     const hasHat = !!parts.hat && parts.hat !== 'none' && typeof paintHat === 'function';
     const headShape = sculptedHead ? pineHeadShape[kind] : null;
+    const skinShape = fittedJaw ? pineHeadShape.withJaw(kind) : headShape;
     const posterior = headShape ? pineHeadShape.posterior(measure(shape, 'occiput')) : null;
     const crownHeight = (h) => (headShape ? headShape.crown.raise(h) : h);
     const sliceHeight = (h) => (headShape ? headShape.crown.lower(h) : h);
@@ -540,12 +542,12 @@ const pineDesignerBody = (() => {
     function faceFront(y, z) {
       const h = sliceHeight((z - fit.z) / fit.rz);
       if (headShape) {
-        const row = headShape.row(h);
+        const row = skinShape.row(h);
         return (
           fit.x +
           fit.rx *
             posterior.fit(
-              headShape.frontAt(row, y / (fit.ry * breadthScale(h) * Math.max(0.0001, row.width))),
+              skinShape.frontAt(row, y / (fit.ry * breadthScale(h) * Math.max(0.0001, row.width))),
               h
             )
         );
@@ -587,6 +589,7 @@ const pineDesignerBody = (() => {
         hairRoot: tint(materials.hair, '302936', 0.2),
         hairPlane: tint(materials.hair, 'c4ad97', 0.135),
         underJaw: tint(materials.skin, '886b62', 0.12),
+        ...(fittedJaw ? { jawShade: tint(materials.skin, '775746', 0.182) } : {}),
         templeSkin: tint(materials.faceEdge, materials.faceMid, 0.46),
         foreheadSkin: tint(materials.faceMid, materials.faceLight, 0.48),
         cheekLight: tint(materials.faceLight, 'ffe1c7', 0.095),
@@ -1807,10 +1810,13 @@ const pineDesignerBody = (() => {
           u = (x - cx) / rx;
         let section, localX, lateral;
         if (headShape) {
-          section = headShape.row(h);
+          // A rotated stamp visits the enclosing world-space box. The open throat ring must
+          // stop at its local lower plane; the moving neck supplies the volume below it.
+          if (fittedJaw && h < -1) return 0;
+          section = skinShape.row(h);
           localX = posterior.unfit(u, h);
           lateral = y / (ry * breadthScale(h));
-          if (!headShape.insideSkin(section, localX, lateral)) return 0;
+          if (!skinShape.insideSkin(section, localX, lateral)) return 0;
         } else if (roundedHead) {
           const dx = u - skullAxis(h),
             depth = dx / (dx < 0 ? rearDepth(h) : forehead);
@@ -1858,13 +1864,27 @@ const pineDesignerBody = (() => {
         if (!surfaceDetails && (roundedHead ? h > 0.72 : h > 0.63 || (u < -0.52 && h > -0.6))) return k.hair;
         if (headShape) {
           const dx = localX - section.axis;
+          if (fittedJaw && h < -0.4) {
+            // Follow the lower border of the mandible from its angle below the ear to
+            // the chin pad. The thin cast shadow softens again towards the collar.
+            const along = clamp((u + 0.18) / 1.17, 0, 1);
+            const border =
+              -0.48 -
+              0.35 * along * along * (3 - 2 * along) -
+              0.052 * (1 - Math.min(1, Math.abs(lateral) / 0.66));
+            const below = border - h;
+            const shadowWidth =
+              0.115 * clamp((u + 0.15) / 0.42, 0, 1) * (0.4 + 0.6 * Math.min(1, Math.abs(lateral) / 0.55));
+            if (below > 0.018 && below < 0.018 + shadowWidth) return k.jawShade;
+            if (below > -0.025) return k.underJaw;
+          }
           if (dx > 0) {
             const j = Math.min(
               headShape.lateralSteps,
               Math.round(Math.abs(lateral / section.width) * headShape.lateralSteps)
             );
             const light = section.frontLight[j] + Math.sign(y) * section.sideLight[j];
-            if (h < -0.56 && light < 0.28) return k.underJaw;
+            if (!fittedJaw && h < -0.56 && light < 0.28) return k.underJaw;
             if (light < 0.08) return k.faceEdge;
             if (light < 0.25) return k.templeSkin;
             if (light < 0.43) return k.faceMid;
@@ -1877,7 +1897,7 @@ const pineDesignerBody = (() => {
           }
           const facing = dx / Math.max(0.01, section.rear);
           const illumination = 0.48 * facing + 0.39 * h - 0.12 * Math.max(0, a / ry - 0.5);
-          if (h < -0.59) return k.underJaw;
+          if (!fittedJaw && h < -0.59) return k.underJaw;
           if (illumination < -0.25) return k.faceEdge;
           return illumination < 0.01 ? k.templeSkin : k.faceMid;
         }
@@ -2292,6 +2312,7 @@ const pineDesignerBody = (() => {
           ...(headShape ? ['hairRoot', 'hairPlane', 'stubbleLight', 'stubbleMid', 'stubbleDark'] : [])
         ],
         painted: [
+          ...(fittedJaw ? ['jawShade'] : []),
           ...(headShape ? ['underJaw', 'templeSkin', 'foreheadSkin', 'cheekLight', 'cheekWarm'] : []),
           'faceLight',
           'faceMid',
@@ -2312,6 +2333,18 @@ const pineDesignerBody = (() => {
         drawHead(pose, brush, ink);
       }
     };
+    if (fittedJaw) {
+      const throat = [fit.x, 0, fit.z - 1.02 * fit.rz];
+      const chin = [fit.x + 0.73 * fit.rx, 0, fit.z - 0.89 * fit.rz];
+      art.portraitFloor = ({ head }) => {
+        // The lower rim is an ellipse. Project its radius onto world Z as the head nods or rolls.
+        const radius = 0.39 * Math.hypot(head[8] * fit.rx, head[9] * fit.ry);
+        return Math.min(
+          studioRig.point(head, throat)[2] - radius,
+          studioRig.point(head, chin)[2] - 0.3 * Math.abs(head[9]) * fit.ry
+        );
+      };
+    }
     const even = (v) => 2 * Math.ceil(v / 2);
     // Keep ordinary fitted hats inside the default box. Grow it for taller or wider contributed parts.
     const allowance = [1.65, 1.42, 1.7];

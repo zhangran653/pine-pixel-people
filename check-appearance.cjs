@@ -660,6 +660,85 @@ for (const id of ['look_body_male', 'look_relay']) {
   const underHat = worn('crop') - worn('bald');
   assert.ok(underHat > 0 && underHat < 0.15 * (cut.cells - bald.cells), id + ' hat compression');
 }
+// Probe three sagittal planes through the underside of the jaw in head coordinates.
+// A gap bracketed by two solid runs exposed the background between the chin and throat.
+function jawSampler(recipe, channels = {}) {
+  const actor = a.l.build(recipe),
+    pose = a.m.rig.pose(actor.rig, channels);
+  const model = actor.body.makePose(pose);
+  const child = recipe.base === 'child',
+    [cx, cz, rx, ry, rz] = child ? [0.38, 27.69, 3.98, 4.1, 4.89] : [0.55, 40.1, 4.9, 4.9, 5.82];
+  const center = a.m.rig.point(pose.head, [cx, 0, cz]);
+  const band = actor.body.faceLayers(pose, model, center[2] - 1.45 * rz, 5)[1],
+    body = band.body;
+  const d = body.density;
+  return (u, v, h) => {
+    const p = a.m.rig.point(pose.head, [cx + u * rx, ry * recipe.shape.faceWidth * v, cz + h * rz]);
+    const x = Math.floor((p[0] - band.x) * d + body.nx / 2),
+      y = Math.floor((p[1] - band.y) * d + body.ny / 2),
+      z = Math.floor((p[2] - band.z) * d);
+    return Boolean(band.model.colors[(z * body.ny + y) * body.nx + x]);
+  };
+}
+function jawGaps(recipe) {
+  const solid = jawSampler(recipe);
+  let gaps = 0;
+  for (const h of [-0.96, -0.93, -0.9, -0.87, -0.84, -0.79, -0.755]) {
+    for (const v of [0, 0.22, -0.39]) {
+      let seen = false,
+        empty = 0;
+      for (let step = -12; step <= 39; step++) {
+        if (solid(step / 36, v, h)) {
+          if (empty >= 3) gaps++;
+          seen = true;
+          empty = 0;
+        } else if (seen) empty++;
+      }
+    }
+  }
+  return gaps;
+}
+for (const id of ['look_body_male', 'look_relay']) {
+  const seed = a.l.templates.find((doc) => doc.id === id);
+  const face = {
+    ...seed,
+    shape: { ...seed.shape, height: 1 },
+    parts: { ...seed.parts, neck: 'none', hat: 'none' }
+  };
+  const archived = { ...face, packs: { 'pine-core': a.l.volumeRelease } };
+  assert.ok(jawGaps(archived) > 0, id + ' archived jaw must reproduce the gap');
+  assert.equal(jawGaps(face), 0, id + ' disconnected chin');
+  for (const [jaw, faceWidth, pitch] of [
+    [0.8, 0.84, 0.27],
+    [1.2, 1.16, -0.27]
+  ]) {
+    const sized = { ...face, shape: { ...face.shape, jaw, faceWidth } };
+    // A ray grazing an oblique voxel surface can cross its staircase several times.
+    // In a nod, probe the interior of the bridge from the throat to the back of the chin.
+    const solid = jawSampler(sized, { headPitch: pitch, headYaw: 0.35 });
+    for (const h of [-0.85, -0.81])
+      for (const v of [-0.16, 0, 0.16])
+        for (const u of [0.22, 0.33, 0.42, 0.5]) assert.ok(solid(u, v, h), id + ' posed jaw gap');
+    const actor = a.l.build(sized),
+      pose = a.m.rig.pose(actor.rig, { headPitch: pitch, headRoll: -0.12 });
+    const band = a.m.faceLayers(actor, pose, actor.body.makePose(pose))[1];
+    const throat = face.base === 'child' ? [0.38, 0, 27.69 - 1.02 * 4.89] : [0.55, 0, 40.1 - 1.02 * 5.82];
+    assert.ok(
+      band.body.density > actor.body.density && band.z <= a.m.rig.point(pose.head, throat)[2],
+      id + ' detail seam crossed the lower jaw'
+    );
+  }
+  const before = upperHead(archived),
+    after = upperHead(face);
+  const b = after.actor.body,
+    start = b.nx * b.ny * Math.ceil(a.m.rig.socket(after.actor, after.pose, 'mouth')[2] * b.density);
+  assert.equal(
+    colorDigest(before.model.colors.subarray(start)),
+    colorDigest(after.model.colors.subarray(start)),
+    id + ' upper face or hair changed with chin'
+  );
+  assert.deepEqual(after.actor.sockets, before.actor.sockets);
+}
 // Look straight across the parted fringe. A strand on each side must stand
 // physically forward of the exposed forehead, independent of its pigment.
 for (const base of ['adult', 'child']) {

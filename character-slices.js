@@ -242,6 +242,7 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
 
   function faceLayers(pose, model, height, desiredDensity, bodyDensity = 0) {
     const b = model.bounds, plane = nx * ny;
+    if (art.portraitFloor) height = Math.min(height, art.portraitFloor(pose));
     const cut = Math.max(b[2] + 1, Math.floor(height * density));
     if (cut >= b[5]) return null;
     const upper = refineBand(pose, model, cut, b[5], desiredDensity, 480000, true);

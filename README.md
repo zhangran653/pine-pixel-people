@@ -79,11 +79,15 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ![上一轮工作稿与参考数据版的同镜头对照，包括成人正脸、侧脸、儿童平头与短发后侧](short-hair-profile-preview.png)
 
-`pine-core 1.9.1` 调整了全部九款短发。圆寸只比裸头多一层薄发，平头在耳上渐短；短碎发的额前与鬓角各有向外挑起的发束，偏分两侧的发量也不同。转面图用橙色标出头发超出裸头的部分。1.9.0 存档可在「发型」点「试用立体短发」预览。[旋转查看短碎发](http://127.0.0.1:8000/atelier.html?preset=look_body_male&tab=hair&hair=crop&bearing=65)
+`pine-core 1.9.1` 调整了全部九款短发。圆寸只比裸头多一层薄发，平头在耳上渐短。短碎发的额前与鬓角各有向外挑起的发束，偏分两侧的发量也不同。转面图用橙色标出头发超出裸头的部分。[旋转查看短碎发](http://127.0.0.1:8000/atelier.html?preset=look_body_male&tab=hair&hair=crop&bearing=65)
 
 ![原短碎发、新短碎发和裸头轮廓叠合的同人物 360 度转面](short-hair-volume-preview.gif)
 
-「发型」和「五官」共用「后脑深度」滑杆，100% 为新头型的默认值，可在 80%–120% 之间微调。旧存档可以先点「试用新头型与短发」，喜欢后再保存。12 种唇形用脸部切片上的色差画出，水壶对准唇心。[查看唇部侧面](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&bearing=90)
+`pine-core 1.9.2` 把下巴底面和上颈绘在同一组连续截面里。成人从下唇下方略微内收，再转过颏尖接入颈部。儿童的下巴较浅，两侧更圆。1.9.1 存档可在「五官」点「试用新下颌」，保存后采用新版。[查看成人侧脸](http://127.0.0.1:8000/atelier.html?preset=look_body_male&tab=face&bearing=90) · [查看儿童侧脸](http://127.0.0.1:8000/atelier.html?preset=look_relay&tab=face&bearing=90)
+
+![同一镜头下，成人和儿童下巴接入颈部的前后对照](jaw-profile-preview.png)
+
+「发型」和「五官」共用「后脑深度」滑杆，100% 为新头型的默认值，可在 80%–120% 之间微调。旧存档可先试用当前头型，喜欢后再保存。12 种唇形用脸部切片上的色差画出，水壶对准唇心。[查看唇部侧面](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&bearing=90)
 
 ![同一角色修改前后的正面、侧面与后侧，展示唇线中点和头型](face-detail-preview.png)
 
