@@ -553,9 +553,48 @@ function checkEditor() {
     byId('look-query').value = '书生';
     byId('look-query').dispatchEvent(new Event('input'));
     expect(document.querySelectorAll('#look-shelf button').length === 1, 'realm and role search');
+    choose('眼窝深浅', 'morph/eyeDepth');
+    expect(byId('edit-eyeDepth').closest('details').open, 'search opens the matching facial control');
+    choose('低颧饱颊', 'cheekPreset/low');
+    expect(byId('edit-cheekHeight').value === '-0.75' && byId('edit-cheekFullness').value === '0.72', 'independent cheek preset');
+    document.querySelector('[data-face-preset="deep-wide"]').click();
+    expect(byId('edit-eyeDepth').value === '0.75' && byId('edit-noseWidth').value === '0.8' &&
+      byId('edit-cheekHeight').value === '-0.75', 'feature recipe must preserve the cheek shape');
+    byId('edit-noseWidth').value = '0.56';
+    byId('edit-noseWidth').dispatchEvent(new Event('input'));
+    byId('look-name').value = '尚未保存的捏脸';
+    byId('look-name').dispatchEvent(new Event('input'));
+    const previousSide = byId('mirror').toDataURL(), savedCount = PineWardrobe.saved.size;
+    byId('random-style').closest('details').querySelector('summary').click();
+    expect(byId('random-style').value === 'natural', 'new random settings should start with a coordinated look');
+    byId('random-style').value = 'expressive';
+    byId('random-style').dispatchEvent(new Event('change'));
+    const locks = [...document.querySelectorAll('[data-random-lock]')];
+    expect(locks.length === 4 && locks.every((el) => !el.checked), 'four independently selectable locks');
+    for (const el of locks) el.click();
+    byId('random-face').click();
+    expect(!byId('undo-random').hidden && byId('mirror').toDataURL() !== previousSide, 'face-only randomization');
+    byId('random-character').click();
+    const firstRoll = byId('look-name').value;
+    byId('random-character').click();
+    expect(byId('mirror').toDataURL() !== previousSide && firstRoll.startsWith('新人物 '), 'new editable random character');
+    byId('undo-random').click();
+    expect(byId('look-name').value === '尚未保存的捏脸' && byId('edit-noseWidth').value === '0.56' &&
+      byId('mirror').toDataURL() === previousSide && PineWardrobe.saved.size === savedCount, 'restore draft across multiple rolls');
+    byId('random-character').click();
+    const newLabel = byId('look-name').value;
+    byId('save-look').click();
+    const generated = [...PineWardrobe.saved.values()].find((doc) => doc.label === newLabel);
+    expect(generated && generated.id !== priorOcciput.id && generated.packs['pine-core'] === PineLooks.release &&
+      PineWardrobe.saved.size === savedCount + 1, 'random character saved as new recipe');
+    expect(generated.base === trimmed.base && generated.gender === trimmed.gender &&
+      ['height', 'shoulders', 'arms', 'legs'].every((key) => generated.shape[key] === trimmed.shape[key]) &&
+      Object.entries(trimmed.parts).every(([key, value]) => generated.parts[key] === value) &&
+      ['skin', 'hair', 'top', 'bottom', 'shoes', 'accent'].every((key) => generated.colors[key] === trimmed.colors[key]),
+      'locked body, skin, hairstyle and wardrobe survived rolls, undo and save');
     target.dataset.state = 'pass';
     target.textContent =
-      'Body profiles, legacy saves, head upgrade and occipital depth, scale, hairstyles, dyes, full-body and close-up detail, slice alignment, configurable workshop outfits, style search, hair filters, and independent portrait dyes passed';
+      'Body profiles, legacy saves, head upgrades, facial morphs, guided random portraits, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';
   } catch (err) {
     target.dataset.state = 'fail';
     target.textContent = err.message;

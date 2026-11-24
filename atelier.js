@@ -7,7 +7,9 @@
   const entries = new Map(),
     actors = new WeakMap(),
     clone = structuredClone;
+  const cheekKeys = Object.keys(looks.morphs).filter((key) => key.startsWith('cheek'));
   const names = {
+    ...Object.fromEntries(Object.entries(looks.morphs).map(([key, row]) => [key, row[0]])),
     height: '身高',
     shoulders: '肩宽',
     arms: '臂长',
@@ -288,10 +290,11 @@
         jawAngle: ['低', '高'],
         jawNeck: ['靠后', '靠前']
       };
-      if (endpoints[key]) {
+      const directions = looks.morphs[key]?.slice(1) || endpoints[key];
+      if (directions) {
         const n = field.valueAsNumber;
         output.value =
-          n === 0 ? '居中' : endpoints[key][Number(n > 0)] + ' ' + Math.round(Math.abs(n) * 100) + '%';
+          n === 0 ? '居中' : directions[Number(n > 0)] + ' ' + Math.round(Math.abs(n) * 100) + '%';
         field.setAttribute('aria-valuetext', output.value);
         return;
       }
@@ -347,6 +350,11 @@
     return label;
   }
   function markPresets() {
+    for (const button of document.querySelectorAll('[data-cheek-preset]')) {
+      const selected = looks.cheekPresets[button.dataset.cheekPreset].shape;
+      button.setAttribute('aria-pressed', String(draft.packs[looks.core] === looks.release &&
+        cheekKeys.every((k) => (draft.shape[k] || 0) === (selected[k] || 0))));
+    }
     for (const b of document.querySelectorAll('[data-jaw-preset]')) {
       const p = looks.jawPresets[b.dataset.jawPreset];
       b.setAttribute(
@@ -359,8 +367,9 @@
     }
     const currentFace = draft.face || looks.facePresets.classic.face;
     for (const b of document.querySelectorAll('[data-face-preset]')) {
-      const face = looks.facePresets[b.dataset.facePreset].face;
-      b.setAttribute('aria-pressed', String(Object.keys(face).every((k) => face[k] === currentFace[k])));
+      const preset = looks.facePresets[b.dataset.facePreset];
+      b.setAttribute('aria-pressed', String(Object.keys(preset.face).every((k) => preset.face[k] === currentFace[k]) &&
+        looks.featureShapeKeys.every((k) => (draft.shape[k] || 0) === (preset.shape?.[k] || 0))));
     }
     for (const b of document.querySelectorAll('[data-outfit]')) {
       const outfit = looks.outfits[b.dataset.outfit];
@@ -413,21 +422,16 @@
         if (button.getAttribute('aria-pressed') === 'true') return;
         apply(preset);
         changed();
-        if (type === 'outfit') {
-          fields();
-          document.querySelector('[data-outfit="' + id + '"]')?.focus({ preventScroll: true });
-          return;
-        }
-        for (const select of $('editor-fields').querySelectorAll('select')) {
-          const slot = select.id.slice(5);
-          if (type === 'facePreset' && Object.hasOwn(preset.face, slot)) select.value = preset.face[slot];
-        }
+        fields();
+        const selector = type === 'outfit' ? 'data-outfit' : 'data-face-preset';
+        document.querySelector('[' + selector + '="' + id + '"]')?.focus({ preventScroll: true });
       };
       row.append(button);
     }
     return group;
   }
   function upgradeLabel() {
+    if (draft.packs[looks.core] === looks.occipitalRelease) return '试用独立颧颊与五官';
     if (draft.packs[looks.core] === looks.sagittalRelease) return '试用微收后脑';
     if (draft.packs[looks.core] === looks.mandibleRelease) return '试用新侧面轮廓';
     if (draft.packs[looks.core] === looks.neckRelease) return '试用耳前下颌关节';
@@ -451,9 +455,7 @@
   function faceFields(area) {
     figureUpgrade(area);
     area.append(
-      presetGroup('五官组合', looks.facePresets, 'facePreset', (p) => {
-        draft.face = { ...draft.face, ...p.face };
-      })
+      presetGroup('五官组合', looks.facePresets, 'facePreset', (p) => looks.applyFacePreset(draft, p))
     );
     const grid = document.createElement('div');
     grid.className = 'wardrobe-grid';
@@ -522,6 +524,39 @@
     profile.className = 'jaw-controls';
     profileTitle.textContent = '侧面轮廓';
     profile.append(profileTitle, slider('headDepth'), slider('faceRelief'), slider('occiput'), side);
+    const cheeks = document.createElement('fieldset'), cheekTitle = document.createElement('legend');
+    cheeks.className = 'jaw-controls';
+    cheekTitle.textContent = '颧骨与脸颊';
+    const presets = document.createElement('div');
+    presets.className = 'category-buttons';
+    for (const [id, choice] of Object.entries(looks.cheekPresets)) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.cheekPreset = id;
+      button.textContent = choice.label;
+      button.onclick = () => {
+        setCheeks(choice);
+        fields();
+      };
+      presets.append(button);
+    }
+    cheeks.append(cheekTitle, presets, ...cheekKeys.map(slider));
+    const facialControls = Object.entries({
+      '眼睛与眉骨': ['eyeDepth', 'eyeWidth', 'eyeOpening', 'eyeTilt', 'browHeight'],
+      '鼻梁与鼻翼': ['noseBridge', 'noseWidth'],
+      '唇形与厚度': ['mouthWidth', 'upperLipFullness', 'lowerLipFullness']
+    }).map(([label, keys]) => {
+      const panel = document.createElement('details'), title = document.createElement('summary');
+      panel.className = 'jaw-controls';
+      title.textContent = label;
+      panel.append(title, ...keys.map(slider));
+      return panel;
+    });
+    const random = document.createElement('button');
+    random.type = 'button';
+    random.id = 'random-face';
+    random.textContent = '随机五官';
+    random.onclick = () => randomize(false);
     if (actor.rig.jawPivot) {
       const trial = document.createElement('button');
       trial.type = 'button';
@@ -567,7 +602,7 @@
     }
     if (actor.rig.headPivot) jaw.append(inspect);
     jaw.append(...looks.jawControls.map(slider), slider('jaw'));
-    area.append(profile, grid, jaw, featureComparison(), more, ...tabKeys.face.filter((k) => k !== 'jaw').map(slider));
+    area.append(random, cheeks, grid, ...facialControls, profile, jaw, featureComparison(), more, ...tabKeys.face.filter((k) => k !== 'jaw').map(slider));
     markPresets();
   }
   function featureComparison() {
@@ -1073,10 +1108,13 @@
     button.onclick = () => $('pack-file').click();
     area.append(button);
   }
-  function activate(doc, key, isSaved) {
+  let randomOrigin = null;
+  function activate(doc, key, isSaved, keepId = false) {
+    randomOrigin = null;
+    $('undo-random').hidden = true;
     draft = clone(doc);
     hairGroup = looks.hairGroups[draft.parts.hair] || '短发';
-    if (!isSaved) draft.id = looks.newId();
+    if (!isSaved && !keepId) draft.id = looks.newId();
     saved = isSaved;
     dirty = false;
     cardKey = key;
@@ -1091,6 +1129,36 @@
     show();
     note('');
   }
+  function setCheeks(choice) {
+    for (const key of cheekKeys) delete draft.shape[key];
+    Object.assign(draft.shape, choice.shape);
+    draft.packs[looks.core] = looks.release;
+    changed();
+  }
+  function randomize(whole) {
+    const origin = randomOrigin || { doc: clone(draft), key: cardKey, saved, dirty };
+    const style = $('random-style').value;
+    if (whole) {
+      const locks = [...document.querySelectorAll('[data-random-lock]:checked')].map((el) => el.dataset.randomLock);
+      activate(looks.randomCharacter({ source: draft, style, locks }), '', false, true);
+    } else {
+      draft = looks.randomFace(draft, { style });
+      changed();
+      fields();
+    }
+    randomOrigin = origin;
+    $('undo-random').hidden = false;
+    dirty = true;
+    heading();
+  }
+  $('random-character').onclick = () => randomize(true);
+  $('undo-random').onclick = () => {
+    if (!randomOrigin) return;
+    const origin = randomOrigin;
+    activate(origin.doc, origin.key, origin.saved, true);
+    dirty = origin.dirty;
+    heading();
+  };
   function shelf() {
     const root = $('look-shelf'),
       compare = $('compare'),
@@ -1457,6 +1525,10 @@
       collect('outfit', id, outfit.label, 'wear', '成套穿搭');
     for (const [id, p] of Object.entries(looks.facePresets))
       collect('facePreset', id, p.label, 'face', '五官组合');
+    for (const [key, [label, low, high]] of Object.entries(looks.morphs))
+      collect('morph', key, label, 'face', '五官微调', low + ' ' + high);
+    for (const [id, preset] of Object.entries(looks.cheekPresets))
+      collect('cheekPreset', id, preset.label, 'face', '颧骨与脸颊');
     for (const [name, id] of Object.entries(looks.hairColors)) collect('hairColor', id, name, 'hair', '发色');
     for (const [slot, swatches] of Object.entries(looks.colorPresets))
       for (const [label, value] of Object.entries(swatches))
@@ -1495,10 +1567,17 @@
             field.focus({ preventScroll: true });
             return;
           }
+          if (item.slot === 'morph') {
+            const field = $('edit-' + item.value), panel = field.closest('details');
+            if (panel) panel.open = true;
+            field.focus();
+            return;
+          }
           const data = {
             hair: 'hair-style',
             outfit: 'outfit',
             facePreset: 'face-preset',
+            cheekPreset: 'cheek-preset',
             hairColor: 'hair-color'
           }[item.slot];
           if (data) {
@@ -1573,6 +1652,18 @@
     (b) => b.dataset.tab === query.get('tab')
   );
   if (openingTab) changeTab(openingTab);
+  if (query.get('random') === '1') randomize(true);
+  const cheekExample = query.get('cheeks');
+  if (Object.hasOwn(looks.cheekPresets, cheekExample)) {
+    setCheeks(looks.cheekPresets[cheekExample]);
+    fields();
+  }
+  const featureExample = query.get('features');
+  if (Object.hasOwn(looks.facePresets, featureExample)) {
+    looks.applyFacePreset(draft, looks.facePresets[featureExample]);
+    changed();
+    fields();
+  }
   const requestedHair = query.get('hair');
   if (Object.hasOwn(looks.slots.hair, requestedHair) && requestedHair !== draft.parts.hair) {
     draft.parts.hair = requestedHair;

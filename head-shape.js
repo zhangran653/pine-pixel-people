@@ -89,12 +89,13 @@ const pineHeadShape = (() => {
     });
     return [...rings, ...reference.filter(([h]) => h >= -0.54)];
   }
-  function profile(child, fittedJaw = false, settings, relief = 0) {
+  function profile(child, fittedJaw = false, settings, relief = 0, facial) {
     const reference = pineHeadSections[child ? 'child' : 'adult'];
     const sections = fittedJaw ? jawSections(reference, child, settings) : reference;
     const gradients = sections[0].map((_, i) => slopes(sections, i));
     const neutral = posterior(1);
     const angles = lateral.map(Math.asin);
+    const cheekCenter = facial ? -0.205 + 0.20 * facial.cheekHeight : -0.14;
     const meridians = Array.from({ length: lateralSteps + 1 }, (_, j) => {
       const angle = Math.asin(j / lateralSteps);
       let interval = 0;
@@ -110,22 +111,32 @@ const pineHeadShape = (() => {
         back = value(2),
         side = value(3);
       const front = lateral.slice(0, -1).map((_, j) => value(4 + j));
-      if (relief && h > -0.94 && h < 0.29) {
+      if ((relief || facial) && h > -0.94 && h < (facial ? 0.48 : 0.29)) {
         // Low, overlapping facial planes read in three-quarter view. The dental arch
         // stays continuous, and the soft chin pad follows the selected chin height.
-        const cheek = lobe(h, -0.14, 0.36);
+        const cheek = lobe(h, cheekCenter, facial ? 0.43 : 0.36);
         const bridge = lobe(h, 0.035, 0.25);
         const mouthCorners = lobe(h, -0.42, 0.24);
         const chin = lobe(h, -0.735 + 0.055 * settings.chinHeight, 0.19);
         const amount = (child ? 0.8 : 1) * relief;
+        const lower = facial ? lobe(h, -0.42, 0.29) : 0;
+        if (facial) width *= 1 + 0.13 * facial.cheekWidth * cheek + 0.075 * facial.cheekFullness * lower;
         for (let j = 0; j < front.length; j++) {
           const v = lateral[j];
           front[j] += amount * (
-            0.115 * cheek * lobe(v, 0.50, 0.40) +
+            (facial ? 0.052 : 0.115) * cheek * lobe(v, facial ? 0.59 : 0.50, facial ? 0.48 : 0.40) +
             0.068 * bridge * lobe(v, 0, 0.44) +
             0.045 * chin * lobe(v, 0, 0.78) -
             0.062 * mouthCorners * lobe(v, 0.39, 0.37)
           );
+          if (facial) {
+            const softness = child ? 0.8 : 1;
+            front[j] += softness * (
+              0.123 * facial.cheekProjection * cheek * lobe(v, 0.59, 0.46) +
+              (0.025 + 0.138 * facial.cheekFullness) * lower * lobe(v, 0.64, 0.40) -
+              0.117 * facial.eyeDepth * lobe(h, 0.145, 0.23) * lobe(v, 0.50 * facial.eyeSpacing, 0.32)
+            );
+          }
         }
       }
       // Seat the measured chin on the shorter neck of the pixel rig.
@@ -231,6 +242,7 @@ const pineHeadShape = (() => {
       lower: (h) => (h <= browHeight ? h : h >= 1 + rise ? h - rise : browHeight + (h - browHeight) / gain)
     };
     return {
+      cheekCenter,
       crown,
       row,
       frontAt,
@@ -300,12 +312,17 @@ const pineHeadShape = (() => {
   }
   const controls = ['chinHeight', 'chinProjection', 'chinRoundness', 'jawPosition', 'jawAngle', 'jawNeck'];
   const adjustable = new Map();
-  function reshape(base, shape, relief = 0) {
+  function reshape(base, shape, relief = 0, individual = false) {
     const settings = Object.fromEntries(controls.map((key) => [key, shape[key] ?? 0]));
-    const key = [base, relief, ...Object.values(settings)].join('|');
+    const facial = individual && {
+      cheekHeight: shape.cheekHeight || 0, cheekWidth: shape.cheekWidth || 0,
+      cheekProjection: shape.cheekProjection || 0, cheekFullness: shape.cheekFullness || 0,
+      eyeDepth: shape.eyeDepth || 0, eyeSpacing: shape.eyeSpacing ?? 1
+    };
+    const key = [base, relief, ...Object.values(settings), ...(facial ? Object.values(facial) : [])].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);
-      adjustable.set(key, profile(base === 'child', true, settings, relief));
+      adjustable.set(key, profile(base === 'child', true, settings, relief, facial));
     }
     return adjustable.get(key);
   }

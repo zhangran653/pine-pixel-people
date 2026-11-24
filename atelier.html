@@ -104,6 +104,20 @@
             <h2>编辑形象</h2>
             <span id="save-state" role="status">新形象</span>
           </div>
+          <div class="category-buttons random-actions"><button type="button" id="random-character">随机人物</button><button type="button" id="undo-random" hidden>撤销随机</button></div>
+          <details class="random-settings">
+            <summary>随机设置</summary>
+            <label class="random-style">变化幅度
+              <select id="random-style"><option value="natural">自然协调</option><option value="expressive">特征鲜明</option></select>
+            </label>
+            <fieldset>
+              <legend>生成整个人物时保留</legend>
+              <label><input type="checkbox" data-random-lock="body">体型</label>
+              <label><input type="checkbox" data-random-lock="skin">肤色</label>
+              <label><input type="checkbox" data-random-lock="hair">发型与发色</label>
+              <label><input type="checkbox" data-random-lock="wear">穿搭与配饰</label>
+            </fieldset>
+          </details>
           <label class="name-field"
             >角色名<input id="look-name" maxlength="48" required autocomplete="off"
           /></label>

@@ -99,6 +99,150 @@ for (const id of ['look_body_male', 'look_body_female', 'look_relay', 'look_work
   }
 }
 const skull = vm.runInContext('pineHeadShape', context);
+{
+  const seed = looks.templateById.get('look_body_male');
+  const pixels = (doc) => {
+    const actor = looks.build(doc), pose = motion.rig.pose(actor.rig);
+    return hash(motion.faceLayers(actor, pose, actor.body.makePose(pose))[1].model.colors);
+  };
+  for (const key of Object.keys(looks.morphs)) {
+    const withValue = (v) => ({ ...seed, shape: { ...seed.shape, [key]: v } });
+    assert.deepEqual([shapeDefs[key].minimum, shapeDefs[key].maximum, shapeDefs[key].default], [-1, 1, 0]);
+    assert.notEqual(pixels(withValue(-1)), pixels(withValue(1)), key + ' needs visible range');
+    assert.throws(() => looks.prepare(withValue(1.01)));
+    assert.throws(() => looks.prepare({ ...withValue(-1), packs: { 'pine-core': looks.occipitalRelease } }));
+    assert.ok(!Object.hasOwn(looks.prepare(withValue(0)).recipe.shape, key));
+  }
+  const cheek = (height, h) => {
+    const profile = skull.reshape('adult', { cheekHeight: height, cheekProjection: 0.8 }, 1, true);
+    return profile.frontAt(profile.row(h), 0.6);
+  };
+  assert.ok(cheek(-1, -0.39) > cheek(1, -0.39) && cheek(1, 0) > cheek(-1, 0));
+  for (const cheeks of Object.values(looks.cheekPresets)) for (const features of Object.values(looks.facePresets)) {
+    const doc = clone(seed);
+    Object.assign(doc.shape, cheeks.shape);
+    looks.applyFacePreset(doc, features);
+    for (const [key, value] of Object.entries(cheeks.shape)) assert.equal(doc.shape[key], value);
+    assert.deepEqual(doc.colors, clone(seed.colors));
+    assert.deepEqual(clone(looks.prepare(doc).recipe.face), clone(doc.face));
+  }
+  const skinMask = (skin) => {
+    const actor = looks.build({ ...seed, colors: { ...seed.colors, skin }, shape: { ...seed.shape, cheekHeight: -0.6, noseWidth: 0.7 } });
+    const pose = motion.rig.pose(actor.rig), upper = motion.faceLayers(actor, pose, actor.body.makePose(pose))[1];
+    return hash(Uint8Array.from(upper.model.colors, (color) => Number(Boolean(color))));
+  };
+  assert.equal(skinMask('#47332f'), skinMask('#f6d8ca'), 'pigment must not select facial geometry');
+  const styles = vm.runInContext('pinePortraitStyles', context);
+  const ink = new Proxy({}, { get: () => 1 });
+  const pairings = new Set(), expressHair = new Set(), naturalHair = new Set();
+  function checkSpacing(doc) {
+    const s = doc.shape, eyes = styles.eyes[doc.face.eyes], brows = styles.brows[doc.face.brows];
+    if (eyes) assert.ok(0.485 * s.eyeSpacing - eyes[1] * (1 + 0.23 * (s.eyeWidth || 0)) >= 0.145 - 1e-8);
+    if (eyes && brows) {
+      // Sample the real pigment brushes at the pupil axis with the eye open.
+      let upperLid = 0, lowerBrow = Infinity;
+      for (let i = 0; i <= 230; i++) {
+        const h = i / 500;
+        if (styles.eye(eyes, 0, h / (1 + 0.42 * (s.eyeOpening || 0)), 0, 1, ink)) upperLid = h;
+        if (styles.brow(brows, 0, h - 0.092 * (s.browHeight || 0), ink)) lowerBrow = Math.min(lowerBrow, h);
+      }
+      const gap = lowerBrow - upperLid;
+      assert.ok(gap >= 0.034 && gap < 0.146, doc.face.eyes + '/' + doc.face.brows + ' brow gap ' + gap);
+    }
+    if (doc.face.outline === 'diamond') assert.ok((s.cheekWidth || 0) <= 0.3);
+    if (s.cheekHeight > 0.32 && s.cheekProjection > 0.32) assert.ok((s.cheekFullness || 0) >= -0.12);
+  }
+  const clothing = (doc) => {
+    const { hair, ...parts } = doc.parts;
+    const dyes = Object.fromEntries(Object.entries(doc.colors).filter(([k]) =>
+      !['eyes', 'hair', 'skin'].includes(k) && !(k in styles.dyes)));
+    return [parts, dyes].map((v) => Object.entries(v).sort(([a], [b]) => a.localeCompare(b)));
+  };
+  const wardrobes = new Set(looks.templates.map((doc) => JSON.stringify([doc.base, clothing(doc)])));
+  function seeded(state) {
+    return () => ((state = (Math.imul(state, 1664525) + 1013904223) >>> 0) / 4294967296);
+  }
+  const random = seeded(83);
+  const base = JSON.stringify(seed), colors = new Set(), ages = new Set(), ids = new Set(), outlines = new Set();
+  for (let i = 0; i < 160; i++) {
+    const doc = looks.prepare(looks.randomCharacter(random)).recipe;
+    checkSpacing(doc);
+    naturalHair.add(doc.colors.hair);
+    assert.ok(wardrobes.has(JSON.stringify([doc.base, clothing(doc)])), 'whole authored outfit with its own dyes');
+    const expressive = looks.prepare(looks.randomCharacter({ style: 'expressive', random })).recipe;
+    checkSpacing(expressive);
+    expressHair.add(expressive.colors.hair);
+    pairings.add(doc.face.eyes + '/' + doc.face.nose);
+    colors.add(doc.colors.skin); ages.add(looks.bodyProfileOf(doc)); ids.add(doc.id); outlines.add(doc.face.outline);
+    const face = looks.randomFace(doc, random);
+    assert.deepEqual(clone(face.parts), clone(doc.parts));
+    assert.deepEqual(clone(face.colors), clone(doc.colors));
+    assert.equal(face.id, doc.id);
+    if (i < 4) {
+      const actor = looks.build(doc), sip = motion.actions.get('drink');
+      if (motion.accepts(sip, 0, actor)) {
+        const pose = sip.sample(0.5, actor)[0].pose;
+        assert.ok(distance(pose.bottle.lip, motion.rig.socket(actor, pose, 'mouth')) < 1e-7);
+      }
+      const portable = store.scoreFile({ version: 1, loop: true, steps: [{ action: 'idle', actors: [doc.id] }] }, [doc]);
+      assert.deepEqual(clone(portable.characters[0]), clone(doc));
+      assert.equal(store.readScoreFile(clone(portable)).score.steps[0].actors[0], doc.id);
+    }
+    if (i < 32) {
+      const actor = looks.build(expressive);
+      const radius = { adult: 5.82, child: 4.89, toddler: 4.47, baby: 3.89 }[expressive.base] * expressive.shape.height;
+      const vertical = (actor.sockets.leftEye.point[2] - actor.sockets.mouth.point[2]) / radius;
+      const nose = styles.noses[expressive.face.nose] || styles.basicNoses[expressive.face.nose];
+      const lip = styles.mouths[expressive.face.mouth]?.[2] ?? (expressive.face.mouth === 'full' ? 0.092 : 0.061);
+      assert.ok(vertical - nose[3] - 0.105 - lip * (1 + 0.54 * (expressive.shape.upperLipFullness || 0)) >= 0.0399,
+        'nose and upper lip need space on the ' + expressive.base + ' rig');
+    }
+  }
+  assert.ok(pairings.size >= 65, 'eye and nose pairs should combine independently');
+  assert.ok(naturalHair.size >= 12 && expressHair.size > naturalHair.size && expressHair.has(looks.hairColors.莓紫));
+  assert.ok(!naturalHair.has(looks.hairColors.莓紫));
+  const lockedSkin = (skin) => looks.randomCharacter({
+    source: { ...seed, colors: { ...seed.colors, skin } }, locks: ['skin'], random: seeded(315)
+  });
+  const dark = lockedSkin('#47332f'), light = lockedSkin('#f6d8ca');
+  assert.notEqual(dark.colors.skin, light.colors.skin);
+  for (const key of ['face', 'shape', 'parts']) assert.deepEqual(clone(dark[key]), clone(light[key]));
+  const custom = clone(seed), pack = JSON.parse(read('packs/creek-hats.json'));
+  custom.parts.hat = pack.id + '/' + pack.parts[0].id;
+  custom.parts.bag = 'messenger';
+  custom.packs[pack.id] = pack.release;
+  custom.embeddedPacks = [pack];
+  custom.colors.skin = '#976d54'; custom.colors.hair = '#52618a'; custom.colors.hat = '#705642';
+  custom.shape.height = 1.23; custom.shape.legs = 0.83;
+  const original = JSON.stringify(custom);
+  for (const group of [['body'], ['skin'], ['hair'], ['wear'], ['body', 'skin', 'hair', 'wear']]) {
+    const otherProfiles = new Set();
+    let reroll = custom;
+    for (let i = 0; i < 14; i++) {
+      reroll = looks.prepare(looks.randomCharacter({ source: reroll, locks: group, random })).recipe;
+      otherProfiles.add(looks.bodyProfileOf(reroll));
+      if (group.includes('body')) {
+        assert.equal(reroll.base, custom.base); assert.equal(reroll.gender, custom.gender);
+        for (const key of ['height', 'shoulders', 'arms', 'legs']) assert.equal(reroll.shape[key], custom.shape[key]);
+      }
+      if (group.includes('skin')) assert.equal(reroll.colors.skin, custom.colors.skin);
+      if (group.includes('hair')) {
+        assert.equal(reroll.parts.hair, custom.parts.hair); assert.equal(reroll.colors.hair, custom.colors.hair);
+      }
+      if (group.includes('wear')) {
+        assert.deepEqual(clone(clothing(reroll)), clone(clothing(custom)));
+        assert.deepEqual(clone(reroll.embeddedPacks), clone(custom.embeddedPacks));
+      }
+    }
+    if (!group.includes('body')) assert.ok(otherProfiles.size > 1, 'body available independently of other locks');
+  }
+  assert.equal(JSON.stringify(custom), original);
+  assert.equal(ids.size, 160);
+  assert.equal(ages.size, Object.keys(looks.bodyProfiles).length);
+  assert.equal(colors.size, Object.keys(looks.colorPresets.skin).length);
+  assert.ok(outlines.size >= 7);
+  assert.equal(JSON.stringify(seed), base);
+}
 // Measure the actual fine voxels, with one world-space pitch for both releases.
 function sideProfile(actor) {
   const pose = motion.rig.pose(actor.rig);
@@ -126,7 +270,7 @@ for (const id of ['look_body_male', 'look_fern', 'look_workshop_toddler', 'look_
     ...doc, packs: { 'pine-core': pin }, parts: { ...doc.parts, hair: 'bald', hat: 'none', neck: 'none' },
     shape: { ...doc.shape, ...shape }
   });
-  const old = build(looks.mandibleRelease), current = build(looks.release);
+  const old = build(looks.mandibleRelease), current = build(looks.occipitalRelease);
   const before = sideProfile(old), after = sideProfile(current);
   const lastFit = build(looks.sagittalRelease), prior = sideProfile(lastFit);
   assert.deepEqual(current.sockets, lastFit.sockets, id + ' face and jaw landmarks after the occipital trim');
@@ -135,7 +279,7 @@ for (const id of ['look_body_male', 'look_fern', 'look_workshop_toddler', 'look_
   assert.ok(after.depth > 1.15 * before.depth && after.depth < 1.35 * before.depth, id + ' sagittal fit');
   assert.ok(after.rear < before.rear && after.brow > before.brow, id + ' forehead and occiput');
   assert.ok(after.cheek > before.cheek + 0.5 && after.chin > before.chin + 0.5, id + ' face and chin');
-  const shallow = build(looks.release, { headDepth: 0.8 }), deep = build(looks.release, { headDepth: 1.2 });
+  const shallow = build(looks.occipitalRelease, { headDepth: 0.8 }), deep = build(looks.occipitalRelease, { headDepth: 1.2 });
   assert.ok(sideProfile(deep).depth > 1.4 * sideProfile(shallow).depth, id + ' head depth control');
   for (const actor of [current, shallow, deep]) {
     for (const name of ['headPivot', 'collar', 'leftEarCanal', 'rightEarCanal', 'leftJawJoint', 'rightJawJoint', 'leftJawAngle', 'rightJawAngle'])
@@ -143,8 +287,8 @@ for (const id of ['look_body_male', 'look_fern', 'look_workshop_toddler', 'look_
     assert.deepEqual(actor.sockets.leftEye.point.slice(1), old.sockets.leftEye.point.slice(1));
     assert.equal(actor.sockets.chinTip.point[2], old.sockets.chinTip.point[2]);
   }
-  const soft = sideProfile(build(looks.release, { faceRelief: 0 }));
-  const raised = sideProfile(build(looks.release, { faceRelief: 1.8 }));
+  const soft = sideProfile(build(looks.occipitalRelease, { faceRelief: 0 }));
+  const raised = sideProfile(build(looks.occipitalRelease, { faceRelief: 1.8 }));
   assert.equal(soft.depth, raised.depth);
   assert.equal(soft.lip, raised.lip);
   assert.ok(raised.cheek > soft.cheek && raised.chin > soft.chin, id + ' relief independent of head depth');

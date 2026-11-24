@@ -1,5 +1,20 @@
 // Portrait profiles are measured in head radii. Pigment marks follow the surface as the head turns.
 const pinePortraitStyles = (() => {
+  const morphs = {
+    cheekHeight: ['颧骨高低', '低', '高'], cheekWidth: ['颧部宽度', '窄', '宽'],
+    cheekProjection: ['颧骨前凸', '平缓', '突出'], cheekFullness: ['下颊丰满度', '清瘦', '饱满'],
+    eyeDepth: ['眼窝深浅', '浅', '深'], eyeWidth: ['眼裂宽度', '窄', '宽'],
+    eyeOpening: ['眼睑开合', '收窄', '舒展'], eyeTilt: ['眼尾倾角', '下垂', '上扬'],
+    browHeight: ['眉眼距离', '近', '远'], noseBridge: ['鼻梁前伸', '平缓', '高挺'],
+    noseWidth: ['鼻翼宽度', '窄', '宽'], mouthWidth: ['唇宽', '窄', '宽'],
+    upperLipFullness: ['上唇厚度', '薄', '厚'], lowerLipFullness: ['下唇厚度', '薄', '厚']
+  };
+  const basicNoses = {
+    classic: ['', 0.172, 0.197, 0.32, 0.10, 0.48, 0.099],
+    button: ['', 0.158, 0.155, 0.26, 0.085, 0.59, 0.122],
+    wide: ['', 0.235, 0.191, 0.30, 0.09, 0.82, 0.107],
+    bridge: ['', 0.148, 0.255, 0.34, 0.178, 0.37, 0.089]
+  };
   // label, half span, upper and lower lids, outer-corner lift, curve, double-lid crease
   const eyes = {
     upturned: ['上挑眼', 0.277, 0.105, 0.06, 0.099, 1.0, 0.047],
@@ -183,15 +198,17 @@ const pinePortraitStyles = (() => {
     if (Math.abs(h - mid) < (gap || 0.014) * taper + 0.006) return k.lipLine;
     return h > mid ? k.upperLip : k.lowerLip;
   }
-  function nose(row, b, k, fit, eyeZ, front) {
-    const [, w, reach, length, start, wingStrength, tipHeight] = row,
+  function nose(row, b, k, fit, eyeZ, front, widthScale = 1, bridgeScale = 1) {
+    const [, baseWidth, reach, length, start, wingStrength, tipHeight] = row,
       { x: cx, rx, ry, rz } = fit;
+    const maxWidth = baseWidth * Math.max(1, widthScale) * ry;
     const root = eyeZ + start * rz,
       tip = eyeZ - length * rz;
-    b.stamp(cx + 0.49 * rx, cx + 1.46 * rx, -w * ry, w * ry, tip - 0.11 * rz, root, (x, y, z) => {
-      const t = (root - z) / (root - tip),
-        q = y / (w * ry),
-        h = (z - tip) / rz;
+    b.stamp(cx + 0.49 * rx, cx + (1.46 + Math.max(0, bridgeScale - 1) * reach) * rx, -maxWidth, maxWidth, tip - 0.11 * rz, root, (x, y, z) => {
+      const t = (root - z) / (root - tip);
+      const wingBlend = Math.min(1, Math.max(0, (t - 0.15) / 0.65));
+      const width = baseWidth * (1 + (widthScale - 1) * wingBlend * wingBlend * (3 - 2 * wingBlend));
+      const q = y / (width * ry), h = (z - tip) / rz;
       if (t < 0 || Math.abs(q) >= 1) return 0;
       const bridge =
         Math.max(0, 1 - (q / (0.39 + 0.19 * t)) ** 2) *
@@ -199,7 +216,7 @@ const pinePortraitStyles = (() => {
         Math.max(0, Math.min(1, (1.19 - t) / 0.29));
       const bulb = Math.max(0, 1 - (q / 0.66) ** 2 - (h / tipHeight) ** 2);
       const wing = Math.max(0, 1 - ((Math.abs(q) - 0.63) / 0.38) ** 2 - ((h + 0.032) / 0.073) ** 2);
-      const offset = Math.max(bridge, bulb, wing * wingStrength),
+      const offset = Math.max(bridge * bridgeScale, bulb, wing * wingStrength),
         surface = front(y, z);
       if (offset < 0.045 || x < surface - 0.12 * rx || x > surface + reach * rx * offset) return 0;
       if (wing > 0.25 && h < -0.024 && Math.abs(q) > 0.38 && Math.abs(q) < 0.75) return k.noseShade;
@@ -337,6 +354,8 @@ const pinePortraitStyles = (() => {
     return 0;
   }
   return {
+    morphs,
+    basicNoses,
     features,
     details,
     dyes,
