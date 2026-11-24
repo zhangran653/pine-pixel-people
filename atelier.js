@@ -15,6 +15,7 @@
     faceWidth: '脸宽',
     eyeSpacing: '眼距',
     jaw: '下颌宽度',
+    occiput: '后脑深度',
     mouthHeight: '嘴部高低',
     eyes: '眼型',
     brows: '眉形',
@@ -47,7 +48,7 @@
   };
   const tabKeys = {
     shape: ['height', 'shoulders', 'arms', 'legs'],
-    face: ['faceWidth', 'eyeSpacing', 'jaw', 'mouthHeight']
+    face: ['faceWidth', 'eyeSpacing', 'jaw', 'mouthHeight', 'occiput']
   };
   let draft,
     actor,
@@ -142,7 +143,10 @@
     });
   }
   function centimeters(doc, scale = doc.shape.height) {
-    return Math.round(pineDesignerBody.standingHeight(doc.base, scale) * PineMotion.rig.centimetersPerUnit);
+    return Math.round(
+      pineDesignerBody.standingHeight(doc.base, scale, looks.hasSculptedHead(doc)) *
+        PineMotion.rig.centimetersPerUnit
+    );
   }
   function measurements() {
     const other = compareDoc();
@@ -218,6 +222,7 @@
   function changed() {
     dirty = true;
     draft.packs[looks.core] = looks.editingRelease(draft);
+    if (draft.packs[looks.core] === looks.release) $('update-head')?.remove();
     actor = looks.build({ ...draft, label: draft.label.trim() || '未命名形象' });
     heading();
     markPresets();
@@ -228,7 +233,7 @@
     note('');
   }
   function slider(key) {
-    const [min, max] = looks.shape[key],
+    const [min, max, normal] = looks.shape[key],
       label = document.createElement('label'),
       output = document.createElement('output'),
       field = document.createElement('input');
@@ -249,10 +254,10 @@
     field.min = min;
     field.max = max;
     field.step = key === 'mouthHeight' ? 0.05 : 0.01;
-    field.value = draft.shape[key];
+    field.value = draft.shape[key] ?? normal;
     output.htmlFor = field.id;
     function updateReadout() {
-      const percentage = Math.round(draft.shape[key] * 100) + '%';
+      const percentage = Math.round(field.valueAsNumber * 100) + '%';
       const text =
         key === 'height'
           ? centimeters(draft) + ' cm · ' + percentage
@@ -266,6 +271,8 @@
       updateReadout();
       if (key === 'height' && view !== 'body') setView('body');
       changed();
+      if (key === 'occiput' && tab === 'hair')
+        paintHairCards($('editor-fields').querySelector('.hair-cards'), true);
     };
     if (key !== 'height') return label;
     const wrap = document.createElement('div'),
@@ -378,12 +385,11 @@
     return group;
   }
   function figureUpgrade(area) {
-    if ([looks.release, looks.wardrobeRelease, looks.contourRelease].includes(draft.packs[looks.core]))
-      return;
+    if (draft.packs[looks.core] === looks.release) return;
     const update = document.createElement('button');
     update.type = 'button';
     update.id = 'update-head';
-    update.textContent = '试用细调轮廓';
+    update.textContent = '试用新头型与短发';
     update.onclick = () => {
       draft.packs[looks.core] = looks.release;
       changed();
@@ -665,7 +671,7 @@
       };
       filters.append(b);
     }
-    area.append(filters, cards);
+    area.append(slider('occiput'), filters, cards);
     for (const [key, name] of Object.entries(looks.slots.hair)) {
       if (hairGroup !== '全部' && looks.hairGroups[key] !== hairGroup) continue;
       const button = document.createElement('button'),
@@ -701,7 +707,8 @@
       b.onclick = () => orbit(angle);
       row.append(b);
     }
-    area.append(row, hairColorFields(cards));
+    area.insertBefore(row, filters);
+    area.append(hairColorFields(cards));
     orientation();
     markPresets();
   }

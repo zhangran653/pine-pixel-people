@@ -312,7 +312,11 @@ const pineEverydayStyles = (() => {
   }
   function headItem(slot, style, b, k, f, hat) {
     const { x, z, rx, ry, rz } = f,
-      at = (u, v, h) => [x + u * rx, v * ry, z + h * rz];
+      at = (u, v, h) => [
+        x + (f.posterior ? f.posterior.fit(u, h) : u) * rx,
+        v * ry,
+        z + (f.crown ? f.crown.raise(h) : h) * rz
+      ];
     const main = k[slot + 'Main'],
       light = k[slot + 'Light'],
       shade = k[slot + 'Shade'];

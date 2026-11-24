@@ -11,7 +11,8 @@ const PineLooks = (() => {
     contourRelease = '1.6.1',
     wardrobeRelease = '1.7.0',
     collectionRelease = '1.8.0',
-    release = collectionRelease;
+    sculptRelease = '1.9.0',
+    release = sculptRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -22,12 +23,17 @@ const PineLooks = (() => {
     strandRelease,
     contourRelease,
     wardrobeRelease,
+    collectionRelease,
     release
   ];
   function hasRoundedHead(recipe) {
     return releases.indexOf(recipe.packs[core]) > releases.indexOf(hairRelease);
   }
+  function hasSculptedHead(recipe) {
+    return releases.indexOf(recipe.packs[core]) >= releases.indexOf(sculptRelease);
+  }
   const shape = pineDesignerBody.shapeRanges;
+  const requiredShape = Object.keys(shape).filter((key) => key !== 'occiput');
   const previousBodyRanges = {
     height: [0.9, 1.1],
     shoulders: [0.85, 1.15],
@@ -333,7 +339,8 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (usesCollection(recipe)) needed = collectionRelease;
+    if (recipe.shape.occiput !== undefined && recipe.shape.occiput !== 1) needed = sculptRelease;
+    else if (usesCollection(recipe)) needed = collectionRelease;
     else if (pineWorkshopWear.needsRelease(recipe.parts, recipe.colors)) needed = wardrobeRelease;
     else if (Object.hasOwn(additionalHair, recipe.parts.hair)) needed = hairRelease;
     else if (usesExtendedShape(recipe.shape)) needed = proportionRelease;
@@ -494,13 +501,17 @@ SOFTWARE.`;
     requireThat(['child', 'adult'].includes(raw.base), '不支持的基型');
     const label = short(raw.label, 48),
       working = new Map(source);
-    fields(raw.shape, Object.keys(shape));
+    fields(raw.shape, requiredShape, ['occiput']);
     fields(raw.colors, Object.keys(colors), Object.keys(optionalColors));
     fields(raw.parts, [...Object.keys(slots), 'hat'], Object.keys(wearables));
     const sizes = {},
       palette = {},
       parts = {};
-    for (const [key, [lo, hi]] of Object.entries(shape)) sizes[key] = bounded(raw.shape[key], lo, hi);
+    for (const key of requiredShape) sizes[key] = bounded(raw.shape[key], shape[key][0], shape[key][1]);
+    if (Object.hasOwn(raw.shape, 'occiput')) {
+      const depth = bounded(raw.shape.occiput, shape.occiput[0], shape.occiput[1]);
+      if (depth !== 1) sizes.occiput = depth;
+    }
     for (const key of [
       ...Object.keys(colors),
       ...Object.keys(optionalColors).filter((k) => Object.hasOwn(raw.colors, k))
@@ -607,12 +618,18 @@ SOFTWARE.`;
     if (!part) return null;
     return (_pose, b, ink, fit) => {
       for (const p of part.primitives) {
-        const x = fit.x + p.center[0] * fit.rx,
+        const xmin = p.center[0] - p.size[0],
+          xmax = p.center[0] + p.size[0];
+        const left = fit.posterior ? fit.posterior.fit(xmin, p.center[2]) : xmin;
+        const right = fit.posterior ? fit.posterior.fit(xmax, p.center[2]) : xmax;
+        const bottom = fit.crown?.raise(p.center[2] - p.size[2]),
+          top = fit.crown?.raise(p.center[2] + p.size[2]);
+        const x = fit.x + (fit.posterior ? (left + right) * 0.5 : p.center[0]) * fit.rx,
           y = fit.y + p.center[1] * fit.ry,
-          z = fit.z + p.center[2] * fit.rz;
-        const rx = p.size[0] * fit.rx,
+          z = fit.z + (fit.crown ? (top + bottom) * 0.5 : p.center[2]) * fit.rz;
+        const rx = (fit.posterior ? (right - left) * 0.5 : p.size[0]) * fit.rx,
           ry = p.size[1] * fit.ry,
-          rz = p.size[2] * fit.rz,
+          rz = (fit.crown ? (top - bottom) * 0.5 : p.size[2]) * fit.rz,
           color = ink[p.color];
         if (p.shape === 'ellipsoid') b.blob(x, y, z, rx, ry, rz, color, p.power);
         else
@@ -633,7 +650,8 @@ SOFTWARE.`;
         hat?.primitives,
         hasRoundedHead(recipe),
         releases.indexOf(recipe.packs[core]) >= releases.indexOf(strandRelease),
-        releases.indexOf(recipe.packs[core]) >= releases.indexOf(contourRelease)
+        releases.indexOf(recipe.packs[core]) >= releases.indexOf(contourRelease),
+        hasSculptedHead(recipe)
       )
     });
     actor.gender = recipe.gender ?? 'unspecified';
@@ -678,7 +696,7 @@ SOFTWARE.`;
     base: bodyProfiles[profile].base,
     gender: bodyProfiles[profile].gender,
     packs: { [core]: release },
-    shape: { ...Object.fromEntries(Object.entries(shape).map(([k, v]) => [k, v[2]])), ...sizes },
+    shape: { ...Object.fromEntries(requiredShape.map((k) => [k, shape[k][2]])), ...sizes },
     parts: Object.fromEntries([...Object.keys(slots), 'hat'].map((k, i) => [k, items[i]])),
     colors: Object.fromEntries(Object.keys(colors).map((k, i) => [k, palette[i]]))
   }));
@@ -880,7 +898,9 @@ SOFTWARE.`;
     contourRelease,
     wardrobeRelease,
     collectionRelease,
+    sculptRelease,
     hasRoundedHead,
+    hasSculptedHead,
     editingRelease,
     usesExtendedShape,
     bodyProfiles,

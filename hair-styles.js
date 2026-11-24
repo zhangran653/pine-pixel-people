@@ -85,8 +85,12 @@ const pineHairStyles = (() => {
     return grain > 0.48 ? k.hairSheen : grain < -0.41 ? k.hairDepth : k.hair;
   }
   function draw(p, b, k, f, hat, worldPoint) {
-    const { x, z, rx, ry, rz } = f,
-      at = (u, v, h) => [x + u * rx, v * ry, z + h * rz];
+    const { x, z, rx, ry, rz, posterior } = f,
+      at = (u, v, h) => [
+        x + (posterior ? posterior.fit(u, h) : u) * rx,
+        v * ry,
+        z + (f.crown ? f.crown.raise(h) : h) * rz
+      ];
     const hair = (t, u, v) =>
       v > 0.05 * ry && v < 0.12 * ry ? k.hairSheen : u < -0.11 * rx ? k.hairDepth : k.hair;
     const blob = (u, v, h, a, c, d, seed = 0) => {

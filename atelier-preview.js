@@ -121,6 +121,31 @@ const atelierPreview = (() => {
       firstHeadY = Infinity,
       lastHeadY = -Infinity;
     const height = Math.max(...group.parts.map((p) => p.actor.rig.height));
+    // One lens for all appearances of a solo character. Hair, head depth and swinging arms
+    // may change the occupied grid without changing the size of the eyes and mouth on screen.
+    if (portrait && group.parts.length === 1) {
+      const p = group.parts[0],
+        rig = p.actor.rig;
+      const focus = motion.rig.point(p.pose.head, [
+        rig.neck[0],
+        0,
+        rig.neck[2] + 0.45 * (height - rig.neck[2])
+      ]);
+      const [x, headY] = fromPart(p, focus, camera),
+        y = sharedFloor ? 0 : headY;
+      const headroom = Math.max(0, p.body.nz / p.body.density - 1.27 * height);
+      const halfWidth = 0.186 * height + headroom;
+      return {
+        x,
+        y,
+        left: -halfWidth,
+        right: halfWidth,
+        halfWidth,
+        top: headY - y - 0.215 * height - headroom,
+        bottom: headY - y + 0.207 * height,
+        height
+      };
+    }
     for (const p of group.parts) {
       const h = p.actor.rig.height,
         b = projectedBounds(p, camera);

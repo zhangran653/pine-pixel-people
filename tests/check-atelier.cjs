@@ -121,6 +121,24 @@ function checkEditor() {
         expect(next === fixed, action + ' changed the ruler scale mid-clip on a narrow screen');
       }
     }
+    const headFrames = [];
+    for (const depth of [0.8, 1, 1.2]) {
+      const p = PineLooks.build({
+        ...model,
+        shape: { ...model.shape, occiput: depth },
+        packs: { 'pine-core': PineLooks.sculptRelease }
+      });
+      const original = p.body.draw;
+      p.body.draw = (context, grid, x, y, yaw, pitch, scale) => {
+        headFrames.push([x, y, scale]);
+        return original(context, grid, x, y, yaw, pitch, scale);
+      };
+      mirror.show({ actor: p, action: 'idle', u: 0, bearing: 90, view: 'face', detail: false });
+    }
+    expect(
+      headFrames.length === 3 && headFrames.every((f) => JSON.stringify(f) === JSON.stringify(headFrames[0])),
+      'editing the occiput reframed the face'
+    );
     mirror.dispose();
     small.remove();
     byId('tab-hair').click();
@@ -396,9 +414,42 @@ function checkEditor() {
         !Object.hasOwn(mixed.colors, 'leftEye'),
       'saved mixed collection'
     );
+    const oldCut = PineWardrobe.importCharacter({
+      ...PineLooks.templates.find((p) => p.id === 'look_body_male'),
+      id: 'look_archived_short_hair',
+      packs: { 'pine-core': PineLooks.collectionRelease }
+    }).recipe;
+    byId('save-look').click();
+    document.querySelector('[data-key="saved:' + oldCut.id + '"]').click();
+    byId('tab-hair').click();
+    document.querySelector('[data-hair-angle="90"]').click();
+    const depth = byId('edit-occiput');
+    expect(
+      depth.value === '1' && +depth.min === 0.8 && +depth.max === 1.2 && +depth.step === 0.01,
+      'occipital depth control'
+    );
+    depth.value = depth.min;
+    depth.dispatchEvent(new Event('input'));
+    const shallow = byId('mirror').toDataURL();
+    expect(
+      !byId('update-head') &&
+        PineWardrobe.saved.get(oldCut.id).packs['pine-core'] === PineLooks.collectionRelease,
+      'profile edit overwrote archived hair'
+    );
+    depth.value = depth.max;
+    depth.dispatchEvent(new Event('input'));
+    expect(shallow !== byId('mirror').toDataURL(), 'side view did not show posterior depth');
+    byId('tab-face').click();
+    expect(byId('edit-occiput').value === '1.2', 'face and hair panels disagree on occipital depth');
+    byId('save-look').click();
+    const reshaped = PineWardrobe.saved.get(oldCut.id);
+    expect(
+      reshaped.shape.occiput === 1.2 && reshaped.packs['pine-core'] === PineLooks.sculptRelease,
+      'profile failed to persist'
+    );
     target.dataset.state = 'pass';
     target.textContent =
-      'Body profiles, legacy saves, head upgrade, scale, hairstyles, dyes, full-body and close-up detail, slice alignment, configurable workshop outfits, style search, hair filters, and independent portrait dyes passed';
+      'Body profiles, legacy saves, head upgrade and occipital depth, scale, hairstyles, dyes, full-body and close-up detail, slice alignment, configurable workshop outfits, style search, hair filters, and independent portrait dyes passed';
   } catch (err) {
     target.dataset.state = 'fail';
     target.textContent = err.message;

@@ -65,7 +65,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 4. 用「对照人物」选择另一个形象，试跑或相互击掌。导出角色 JSON 可以在另一台设备重新打开，文件内含所穿外部帽饰的版本、素材和声明。
 5. 也可以直接把 [放学后的双人编排](packs/after-school.json) 导入动作工坊，试看跑步、跳跃、击掌与喝水的完整循环。
 
-「体型」面板以每种默认体型为 100%。身高可调至 75%–130%，肩宽 70%–135%，臂长和腿长各为 80%–125%，步长均为 1%。成人站姿约为 117–203 cm，儿童约为 83–144 cm。已有形象首次使用扩展范围时会自动采用基础部件 `pine-core 1.3.0`。
+「体型」面板以每种默认体型为 100%。身高可调至 75%–130%，肩宽 70%–135%，臂长和腿长各为 80%–125%，步长均为 1%。1.9.0 的裸头站姿成人约为 119–207 cm，儿童约为 85–147 cm。已有形象首次使用扩展范围时会自动采用所需的基础部件版本。
 
 全身和脸部镜头默认开启「精细人物」。全身沿用五官编辑的头脸切片，衣领、手、裤脚和鞋也会加密。动作工坊和 Three.js 观景台也使用精细全身。[查看全身](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=shape&hair=shoulder-length&bearing=16) · [同一全身镜头的前后对照图](full-body-detail-preview.png)
 
@@ -75,7 +75,11 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 全身镜头有固定的地面和厘米标尺。身高读数取站直时的裸头顶位置。拖动「环视」可以从正面和侧面看两种成人体型的差别。两个样本使用相同的身高、发型和衣装。[成人体型并排对照](http://127.0.0.1:8000/atelier.html?preset=look_body_female&compare=look_body_male&tab=shape) · [儿童身高对照](http://127.0.0.1:8000/atelier.html?preset=look_chorus&compare=look_relay&tab=shape) · [双马尾后侧近景](http://127.0.0.1:8000/atelier.html?preset=look_chorus&tab=hair)
 
-在暂停待机时打开「五官」，镜子会对准正面。头顶、后脑和下颌沿椭圆截面过渡。12 种唇形用脸部切片上的色差画出，水壶对准唇心。右下角的「精细人物」可随时切换精度。旧存档可在「体型」「发型」或「五官」点「试用细调轮廓」预览当前基础部件，满意后保存。[查看唇部侧面](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&bearing=90)
+`pine-core 1.9.0` 的成人和儿童头型分别取样自 MakeHuman 的开放模型。每种头型取 29 个水平截面，对齐下巴、嘴和眼睛后，再按原角色的骨架绘成像素。单人近景使用固定取景，调后脑、换发型或转身时可以直接比较脸的大小。[头型数据与采样方法](appearance-standard.html#head-reference) · [从正侧面试光头](http://127.0.0.1:8000/atelier.html?preset=look_body_male&tab=hair&hair=bald&bearing=90) · [从前侧试短碎发](http://127.0.0.1:8000/atelier.html?preset=look_body_male&tab=hair&hair=crop&bearing=55) · [从侧面试儿童平头](http://127.0.0.1:8000/atelier.html?preset=look_relay&tab=hair&hair=crew&bearing=90)
+
+![上一轮工作稿与参考数据版的同镜头对照，包括成人正脸、侧脸、儿童平头与短发后侧](short-hair-profile-preview.png)
+
+「发型」和「五官」共用「后脑深度」滑杆，100% 为新头型的默认值，可在 80%–120% 之间微调。旧存档可以先点「试用新头型与短发」，喜欢后再保存。12 种唇形用脸部切片上的色差画出，水壶对准唇心。[查看唇部侧面](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&bearing=90)
 
 ![同一角色修改前后的正面、侧面与后侧，展示唇线中点和头型](face-detail-preview.png)
 

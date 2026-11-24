@@ -100,6 +100,7 @@
                 child、adult 各有独立静止骨架。身高、肩宽、臂长、腿长、脸宽、眼距、下颌宽度均以 1
                 为基准，嘴高以 0 为基准。在 pine-core 1.3.0 中身高取 0.75–1.30，肩宽取
                 0.70–1.35，臂长与腿长各取 0.80–1.25。腿长调节腿与躯干的比例，身高调节全身尺度。
+                从 pine-core 1.9.0 起，<code>shape.occiput</code> 可调节耳后到后脑的深度，范围为 0.80–1.20，默认 1。导出时省略默认值。
               </td>
             </tr>
             <tr>
@@ -171,7 +172,21 @@
           pine-core 1.6.1 对轮廓做了微调，沿用 1.6.0 的头身比、骨长和接触点。下颌和后脑下缘轻微收拢，肩线过渡到胸背，大腿、小腿、上臂和前臂各有一条沿骨骼变化的截面曲线。儿童的下颌调整幅度较小。<a href="figure-contour-preview.png">查看同一姿势的全身轮廓对照</a>
         </p>
         <p>
-          12 种唇形直接画在脸面上，用唇线、嘴角和上下唇的色差区分款式。唇心位于头部局部坐标 Y = 0，水壶在这里接触脸面。旧存档按各自版本绘制。在「体型」「发型」或「五官」点「试用细调轮廓」可预览当前基础部件，点击「保存」后会记录新版本。<a href="atelier.html?preset=look_body_female&amp;tab=face&amp;bearing=90">从正侧面查看唇线</a>
+          12 种唇形直接画在脸面上，用唇线、嘴角和上下唇的色差区分款式。唇心位于头部局部坐标 Y = 0，水壶在这里接触脸面。旧存档按各自版本绘制。在「体型」「发型」或「五官」点「试用新头型与短发」可预览当前基础部件，点击「保存形象」后会记录新版本。<a href="atelier.html?preset=look_body_female&amp;tab=face&amp;bearing=90">从正侧面查看唇线</a>
+        </p>
+        <h2 id="head-reference">成人与儿童的头型参考</h2>
+        <p>
+          成人取样自 MakeHuman 的中性 hm08 基础网格。儿童使用同一拓扑，将官方六份儿童形变等权混合，再单独取样。基础网格与这些形变均采用 CC0 1.0。项目的绘制工具、原创人物与动作继续采用 MIT。<a href="https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/3dobjs/base.obj">基础网格</a> · <a href="https://github.com/makehumancommunity/makehuman/tree/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/targets/macrodetails">形变数据</a> · <a href="https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/LICENSE.md#c-the-license-for-the-bundled-assets">上游素材许可</a>
+        </p>
+        <p>
+          采样脚本对齐颏底、唇线、眼位与颅顶，分别提取 29 个高度的截面。每层记录半脸宽、后缘、颞部位置，以及从面中线到脸侧的六个前表面深度。眼睑、鼻和嘴仍可独立更换，头顶与颈部按像素骨架衔接。运行时只读截面表。「后脑深度」从耳部向后调节，单人近景使用固定镜头。<a href="short-hair-profile-preview.png">查看同镜头的上一轮工作稿与新头型</a>
+        </p>
+        <p>
+          用 Python 3 在项目根目录执行下面的命令即可重新生成截面表。两个参数分别指向上述固定版本的网格及其形变目录。<a href="tools/sample-head.py">采样脚本</a> · <a href="head-sections.js">生成的截面数据</a>
+        </p>
+        <pre><code>python3 tools/sample-head.py path/to/base.obj path/to/macrodetails &gt; head-sections.js</code></pre>
+        <p>
+          圆寸、渐层寸头和平头用不同的发际线、包覆厚度和顶部轮廓。短碎发、侧分和精灵短发叠上从分缝或发旋延伸的发束，发梢逐渐收窄。发束的高度和厚度预先采样，同款发型可跨姿势和发色复用，沿用原有的切片精度。<a href="atelier.html?preset=look_body_male&amp;tab=hair&amp;hair=crop&amp;bearing=90">在创作室旋转查看</a>
         </p>
         <p>
           额前发束用从发根经过弯折点到发梢的曲线定义，越靠近末端越窄。每个高度与方位保存发束的外径和颜色档位，交叠处取外侧的一束，再采样为像素切片。多个人物可复用同款发型的形状，各自按 <code>colors.hair</code> 着色。戴帽时帽冠下的发量会收拢。<a href="atelier.html?preset=look_body_female&amp;tab=hair&amp;hair=shoulder-length&amp;bearing=35">旋转查看披肩长发</a>
@@ -276,7 +291,7 @@
         </p>
         <h2>在自己的页面使用</h2>
         <p>
-          按创作室页面的顺序先加载人物与动作模块，再加载 portrait-styles、hair-styles、everyday-styles、workshop-wear、designer-body、appearance 和 appearance-store。可以把形象文件和 <code>female</code>、<code>male</code> 或 <code>child</code> 传给
+          按创作室页面的顺序先加载人物与动作模块，再加载 portrait-styles、hair-styles、head-sections、head-shape、short-hair、everyday-styles、workshop-wear、designer-body、appearance 和 appearance-store。可以把形象文件和 <code>female</code>、<code>male</code> 或 <code>child</code> 传给
           <code>PineLooks.withBodyProfile(characterFile, profile)</code
           >，取得同一角色的新体型副本。用下面的代码构建演员与采样编排。
         </p>

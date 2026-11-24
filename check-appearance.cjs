@@ -25,6 +25,9 @@ const sources = [
   'studio-library',
   'portrait-styles',
   'hair-styles',
+  'head-sections',
+  'head-shape',
+  'short-hair',
   'everyday-styles',
   'workshop-wear',
   'designer-body',
@@ -465,12 +468,121 @@ function crownRatios(doc) {
 }
 for (const base of ['adult', 'child']) {
   const doc = { ...current, base, parts: { ...current.parts, hair: 'crop', hat: 'none' } };
-  const round = crownRatios(doc),
+  const round = crownRatios({ ...doc, packs: { 'pine-core': a.l.collectionRelease } }),
     old = crownRatios({ ...doc, packs: { 'pine-core': a.l.hairRelease } });
   assert.ok(
     round.every((ratio, i) => ratio < old[i] - 0.04),
     base + ' crown should taper from both views'
   );
+}
+// Measure real occupied cells from the ear plane with the same pose, height and camera axes.
+function headProfile(recipe) {
+  const actor = a.l.build(recipe);
+  const pose = a.m.rig.pose(actor.rig, {});
+  const bodyGrid = actor.body.makePose(pose);
+  const upper = a.m.faceLayers(actor, pose, bodyGrid)[1];
+  const { body, model } = upper;
+  const [cx, cz, rx, rz] = recipe.base === 'child' ? [0.38, 27.69, 3.98, 4.89] : [0.55, 40.1, 4.9, 5.82];
+  const ear = a.m.rig.point(pose.head, [cx - 0.115 * rx, 0, cz]);
+  function extent(h, cheek = false) {
+    const z = Math.floor((ear[2] + rz * h - upper.z) * body.density);
+    let rear = body.nx,
+      front = -1;
+    const cheekY = Math.floor(
+      body.ny / 2 +
+        (ear[1] + 0.54 * (recipe.base === 'child' ? 4.1 : 4.9) * recipe.shape.faceWidth - upper.y) *
+          body.density
+    );
+    for (let y = cheek ? cheekY : 0; y < (cheek ? cheekY + 1 : body.ny); y++) {
+      for (let x = 0; x < body.nx; x++) {
+        if (model.colors[(z * body.ny + y) * body.nx + x]) {
+          rear = Math.min(rear, x);
+          front = Math.max(front, x);
+        }
+      }
+    }
+    assert.ok(front >= rear, recipe.id + ' empty profile section');
+    return {
+      rear: ear[0] - (upper.x + (rear - body.nx / 2) / body.density),
+      front: upper.x + (front + 1 - body.nx / 2) / body.density - ear[0]
+    };
+  }
+  return {
+    middle: extent(0.17),
+    upperBack: extent(0.42),
+    cheek: extent(-0.17, true),
+    nape: extent(-0.36),
+    crown: (upper.z + model.bounds[5] / body.density - ear[2]) / rz,
+    cell: 1 / body.density,
+    actor,
+    bodyGrid,
+    fineGrid: model
+  };
+}
+for (const [id, oldBodyHash, oldHeadHash] of [
+  [
+    'look_body_male',
+    'f96d3c05bc74d4c229a3ae6fca7e355b3b994299152bea535773e84187fd3252',
+    '379be5196bc19f68b70a899ecb0da714aea90157edc59ed49d766ab7dd4e8065'
+  ],
+  [
+    'look_relay',
+    '9128e0bd075881a00565cd97d08567100ddbb4c45f224cbb15353c1672e4b192',
+    '68b1ed8a2c49522c1ff658a5f215e5d16f9e585abdb1ede61eee5748ac21465e'
+  ]
+]) {
+  const seed = a.l.templates.find((doc) => doc.id === id);
+  const crop = {
+    ...seed,
+    shape: { ...seed.shape, height: 1 },
+    parts: { ...seed.parts, hat: 'none', neck: 'none', hair: 'crop' }
+  };
+  const prior = { ...crop, packs: { 'pine-core': a.l.collectionRelease } };
+  const archivedCrop = headProfile(prior);
+  assert.equal(colorDigest(archivedCrop.bodyGrid.colors), oldBodyHash);
+  assert.equal(colorDigest(archivedCrop.fineGrid.colors), oldHeadHash);
+  const sculpted = headProfile(crop);
+  const baldRecipe = { ...crop, parts: { ...crop.parts, hair: 'bald' } };
+  const bald = headProfile(baldRecipe);
+  const oldBald = headProfile({ ...baldRecipe, packs: prior.packs });
+  assert.ok(bald.crown > oldBald.crown + 0.09 && bald.crown < oldBald.crown + 0.21, id + ' crown rise');
+  assert.ok(Math.abs(bald.upperBack.rear - bald.middle.rear) < bald.cell * 2.2, id + ' occipital bulge');
+  for (const [before, after] of [
+    [archivedCrop, sculpted],
+    [oldBald, bald]
+  ]) {
+    const ratio = after.middle.rear / before.middle.rear;
+    assert.ok(ratio > 0.6 && ratio < 0.85, id + ' rear contour at ear level');
+    assert.ok(after.nape.rear < after.middle.rear * 0.85, id + ' nape should taper below the occiput');
+  }
+  const buzz = headProfile({ ...crop, parts: { ...crop.parts, hair: 'buzz' } });
+  assert.ok(
+    buzz.crown < bald.crown + 0.07 && sculpted.crown > buzz.crown + 0.12,
+    id + ' short hair lost crown volume'
+  );
+  const withDepth = (depth) => ({ ...crop, shape: { ...crop.shape, occiput: depth } });
+  const shallow = headProfile(withDepth(0.8)),
+    deep = headProfile(withDepth(1.2));
+  assert.ok(
+    shallow.middle.rear < 0.88 * sculpted.middle.rear && deep.middle.rear > 1.12 * sculpted.middle.rear
+  );
+  for (const variant of [shallow, deep]) {
+    assert.ok(
+      Math.abs(variant.middle.front - sculpted.middle.front) <= Math.max(variant.cell, sculpted.cell)
+    );
+    assert.deepEqual(variant.actor.rig, sculpted.actor.rig);
+    assert.deepEqual(variant.actor.sockets, sculpted.actor.sockets);
+    assert.ok(
+      Math.abs(variant.cheek.front - sculpted.cheek.front) <= Math.max(variant.cell, sculpted.cell),
+      id + ' occipital control moved cheek'
+    );
+  }
+  assert.ok(!Object.hasOwn(a.l.prepare(withDepth(1)).recipe.shape, 'occiput'));
+  assert.equal(a.l.prepare(withDepth(0.8)).recipe.shape.occiput, 0.8);
+  const oldCustom = { ...withDepth(0.8), packs: prior.packs };
+  assert.equal(a.l.editingRelease(oldCustom), a.l.sculptRelease);
+  assert.throws(() => a.l.prepare(oldCustom), /1\.9\.0/);
+  assert.throws(() => a.l.prepare(withDepth(1.21)));
 }
 // Look straight across the parted fringe. A strand on each side must stand
 // physically forward of the exposed forehead, independent of its pigment.
@@ -816,7 +928,8 @@ const wardrobeSchema = json('character-v1.schema.json').properties;
 for (const id of ['look_body_female', 'look_relay']) {
   const doc = a.l.templates.find((p) => p.id === id);
   const prior = { ...doc, packs: { 'pine-core': a.l.contourRelease } };
-  assert.equal(digest(a.l.build(doc), a.m, 'run'), digest(a.l.build(prior), a.m, 'run'));
+  const wardrobe = { ...doc, packs: { 'pine-core': a.l.wardrobeRelease } };
+  assert.equal(digest(a.l.build(wardrobe), a.m, 'run'), digest(a.l.build(prior), a.m, 'run'));
 }
 const surveyExample = json('packs/workshop-surveyor.json');
 const surveyTemplate = a.l.templates.find((p) => p.id === surveyExample.id);
@@ -877,7 +990,12 @@ for (const base of ['adult', 'child']) {
 }
 const collectionExample = json('packs/style-reader.json');
 assert.deepEqual(
-  clone(a.l.prepare(a.l.templates.find((doc) => doc.id === collectionExample.id)).recipe),
+  clone(
+    a.l.prepare({
+      ...a.l.templates.find((doc) => doc.id === collectionExample.id),
+      packs: collectionExample.packs
+    }).recipe
+  ),
   collectionExample
 );
 const dyedFace = {
@@ -899,8 +1017,9 @@ for (const key of Object.keys(a.l.portraitColors)) {
   assert.throws(() => a.l.prepare({ ...recipe, colors: { ...recipe.colors, [key]: 'invalid' } }));
 }
 assert.equal(a.l.editingRelease(surveyExample), a.l.wardrobeRelease);
-assert.equal(finePortrait(surveyTemplate), finePortrait(surveyExample));
-assert.equal(digest(a.l.build(surveyTemplate), a.m, 'run'), digest(a.l.build(surveyExample), a.m, 'run'));
+const archivedSurvey = { ...surveyTemplate, packs: surveyExample.packs };
+assert.equal(finePortrait(archivedSurvey), finePortrait(surveyExample));
+assert.equal(digest(a.l.build(archivedSurvey), a.m, 'run'), digest(a.l.build(surveyExample), a.m, 'run'));
 const dressed = clone(a.l.templates.find((d) => d.id === 'look_workshop_hiker'));
 Object.assign(dressed.parts, {
   glasses: 'round',
