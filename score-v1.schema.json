@@ -29,6 +29,11 @@
         "$ref": "#/$defs/placement"
       }
     },
+    "actorPlacement": {
+      "$ref": "#/$defs/transform",
+      "unevaluatedProperties": false,
+      "description": "演员组的默认位置。双人动作共用此坐标系，已绑定物件的动作以目标物件为准。"
+    },
     "detail": {
       "enum": ["figure", "standard"],
       "default": "figure",
@@ -81,15 +86,21 @@
       }
     },
     "placement": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "kind"
-      ],
+      "$ref": "#/$defs/transform",
+      "unevaluatedProperties": false,
+      "required": ["kind"],
       "properties": {
-        "kind": {
-          "type": "string",
-          "minLength": 1
+        "kind": { "type": "string", "minLength": 1 }
+      }
+    },
+    "transform": {
+      "type": "object",
+      "properties": {
+        "parent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 63,
+          "description": "可容纳物件的建筑在 scene 中的零起始序号。设置后坐标相对该建筑的室内地坪。包含关系必须无环。"
         },
         "x": {
           "type": "number",

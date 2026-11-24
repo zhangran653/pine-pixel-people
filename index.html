@@ -61,6 +61,7 @@
             <label>精细度
               <select id="world-detail"><option value="figure">精细</option><option value="standard">标准</option></select>
             </label>
+            <label id="view-space-field" hidden>视图<select id="world-space" aria-label="建筑视图"></select></label>
             <div>
               <button id="world-play" type="button" aria-pressed="false">播放动作</button
               ><button type="button" id="world-reset-view">视角复位</button>
@@ -87,18 +88,26 @@
           <div class="cast-row">
             <label>演员<select id="world-actor"></select></label
             ><label>动作<select id="world-clip"></select></label>
+            <button id="select-cast" type="button">演员位置</button>
           </div>
           <details id="placements" open>
-            <summary>场景中的物件 <span id="placement-count"></span></summary>
+            <summary><span id="placement-title">场景中的物件</span> <span id="placement-count"></span></summary>
             <div class="placement-body">
-              <label class="pick-place">选择物件<select id="placed"></select></label>
-              <div class="coords">
+              <ul id="scene-tree" class="scene-tree" aria-label="场景层级" hidden></ul>
+              <div class="placement-inspector">
+                <label id="flat-picker" class="pick-place">选择物件<select id="placed"></select></label>
+                <strong id="selection-name" hidden></strong>
+                <button type="button" id="gather-interior" hidden>将范围内的人物和物件移入</button>
+                <label id="parent-field" hidden>所属空间<select id="place-parent"></select></label>
+                <div class="coords">
                 <label>X<input id="place-x" type="number" min="-256" max="256" step="any" /></label
                 ><label>Y<input id="place-y" type="number" min="-256" max="256" step="any" /></label
                 ><label>高度<input id="place-z" type="number" min="0" max="256" step="any" /></label
                 ><label
                   >朝向 °<input id="place-heading" type="number" min="-360" max="360" step="any" /></label
                 ><button type="button" id="remove-place">移除</button>
+                </div>
+                <small id="coordinate-note" hidden></small>
               </div>
             </div>
           </details>

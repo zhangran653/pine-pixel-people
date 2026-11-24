@@ -93,9 +93,13 @@
     const clip = lib.actions.get($which.value),
       field = id('action-target');
     field.replaceChildren(option('随动作创建', ''));
-    for (const [i, p] of (plan?.score.scene || []).entries())
-      if (p.kind === clip?.station)
-        field.add(option(PineWorld.items.get(p.kind).label + ' · ' + (i + 1), String(i)));
+    const scene = plan?.score.scene || [];
+    for (const [i, p] of scene.entries()) {
+      if (p.kind !== clip?.station) continue;
+      const path = PineWorld.ancestors(scene, i).reverse()
+        .map(n => PineWorld.items.get(scene[n].kind).label + ' · ' + (n + 1));
+      field.add(option(path.join(' / '), String(i)));
+    }
     field.value = String(selected ?? '');
     id('target-field').hidden = field.options.length < 2;
   }
@@ -474,7 +478,14 @@
     setNote();
     save();
   }
-  id('edit-world').onclick = () => PineWardrobe.handoff(id('edit-world'), plan.score);
+  id('edit-world').onclick = () => {
+    const link = id('edit-world'), dest = new URL(link.href);
+    const scene = url.searchParams.get('scene');
+    if (book === 'world' && Object.hasOwn(PineWorld.scenes, scene)) dest.searchParams.set('scene', scene);
+    else dest.searchParams.delete('scene');
+    link.href = dest;
+    PineWardrobe.handoff(link, plan.score);
+  };
   function filterActions() {
     const prior = $which.value,
       duration = $duration.value;

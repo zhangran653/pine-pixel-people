@@ -12,6 +12,7 @@
     street: ['现代街区', 'guide', 'guide-flag', '#d5dfcf', '#a5bd87', '#7c9b72', '#d7c6a3'],
     garden: ['现实自然', 'florist', 'look-around', '#e7e4cf', '#afc38e', '#729873', '#d7c9a3'],
     study: ['现代室内', 'programmer', 'desk-code', '#e6ddd0', '#d3b48d', '#a38f71', '#e4ceaa'],
+    pavilion: ['园林', 'workshop_child', 'drink', '#e6e4d0', '#b4c397', '#819574', '#d9cba5'],
     airfield: ['现代交通', 'pilot', 'dock-check', '#d4e2dc', '#b0c59d', '#82977b', '#b3b9ae'],
     market: ['古代市井', 'scholar', 'unroll-map', '#ecdfc7', '#c4bd8e', '#a19770', '#d7c4a3'],
     grove: ['奇幻林地', 'mage', 'raise-crystal', '#ded9e9', '#a6b4a1', '#778c86', '#b7abb6'],
@@ -30,6 +31,7 @@
     stamp = null,
     raf = 0;
   let selection = 0,
+    activeSpace,
     memos = {},
     lastSample = '',
     actorDrawings = [],
@@ -47,6 +49,7 @@
     try {
       memos[sceneKey] = wardrobe.scoreFile(plan.score);
       localStorage.setItem(localKey, JSON.stringify({ version: 1, active: sceneKey, books: memos }));
+      updateViewLink(true);
       note('已保存到此浏览器');
     } catch (e) {
       note('未能保存到浏览器 · ' + e.message);
@@ -62,7 +65,9 @@
     const [, id, action] = settings[key],
       scene = W.scenes[key].objects.map((p) => ({ ...p }));
     if (key === 'study') return { ...M.presets.office, scene: structuredClone(M.presets.office.scene) };
-    return { version: 1, loop: true, scene, steps: [{ action, actors: ['look_' + id] }] };
+    const actorPlacement = W.scenes[key].actorPlacement;
+    return { version: 1, loop: true, scene, ...(actorPlacement ? { actorPlacement } : {}),
+      steps: [{ action, actors: ['look_' + id] }] };
   }
   function actors() {
     const select = $('world-actor');
@@ -111,15 +116,22 @@
   }
   $('world-actor').onchange = () => editCast(false);
   $('world-clip').onchange = () => editCast(true);
-  function change(score) {
-    plan = M.compile(score);
+  function change(score, afterCompile) {
+    try {
+      plan = M.compile(score);
+    } catch (error) {
+      note(error.message);
+      placements();
+      return;
+    }
+    if (afterCompile) afterCompile();
     t = 0;
     lastSample = '';
     placements();
     draw();
     save();
   }
-  function loadScene(key, provided, requestedDetail) {
+  function loadScene(key, provided, requestedDetail, inside) {
     let next = provided;
     if (!next)
       try {
@@ -129,7 +141,8 @@
     if (requestedDetail && requestedDetail !== W.detailMode(plan.score.detail))
       plan = M.compile({ ...plan.score, detail: requestedDetail });
     sceneKey = key;
-    selection = 0;
+    activeSpace = W.items.get(plan.score.scene?.[inside]?.kind)?.interior ? inside : undefined;
+    selection = activeSpace ?? 0;
     t = 0;
     lastSample = '';
     zoom = 1;
@@ -141,27 +154,125 @@
     placements();
     draw();
   }
+  const labelAt = (list, i) => W.items.get(list[i].kind).label + ' · ' + (i + 1);
+  function selectNode(i) {
+    selection = i;
+    placements();
+    $('scene-tree').querySelector('[data-node="' + (i ?? 'cast') + '"]')?.focus({ preventScroll: true });
+  }
+  function viewSpace(i) {
+    activeSpace = i;
+    if (i !== undefined) selection = i;
+    placements();
+    draw();
+    updateViewLink();
+  }
+  function renderTree(list, castLabel) {
+    const tree = $('scene-tree');
+    tree.replaceChildren();
+    const children = new Map();
+    function add(parent, i) {
+      if (!children.has(parent)) children.set(parent, []);
+      children.get(parent).push(i);
+    }
+    list.forEach((p, i) => add(p.parent, i));
+    if (plan.score.steps.length) add(plan.score.actorPlacement?.parent, null);
+    function branch(ul, parent) {
+      for (const i of children.get(parent) || []) {
+        const li = document.createElement('li'), row = document.createElement('div');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.node = i ?? 'cast';
+        btn.textContent = i === null ? castLabel : labelAt(list, i);
+        btn.setAttribute('aria-pressed', String(selection === i));
+        btn.onclick = () => selectNode(i);
+        row.className = 'tree-row';
+        row.append(btn);
+        li.append(row);
+        if (i !== null && W.items.get(list[i].kind).interior) {
+          const view = document.createElement('button');
+          view.type = 'button';
+          view.dataset.enter = i;
+          view.textContent = activeSpace === i ? '返回全景' : '看内部';
+          view.setAttribute('aria-label', activeSpace === i ? '返回全景' : '查看' + labelAt(list, i) + '内部');
+          view.onclick = () => {
+            viewSpace(activeSpace === i ? undefined : i);
+            tree.querySelector('[data-enter="' + i + '"]').focus({ preventScroll: true });
+          };
+          row.append(view);
+          if (children.has(i)) {
+            const group = document.createElement('ul');
+            branch(group, i);
+            li.append(group);
+          }
+        }
+        ul.append(li);
+      }
+    }
+    branch(tree, undefined);
+  }
   function placements() {
-    const list = plan.score.scene || [],
-      el = $('placed');
+    const list = plan.score.scene || [], el = $('placed');
+    const rooms = list.map((p, i) => W.items.get(p.kind).interior ? i : -1).filter(i => i >= 0);
+    const hasSpaces = rooms.length > 0, hasCast = plan.score.steps.length > 0;
+    if (selection !== null || !hasCast) selection = Math.max(0, Math.min(selection ?? 0, list.length - 1));
+    const isCast = selection === null;
+    const ids = [...new Set(plan.score.steps.flatMap(step => step.actors))];
+    const castLabel = ids.length === 1 ? '演员 · ' + M.characters.get(ids[0]).label : '演员组 · ' + ids.length + ' 人';
+    const item = isCast ? plan.score.actorPlacement || { x: 0, y: 0, z: 0, heading: 0 } : list[selection];
     el.replaceChildren();
-    selection = Math.max(0, Math.min(selection, list.length - 1));
-    for (const [i, p] of list.entries())
-      el.add(option(String(i), W.items.get(p.kind).label + ' · ' + (i + 1)));
+    for (let i = 0; i < list.length; i++) el.add(option(String(i), labelAt(list, i)));
     if (!list.length) el.add(option('', '场景为空'));
-    el.value = list.length ? String(selection) : '';
+    el.value = isCast || !list.length ? '' : String(selection);
     $('placement-count').textContent = '(' + list.length + ')';
-    const item = list[selection];
+    $('placement-title').textContent = hasSpaces ? '场景层级' : '场景中的物件';
+    $('scene-tree').hidden = !hasSpaces;
+    $('scene-tree').parentElement.classList.toggle('with-spaces', hasSpaces);
+    if (hasSpaces) renderTree(list, castLabel);
+    $('flat-picker').hidden = hasSpaces;
+    $('selection-name').hidden = !hasSpaces && !isCast;
+    $('selection-name').textContent = isCast ? castLabel : item ? labelAt(list, selection) : '';
+    $('gather-interior').hidden = !W.items.get(item?.kind)?.interior;
+    $('select-cast').disabled = !hasCast;
+    $('select-cast').setAttribute('aria-pressed', String(isCast));
+    const view = $('world-space');
+    $('view-space-field').hidden = !hasSpaces;
+    view.replaceChildren(option('', '全景'));
+    const owner = $('place-parent');
+    owner.replaceChildren(option('', '场景根层'));
+    for (const i of rooms) {
+      view.add(option(String(i), labelAt(list, i) + ' 内部'));
+      if (isCast || !W.ancestors(list, i).includes(selection)) owner.add(option(String(i), labelAt(list, i)));
+    }
+    view.value = activeSpace ?? '';
+    owner.value = item?.parent ?? '';
+    $('parent-field').hidden = !item || owner.length < 2;
+    $('place-item').textContent = activeSpace === undefined ? '放入场景' : '放入' + W.items.get(list[activeSpace].kind).label;
+    const hint = $('coordinate-note');
+    const target = isCast ? plan.score.steps[0]?.target : undefined;
+    hint.hidden = !hasSpaces && !isCast;
+    hint.textContent = target !== undefined ? '首段动作跟随「' + labelAt(list, target) + '」。这里设置自由动作的起点。' :
+      item?.parent !== undefined ? '坐标相对「' + labelAt(list, item.parent) + '」，高度 0 是室内地面。' :
+      (item?.kind && W.items.get(item.kind).interior ? '移动或旋转建筑，里面的人物和物件会一起移动。' : '坐标相对整个场景。');
     for (const k of ['x', 'y', 'z', 'heading']) {
       const field = $('place-' + k);
       field.disabled = !item;
       field.value = item ? Number((k === 'heading' ? item[k] / rad : item[k]).toFixed(2)) : '';
     }
-    $('remove-place').disabled = !item;
+    $('remove-place').disabled = !item || isCast;
+    $('remove-place').hidden = isCast;
   }
   $('placed').onchange = () => {
-    selection = Number($('placed').value);
-    placements();
+    selectNode(Number($('placed').value));
+  };
+  $('select-cast').onclick = () => { $('placements').open = true; selectNode(null); };
+  $('world-space').onchange = e => viewSpace(e.target.value === '' ? undefined : Number(e.target.value));
+  $('place-parent').onchange = e => change(W.reparent(plan.score, selection,
+    e.target.value === '' ? undefined : Number(e.target.value)));
+  $('gather-interior').onclick = () => {
+    const next = W.collectContents(plan.score, selection);
+    if (next === plan.score) note('建筑范围内的人物和物件已经归位');
+    else change(next);
   };
   for (const k of ['x', 'y', 'z', 'heading']) {
     const f = $('place-' + k);
@@ -170,20 +281,21 @@
         placements();
         return;
       }
-      const list = [...plan.score.scene];
-      list[selection] = { ...list[selection], [k]: f.valueAsNumber * (k === 'heading' ? rad : 1) };
-      change({ ...plan.score, scene: list });
+      const values = { [k]: f.valueAsNumber * (k === 'heading' ? rad : 1) };
+      if (selection === null) change({ ...plan.score, actorPlacement: { ...plan.score.actorPlacement, ...values } });
+      else {
+        const scene = [...plan.score.scene];
+        scene[selection] = { ...scene[selection], ...values };
+        change({ ...plan.score, scene });
+      }
     };
   }
   $('remove-place').onclick = () => {
-    const scene = plan.score.scene.filter((_, i) => i !== selection),
-      steps = plan.score.steps.map((step) => {
-        const n = { ...step };
-        if (n.target === selection) delete n.target;
-        else if (n.target > selection) n.target--;
-        return n;
-      });
-    change({ ...plan.score, scene, steps });
+    const removed = selection, parent = plan.score.scene[removed].parent;
+    change(W.removePlacement(plan.score, removed), () => {
+      if (activeSpace === removed) activeSpace = parent;
+      if (activeSpace > removed) activeSpace--;
+    });
   };
   $('place-item').onclick = () => {
     const scene = [...(plan.score.scene || [])];
@@ -192,9 +304,9 @@
       return;
     }
     const n = scene.length;
-    scene.push(W.place(selected, 15 + 6 * (n % 4), -12 + 8 * (n % 5)));
-    selection = n;
-    change({ ...plan.score, scene });
+    scene.push(activeSpace === undefined ? W.place(selected, 15 + 6 * (n % 4), -12 + 8 * (n % 5)) :
+      { ...W.place(selected), parent: activeSpace });
+    change({ ...plan.score, scene }, () => { selection = n; });
   };
   function camera(yaw, tilt) {
     const a = Math.cos(yaw),
@@ -348,8 +460,11 @@
         detail === 'figure' && M.figureLayers(p.actor, p.pose, p.model)));
     }
     const placements = plan.scenery(t);
-    const objects = placements.map(p => ({ ...p, ...W.geometry(p.kind, detail) }));
-    const framing = detail === 'standard' ? objects : placements.map(p => ({ ...p, ...W.geometry(p.kind, 'standard') }));
+    const openRooms = new Set(W.ancestors(plan.score.scene || [], activeSpace).map(i => plan.worldScene[i]));
+    const objects = placements.flatMap(p => openRooms.has(p)
+      ? W.cutaway(p.kind, detail, yaw - p.heading).map(part => ({ ...p, ...part }))
+      : [{ ...p, ...W.geometry(p.kind, detail) }]);
+    const framing = placements.map(p => ({ ...p, ...W.geometry(p.kind, 'standard') }));
     const all = [...framing, ...actorDrawings];
     // Include the ground footprint during framing so placed items remain visible from every azimuth.
     const points = all.flatMap(corners);
@@ -526,10 +641,16 @@
   $('world-query').oninput = catalog;
   $('world-family').onchange = catalog;
   $('world-realm').onchange = catalog;
-  function updateViewLink() {
+  function updateViewLink(saved = false) {
     if (!['http:', 'https:'].includes(location.protocol)) return;
     const url = new URL(location.href);
-    if (url.searchParams.has('scene')) url.searchParams.set('scene', sceneKey);
+    if (saved && (url.hash === '#current' || url.hash.startsWith('#score='))) {
+      url.hash = '';
+      url.searchParams.set('scene', sceneKey);
+    }
+    if (url.searchParams.has('scene') || activeSpace !== undefined) url.searchParams.set('scene', sceneKey);
+    if (activeSpace === undefined) url.searchParams.delete('inside');
+    else url.searchParams.set('inside', String(activeSpace));
     if (url.searchParams.has('detail') || url.hash) url.searchParams.set('detail', W.detailMode(plan.score.detail));
     history.replaceState(history.state, '', url);
   }
@@ -538,15 +659,18 @@
     lastSample = '';
     draw();
     save();
-    updateViewLink();
   };
   $('world-scene').onchange = () => {
     play(false);
     loadScene($('world-scene').value);
     save();
-    updateViewLink();
   };
-  for (const id of ['world-studio', 'world-three']) $(id).onclick = () => wardrobe.handoff($(id), plan.score);
+  for (const id of ['world-studio', 'world-three']) $(id).onclick = () => {
+    const link = $(id), url = new URL(link.href);
+    url.searchParams.set('scene', sceneKey);
+    link.href = url;
+    wardrobe.handoff(link, plan.score);
+  };
   $('world-export').onclick = () => {
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(wardrobe.scoreFile(plan.score), null, 2)], { type: 'application/json' })
@@ -587,7 +711,9 @@
     Object.keys(W.realms).length +
     ' 种时代与世界';
   const detail = query.get('detail');
-  loadScene(sceneKey, incoming, detail === 'figure' || detail === 'standard' ? detail : undefined);
+  const inside = query.get('inside');
+  loadScene(sceneKey, incoming, detail === 'figure' || detail === 'standard' ? detail : undefined,
+    inside !== null && /^\d+$/.test(inside) ? Number(inside) : undefined);
   catalog();
   new ResizeObserver(draw).observe(canvas);
 })();

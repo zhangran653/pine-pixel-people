@@ -31,6 +31,102 @@ for (const detail of ['figure', 'standard']) {
   const book = motion.compile({ ...motion.presets.office, detail });
   assert.equal(store.readScoreFile(store.scoreFile(book.score)).score.detail, detail);
 }
+// Forward references, two nested floors and opposing rotations. The lamp is on the desk.
+const pavilionBook = {
+  version: 1,
+  scene: [
+    { kind: 'lamp', parent: 2, x: 2, y: 3, z: 21.1 },
+    world.place('pavilion', 30, -10, 4, Math.PI / 2),
+    { kind: 'stall', parent: 1, x: 5, y: 8, z: 1, heading: -Math.PI / 2 },
+    { kind: 'desk', parent: 2, x: 2, y: 3 },
+    world.place('bench', -60, -20)
+  ],
+  actorPlacement: { parent: 2, x: -6, y: 1, heading: 0.2 },
+  steps: [{ action: 'switch-lamp', actors: ['look_developer'], target: 0 },
+    { action: 'cradle', actors: ['mother', 'baby'] }]
+};
+{
+  const plan = motion.compile(pavilionBook), xyz = p => [p.x, p.y, p.z];
+  const floor = 4 + 2.2 * 2.55 + 1 + 2.2 * 2.35;
+  const close = (a, b) => assert.ok(distance(a, b) < 1e-7, JSON.stringify([a, b]));
+  close(xyz(plan.worldScene[0]), [24, -2, floor + 21.1]);
+  close(xyz(plan.castFrame), [16, -4, floor]);
+  assert.equal(plan.worldScene[2].heading, 0);
+  assert.equal(plan.worldScene[0].parent, undefined);
+  assert.deepEqual(clone(world.resolveScene(plan.score.scene)), clone(plan.worldScene));
+  assert.deepEqual(clone(store.readScoreFile(store.scoreFile(plan.score)).score), clone(plan.score));
+  const active = plan.sample(0.8)[0], fixture = active.pose.props.find(p => p.kind === 'lamp');
+  close(motion.rig.world(active, [fixture.frame[3], fixture.frame[7], fixture.frame[11]]), xyz(plan.worldScene[0]));
+  assert.deepEqual(Array.from(plan.scenery(0), p => p.kind), ['pavilion', 'stall', 'desk', 'bench']);
+  assert.equal(plan.scenery(plan.starts[1]), plan.worldScene);
+  const held = plan.score.steps[1].seconds * 0.53, time = plan.starts[1] + held, [adult, infant] = plan.sample(time);
+  const raw = motion.compile({ version: 1, steps: [pavilionBook.steps[1]] }).sample(held);
+  assert.ok(distance(adult.contacts.seatHand, infant.contacts.seat) < 0.01);
+  close(adult.contacts.seatHand, motion.rig.world(plan.castFrame, raw[0].contacts.seatHand));
+  close(xyz(infant), motion.rig.world(plan.castFrame, xyz(raw[1])));
+  const duet = motion.actions.get('cradle');
+  motion.registerAction({ ...duet, id: 'test-room-duet', station: 'desk', sample(u, ...actors) {
+    const [a, b] = duet.sample(u, ...actors);
+    return [{ ...a, pose: { ...a.pose, props: [activity.prop('desk', [3, -2, 0], 1)] } }, b];
+  } });
+  const bound = motion.compile({ ...pavilionBook, steps: [{ action: 'test-room-duet', actors: ['mother', 'baby'], target: 3 }] });
+  const [byDesk, heldBaby] = bound.sample(held);
+  close(motion.rig.world(byDesk, [3, -2, 0]), xyz(plan.worldScene[3]));
+  close(heldBaby.contacts.seat, motion.rig.world(heldBaby, motion.rig.socket(find('baby'), heldBaby.pose, 'seat')));
+  assert.ok(distance(byDesk.contacts.seatHand, heldBaby.contacts.seat) < 0.01);
+  // Removing either shell promotes only its immediate children, including a placed cast.
+  for (const removed of [1, 2]) {
+    const next = motion.compile(world.removePlacement(plan.score, removed));
+    next.worldScene.forEach((p, i) => {
+      const old = plan.worldScene[i >= removed ? i + 1 : i];
+      close(xyz(p), xyz(old));
+      close([p.heading], [old.heading]);
+    });
+    close(xyz(next.castFrame), xyz(plan.castFrame));
+    close(next.sample(time)[0].contacts.backHand, adult.contacts.backHand);
+    assert.equal(next.score.steps[0].target, 0);
+  }
+  const detached = motion.compile(world.reparent(plan.score, null, undefined));
+  close(xyz(detached.castFrame), xyz(plan.castFrame));
+  assert.equal(detached.score.actorPlacement.parent, undefined);
+  const returned = motion.compile(world.reparent(detached.score, null, 2));
+  close(xyz(returned.castFrame), xyz(plan.castFrame));
+  const shifted = motion.compile(world.removePlacement({ ...plan.score, steps: [
+    { action: 'desk-code', actors: ['look_developer'], target: 3 }, ...plan.score.steps] }, 0));
+  assert.equal(shifted.score.steps[0].target, 2);
+  assert.equal(shifted.score.steps[1].target, undefined);
+  assert.throws(() => world.reparent(plan.score, 1, 2));
+  assert.throws(() => world.reparent(plan.score, null, 3));
+  for (const scene of [[{ kind: 'pavilion', parent: 0 }],
+    [{ kind: 'stall', parent: 1 }, { kind: 'pavilion', parent: 0 }],
+    [{ kind: 'desk' }, { kind: 'lamp', parent: 0 }],
+    [{ kind: 'book', parent: 999 }], [{ kind: 'chair', parent: null }]])
+    assert.throws(() => world.normalize(scene));
+  for (const actorPlacement of [null, { parent: 3 }, { kind: 'chair' }, { z: -1 }])
+    assert.throws(() => motion.compile({ ...pavilionBook, actorPlacement }));
+  const legacy = motion.compile({ version: 1, steps: [], scene: [world.place('chair', 2, 3)] });
+  assert.deepEqual(clone(legacy.worldScene), clone(legacy.score.scene));
+  assert.ok(!('actorPlacement' in legacy.score) && !('parent' in legacy.score.scene[0]));
+  const gather = { version: 1, scene: [world.place('pavilion', 7, 11, 0, 0.9),
+    world.place('desk', 6, 10), world.place('book', 9, 13, 21.1), world.place('pine', -80, 70)],
+    steps: [{ action: 'idle', actors: ['child'] }] };
+  const collected = motion.compile(world.collectContents(gather, 0));
+  assert.deepEqual(Array.from(collected.score.scene, p => p.parent), [undefined, 0, 0, undefined]);
+  assert.equal(collected.score.actorPlacement.parent, 0);
+  close(xyz(collected.worldScene[1]), [6, 10, 2.55 * 2.2]);
+  close(xyz(collected.worldScene[2]), [9, 13, 21.1 + 2.55 * 2.2]);
+  assert.equal(world.collectContents(collected.score, 0), collected.score);
+  for (const kind of ['pavilion', 'stall', 'cottage', 'dome']) {
+    for (const detail of ['standard', 'figure']) {
+      const full = world.geometry(kind, detail), bounds = [...full.model.bounds];
+      const far = world.cutaway(kind, detail, 0), opposite = world.cutaway(kind, detail, Math.PI);
+      assert.equal(far[0].model.colors, full.model.colors);
+      assert.ok(far[1].model.bounds[5] < bounds[5]);
+      assert.equal(far[1].model.bounds[3], opposite[1].model.bounds[0]);
+      assert.deepEqual([...world.geometry(kind, detail).model.bounds], bounds);
+    }
+  }
+}
 for (const [id, asset] of world.items) {
   assert.ok(asset.family in world.families && asset.realms.every((k) => k in world.realms));
   const { model } = world.geometry(id);
@@ -632,6 +728,12 @@ async function three() {
   const shape = desk.geometry;
   cast.setScene([world.place('desk', 18, 6), world.place('test-cushion')]);
   assert.equal(cast.group.getObjectByName('world/desk').geometry, shape);
+  const room = motion.compile(pavilionBook);
+  cast.setScene(room.score.scene);
+  const deskMesh = cast.group.getObjectByName('world/desk'), deskAt = room.worldScene[3];
+  assert.ok(distance(deskMesh.position.toArray(), [deskAt.x, deskAt.y, deskAt.z]) < 1e-7);
+  cast.setTime(room, room.starts[1]);
+  assert.ok(distance(deskMesh.position.toArray(), [deskAt.x, deskAt.y, deskAt.z]) < 1e-7);
   const speaking = motion.compile({ version: 1, steps: [{ action: 'open-mouth', actors: ['look_body_male'] }] });
   cast.setDetail('face');
   cast.setTime(speaking, 0);

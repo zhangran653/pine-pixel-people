@@ -47,6 +47,32 @@ PineWorld.register({
 
 绘制函数可使用 `box(中心, 半尺寸, 色号)`、`oval(中心, 半径, 色号)` 和 `line(起点, 终点, 半径, 色号)`。场景 JSON 保存物件 ID。使用第三方物件的项目需要在导入编排前注册对应的定义。每个场景支持 64 个实例。
 
+## 建筑空间与层级
+
+凉亭、街屋、摊位和观测站穹顶都能作为空间。世界图鉴在有建筑的场景中显示层级，普通物件显示在所属空间下。点「看内部」可临时收起屋顶和靠近镜头的一侧，旋转视角时会露出另一侧。此时从物件库添加的物品落在该建筑的地坪中心。点「返回全景」可检查柱子、家具与演员之间的实际遮挡。剖开视图只用于编辑。[全景示例](index.html?scene=pavilion) · [同一凉亭的内部](index.html?scene=pavilion&inside=0)
+
+选中建筑，点「将范围内的人物和物件移入」，会按地坪范围收进同层普通物件和演员组，整组只抬高至最低物品落在室内地面，书与桌面之间的距离得以保留。也可逐件修改「所属空间」。原点已在建筑范围内时保留平面位置，范围外的物件会落到地坪中心。移出到上层或移除建筑会保留成员的世界位置和朝向。如果新坐标超出编排允许的范围，编辑器会提示并保留原布置。
+
+```js
+const score = {
+  version: 1,
+  scene: [
+    {kind: 'pavilion', x: 30, y: -10, heading: Math.PI / 2},
+    {kind: 'desk', parent: 0, x: -12, y: 5},
+    {kind: 'book', parent: 0, x: -12, y: 5, z: 21.1},
+    {kind: 'pine', x: 75, y: -25}
+  ],
+  actorPlacement: {parent: 0, x: 12, y: 4},
+  steps: [{action: 'idle', actors: ['child']}]
+};
+const plan = PineMotion.compile(score);
+const placedDesk = plan.worldScene[1];
+```
+
+`parent` 指向同一 `scene` 数组中的建筑下标，可以前向引用或嵌套。省略时坐标相对场景原点。设置后，子物件的位置与朝向相对建筑，局部高度 0 对应室内地坪，坐标单位与世界一致。`actorPlacement` 设置整组演员的默认位置，双人动作及其接触点共享这一变换。有 `target` 的动作跟随目标家具所在的空间。
+
+`PineWorld.normalize(scene)` 返回用于存档的局部坐标，`PineWorld.resolveScene(scene)` 返回可直接渲染的世界坐标，实例顺序一致。编排会缓存求得的位置。第三方建筑可在注册定义中提供 `interior: {floor: 2.2, cutHeight: 20, footprint: [16, 14]}`。这三个值使用缩放前的素材单位，分别是地坪高度、剖视时保留的远侧墙体高度、可收纳区域的 X/Y 半宽。后两项可省略，分别默认到地坪高度和采样盒半宽。
+
 ## 动作绑定
 
 ```js

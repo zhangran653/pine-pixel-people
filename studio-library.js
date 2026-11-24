@@ -414,13 +414,17 @@ const studioLibrary = (() => {
     }
     if (!input || input.version !== 1 || !Array.isArray(input.steps))
       throw new Error('需要 version 为 1 且包含 steps 数组的编排');
-    if (Object.keys(input).some((k) => !['version', 'loop', 'steps', 'scene', 'detail'].includes(k)))
+    if (Object.keys(input).some((k) => !['version', 'loop', 'steps', 'scene', 'detail', 'actorPlacement'].includes(k)))
       throw new Error('编排含有未知字段');
     if (input.loop !== undefined && typeof input.loop !== 'boolean') throw new Error('loop 须为布尔值');
+    const layout = input.scene !== undefined || input.actorPlacement !== undefined
+      ? PineWorld.layout(input.scene === undefined ? [] : input.scene, input.actorPlacement) : { worldScene: [] };
+    const { worldScene, castFrame } = layout;
     const score = {
         version: 1,
         ...(input.detail === undefined ? {} : { detail: PineWorld.detailMode(input.detail) }),
-        ...(input.scene === undefined ? {} : { scene: PineWorld.normalize(input.scene) }),
+        ...(input.scene === undefined ? {} : { scene: layout.scene }),
+        ...(castFrame ? { actorPlacement: layout.actorPlacement } : {}),
         loop: input.loop ?? false,
         steps: input.steps.map((step, index) => validateStep(step, index, cast))
       },
@@ -458,28 +462,32 @@ const studioLibrary = (() => {
       const cue = locate(t);
       if (!cue) return [];
       const entries = cue.clip.sample(cue.u, ...cue.step.actors.map((id) => cast.get(id)));
-      if (cue.step.target === undefined) return entries;
-      // A placed station supplies the origin and heading for the whole gesture.
-      const e = entries[0],
-        destination = score.scene[cue.step.target];
-      const fixture = e.pose.props.find((item) => item.kind === cue.clip.station),
-        f = fixture.frame;
-      const angle = destination.heading - Math.atan2(f[4], f[0]),
-        c = Math.cos(angle),
-        s = Math.sin(angle);
-      e.x = destination.x - c * f[3] + s * f[7];
-      e.y = destination.y - s * f[3] - c * f[7];
-      e.z = destination.z - f[11];
-      e.heading = angle;
-      if (cue.clip.station === 'lamp') e.pose.props = e.pose.props.filter((p) => p.kind !== 'desk');
-      return entries;
+      let frame = castFrame;
+      if (cue.step.target !== undefined) {
+        const first = entries[0], destination = worldScene[cue.step.target];
+        const fixture = first.pose.props.find(p => p.kind === cue.clip.station).frame;
+        const origin = studioRig.world(first, [fixture[3], fixture[7], fixture[11]]);
+        const heading = destination.heading - first.heading - Math.atan2(fixture[4], fixture[0]);
+        const c = Math.cos(heading), s = Math.sin(heading);
+        frame = { x: destination.x - c * origin[0] + s * origin[1],
+          y: destination.y - s * origin[0] - c * origin[1], z: destination.z - origin[2], heading };
+      }
+      if (!frame) return entries;
+      return entries.map((e, i) => {
+        const [x, y, z] = studioRig.world(frame, [e.x, e.y, e.z]);
+        const result = { ...e, x, y, z, heading: e.heading + frame.heading };
+        if (e.contacts) result.contacts = Object.fromEntries(Object.entries(e.contacts)
+          .map(([name, point]) => [name, studioRig.world(frame, point)]));
+        if (i === 0 && cue.step.target !== undefined && cue.clip.station === 'lamp')
+          result.pose = { ...e.pose, props: e.pose.props.filter(p => p.kind !== 'desk') };
+        return result;
+      });
     }
     function scenery(t) {
-      const target = locate(t)?.step.target,
-        scene = score.scene || [];
-      return target === undefined ? scene : scene.filter((_, index) => index !== target);
+      const target = locate(t)?.step.target;
+      return target === undefined ? worldScene : worldScene.filter((_, index) => index !== target);
     }
-    return { score, starts, duration, locate, sample, scenery };
+    return { score, worldScene, castFrame, starts, duration, locate, sample, scenery };
   }
   return {
     version: 1,

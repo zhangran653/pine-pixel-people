@@ -234,6 +234,7 @@ function createStudioStage(canvas) {
   }
   function setFrame(list, scene = [], detail = 'figure') {
     PineWorld.detailMode(detail);
+    if (scene.some(p => p.parent !== undefined)) scene = PineWorld.resolveScene(scene);
     scenery = scene.map((p) => ({ ...PineWorld.geometry(p.kind, detail), ...p }));
     entries = list.map((e) => {
       const actor = studioLibrary.characters.get(e.character);

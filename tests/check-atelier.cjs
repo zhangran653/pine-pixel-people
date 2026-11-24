@@ -703,9 +703,61 @@ function checkWorldEditor() {
     check(get('world-detail').value === 'figure', 'a different scene has its own quality');
     set('world-scene', firstScene);
     check(get('world-detail').value === 'standard', 'restore scene-specific quality');
+    check(get('scene-tree').hidden && get('view-space-field').hidden, 'flat controls for ordinary props');
+    set('world-scene', 'pavilion');
+    const tree = get('scene-tree');
+    const node = i => tree.querySelector('[data-node="' + i + '"]');
+    check(!tree.hidden && node(0).closest('li').querySelector('ul [data-node="cast"]'), 'actor listed inside the pavilion');
+    const exterior = get('world-canvas').toDataURL();
+    tree.querySelector('[data-enter="0"]').click();
+    check(get('world-space').value === '0' && get('world-canvas').toDataURL() !== exterior, 'real interior cutaway');
+    set('world-space', '');
+    check(get('world-canvas').toDataURL() === exterior, 'restoring exterior reproduces the same pixels');
+    set('world-space', '0');
+    set('world-query', '台灯', 'input');
+    get('place-item').click();
+    check(get('place-parent').value === '0' && get('place-z').valueAsNumber === 0, 'new lamp lands on the indoor floor');
+    const lampIndex = Number(get('placed').value);
+    set('place-z', 21.1);
+    node('cast').click();
+    set('place-y', 7);
+    function scenePlan() {
+      get('world-studio').addEventListener('click', e => e.preventDefault(), { once: true });
+      get('world-studio').click();
+      return PineWardrobe.readScoreFile(JSON.parse(sessionStorage.getItem('pineCreek.threePreview.v1')));
+    }
+    node(0).click();
+    set('place-x', 32);
+    set('place-heading', 90);
+    const nested = scenePlan(), lamp = nested.worldScene[lampIndex];
+    check(nested.score.scene[lampIndex].parent === 0 && Math.abs(lamp.z - 26.71) < 1e-7, 'lamp height round-trips');
+    check(Math.abs(nested.castFrame.x - 25) < 1e-7 && nested.score.actorPlacement.parent === 0, 'the room rotates the cast');
+    get('remove-place').click();
+    const freed = scenePlan(), removed = freed.worldScene[lampIndex - 1];
+    check(get('scene-tree').hidden && !get('world-space').value && !freed.worldScene.some(p => p.kind === 'pavilion'),
+      'removing the active room exits the cutaway');
+    check(Math.hypot(removed.x-lamp.x, removed.y-lamp.y, removed.z-lamp.z) < 1e-7 &&
+      freed.castFrame.x === nested.castFrame.x, 'promoted furniture and cast keep their world placement');
+    set('world-query', '凉亭', 'input');
+    get('place-item').click();
+    const roomIndex = Number(get('placed').value);
+    set('place-x', 32);
+    set('place-y', 0);
+    set('place-heading', 90);
+    get('gather-interior').click();
+    const gathered = scenePlan();
+    check(gathered.score.actorPlacement.parent === roomIndex && gathered.score.scene[0].parent === roomIndex,
+      'collecting an existing arrangement adopts the desk and cast together');
+    const blossom = gathered.score.scene.findIndex(p => p.kind === 'blossom');
+    check(gathered.score.scene[blossom].parent === undefined, 'the tree beyond the footprint stays outside');
+    node(blossom).click();
+    set('place-parent', String(roomIndex));
+    check(get('place-x').valueAsNumber === 0 && get('place-z').valueAsNumber === 0, 'move a distant item onto the indoor floor');
+    set('place-parent', '');
+    check(Math.abs(get('place-z').valueAsNumber - 5.61) < 0.001, 'moving back out keeps its height');
     status.dataset.state = 'pass';
     status.textContent =
-      'World filters, scene placement, rotation, independent detail, playback, score handoff, and desk preset passed';
+      'World filters, scene placement, interior views, hierarchy edits, rotation, quality, playback, and score handoff passed';
   } catch (e) {
     status.dataset.state = 'fail';
     status.textContent = e.stack;

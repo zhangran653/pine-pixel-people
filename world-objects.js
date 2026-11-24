@@ -243,7 +243,8 @@ const PineWorld = (() => {
     return ({ box, oval, line, k }) => {
       if (style === 'dome') {
         oval([0, 0, 3], [22, 20, 3], k.iron, 3);
-        oval([0, 0, 5], [20, 18, 17], k.steelBlue);
+        oval([0, 0, 5], [20, 18, 17], (x, y, z) =>
+          z <= 6 || (x / 18.5) ** 2 + (y / 16.5) ** 2 + ((z - 5) / 15.5) ** 2 >= 1 ? k.steelBlue : 0);
         for (const y of [-8, 0, 8]) box([16, y, 9], [2.3, 2.2, 2], k.crystal);
         box([19, 0, 5], [3, 4.5, 5], k.night);
         return;
@@ -252,7 +253,10 @@ const PineWorld = (() => {
         stall = style === 'stall';
       box([0, 0, 1.1], [16, 14, 1.1], k.stone);
       if (!pavilion && !stall) {
-        box([0, 0, 11.4], [13.8, 11.8, 9.4], k.linen);
+        for (const side of [-1, 1]) {
+          box([side * 13.2, 0, 11.4], [0.6, 11.8, 9.4], k.linen);
+          box([0, side * 11.2, 11.4], [13.8, 0.6, 9.4], k.linen);
+        }
         box([13.8, 0, 7.7], [0.6, 3, 5.7], k.bark);
         for (const y of [-7.3, 7.3]) {
           box([13.9, y, 13], [0.7, 2.2, 2.5], k.teal);
@@ -478,6 +482,11 @@ const PineWorld = (() => {
     waygate: 1.75
   };
   for (const def of items.values()) def.scale = scales[def.id] || 1;
+  // Heights in the asset's sampling box, before its display scale.
+  for (const [id, floor, cutHeight, halfX, halfY] of [
+    ['pavilion', 2.2, 20, 16, 14], ['stall', 2.2, 20, 16, 14],
+    ['cottage', 2.2, 19.8, 12.6, 10.6], ['dome', 6, 13, 13, 11]
+  ]) items.get(id).interior = { floor, cutHeight, footprint: [halfX, halfY] };
   function register(def, paint) {
     const { id, label, family, realms: eras, box, lift = 0, scale = 1, anchors = {} } = def;
     if (
@@ -512,6 +521,14 @@ const PineWorld = (() => {
       !Object.values(anchors).every((v) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite))
     )
       throw Error('接触点需要三个坐标');
+    const interior = def.interior;
+    if (interior !== undefined && (!interior || !Number.isFinite(interior.floor) ||
+        interior.floor < 0 || interior.floor >= box[2] || (interior.cutHeight !== undefined &&
+        (!Number.isFinite(interior.cutHeight) || interior.cutHeight < interior.floor || interior.cutHeight > box[2]))))
+      throw Error('室内地坪与剖开高度须位于采样盒内');
+    if (interior?.footprint !== undefined && (!Array.isArray(interior.footprint) || interior.footprint.length !== 2 ||
+        !interior.footprint.every((n, i) => Number.isFinite(n) && n > 0 && n <= box[i] / 2)))
+      throw Error('室内地坪范围需要两个有效的半宽');
     item(
       id,
       label,
@@ -524,6 +541,8 @@ const PineWorld = (() => {
     );
     const entry = items.get(id);
     entry.scale = scale;
+    if (interior) entry.interior = { floor: interior.floor, cutHeight: interior.cutHeight ?? interior.floor,
+      footprint: interior.footprint?.slice() ?? [box[0] / 2, box[1] / 2] };
     return entry;
   }
   const cache = new Map();
@@ -556,6 +575,30 @@ const PineWorld = (() => {
     return result;
   }
   const place = (kind, x = 0, y = 0, z = 0, heading = 0) => ({ kind, x, y, z, heading });
+  const sections = new WeakMap();
+  // Reuse the original voxels. Keep the floor and the far side below the eaves.
+  function cutaway(id, detail, bearing) {
+    const whole = geometry(id, detail), def = items.get(id);
+    if (!def.interior) return [whole];
+    const { body, model } = whole, c = Math.cos(bearing), s = Math.sin(bearing);
+    const axis = Math.abs(c) >= Math.abs(s) ? 0 : 1, nearPositive = (axis === 0 ? c : s) > 0;
+    const key = axis * 2 + Number(nearPositive);
+    if (!sections.has(whole)) sections.set(whole, new Map());
+    const cache = sections.get(whole);
+    if (cache.has(key)) return cache.get(key);
+    const layer = z => Math.round(z * def.scale * body.density);
+    const floor = model.bounds.slice(), wall = model.bounds.slice();
+    floor[5] = Math.min(floor[5], layer(def.interior.floor));
+    wall[2] = Math.max(wall[2], floor[5]);
+    wall[5] = Math.min(wall[5], layer(def.interior.cutHeight));
+    const middle = Math.floor((axis === 0 ? body.nx : body.ny) / 2);
+    if (nearPositive) wall[axis + 3] = Math.min(wall[axis + 3], middle);
+    else wall[axis] = Math.max(wall[axis], middle);
+    const parts = [floor, wall].filter(b => b[3] > b[0] && b[4] > b[1] && b[5] > b[2])
+      .map(bounds => ({ body, model: { ...model, bounds } }));
+    cache.set(key, parts);
+    return parts;
+  }
   const scenes = {
     street: {
       label: '街角出行',
@@ -585,6 +628,19 @@ const PineWorld = (() => {
         place('chair', 0, 18, 0, Math.PI)
       ]
     },
+    pavilion: {
+      label: '亭中小憩',
+      actorPlacement: { parent: 0, x: 20, y: 3, heading: 0.45 },
+      objects: [
+        place('pavilion'),
+        { ...place('desk', -12, 5), parent: 0 },
+        { ...place('book', -12, 3, 21.1, -0.18), parent: 0 },
+        { ...place('plant', -15, 16, 21.1), parent: 0 },
+        { ...place('chair', 0, 15, 0, Math.PI), parent: 0 },
+        place('blossom', -38, 47),
+        place('daisies', 33, -37)
+      ]
+    },
     airfield: {
       label: '小型机场',
       objects: [place('aircraft', -67, 56, 0, 0.25), place('beacon', -26, -47), place('grass', 13, -17)]
@@ -607,29 +663,142 @@ const PineWorld = (() => {
       objects: [place('dome', -53, 50), place('shuttle', -15, -46, 0, 0.3), place('beacon', -18, 3)]
     }
   };
-  function normalize(scene) {
-    if (!Array.isArray(scene) || scene.length > 64) throw Error('场景最多容纳 64 个物件');
-    return scene.map((p) => {
-      if (
-        !p ||
-        !items.has(p.kind) ||
-        Object.keys(p).some((k) => !['kind', 'x', 'y', 'z', 'heading'].includes(k))
-      )
-        throw Error('场景含有未知物件或字段');
-      const q = { kind: p.kind };
-      for (const k of ['x', 'y', 'z', 'heading']) {
-        const v = p[k] === undefined ? 0 : p[k];
-        if (
-          !Number.isFinite(v) ||
-          Math.abs(v) > (k === 'heading' ? Math.PI * 2 : 256) ||
-          (k === 'z' && v < 0)
-        )
-          throw Error('场景位置或角度超出范围');
-        q[k] = v;
-      }
-      return q;
-    });
+  const fields = ['x', 'y', 'z', 'heading'];
+  function placement(raw, scene, actor = false) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw) ||
+        (!actor && !items.has(raw.kind)) || Object.keys(raw).some(k =>
+          !fields.includes(k) && k !== 'parent' && (actor || k !== 'kind')))
+      throw Error('场景含有未知物件或字段');
+    const p = actor ? {} : { kind: raw.kind };
+    for (const k of fields) {
+      const v = raw[k] === undefined ? 0 : raw[k];
+      if (!Number.isFinite(v) || Math.abs(v) > (k === 'heading' ? Math.PI * 2 : 256) || (k === 'z' && v < 0))
+        throw Error('场景位置或角度超出范围');
+      p[k] = v;
+    }
+    if (raw.parent !== undefined) {
+      if (!Number.isSafeInteger(raw.parent) || raw.parent < 0 || !items.get(scene[raw.parent]?.kind)?.interior)
+        throw Error('所属空间须指向场景中可容纳物件的建筑');
+      p.parent = raw.parent;
+    }
+    return p;
   }
-  return { realms, families, items, painters, materials, geometry, detailMode, place, scenes, normalize, register };
+  function inside(room, p) {
+    const { scale, interior } = items.get(room.kind), c = Math.cos(room.heading), s = Math.sin(room.heading);
+    const angle = room.heading + p.heading;
+    return {
+      ...(p.kind === undefined ? {} : { kind: p.kind }),
+      x: room.x + c * p.x - s * p.y,
+      y: room.y + s * p.x + c * p.y,
+      z: room.z + interior.floor * scale + p.z,
+      heading: Math.abs(angle) <= Math.PI ? angle : Math.atan2(Math.sin(angle), Math.cos(angle))
+    };
+  }
+  function layout(raw, actor) {
+    if (!Array.isArray(raw) || raw.length > 64) throw Error('场景最多容纳 64 个物件');
+    const scene = Array.from(raw, p => placement(p, raw)), worldScene = [], visiting = new Set();
+    function resolve(i) {
+      if (worldScene[i]) return worldScene[i];
+      if (visiting.has(i)) throw Error('建筑不能直接或间接包含自己');
+      visiting.add(i);
+      const p = scene[i];
+      worldScene[i] = p.parent === undefined ? p : inside(resolve(p.parent), p);
+      visiting.delete(i);
+      return worldScene[i];
+    }
+    scene.forEach((_, i) => resolve(i));
+    const actorPlacement = actor === undefined ? undefined : placement(actor, raw, true);
+    const castFrame = actorPlacement?.parent === undefined ? actorPlacement :
+      inside(worldScene[actorPlacement.parent], actorPlacement);
+    return { scene, worldScene, actorPlacement, castFrame };
+  }
+  const normalize = raw => layout(raw).scene;
+  const resolveScene = raw => layout(raw).worldScene;
+  function ancestors(scene, i) {
+    const path = [];
+    while (i !== undefined) {
+      if (!scene[i] || path.includes(i)) throw Error('无效的建筑层级');
+      path.push(i);
+      i = scene[i].parent;
+    }
+    return path;
+  }
+  // Promote through one floor at a time so deleting/moving out preserves the world pose.
+  function promote(scene, p) {
+    const room = scene[p.parent];
+    return { ...inside(room, p), ...(room.parent === undefined ? {} : { parent: room.parent }) };
+  }
+  function relativeToRoom(room, p) {
+    const def = items.get(room.kind), dx = p.x - room.x, dy = p.y - room.y;
+    const c = Math.cos(room.heading), s = Math.sin(room.heading), angle = p.heading - room.heading;
+    return { x: c * dx + s * dy, y: -s * dx + c * dy,
+      z: p.z - room.z - def.scale * def.interior.floor, heading: Math.atan2(Math.sin(angle), Math.cos(angle)) };
+  }
+  function onFootprint(room, local) {
+    const { scale, interior } = items.get(room.kind);
+    return Math.abs(local.x) <= scale * interior.footprint[0] && Math.abs(local.y) <= scale * interior.footprint[1];
+  }
+  function reparent(score, index, parent) {
+    const { scene, worldScene, actorPlacement, castFrame } = layout(score.scene || [], score.actorPlacement);
+    const actor = index === null, p = actor ? actorPlacement || placement({}, scene, true) : scene[index];
+    if (!p || (parent !== undefined && (!Number.isSafeInteger(parent) || !items.get(scene[parent]?.kind)?.interior)))
+      throw Error('无法移动到指定空间');
+    if (!actor && ancestors(scene, parent).includes(index)) throw Error('建筑不能直接或间接包含自己');
+    let next = p;
+    if (p.parent !== parent) {
+      if (parent === undefined || ancestors(scene, p.parent).includes(parent)) {
+        while (next.parent !== parent) next = promote(scene, next);
+      } else {
+        const room = worldScene[parent], local = relativeToRoom(room, actor ? castFrame || p : worldScene[index]);
+        next = { ...p, parent, ...local, z: Math.max(0, local.z) };
+        if (!onFootprint(room, local)) Object.assign(next, { x: 0, y: 0, z: 0 });
+      }
+    }
+    if (actor) return { ...score, actorPlacement: next };
+    scene[index] = next;
+    return { ...score, scene };
+  }
+  function collectContents(score, index) {
+    const { scene, actorPlacement } = layout(score.scene || [], score.actorPlacement);
+    const room = scene[index], def = items.get(room?.kind);
+    if (!def?.interior) throw Error('请选择可容纳物件的建筑');
+    const members = [];
+    function consider(i, p) {
+      if (p.parent !== room.parent || p.z < room.z || p.z >= room.z + def.box[2] * def.scale) return;
+      const local = relativeToRoom(room, p);
+      if (onFootprint(room, local)) members.push({ i, p, local });
+    }
+    scene.forEach((p, i) => { if (!items.get(p.kind).interior) consider(i, p); });
+    if (score.steps.length) consider(null, actorPlacement || placement({}, scene, true));
+    if (!members.length) return score;
+    // Lift the collection only as far as needed for its lowest origin to meet the indoor floor.
+    const lift = Math.max(0, ...members.map(m => -m.local.z));
+    const result = { ...score, scene };
+    for (const { i, p, local } of members) {
+      const next = { ...p, ...local, z: local.z + lift, parent: index };
+      if (i === null) result.actorPlacement = next;
+      else scene[i] = next;
+    }
+    return result;
+  }
+  function removePlacement(score, index) {
+    const { scene, actorPlacement } = layout(score.scene || [], score.actorPlacement);
+    if (!scene[index]) throw Error('无法移除指定物件');
+    function adopt(p) {
+      const next = p.parent === index ? promote(scene, p) : p;
+      return next.parent > index ? { ...next, parent: next.parent - 1 } : next;
+    }
+    const steps = score.steps.map(step => {
+      if (step.target === index) {
+        const { target, ...rest } = step;
+        return rest;
+      }
+      return step.target > index ? { ...step, target: step.target - 1 } : step;
+    });
+    return { ...score, scene: scene.filter((_, i) => i !== index).map(adopt), steps,
+      ...(actorPlacement ? { actorPlacement: adopt(actorPlacement) } : {}) };
+  }
+  return { realms, families, items, painters, materials, geometry, cutaway, detailMode, place, scenes,
+    normalize, resolveScene, layout, ancestors, reparent, collectContents, removePlacement, register };
 })();
 globalThis.PineWorld = PineWorld;

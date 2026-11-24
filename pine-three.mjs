@@ -207,6 +207,7 @@ export function createPineCast(
     objectGeometries = new Map();
   function setScene(placements = []) {
     if (disposed) throw Error('此场景已释放');
+    if (placements.some(p => p.parent !== undefined)) placements = world.resolveScene(placements);
     lastScene = placements;
     const objectDetail = detail === 'figure' ? 'figure' : 'standard';
     placements.forEach((p, i) => {
