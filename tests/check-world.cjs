@@ -164,9 +164,11 @@ const skull = vm.runInContext('pineHeadShape', context);
   }
   const random = seeded(83);
   const base = JSON.stringify(seed), colors = new Set(), ages = new Set(), ids = new Set(), outlines = new Set();
+  const lowCheeks = [];
   for (let i = 0; i < 160; i++) {
     const doc = looks.prepare(looks.randomCharacter(random)).recipe;
     checkSpacing(doc);
+    if (doc.shape.cheekHeight < -0.48) lowCheeks.push(doc.shape.cheekFullness || 0);
     naturalHair.add(doc.colors.hair);
     assert.ok(wardrobes.has(JSON.stringify([doc.base, clothing(doc)])), 'whole authored outfit with its own dyes');
     const expressive = looks.prepare(looks.randomCharacter({ style: 'expressive', random })).recipe;
@@ -175,6 +177,9 @@ const skull = vm.runInContext('pineHeadShape', context);
     pairings.add(doc.face.eyes + '/' + doc.face.nose);
     colors.add(doc.colors.skin); ages.add(looks.bodyProfileOf(doc)); ids.add(doc.id); outlines.add(doc.face.outline);
     const face = looks.randomFace(doc, random);
+    assert.deepEqual(Object.keys(looks.cheekAdjustment(doc, 'natural')), []);
+    assert.deepEqual(Object.keys(looks.cheekAdjustment(face, 'natural')), []);
+    assert.deepEqual(Object.keys(looks.cheekAdjustment(expressive, 'expressive')), []);
     assert.deepEqual(clone(face.parts), clone(doc.parts));
     assert.deepEqual(clone(face.colors), clone(doc.colors));
     assert.equal(face.id, doc.id);
@@ -198,6 +203,8 @@ const skull = vm.runInContext('pineHeadShape', context);
         'nose and upper lip need space on the ' + expressive.base + ' rig');
     }
   }
+  assert.ok(lowCheeks.some((v) => v < -0.04) && lowCheeks.some((v) => v > 0.04) &&
+    Math.max(...lowCheeks) < 0.28, 'low cheekbones should admit both lean and softly rounded cheeks');
   assert.ok(pairings.size >= 65, 'eye and nose pairs should combine independently');
   assert.ok(naturalHair.size >= 12 && expressHair.size > naturalHair.size && expressHair.has(looks.hairColors.莓紫));
   assert.ok(!naturalHair.has(looks.hairColors.莓紫));
@@ -242,6 +249,44 @@ const skull = vm.runInContext('pineHeadShape', context);
   assert.equal(colors.size, Object.keys(looks.colorPresets.skin).length);
   assert.ok(outlines.size >= 7);
   assert.equal(JSON.stringify(seed), base);
+}
+// Project the far cheek from the actual fine-pixel slices at mouth height, excluding the nose and lips.
+function cheekEdges(actor, views) {
+  const pose = motion.rig.pose(actor.rig);
+  const mouth = motion.rig.socket(actor, pose, 'mouth'), ear = motion.rig.socket(actor, pose, 'leftEarCanal');
+  const band = actor.body.faceLayers(pose, actor.body.makePose(pose), actor.sockets.chinTip.point[2] - 1, 4)[1];
+  const { nx, ny, density } = band.body;
+  const z = Math.floor((mouth[2] - band.z) * density);
+  const angles = views.map((degrees) => degrees * Math.PI / 180);
+  const edges = angles.map(() => -Infinity);
+  for (let j = 0; j < ny; j++) {
+    const y = band.y + (j + 0.5 - ny / 2) / density;
+    if (y < 0.36 * Math.abs(ear[1]) || y > 0.93 * Math.abs(ear[1])) continue;
+    const start = (z * ny + j) * nx;
+    const i = band.model.colors.subarray(start, start + nx).findLastIndex(Boolean);
+    if (i < 0) continue;
+    const x = band.x + (i + 0.5 - nx / 2) / density;
+    for (const [k, angle] of angles.entries()) edges[k] = Math.max(edges[k], x * Math.sin(angle) + y * Math.cos(angle));
+  }
+  assert.ok(edges.every(Number.isFinite));
+  return edges;
+}
+for (const [id, outline] of [['look_body_female', 'square'], ['look_fern', 'round'], ['look_body_male', 'pear']]) {
+  const full = clone(looks.templateById.get(id));
+  full.parts.hair = 'bald'; full.parts.hat = 'none';
+  full.face = { ...looks.facePresets.classic.face, outline };
+  Object.assign(full.shape, { cheekHeight: -0.72, cheekWidth: 0.1, cheekProjection: -0.23, cheekFullness: 0.78 });
+  const deep = { ...full, shape: { ...full.shape, headDepth: 1.2, faceRelief: 1.8 } };
+  assert.ok(looks.cheekAdjustment(deep, 'expressive').cheekFullness < looks.cheekAdjustment(full, 'expressive').cheekFullness);
+  const soft = clone(full);
+  Object.assign(soft.shape, looks.cheekAdjustment(soft));
+  assert.deepEqual(Object.keys(looks.cheekAdjustment(soft)), [], 'repeated correction must be idempotent');
+  const before = looks.build(full), after = looks.build(soft);
+  const angles = [45, 55, 65], oldEdges = cheekEdges(before, angles), newEdges = cheekEdges(after, angles);
+  for (const [i, view] of angles.entries()) assert.ok(oldEdges[i] - newEdges[i] > 0.20, outline + ' at ' + view);
+  for (const point of ['mouth', 'upperLip', 'lowerLip', 'chinTip', 'leftJawJoint', 'leftEarCanal']) {
+    assert.deepEqual(before.sockets[point], after.sockets[point], point + ' must stay seated');
+  }
 }
 // Measure the actual fine voxels, with one world-space pitch for both releases.
 function sideProfile(actor) {

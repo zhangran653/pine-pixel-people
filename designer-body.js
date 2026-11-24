@@ -627,11 +627,7 @@ const pineDesignerBody = (() => {
     }
     const breadth =
       headShape &&
-      Float32Array.from({ length: 601 }, (_, i) => {
-        const h = i / 300 - 1;
-        const jawScale = 1 + 0.82 * (jaw - 1) * clamp(-h, 0, 1);
-        return jawScale * (faceOutline ? pinePortraitStyles.outlineWidth(faceOutline, h) : 1);
-      });
+      Float32Array.from({ length: 601 }, (_, i) => pinePortraitStyles.jawBreadth(faceOutline, jaw, i / 300 - 1));
     const breadthScale = (h) => breadth[clamp(Math.round((h + 1) * 300), 0, 600)];
     function faceFront(y, z) {
       const h = sliceHeight((z - fit.z) / fit.rz);

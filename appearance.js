@@ -1070,6 +1070,27 @@ SOFTWARE.`;
   function generationOptions(input) {
     return typeof input === 'function' ? { random: input } : input || {};
   }
+  // The outline and jaw already supply some of the width at mouth level. Leave room
+  // for them before adding soft tissue below a low-set cheekbone.
+  function cheekAdjustment(recipe, style = 'soft') {
+    const s = recipe.shape;
+    const outline = pinePortraitStyles.outlines[recipe.face?.outline];
+    const breadth = (h) => pinePortraitStyles.jawBreadth(outline, s.jaw ?? 1, h);
+    const lowerWidth = Math.max(0, breadth(-0.46) - breadth(-0.15));
+    const low = Math.max(0, -(s.cheekHeight || 0));
+    const projection = s.cheekProjection || 0;
+    const fullness = s.cheekFullness || 0;
+    const limit = style === 'soft' ? 0.06 : style === 'expressive' ? 0.38 : 0.27;
+    const extraDepth = Math.max(0, projection) + Math.max(0, (s.faceRelief ?? 1) - 1);
+    const maxFullness = limit - 1.75 * lowerWidth - low * (0.19 + 0.16 * extraDepth);
+    const changes = {};
+    if (fullness > maxFullness) changes.cheekFullness = Math.floor(100 * maxFullness) / 100;
+    if (low > 0) {
+      const maxProjection = 1 - low * (style === 'expressive' ? 0.82 : 0.99) - 1.2 * lowerWidth;
+      if (projection > maxProjection) changes.cheekProjection = Math.floor(100 * maxProjection) / 100;
+    }
+    return changes;
+  }
   // Limit the generated pigment footprints in head radii, using the painter's selected feature styles.
   function fitRandomFace(doc) {
     const { eyes, brows, nose, mouth, outline } = doc.face, s = doc.shape;
@@ -1108,9 +1129,13 @@ SOFTWARE.`;
     const outline = pick(['', ...Object.keys(faceDetails.outline)], random);
     if (outline) doc.face.outline = outline;
     else delete doc.face.outline;
+    const ageFullness = { baby: 0.12, toddler: 0.06 }[doc.base] || 0;
     for (const key of morphKeys) {
       const group = key.startsWith('cheek') ? cheeks : /^(eye|brow)/.test(key) ? eyePair : nosePair;
-      const center = (group.shape?.[key] || 0) * (expressive ? 1 : 0.82);
+      // The hand-sculpted low-cheek preset has full cheeks. Roll that soft tissue
+      // separately so a low cheekbone can also belong to a lean or neutral face.
+      let center = (group.shape?.[key] || 0) * (expressive ? 1 : 0.82);
+      if (key === 'cheekFullness') center = Math.min(0, center) + ageFullness;
       const offset = (random() + random() - 1) * (expressive ? 0.52 : 0.28);
       doc.shape[key] = Math.round(100 * Math.max(-1, Math.min(1, center + offset))) / 100;
     }
@@ -1118,6 +1143,7 @@ SOFTWARE.`;
     doc.shape.faceWidth = expressive ? between(0.89, 1.11, random) : between(0.94, 1.06, random);
     doc.shape.mouthHeight = between(-0.25, 0.25, random);
     fitRandomFace(doc);
+    Object.assign(doc.shape, cheekAdjustment(doc, expressive ? 'expressive' : 'natural'));
     return doc;
   }
   function randomCharacter(input) {
@@ -1168,6 +1194,7 @@ SOFTWARE.`;
     occipitalRelease,
     morphs: pinePortraitStyles.morphs,
     cheekPresets,
+    cheekAdjustment,
     randomFace,
     randomCharacter,
     jawPresets,

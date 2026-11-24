@@ -149,6 +149,10 @@ const pinePortraitStyles = (() => {
     const peak = (at, span) => Math.max(0, 1 - ((h - at) / span) ** 2) ** 2;
     return 1 + row[1] * peak(-0.12, 0.51) + row[2] * peak(-0.57, 0.43) + row[3] * peak(0.45, 0.46);
   }
+  function jawBreadth(outline, jaw, h) {
+    const jawScale = 1 + 0.82 * (jaw - 1) * Math.max(0, Math.min(1, -h));
+    return jawScale * (outline ? outlineWidth(outline, h) : 1);
+  }
   function eye(row, v, h, blink, side, k) {
     const [, width, up, down, tilt, power, crease] = row,
       q = v / width;
@@ -367,6 +371,7 @@ const pinePortraitStyles = (() => {
     mouths,
     outlines,
     outlineWidth,
+    jawBreadth,
     eye,
     brow,
     mouth,

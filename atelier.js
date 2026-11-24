@@ -350,6 +350,11 @@
     return label;
   }
   function markPresets() {
+    const soften = $('soften-cheeks');
+    if (soften) {
+      soften.hidden = draft.packs[looks.core] !== looks.release;
+      soften.disabled = !Object.keys(looks.cheekAdjustment(draft)).length;
+    }
     for (const button of document.querySelectorAll('[data-cheek-preset]')) {
       const selected = looks.cheekPresets[button.dataset.cheekPreset].shape;
       button.setAttribute('aria-pressed', String(draft.packs[looks.core] === looks.release &&
@@ -540,7 +545,18 @@
       };
       presets.append(button);
     }
-    cheeks.append(cheekTitle, presets, ...cheekKeys.map(slider));
+    const soften = document.createElement('button');
+    soften.type = 'button';
+    soften.id = 'soften-cheeks';
+    soften.textContent = '收顺面颊';
+    soften.title = '按当前脸型减轻嘴角外侧的鼓起';
+    soften.onclick = () => {
+      Object.assign(draft.shape, looks.cheekAdjustment(draft));
+      changed();
+      fields();
+      note('已收顺嘴角外侧到下颌的轮廓。');
+    };
+    cheeks.append(cheekTitle, presets, soften, ...cheekKeys.map(slider));
     const facialControls = Object.entries({
       '眼睛与眉骨': ['eyeDepth', 'eyeWidth', 'eyeOpening', 'eyeTilt', 'browHeight'],
       '鼻梁与鼻翼': ['noseBridge', 'noseWidth'],

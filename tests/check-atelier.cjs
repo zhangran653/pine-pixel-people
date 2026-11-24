@@ -560,6 +560,16 @@ function checkEditor() {
     document.querySelector('[data-face-preset="deep-wide"]').click();
     expect(byId('edit-eyeDepth').value === '0.75' && byId('edit-noseWidth').value === '0.8' &&
       byId('edit-cheekHeight').value === '-0.75', 'feature recipe must preserve the cheek shape');
+    byId('bearing').value = '55';
+    byId('bearing').dispatchEvent(new Event('input'));
+    const fullCheek = byId('mirror').toDataURL();
+    expect(!byId('soften-cheeks').disabled, 'full cheeks should offer a local correction');
+    byId('soften-cheeks').click();
+    expect(Number(byId('edit-cheekFullness').value) < 0.2 && byId('soften-cheeks').disabled &&
+      byId('edit-cheekHeight').value === '-0.75' && byId('edit-noseWidth').value === '0.8' &&
+      byId('bearing').value === '55' && byId('mirror').toDataURL() !== fullCheek,
+      'soften the visible cheek of the current draft at the same bearing');
+    expect(!Object.hasOwn(PineWardrobe.saved.get(priorOcciput.id).shape, 'cheekFullness'), 'correction needs an explicit save');
     byId('edit-noseWidth').value = '0.56';
     byId('edit-noseWidth').dispatchEvent(new Event('input'));
     byId('look-name').value = '尚未保存的捏脸';
@@ -592,6 +602,12 @@ function checkEditor() {
       Object.entries(trimmed.parts).every(([key, value]) => generated.parts[key] === value) &&
       ['skin', 'hair', 'top', 'bottom', 'shoes', 'accent'].every((key) => generated.colors[key] === trimmed.colors[key]),
       'locked body, skin, hairstyle and wardrobe survived rolls, undo and save');
+    document.querySelector('[data-cheek-preset="low"]').click();
+    byId('soften-cheeks').click();
+    const repaired = Number(byId('edit-cheekFullness').value);
+    byId('save-look').click();
+    expect((PineWardrobe.saved.get(generated.id).shape.cheekFullness || 0) === repaired &&
+      PineWardrobe.saved.size === savedCount + 1, 'save the local cheek correction under the same character ID');
     target.dataset.state = 'pass';
     target.textContent =
       'Body profiles, legacy saves, head upgrades, facial morphs, guided random portraits, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';
