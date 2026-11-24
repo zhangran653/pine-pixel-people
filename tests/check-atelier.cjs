@@ -532,6 +532,22 @@ function checkEditor() {
     const savedProfile = PineWardrobe.saved.get(previousProfile.id);
     expect(savedProfile.packs['pine-core'] === PineLooks.release &&
       savedProfile.shape.headDepth === 1.2 && savedProfile.shape.faceRelief === 1.8, 'depth controls did not persist');
+    const priorOcciput = PineWardrobe.importCharacter({
+      ...savedProfile, id: 'look_prior_occiput', packs: { 'pine-core': PineLooks.sagittalRelease }
+    }).recipe;
+    byId('save-look').click();
+    document.querySelector('[data-key="saved:' + priorOcciput.id + '"]').click();
+    byId('tab-face').click();
+    expect(byId('update-head')?.textContent === '试用微收后脑', 'missing posterior-only upgrade');
+    const rounder = byId('mirror').toDataURL();
+    byId('update-head').click();
+    expect(rounder !== byId('mirror').toDataURL(), 'posterior trim was invisible');
+    expect(PineWardrobe.saved.get(priorOcciput.id).packs['pine-core'] === PineLooks.sagittalRelease,
+      'preview overwrote the prior occiput');
+    byId('save-look').click();
+    const trimmed = PineWardrobe.saved.get(priorOcciput.id);
+    expect(trimmed.packs['pine-core'] === PineLooks.release && JSON.stringify(trimmed.shape) === JSON.stringify(savedProfile.shape),
+      'the posterior-only upgrade changed the saved shape controls');
     byId('shelf-era').value = 'historic';
     byId('shelf-era').dispatchEvent(new Event('change'));
     byId('look-query').value = '书生';

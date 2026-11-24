@@ -188,7 +188,10 @@
           1.11.0 起，采样表同时保存两个方向的单位换算。前后一单位相当于横向 1.2896 单位（成人参考）或 1.3181 单位（儿童参考）。这些数值来自所用网格的归一化坐标。像素骨架以耳部为参照调整额头、颊部和后脑。婴幼儿的调整幅度较小，下颌张合仍绕耳前下方的接点转动。
         </p>
         <p>
-          <code>shape.headDepth</code> 控制整个头部的前后径，范围为 0.8 到 1.2。<code>shape.faceRelief</code> 控制鼻根、双侧颧颊与颏部的局部起伏，范围为 0 到 1.8。两项默认值均为 1，序列化时省略。<code>shape.occiput</code> 可单独调后脑，<code>shape.chinProjection</code> 可单独调颏尖前后。旧存档按所锁版本复演，保存这两项的新取值时采用 1.11.0。<a href="head-depth-preview.png">查看同一人物的正面、侧面与全身</a>
+          <code>shape.headDepth</code> 控制整个头部的前后径，范围为 0.8 到 1.2。<code>shape.faceRelief</code> 控制鼻根、双侧颧颊与颏部的局部起伏，范围为 0 到 1.8。两项默认值均为 1，序列化时省略。<code>shape.occiput</code> 可单独调后脑，<code>shape.chinProjection</code> 可单独调颏尖前后。这两项纵深参数从 1.11.0 起可用，存档按所锁版本复演。<a href="head-depth-preview.png">查看同一人物的正面、侧面与全身</a>
+        </p>
+        <p>
+          1.11.1 根据每层截面从耳部到后缘的实际距离，轻收枕部最凸的一段，并在上下两端平滑接入原来的头顶与后颈。头皮和发束共用这项按高度预先计算的修正。「后脑深度」可继续单独调节。<a href="occiput-profile-preview.png">查看裸头和短发的后缘对照</a>
         </p>
         <p>
           用 Python 3 在项目根目录执行下面的命令即可重新生成截面表。两个参数分别指向上述固定版本的网格及其形变目录。<a href="tools/sample-head.py">采样脚本</a> · <a href="head-sections.js">生成的截面数据</a>

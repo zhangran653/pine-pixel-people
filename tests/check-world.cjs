@@ -128,6 +128,10 @@ for (const id of ['look_body_male', 'look_fern', 'look_workshop_toddler', 'look_
   });
   const old = build(looks.mandibleRelease), current = build(looks.release);
   const before = sideProfile(old), after = sideProfile(current);
+  const lastFit = build(looks.sagittalRelease), prior = sideProfile(lastFit);
+  assert.deepEqual(current.sockets, lastFit.sockets, id + ' face and jaw landmarks after the occipital trim');
+  assert.deepEqual([after.brow, after.cheek, after.chin, after.lip], [prior.brow, prior.cheek, prior.chin, prior.lip]);
+  assert.ok(after.rear >= prior.rear && after.rear - prior.rear <= 0.5, id + ' modest rear trim');
   assert.ok(after.depth > 1.15 * before.depth && after.depth < 1.35 * before.depth, id + ' sagittal fit');
   assert.ok(after.rear < before.rear && after.brow > before.brow, id + ' forehead and occiput');
   assert.ok(after.cheek > before.cheek + 0.5 && after.chin > before.chin + 0.5, id + ' face and chin');
@@ -144,6 +148,25 @@ for (const id of ['look_body_male', 'look_fern', 'look_workshop_toddler', 'look_
   assert.equal(soft.depth, raised.depth);
   assert.equal(soft.lip, raised.lip);
   assert.ok(raised.cheek > soft.cheek && raised.chin > soft.chin, id + ' relief independent of head depth');
+}
+for (const kind of ['adult', 'child']) {
+  const head = skull[kind];
+  const old = skull.posterior(1), current = skull.posterior(1, head);
+  const rear = (fit, h) => {
+    const row = head.row(h);
+    return fit.fit(row.axis - row.rear, h);
+  };
+  const h = 0.35, shift = rear(current, h) - rear(old, h);
+  assert.ok(shift > 0.032 && shift < 0.055, kind + ' maximum rear prominence');
+  // The sagitta relative to the same chord measures the arc more directly than overall depth.
+  const bulge = (fit) => (rear(fit, -0.1) + rear(fit, 0.8)) / 2 - rear(fit, h);
+  assert.ok(bulge(current) < bulge(old) - 0.025);
+  for (const end of [-0.58, -0.25, 0.83, 0.94, 1]) assert.equal(rear(current, end), rear(old, end));
+  for (const depth of [0.8, 1, 1.2]) {
+    const fit = skull.posterior(depth, head);
+    for (const x of [-1.3, -0.9, -0.7, skull.earPlane, 0, 1])
+      assert.ok(Math.abs(fit.unfit(fit.fit(x, h), h) - x) < 1e-8, kind + ' scalp and hair transform');
+  }
 }
 for (const [key, min, max] of [['headDepth', 0.8, 1.2], ['faceRelief', 0, 1.8]]) {
   const seed = looks.templateById.get('look_body_male');

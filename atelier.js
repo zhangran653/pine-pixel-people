@@ -428,6 +428,7 @@
     return group;
   }
   function upgradeLabel() {
+    if (draft.packs[looks.core] === looks.sagittalRelease) return '试用微收后脑';
     if (draft.packs[looks.core] === looks.mandibleRelease) return '试用新侧面轮廓';
     if (draft.packs[looks.core] === looks.neckRelease) return '试用耳前下颌关节';
     if (draft.packs[looks.core] === looks.jawRelease) return '试用可调下颌';

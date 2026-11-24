@@ -455,9 +455,9 @@ const pineDesignerBody = (() => {
     roundedHead = true,
     surfaceDetails = roundedHead,
     softContours = surfaceDetails,
-    sculptedHead = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0'].includes(recipe.packs?.['pine-core']),
-    layeredHair = ['1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0'].includes(recipe.packs?.['pine-core']),
-    fittedJaw = ['1.9.2', '1.10.0', '1.10.1', '1.11.0'].includes(recipe.packs?.['pine-core'])
+    sculptedHead = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1'].includes(recipe.packs?.['pine-core']),
+    layeredHair = ['1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1'].includes(recipe.packs?.['pine-core']),
+    fittedJaw = ['1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1'].includes(recipe.packs?.['pine-core'])
   ) {
     const kind = recipe.base === 'adult' ? 'adult' : 'child';
     const base = studioRig.profiles[recipe.base],
@@ -512,7 +512,8 @@ const pineDesignerBody = (() => {
         : 'crop';
     const hasHat = !!parts.hat && parts.hat !== 'none' && typeof paintHat === 'function';
     const headShape = sculptedHead ? pineHeadShape[kind] : null;
-    const fittedDepth = recipe.packs?.['pine-core'] === '1.11.0';
+    const softenedOcciput = recipe.packs?.['pine-core'] === '1.11.1';
+    const fittedDepth = softenedOcciput || recipe.packs?.['pine-core'] === '1.11.0';
     const articulatedJaw = fittedDepth || recipe.packs?.['pine-core'] === '1.10.1';
     const adjustableJaw = articulatedJaw || recipe.packs?.['pine-core'] === '1.10.0';
     const skinShape = adjustableJaw
@@ -520,7 +521,9 @@ const pineDesignerBody = (() => {
       : fittedJaw
         ? pineHeadShape.withJaw(kind)
         : headShape;
-    const posterior = headShape ? pineHeadShape.posterior(measure(shape, 'occiput')) : null;
+    const posterior = headShape
+      ? pineHeadShape.posterior(measure(shape, 'occiput'), softenedOcciput ? headShape : undefined)
+      : null;
     const crownHeight = (h) => (headShape ? headShape.crown.raise(h) : h);
     const sliceHeight = (h) => (headShape ? headShape.crown.lower(h) : h);
     const shortHair = sculptedHead ? pineShortHair.get(parts.hair, kind, hasHat, layeredHair) : null;

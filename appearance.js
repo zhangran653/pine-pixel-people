@@ -16,7 +16,8 @@ const PineLooks = (() => {
     jawRelease = '1.9.2',
     neckRelease = '1.10.0',
     mandibleRelease = '1.10.1',
-    release = '1.11.0';
+    sagittalRelease = '1.11.0',
+    release = '1.11.1';
   const releases = [
     originalRelease,
     styleRelease,
@@ -33,6 +34,7 @@ const PineLooks = (() => {
     jawRelease,
     neckRelease,
     mandibleRelease,
+    sagittalRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -395,7 +397,7 @@ SOFTWARE.`;
     const pin = recipe.packs[core];
     let needed = originalRelease;
     if (['headDepth', 'faceRelief'].some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 1))
-      needed = release;
+      needed = sagittalRelease;
     else if (
       pineHeadShape.controls.some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 0) ||
       recipe.identity !== undefined ||
@@ -1033,6 +1035,7 @@ SOFTWARE.`;
     jawRelease,
     neckRelease,
     mandibleRelease,
+    sagittalRelease,
     jawPresets,
     jawControls: pineHeadShape.controls,
     hasRoundedHead,

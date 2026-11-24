@@ -243,7 +243,7 @@ const pineHeadShape = (() => {
   }
   // Anchor the adjustment at the ears. The lower occiput tucks further in than the crown;
   // the ends of long hair gradually regain their original reach at the shoulders.
-  function posterior(depth) {
+  function posterior(depth, skull) {
     const levels = [
       [-2.2, 1, 0],
       [-1.55, 0.91, 0.25],
@@ -271,10 +271,21 @@ const pineHeadShape = (() => {
         b = levels[j + 1],
         t = (h - a[0]) / (b[0] - a[0]),
         u = t * t * (3 - 2 * t);
-      return (
-        curve(a[1], b[1], tangents[j], tangents[j + 1], b[0] - a[0], t) *
-        (1 + (depth - 1) * (a[2] + (b[2] - a[2]) * u))
-      );
+      let width = curve(a[1], b[1], tangents[j], tangents[j + 1], b[0] - a[0], t);
+      if (skull) {
+        const row = skull.row(h);
+        const span = (earPlane - row.axis + row.rear) * width;
+        // Ease only the outermost part of the occipital arc towards a shallower
+        // tangent. Its fitted scalp and hair share this scale at the same height.
+        const excess = span - 0.545;
+        if (excess > 0) {
+          const transition = 0.19;
+          const eased = excess < transition ? excess * excess / (2 * transition) : excess - transition / 2;
+          const inset = 0.3 * eased;
+          width *= 1 - inset / span;
+        }
+      }
+      return width * (1 + (depth - 1) * (a[2] + (b[2] - a[2]) * u));
     });
     const width = (h) => widths[clamp(Math.round(((h - start) * n) / (end - start)), 0, n)];
     return {
