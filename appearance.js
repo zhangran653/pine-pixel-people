@@ -14,7 +14,7 @@ const PineLooks = (() => {
     sculptRelease = '1.9.0',
     volumeRelease = '1.9.1',
     jawRelease = '1.9.2',
-    release = jawRelease;
+    release = '1.10.0';
   const releases = [
     originalRelease,
     styleRelease,
@@ -28,6 +28,7 @@ const PineLooks = (() => {
     collectionRelease,
     sculptRelease,
     volumeRelease,
+    jawRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -37,7 +38,44 @@ const PineLooks = (() => {
     return releases.indexOf(recipe.packs[core]) >= releases.indexOf(sculptRelease);
   }
   const shape = pineDesignerBody.shapeRanges;
-  const requiredShape = Object.keys(shape).filter((key) => key !== 'occiput');
+  const optionalShape = ['occiput', ...pineHeadShape.controls];
+  const requiredShape = Object.keys(shape).filter((key) => !optionalShape.includes(key));
+  const jawPresets = {
+    natural: { label: '自然短颌', shape: {} },
+    soft: {
+      label: '柔圆下巴',
+      shape: {
+        chinHeight: 0.4,
+        chinProjection: -0.18,
+        chinRoundness: 0.72,
+        jawPosition: 0.35,
+        jawAngle: 0.15,
+        jawNeck: 0.4
+      }
+    },
+    tapered: {
+      label: '微尖下巴',
+      shape: {
+        chinHeight: -0.25,
+        chinProjection: 0.24,
+        chinRoundness: -0.68,
+        jawPosition: 0.4,
+        jawAngle: 0.3,
+        jawNeck: -0.25
+      }
+    },
+    square: {
+      label: '方正下颌',
+      shape: {
+        chinHeight: 0.05,
+        chinProjection: 0.3,
+        chinRoundness: 0.68,
+        jawPosition: -0.58,
+        jawAngle: -0.44,
+        jawNeck: -0.32
+      }
+    }
+  };
   const previousBodyRanges = {
     height: [0.9, 1.1],
     shoulders: [0.85, 1.15],
@@ -71,10 +109,12 @@ SOFTWARE.`;
   const bodyProfiles = {
     female: { base: 'adult', gender: 'female', label: '女性' },
     male: { base: 'adult', gender: 'male', label: '男性' },
+    baby: { base: 'baby', gender: 'unspecified', label: '婴儿' },
+    toddler: { base: 'toddler', gender: 'unspecified', label: '幼儿' },
     child: { base: 'child', gender: 'unspecified', label: '儿童' }
   };
   function bodyProfileOf(recipe) {
-    if (recipe.base === 'child') return 'child';
+    if (recipe.base !== 'adult') return recipe.base;
     return recipe.gender === 'female' || recipe.gender === 'male' ? recipe.gender : null;
   }
   function withBodyProfile(recipe, profile) {
@@ -175,6 +215,7 @@ SOFTWARE.`;
       tee: '短袖 T 恤',
       hoodie: '连帽卫衣',
       cardigan: '针织开衫',
+      ...pineWorldWardrobe.tops,
       ...pineWorkshopWear.clothes.top
     },
     bottom: { ...originalSlots.bottom, skirt: '百褶裙', cargo: '工装裤', ...pineWorkshopWear.clothes.bottom },
@@ -201,11 +242,14 @@ SOFTWARE.`;
   const wearables = { ...pineWorkshopWear.wearables };
   for (const [slot, options] of Object.entries(pineEverydayStyles.wearables))
     wearables[slot] = { ...wearables[slot], ...options };
-  const gearColors = { ...pineWorkshopWear.dyes, ...pineEverydayStyles.dyes };
+  for (const [slot, options] of Object.entries(pineWorldWardrobe.wearables))
+    wearables[slot] = { ...wearables[slot], ...options };
+  const gearColors = { ...pineWorldWardrobe.dyes, ...pineWorkshopWear.dyes, ...pineEverydayStyles.dyes };
   const optionalColors = { ...gearColors, ...pinePortraitStyles.dyes };
   const carriedSlots = Object.keys(wearables).filter((k) => k !== 'phone' && k !== 'laptop');
   const outfitDyes = Object.keys(gearColors).filter((k) => k !== 'device');
   function gearColor(colors, key) {
+    if (key === 'charm') return colors.charm || '#bf9a66';
     if (Object.hasOwn(pinePortraitStyles.dyes, key)) return pinePortraitStyles.color(colors, key);
     if (Object.hasOwn(pineEverydayStyles.dyes, key)) return colors[key] || pineEverydayStyles.defaults[key];
     return pineWorkshopWear.color(colors, key);
@@ -343,7 +387,19 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (recipe.shape.occiput !== undefined && recipe.shape.occiput !== 1) needed = sculptRelease;
+    if (
+      pineHeadShape.controls.some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 0) ||
+      recipe.identity !== undefined ||
+      ['toddler', 'baby'].includes(recipe.base) ||
+      Object.hasOwn(pineWorldWardrobe.tops, recipe.parts.top) ||
+      Object.entries(pineWorldWardrobe.wearables).some(([key, values]) =>
+        Object.hasOwn(values, recipe.parts[key])
+      ) ||
+      Object.hasOwn(recipe.colors, 'charm') ||
+      pineWorldWardrobe.hats.some((h) => recipe.parts.hat === core + '/' + h.id)
+    )
+      needed = release;
+    else if (recipe.shape.occiput !== undefined && recipe.shape.occiput !== 1) needed = sculptRelease;
     else if (usesCollection(recipe)) needed = collectionRelease;
     else if (pineWorkshopWear.needsRelease(recipe.parts, recipe.colors)) needed = wardrobeRelease;
     else if (Object.hasOwn(additionalHair, recipe.parts.hair)) needed = hairRelease;
@@ -486,13 +542,20 @@ SOFTWARE.`;
       releases.indexOf(pin) >= releases.indexOf(collectionRelease)
         ? [...parts, ...pineEverydayStyles.hats]
         : parts;
-    catalog.set(core + '@' + pin, manifest({ ...sunhat, release: pin, parts: hats }));
+    catalog.set(
+      core + '@' + pin,
+      manifest({
+        ...sunhat,
+        release: pin,
+        parts: pin === release ? [...hats, ...pineWorldWardrobe.hats] : hats
+      })
+    );
   }
   function prepare(raw, source = catalog) {
     fields(
       raw,
       ['format', 'version', 'id', 'label', 'base', 'packs', 'parts', 'shape', 'colors'],
-      ['embeddedPacks', 'baseNotice', 'face', 'gender']
+      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity']
     );
     requireThat(raw.baseNotice === undefined || raw.baseNotice === baseNotice, '基础素材许可声明与版本不符');
     requireThat(
@@ -502,19 +565,31 @@ SOFTWARE.`;
         lookId.test(raw.id),
       '角色格式、版本或 ID 无效'
     );
-    requireThat(['child', 'adult'].includes(raw.base), '不支持的基型');
+    requireThat(['child', 'adult', 'toddler', 'baby'].includes(raw.base), '不支持的基型');
+    let identity;
+    if (raw.identity !== undefined) {
+      fields(raw.identity, [], ['era', 'role']);
+      identity = {};
+      if (raw.identity.era !== undefined) {
+        requireThat(Object.hasOwn(PineWorld.realms, raw.identity.era), '未知时代');
+        identity.era = raw.identity.era;
+      }
+      if (raw.identity.role !== undefined) identity.role = short(raw.identity.role, 48);
+    }
     const label = short(raw.label, 48),
       working = new Map(source);
-    fields(raw.shape, requiredShape, ['occiput']);
+    fields(raw.shape, requiredShape, optionalShape);
     fields(raw.colors, Object.keys(colors), Object.keys(optionalColors));
     fields(raw.parts, [...Object.keys(slots), 'hat'], Object.keys(wearables));
     const sizes = {},
       palette = {},
       parts = {};
     for (const key of requiredShape) sizes[key] = bounded(raw.shape[key], shape[key][0], shape[key][1]);
-    if (Object.hasOwn(raw.shape, 'occiput')) {
-      const depth = bounded(raw.shape.occiput, shape.occiput[0], shape.occiput[1]);
-      if (depth !== 1) sizes.occiput = depth;
+    for (const key of optionalShape) {
+      if (!Object.hasOwn(raw.shape, key)) continue;
+      const [lo, hi, normal] = shape[key],
+        value = bounded(raw.shape[key], lo, hi);
+      if (value !== normal) sizes[key] = value;
     }
     for (const key of [
       ...Object.keys(colors),
@@ -606,6 +681,7 @@ SOFTWARE.`;
       id: raw.id,
       label,
       base: raw.base,
+      ...(identity ? { identity } : {}),
       ...(hasProfiles ? { gender } : {}),
       packs: pins,
       shape: sizes,
@@ -660,6 +736,7 @@ SOFTWARE.`;
         releases.indexOf(recipe.packs[core]) >= releases.indexOf(jawRelease)
       )
     });
+    actor.recipeId = recipe.id;
     actor.gender = recipe.gender ?? 'unspecified';
     return actor;
   }
@@ -788,8 +865,8 @@ SOFTWARE.`;
     surveyor: ['female', 'braid', 'almond'],
     mother: ['female', 'bun', 'gentle'],
     child: ['child', 'crop', 'cheerful'],
-    toddler: ['child', 'curly', 'cheerful'],
-    baby: ['child', 'crop', 'gentle']
+    toddler: ['toddler', 'curly', 'cheerful'],
+    baby: ['baby', 'crop', 'gentle']
   };
   for (const [id, outfit] of Object.entries(pineWorkshopWear.outfits)) {
     const [profile, hair, face] = workshopProfiles[id];
@@ -798,19 +875,16 @@ SOFTWARE.`;
     model.label = outfit.label;
     model.parts.hair = hair;
     model.face = { ...facePresets[face].face };
-    const pigments =
-      id === 'hiker'
-        ? hikerArt.materials
-        : id === 'surveyor'
-          ? surveyorArt.materials
-          : familyArt[id].materials;
-    Object.assign(model.colors, {
-      skin: '#' + pigments.skin,
-      hair: '#' + pigments.hair,
-      eyes: '#' + (pigments.iris || pigments.eye)
-    });
-    if (id === 'toddler') Object.assign(model.shape, { height: 0.86, legs: 0.9, faceWidth: 1.06 });
-    if (id === 'baby') Object.assign(model.shape, { height: 0.75, legs: 0.8, arms: 0.86, faceWidth: 1.11 });
+    const palettes = {
+      hiker: ['dc9a70', '493a39', '2a333a'],
+      surveyor: ['c88a66', '393139', '674f3d'],
+      mother: ['cf916c', '3e3036', '674a3d'],
+      child: ['cf916c', '443335', '674a3d'],
+      toddler: ['cf916c', '3e3036', '674a3d'],
+      baby: ['d89f82', '3e3036', '674a3d']
+    };
+    const [skin, hairDye, eye] = palettes[id];
+    Object.assign(model.colors, { skin: '#' + skin, hair: '#' + hairDye, eyes: '#' + eye });
     templates.push(applyOutfit(model, outfit));
   }
   for (const [id, label, body, hair, faceId, outfit, details, gear, dyes] of [
@@ -891,6 +965,47 @@ SOFTWARE.`;
     Object.assign(model.colors, dyes);
     templates.push(model);
   }
+  const skinDyes = ['#d9a083', '#af7657', '#e1b491', '#925f48', '#c88d68', '#ab775f'];
+  const hairDyes = ['#493634', '#352e35', '#69513e', '#443438', '#554238', '#453b39'];
+  const faceKeys = ['warm', 'calm', 'gentle', 'almond', 'bright', 'mellow'];
+  let n = 0;
+  for (const [era, rows] of Object.entries(pineWorldWardrobe.roster)) {
+    for (const [key, label, profile, hair, top, bottom, shoes, cloth, trim, gear] of rows) {
+      const doc = withBodyProfile(templates[0], profile);
+      doc.id = 'look_' + key;
+      doc.label = label;
+      doc.identity = { era, role: label };
+      doc.parts = { hair, top, bottom, shoes, neck: 'none', hat: 'none', ...gear };
+      doc.shape = {
+        ...doc.shape,
+        height: [1, 0.98, 1.035, 0.96, 1.02][n % 5],
+        faceWidth: [1.01, 0.97, 1.05][n % 3]
+      };
+      doc.face = { ...facePresets[faceKeys[n % faceKeys.length]].face };
+      Object.assign(doc.colors, {
+        skin: skinDyes[n % 6],
+        hair: hairDyes[n % 6],
+        top: '#' + cloth,
+        accent: '#' + trim,
+        bottom: ['#494f60', '#586068', '#535660', '#664e52'][n % 4],
+        shoes: ['#654e43', '#52454a', '#716052'][n % 3]
+      });
+      if (doc.parts.hat !== 'none')
+        doc.colors.hat =
+          top === 'chef-coat'
+            ? '#e6e0cc'
+            : doc.parts.hat.endsWith('hardhat')
+              ? '#e8b751'
+              : era === 'historic'
+                ? '#9a825e'
+                : '#736d8a';
+      if (gear.charm)
+        doc.colors.charm = gear.charm === 'jade' ? '#93bda0' : gear.charm === 'vial' ? '#8cc1c2' : '#d7b26c';
+      templates.push(doc);
+      n++;
+    }
+  }
+  const templateById = new Map(templates.map((doc) => [doc.id, doc]));
   return {
     core,
     release,
@@ -907,6 +1022,8 @@ SOFTWARE.`;
     sculptRelease,
     volumeRelease,
     jawRelease,
+    jawPresets,
+    jawControls: pineHeadShape.controls,
     hasRoundedHead,
     hasSculptedHead,
     editingRelease,
@@ -935,6 +1052,7 @@ SOFTWARE.`;
     colorPresets,
     catalog,
     templates,
+    templateById,
     manifest,
     install,
     prepare,
@@ -943,3 +1061,28 @@ SOFTWARE.`;
   };
 })();
 globalThis.PineLooks = PineLooks;
+
+// Old score IDs and public preset IDs both resolve to the very same editable recipe.
+for (const doc of PineLooks.templates) {
+  let built;
+  const resolve = () => built || (built = PineLooks.build(doc));
+  const expose = (id) =>
+    PineMotion.characters.set(id, {
+      id,
+      label: doc.label,
+      recipeId: doc.id,
+      gender: doc.gender,
+      tags: [doc.base],
+      get rig() {
+        return resolve().rig;
+      },
+      get sockets() {
+        return resolve().sockets;
+      },
+      get body() {
+        return resolve().body;
+      }
+    });
+  if (doc.id.startsWith('look_workshop_')) expose(doc.id.slice('look_workshop_'.length));
+  expose(doc.id);
+}

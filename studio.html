@@ -12,6 +12,8 @@
   <script defer src="actor.js"></script>
   <script defer src="surveyor-art.js"></script>
   <script defer src="family-art.js"></script>
+  <script defer src="vehicle-slices.js"></script>
+  <script defer src="world-objects.js"></script>
   <script defer src="activity-props.js"></script>
   <script defer src="studio-props.js"></script>
   <script defer src="studio-rig.js"></script>
@@ -21,6 +23,7 @@
   <script defer src="movement-clips.js"></script>
   <script defer src="daily-clips.js"></script>
   <script defer src="social-clips.js"></script>
+  <script defer src="work-clips.js"></script>
   <script defer src="studio-library.js"></script>
   <script defer src="portrait-styles.js"></script>
   <script defer src="hair-styles.js"></script>
@@ -29,6 +32,7 @@
   <script defer src="short-hair.js"></script>
   <script defer src="everyday-styles.js"></script>
   <script defer src="workshop-wear.js"></script>
+  <script defer src="world-wardrobe.js"></script>
   <script defer src="designer-body.js"></script>
   <script defer src="appearance.js"></script>
   <script defer src="appearance-store.js"></script>
@@ -39,7 +43,7 @@
 </head>
 <body>
   <main class="studio-shell">
-    <header class="mast"><h1><span class="pine-mark" aria-hidden="true"></span>动作工坊</h1><nav aria-label="项目"><a href="atelier.html">人物创作室</a><a id="preview-three" href="three.html?show=studio">三维预览</a><a href="index.html">松溪步道</a><a href="motion-standard.html">接入规范</a></nav></header>
+    <header class="mast"><h1><span class="pine-mark" aria-hidden="true"></span>动作工坊</h1><nav aria-label="项目"><a href="atelier.html">人物创作室</a><a id="preview-three" href="three.html?show=studio">三维预览</a><a id="edit-world" href="index.html">编辑场景</a><a href="trail.html">松溪步道</a><a href="motion-standard.html">接入规范</a></nav></header>
     <div class="workstation">
       <section class="monitor studio-panel" aria-label="动作预览">
         <header class="take"><div><h2 id="take-title">抱起轻摇</h2><p id="take-actors">妈妈与小宝宝</p></div><output id="take-number">第 1 段</output></header>
@@ -67,6 +71,7 @@
               <select id="who"></select>
             </div>
             <label>动作<select id="which" aria-describedby="motion-count"></select></label>
+            <label id="target-field" hidden>场景中的交互物件<select id="action-target"></select></label>
             <label id="with-field" hidden>搭档<select id="with"></select></label>
             <label>单次秒数<input id="seconds" type="number" min="0" step="any" required></label>
             <label>重复次数<input id="times" type="number" value="1" min="1" step="1" required></label>

@@ -70,7 +70,14 @@ export function startClearing(motion) {
   renderer.shadowMap.autoUpdate = false;
   const scene = new THREE.Scene();
   lightClearing(scene);
-  const { rail } = buildClearing(THREE, scene);
+  const { root: clearing, rail } = buildClearing(THREE, scene);
+  const floor = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshLambertMaterial({ color: 0xb5bea0 })
+  );
+  floor.receiveShadow = true;
+  floor.visible = false;
+  scene.add(floor);
   const camera = new THREE.PerspectiveCamera(34, 1, 0.07, 70);
   const controls = new OrbitControls(camera, canvas);
   controls.enablePan = false;
@@ -79,7 +86,29 @@ export function startClearing(motion) {
   controls.minPolarAngle = 0.13;
   controls.maxPolarAngle = Math.PI * 0.505;
   controls.target.set(0, 0.81, 0);
+  let sceneView = null;
   function home() {
+    if (sceneView) {
+      const { center, radius } = sceneView,
+        distance = Math.max(3.3, radius * (camera.aspect < 1 ? 3.1 : 2.45));
+      controls.maxDistance = Math.max(8, distance * 2.8);
+      controls.target.copy(center);
+      camera.position
+        .copy(center)
+        .addScaledVector(
+          new THREE.Vector3(0.94, 0.62, -0.25).applyQuaternion(cast.group.quaternion).normalize(),
+          distance
+        );
+      scene.fog.near = distance * 0.98;
+      scene.fog.far = Math.max(25, distance * 3);
+      camera.far = Math.max(60, distance * 5);
+      camera.updateProjectionMatrix();
+      controls.update();
+      return;
+    }
+    controls.maxDistance = 8;
+    scene.fog.near = 6;
+    scene.fog.far = 25;
     camera.position.set(2.7, 1.7, 3.95);
     controls.target.set(0, 0.81, 0);
     controls.update();
@@ -166,6 +195,29 @@ export function startClearing(motion) {
     playing = !!plan.duration && (first ? !matchMedia('(prefers-reduced-motion: reduce)').matches : playing);
     last = null;
     sync();
+    sceneView = null;
+    clearing.visible = !plan.score.scene?.length;
+    floor.visible = !clearing.visible;
+    id('rail-view').hidden = floor.visible;
+    id('show-rail').parentElement.hidden = floor.visible;
+    if (plan.score.scene?.length) {
+      cast.group.updateMatrixWorld(true);
+      const box = new THREE.Box3().makeEmpty();
+      cast.group.traverse((mesh) => {
+        if (mesh.isMesh && mesh.visible && mesh.parent.visible) {
+          if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+          box.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld));
+        }
+      });
+      if (!box.isEmpty()) {
+        sceneView = box.getBoundingSphere(new THREE.Sphere());
+        const size = box.getSize(new THREE.Vector3());
+        floor.scale.set(size.x + 1.2, 0.16, size.z + 1.2);
+        floor.position.set(sceneView.center.x, -0.085, sceneView.center.z);
+      }
+    }
+    home();
+    render();
     schedule();
   }
   select.addEventListener('change', () => choose(select.value));
@@ -222,6 +274,8 @@ export function startClearing(motion) {
     observer.disconnect();
     controls.dispose();
     cast.dispose();
+    floor.geometry.dispose();
+    floor.material.dispose();
     scene.background.dispose();
     const geometries = new Set(),
       materials = new Set();

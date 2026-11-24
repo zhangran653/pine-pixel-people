@@ -209,6 +209,17 @@ def sample(points, faces, child):
     return [[round(v, 4) for v in row] for row in result]
 
 
+def head_pivot(vertices, child):
+    # Eight helper vertices of head____head in MakeHuman's default.mhskel, same pinned revision.
+    y, z = [mean(vertices[i][axis] for i in range(14070, 14078)) for axis in (1, 2)]
+    chin, lip, ear, forehead, crown = [vertices[i] for i in (991, 455, 12323, 237, 881)]
+    eyes = mean(vertices[i][1] for i in range(13606, 13614))
+    height = interpolate([(chin[1], -1), (lip[1], -.39 if child else -.43),
+                          (eyes, .14 if child else .13), (crown[1], 1)], y)
+    forward = -.115 + (z - ear[2]) * 1.18 / (forehead[2] - ear[2]) * (1 if z >= ear[2] else .94)
+    return [round(forward, 4), round(height, 4)]
+
+
 if __name__ == "__main__":
     base, faces = read_mesh(Path(sys.argv[1]))
     child = child_vertices(base, Path(sys.argv[2]))
@@ -229,3 +240,6 @@ if __name__ == "__main__":
         )
         print("  ]" + ("," if name == "adult" else ""))
     print("};")
+
+    print("// Sagittal positions [forward, height] of the head joint, in the same hm08 coordinates.")
+    print("const pineHeadPivots = " + json.dumps({"adult": head_pivot(base, False), "child": head_pivot(child, True)}) + ";")

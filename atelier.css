@@ -1016,3 +1016,13 @@ dialog p {
 }
 
 #action-partner { margin: 0 14px 5px; color: #46614c; font-size: .84rem; }
+
+.identity-fields,.shelf-search{display:grid;grid-template-columns:minmax(5em,.55fr) minmax(0,1fr);gap:.55rem;margin:.65rem 0}
+.identity-fields label{display:grid;gap:.2rem;font-size:.76rem;color:var(--muted,#66766b)}
+.shelf-search{grid-template-columns:minmax(0,1fr) minmax(6em,.35fr)}
+.identity-fields :is(input,select),.shelf-search :is(input,select){min-width:0;width:100%;padding:.45rem;border:1px solid #c2cbbc;border-radius:5px;background:#fafaf4;color:#283d34;font:inherit}
+.base-row .switch{flex-wrap:wrap}
+
+.jaw-controls{min-width:0;border:1px solid #81938265;border-radius:6px;padding:.6rem .8rem;margin:.8rem 0}.jaw-controls legend{padding:0 .35rem;font-weight:650}.jaw-controls .category-buttons{margin-bottom:.65rem}
+
+.jaw-points,.jaw-points span{display:flex;align-items:center;gap:.32rem}.jaw-points{flex-wrap:wrap;font-size:.72rem;margin:.55rem 0}.jaw-points span{margin-left:.24rem}.jaw-points i{width:8px;height:8px;border-radius:50%}

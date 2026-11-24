@@ -1,0 +1,503 @@
+:root {
+  color-scheme: light;
+  --ink: #243b30;
+  --muted: #5d7164;
+  --line: #cbd0bd;
+  --paper: #f6f5ed;
+  --panel: #fffef7;
+  --deep: #254a39;
+  --rust: #a45234;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'DM Sans', system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+button,
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+button,
+select,
+.file-label {
+  cursor: pointer;
+}
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible,
+canvas:focus-visible {
+  outline: 3px solid #d4a044;
+  outline-offset: 2px;
+}
+button,
+.file-label {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 0.48rem 0.75rem;
+  border-radius: 5px;
+  font-size: 0.83rem;
+}
+button:hover,
+.file-label:hover {
+  border-color: #75927b;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.atlas {
+  width: min(1500px, 95%);
+  margin: auto;
+}
+.top,
+.atlas-title,
+.scene-bar,
+.scene-bar > div,
+.scene-footer,
+.scene-footer > div,
+.atlas-footer,
+.top nav,
+.atlas-footer nav,
+.collection header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.top {
+  height: 64px;
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  font-weight: 780;
+  font-size: 1.15rem;
+  letter-spacing: 0.035em;
+}
+.brand i {
+  display: inline-grid;
+  place-items: center;
+  width: 29px;
+  height: 31px;
+  background: var(--deep);
+  border-radius: 5px;
+  color: #f0c87b;
+  font-size: 23px;
+  font-style: normal;
+  vertical-align: middle;
+  clip-path: polygon(0 0, 100% 0, 100% 80%, 50% 100%, 0 80%);
+}
+.top nav {
+  gap: 1.5rem;
+  font-size: 0.84rem;
+}
+.top nav [aria-current] {
+  color: var(--deep);
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 7px;
+}
+.atlas-title {
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 1.15rem;
+  margin: 21px 0 15px;
+}
+.atlas-title h1 {
+  font-family: 'Songti SC', 'STSong', serif;
+  font-size: clamp(2.1rem, 3.4vw, 3.55rem);
+  line-height: 1.12;
+  letter-spacing: 0.035em;
+  margin: 0;
+}
+.atlas-title p,
+.collection output {
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.9fr) minmax(300px, 0.92fr);
+  gap: 17px;
+  align-items: stretch;
+}
+.scene-panel,
+.collection {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+}
+.scene-bar {
+  padding: 0.7rem 0.9rem;
+}
+.scene-bar label,
+.cast-row label,
+.catalog-filters label,
+.placement-body label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 560;
+}
+select,
+input {
+  border: 1px solid #c1c9b7;
+  background: #fcfcf6;
+  border-radius: 4px;
+  min-width: 0;
+  padding: 0.37rem 0.45rem;
+}
+.world-viewport {
+  position: relative;
+  border-block: 1px solid var(--line);
+  background: #c6d5c2;
+}
+#world-canvas {
+  display: block;
+  width: 100%;
+  height: clamp(345px, 49vh, 620px);
+  image-rendering: pixelated;
+  touch-action: none;
+  cursor: grab;
+}
+#world-canvas:active {
+  cursor: grabbing;
+}
+.scene-caption {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  pointer-events: none;
+}
+.scene-caption span {
+  font-size: 0.66rem;
+  letter-spacing: 0.13em;
+  color: #475e4e;
+  background: #fff9e7cc;
+  padding: 0.21rem 0.45rem;
+  border-radius: 3px;
+}
+.scene-caption h2 {
+  font:
+    700 clamp(1.32rem, 2vw, 2.05rem) / 1.2 'Songti SC',
+    'STSong',
+    serif;
+  margin: 0.48rem 0 0;
+  color: #253e35;
+  text-shadow: 0 1px #eaf0ce;
+}
+.camera-strip {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #fbf9edec;
+  padding: 0.34rem 0.5rem;
+  border: 1px solid #b5c4ae;
+  border-radius: 5px;
+  font-size: 0.72rem;
+}
+.camera-strip label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.camera-strip input {
+  width: 76px;
+  accent-color: #477255;
+  padding: 0;
+}
+.camera-strip button {
+  padding: 0;
+  width: 1.55rem;
+  height: 1.55rem;
+}
+.camera-strip output {
+  min-width: 2.2rem;
+}
+.cast-row {
+  display: flex;
+  gap: 1.15rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 0.9rem;
+}
+.cast-row select {
+  max-width: 14rem;
+}
+.scene-panel details {
+  margin: 0 0.9rem;
+  border-block: 1px solid #dce0d1;
+  padding: 0.55rem 0;
+}
+.scene-panel summary {
+  font-size: 0.84rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.placement-body,
+.coords {
+  display: flex;
+  gap: 0.5rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.placement-body {
+  margin-top: 0.5rem;
+}
+.placement-body label {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.68rem;
+}
+.coords input {
+  width: 4.15rem;
+  font-variant-numeric: tabular-nums;
+}
+.scene-footer {
+  min-height: 48px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.74rem;
+  flex-wrap: wrap;
+}
+.scene-footer > span {
+  color: var(--muted);
+}
+.scene-footer > div {
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.scene-footer a {
+  color: #315f48;
+  font-weight: 650;
+}
+.scene-footer button,
+.file-label {
+  font-size: 0.74rem;
+  padding: 0.28rem 0.47rem;
+}
+.file-label {
+  position: relative;
+}
+.file-label input {
+  width: 1px;
+  height: 1px;
+  position: absolute;
+  opacity: 0;
+}
+.collection {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+}
+.collection header h2 {
+  margin: 0;
+  font:
+    700 1.5rem/1.25 'Songti SC',
+    'STSong',
+    serif;
+}
+.collection > input {
+  margin: 0.8rem 0 0.6rem;
+  width: 100%;
+  padding: 0.54rem 0.64rem;
+}
+.catalog-filters {
+  display: flex;
+  gap: 0.62rem;
+}
+.catalog-filters label {
+  flex: 1;
+}
+.catalog-filters select {
+  flex: 1;
+  width: 0;
+}
+.object-grid {
+  height: 0;
+  min-height: 225px;
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  align-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 6px;
+  margin: 0.85rem -3px 0.45rem;
+  padding: 3px;
+  scrollbar-color: #a9b9a3 transparent;
+}
+.object-grid button {
+  padding: 0 0.2rem 0.38rem;
+  background: #f1f1e6;
+  border-color: #d9ddcd;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  min-width: 0;
+}
+.object-grid button[aria-pressed='true'] {
+  border-color: #547659;
+  box-shadow: inset 0 0 0 1px #547659;
+  background: #e7ecd9;
+}
+.object-grid canvas {
+  width: 100%;
+  max-width: 118px;
+  aspect-ratio: 1.45;
+  image-rendering: pixelated;
+}
+.object-grid span {
+  font-size: 0.73rem;
+  line-height: 1.2;
+}
+.item-inspect {
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-top: 0.5rem;
+}
+.item-inspect canvas {
+  width: 64px;
+  height: 59px;
+  image-rendering: pixelated;
+}
+.item-inspect > div {
+  flex: 1;
+}
+.item-inspect h3,
+.item-inspect p {
+  margin: 0.15rem 0;
+}
+.item-inspect h3 {
+  font-size: 0.9rem;
+}
+.item-inspect p {
+  font-size: 0.69rem;
+  color: var(--muted);
+}
+#place-item,
+#world-play[aria-pressed='true'] {
+  background: var(--deep);
+  color: white;
+  border-color: var(--deep);
+}
+.atlas-footer {
+  margin: 1.1rem 0 2rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.atlas-footer nav {
+  flex-wrap: wrap;
+  gap: 1.15rem;
+}
+@media (min-width: 1600px) {
+  .collection {
+    padding: 1.35rem;
+  }
+  .object-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .collection {
+    min-height: 470px;
+  }
+  .object-grid {
+    height: 290px;
+    flex: auto;
+    grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  }
+  .top nav {
+    gap: 0.7rem;
+  }
+  .scene-panel details {
+    padding: 0.55rem 0;
+  }
+}
+@media (max-width: 540px) {
+  .top {
+    height: auto;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.7rem 0;
+  }
+  .top nav {
+    width: 100%;
+  }
+  .atlas-title {
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .atlas-title p {
+    font-size: 0.72rem;
+  }
+  .scene-bar {
+    padding: 0.5rem;
+  }
+  .scene-bar button {
+    font-size: 0.7rem;
+    padding: 0.35rem;
+  }
+  .cast-row {
+    gap: 0.4rem;
+  }
+  .cast-row label {
+    flex: 1;
+  }
+  .cast-row select {
+    width: 0;
+    flex: 1;
+  }
+  .atlas-footer {
+    align-items: start;
+    gap: 0.8rem;
+  }
+  .atlas-footer nav {
+    gap: 0.45rem;
+  }
+  .coords input {
+    width: 3.65rem;
+  }
+}
+
+@media (min-width: 861px) {
+  .layout {
+    align-items: start;
+  }
+  .collection {
+    position: relative;
+    align-self: stretch;
+    max-height: calc(clamp(345px, 49vh, 620px) + 260px);
+  }
+  .object-grid {
+    min-height: 0;
+  }
+  .scene-panel {
+    align-self: start;
+  }
+}

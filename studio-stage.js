@@ -142,7 +142,8 @@ function createStudioStage(canvas) {
     cacheKey = '',
     view = null,
     entries = [],
-    drawings = [];
+    drawings = [],
+    scenery = [];
   function camera(w, h) {
     const yaw = bearing * rad,
       elevation = tilt * rad,
@@ -232,7 +233,11 @@ function createStudioStage(canvas) {
       );
       ctx.fill();
     }
-    for (const drawing of drawings) {
+    const depth = (d) => Math.cos(view.yaw) * d.x + Math.sin(view.yaw) * d.y;
+    const groups = scenery.map((d) => ({ order: depth(d), parts: [d] }));
+    if (entries.length)
+      groups.push({ order: entries.reduce((sum, e) => sum + depth(e), 0) / entries.length, parts: drawings });
+    for (const drawing of groups.sort((a, b) => a.order - b.order).flatMap((g) => g.parts)) {
       const p = view.project(
         anchorX + drawing.x * actorSize,
         anchorY + drawing.y * actorSize,
@@ -250,7 +255,8 @@ function createStudioStage(canvas) {
     }
     ctx.drawImage(front, 0, 0, W, H);
   }
-  function setFrame(list) {
+  function setFrame(list, scene = []) {
+    scenery = scene.map((p) => ({ ...PineWorld.geometry(p.kind), ...p }));
     entries = list.map((e) => {
       const actor = studioLibrary.characters.get(e.character);
       return { ...e, actor, rig: actor.rig, body: actor.body, model: actor.body.makePose(e.pose) };

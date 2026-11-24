@@ -34,7 +34,9 @@
     "base": {
       "enum": [
         "child",
-        "adult"
+        "adult",
+        "toddler",
+        "baby"
       ]
     },
     "packs": {
@@ -62,7 +64,8 @@
             "1.8.0",
             "1.9.0",
             "1.9.1",
-            "1.9.2"
+            "1.9.2",
+            "1.10.0"
           ]
         }
       },
@@ -138,6 +141,42 @@
           "minimum": -1,
           "maximum": 1,
           "default": 0
+        },
+        "chinHeight": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "default": 0
+        },
+        "chinProjection": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "default": 0
+        },
+        "chinRoundness": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "default": 0
+        },
+        "jawPosition": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "default": 0
+        },
+        "jawAngle": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "default": 0
+        },
+        "jawNeck": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "default": 0
         }
       }
     },
@@ -206,6 +245,17 @@
             "tee",
             "hoodie",
             "cardigan",
+            "apron",
+            "scrubs",
+            "chef-coat",
+            "lab-coat",
+            "hi-vis",
+            "uniform",
+            "cross-robe",
+            "brocade",
+            "mantle",
+            "flightsuit",
+            "mechanic",
             "trail-shell",
             "field-jacket",
             "striped-cardigan",
@@ -284,7 +334,10 @@
             "messenger",
             "camera",
             "hip-pack",
-            "rucksack"
+            "rucksack",
+            "briefcase",
+            "tote",
+            "pouch"
           ]
         },
         "attachment": {
@@ -332,7 +385,10 @@
         "bottle": {
           "enum": [
             "canteen",
-            "thermos"
+            "thermos",
+            "gourd",
+            "flask",
+            "elixir"
           ]
         },
         "phone": {
@@ -390,6 +446,31 @@
             "mittens",
             "leather",
             "knit"
+          ]
+        },
+        "charm": {
+          "enum": [
+            "jade",
+            "tassel",
+            "compass",
+            "vial",
+            "pass"
+          ]
+        },
+        "implement": {
+          "enum": [
+            "guide-flag",
+            "scanner",
+            "clipboard",
+            "scroll",
+            "quill",
+            "fan",
+            "mug",
+            "lantern",
+            "astrolabe",
+            "prism",
+            "probe",
+            "notebook"
           ]
         }
       }
@@ -504,6 +585,10 @@
           "pattern": "^#[a-fA-F0-9]{6}$"
         },
         "beard": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "charm": {
           "type": "string",
           "pattern": "^#[a-fA-F0-9]{6}$"
         }
@@ -666,6 +751,26 @@
         "unspecified"
       ],
       "description": "pine-core 1.2.0 的成人体型选择。儿童使用 unspecified。省略时沿用未指定的基础外形。"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "era": {
+          "enum": [
+            "modern",
+            "historic",
+            "fantasy",
+            "scifi"
+          ]
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48,
+          "pattern": "\\S"
+        }
+      }
     }
   },
   "if": {
@@ -701,14 +806,33 @@
       "if": {
         "properties": {
           "shape": {
-            "required": ["occiput"],
-            "properties": { "occiput": { "not": { "const": 1 } } }
+            "required": [
+              "occiput"
+            ],
+            "properties": {
+              "occiput": {
+                "not": {
+                  "const": 1
+                }
+              }
+            }
           }
         }
       },
       "then": {
         "properties": {
-          "packs": { "properties": { "pine-core": { "enum": ["1.9.0", "1.9.1", "1.9.2"] } } }
+          "packs": {
+            "properties": {
+              "pine-core": {
+                "enum": [
+                  "1.9.0",
+                  "1.9.1",
+                  "1.9.2",
+                  "1.10.0"
+                ]
+              }
+            }
+          }
         }
       }
     },
@@ -796,7 +920,11 @@
       "if": {
         "properties": {
           "base": {
-            "const": "child"
+            "enum": [
+              "child",
+              "toddler",
+              "baby"
+            ]
           }
         }
       },
@@ -1155,6 +1283,150 @@
               "leftEye": false,
               "makeup": false,
               "beard": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "packs": {
+            "properties": {
+              "pine-core": {
+                "enum": [
+                  "1.0.0",
+                  "1.1.0",
+                  "1.2.0",
+                  "1.3.0",
+                  "1.4.0",
+                  "1.5.0",
+                  "1.6.0",
+                  "1.6.1",
+                  "1.7.0",
+                  "1.8.0",
+                  "1.9.0",
+                  "1.9.1",
+                  "1.9.2"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "identity": false,
+          "base": {
+            "enum": [
+              "adult",
+              "child"
+            ]
+          },
+          "colors": {
+            "properties": {
+              "charm": false
+            }
+          },
+          "parts": {
+            "properties": {
+              "top": {
+                "not": {
+                  "enum": [
+                    "apron",
+                    "scrubs",
+                    "chef-coat",
+                    "lab-coat",
+                    "hi-vis",
+                    "uniform",
+                    "cross-robe",
+                    "brocade",
+                    "mantle",
+                    "flightsuit",
+                    "mechanic"
+                  ]
+                }
+              },
+              "bag": {
+                "not": {
+                  "enum": [
+                    "briefcase",
+                    "tote",
+                    "pouch"
+                  ]
+                }
+              },
+              "bottle": {
+                "not": {
+                  "enum": [
+                    "gourd",
+                    "flask",
+                    "elixir"
+                  ]
+                }
+              },
+              "charm": {
+                "not": {
+                  "enum": [
+                    "jade",
+                    "tassel",
+                    "compass",
+                    "vial",
+                    "pass"
+                  ]
+                }
+              },
+              "implement": {
+                "not": {
+                  "enum": [
+                    "guide-flag",
+                    "scanner",
+                    "clipboard",
+                    "scroll",
+                    "quill",
+                    "fan",
+                    "mug",
+                    "lantern",
+                    "astrolabe",
+                    "prism",
+                    "probe",
+                    "notebook"
+                  ]
+                }
+              },
+              "hat": {
+                "not": {
+                  "enum": [
+                    "pine-core/chef-toque",
+                    "pine-core/hardhat",
+                    "pine-core/scholar-cap",
+                    "pine-core/reed-hat",
+                    "pine-core/star-hat"
+                  ]
+                }
+              }
+            }
+          },
+          "shape": {
+            "properties": {
+              "chinHeight": {
+                "const": 0
+              },
+              "chinProjection": {
+                "const": 0
+              },
+              "chinRoundness": {
+                "const": 0
+              },
+              "jawPosition": {
+                "const": 0
+              },
+              "jawAngle": {
+                "const": 0
+              },
+              "jawNeck": {
+                "const": 0
+              }
             }
           }
         }

@@ -127,6 +127,30 @@ const duetClips = (() => {
       blink: blink(u, 0.13) + blink(u, 0.685)
     };
     const motherRest = pose(m, mc);
+    // Move the held child as a single body when a short arm or wide shoulder would
+    // otherwise stretch the hands away from both support points.
+    if (lift > 0) {
+      const delta = [0, 0, 0],
+        anchors = [seat, back],
+        shoulders = motherRest.arms.map((a) => world(mr, a.shoulder));
+      for (let iteration = 0; iteration < 12; iteration++) {
+        let fitted = true;
+        anchors.forEach((anchor, i) => {
+          const v = anchor.map((n, j) => n + delta[j] - shoulders[i][j]),
+            d = Math.hypot(...v);
+          if (d <= arm * 0.985) return;
+          fitted = false;
+          for (let j = 0; j < 3; j++) delta[j] -= v[j] * (1 - (arm * 0.985) / d);
+        });
+        if (fitted) break;
+      }
+      for (const [j, key] of ['x', 'y', 'z'].entries()) {
+        const n = delta[j] * lift * grasp;
+        br[key] += n;
+        seat[j] += n;
+        back[j] += n;
+      }
+    }
     const mh = [seat, back].map((anchor, i) => {
       const hand = between(motherRest.arms[i].hand, local(mr, anchor), grasp);
       // Route the hands around the child's sides while reaching and releasing.

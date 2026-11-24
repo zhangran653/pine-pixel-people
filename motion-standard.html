@@ -23,7 +23,7 @@
 </head>
 <body>
   <main class="trail-shell notes spec">
-    <header class="mast"><h1><span class="pine-mark" aria-hidden="true"></span>人物与动作接入规范 v1</h1><nav aria-label="项目"><a href="atelier.html">人物创作室</a><a href="appearance-standard.html">形象与部件规范</a><a href="studio.html">动作工坊</a><a href="index.html">松溪步道</a></nav></header>
+    <header class="mast"><h1><span class="pine-mark" aria-hidden="true"></span>人物与动作接入规范 v1</h1><nav aria-label="项目"><a href="atelier.html">人物创作室</a><a href="appearance-standard.html">形象与部件规范</a><a href="studio.html">动作工坊</a><a href="trail.html">松溪步道</a></nav></header>
     <article>
       <p class="intro">一段跳跃只描述什么时候蓄力、起跳和落地。孩子的腿长决定膝盖弯多少，外观绘制函数决定画上哪双鞋。给新人物配置体型、外观和可用动作的标签，即可加入同一份编排。</p>
       <p class="resource-links"><a href="#characters">接入人物</a><a href="#actions">编写动作</a><a href="#contact">双人接触</a><a href="#score">编排与播放</a><a href="#three">接入 Three.js</a></p>
@@ -94,7 +94,7 @@ PineMotion.registerAction({
       </section>
       <section id="score">
         <h2>编排、循环与交换文件</h2>
-        <p>动作库收录 77 个动作和 11 套循环编排。用「查找动作」搜索中文用途或英文 ID，也可以展开姿势卡片试演当前人物。示例「周末来访」携带园丁和田径少年两份完整形象，可在另一浏览器导入复演。<a href="packs/weekend-visit.json" download>下载周末来访</a> · <a href="studio.html?demo=outdoors">试演一起出门</a> · <a href="social-clips.js">双人和亲子动作实现</a></p>
+        <p>动作库收录 110 个动作和 18 套循环编排。用「查找动作」搜索中文用途或英文 ID，也可以展开姿势卡片试演当前人物。示例「周末来访」携带园丁和田径少年两份完整形象，可在另一浏览器导入复演。<a href="packs/weekend-visit.json" download>下载周末来访</a> · <a href="studio.html?demo=outdoors">试演一起出门</a> · <a href="social-clips.js">双人和亲子动作实现</a></p>
         <p>在工坊里选择人物和动作，调整「单次秒数」「重复次数」，再点「加入末尾」。点击时间线中的一段即可修改、替换、移动或删除。「单段试看」播放编辑中的一段，可以勾选循环反复观察。「三维预览」也会带入该段。点「返回编排」回到原播放位置和整套编排的循环设置。勾选「循环播放」会在整套编排结束后回到第一段。编排本随编辑保存在当前浏览器中，导出的 JSON 可以在其他浏览器导入。</p>
 <pre><code>{
   "version": 1,
@@ -145,6 +145,6 @@ renderer.setAnimationLoop(renderFrame);
         <p>可传入 <code>{ metersPerUnit: 0.034, sampleRate: 20 }</code> 调整比例和每秒姿势采样次数。镜头可按屏幕刷新率更新。人物的姿势和表面由 CPU 生成，实际场景若需要许多同时活动的角色，应按目标设备测试数量。示例自带 Three.js r187，通过本地 HTTP 服务打开即可。<a href="pine-three.mjs">人物适配器</a> · <a href="three-demo.mjs">示例场景代码</a> · <a href="https://threejs.org/docs/pages/BufferGeometry.html">Three.js 的 BufferGeometry</a></p>
       </section>
     </article>
-  </main>
+  <section class="studio-panel"><h2>可绑定的场景物件</h2><p>一个编排可以带有 scene 数组。段落中的 target 指向同一数组里的桌子或台灯。演员会跟随该实例的位置和朝向，播放时保留手部接触与道具状态。可用的形象均来自公开配方，抱起轻摇接受成人与婴儿标签。<a href="world-standard.md">场景规范与代码示例</a> · <a href="index.html">世界图鉴</a></p></section></main>
 </body>
 </html>

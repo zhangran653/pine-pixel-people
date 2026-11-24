@@ -97,6 +97,11 @@ const studioRig = (() => {
       if (!Array.isArray(rig[key]) || rig[key].length !== 3 || !rig[key].every(Number.isFinite))
         throw new Error('体型坐标无效 · ' + key);
     }
+    if (
+      rig.headPivot !== undefined &&
+      (!Array.isArray(rig.headPivot) || rig.headPivot.length !== 3 || !rig.headPivot.every(Number.isFinite))
+    )
+      throw Error('头颈支点需要三个有限坐标');
     return rig;
   }
   function bindSockets(rig, overrides = {}) {
@@ -144,7 +149,13 @@ const studioRig = (() => {
     );
     const head = compose(
       torso,
-      frame(rig.neck, origin, channels.headYaw || 0, channels.headPitch || 0, channels.headRoll || 0)
+      frame(
+        rig.headPivot || rig.neck,
+        origin,
+        channels.headYaw || 0,
+        channels.headPitch || 0,
+        channels.headRoll || 0
+      )
     );
     const feet = channels.feet || sides.map((s) => [0, s * rig.hip[1], rig.ankle]);
     const standing = clamp(channels.standing ?? (channels.feet ? 0 : 1));

@@ -10,6 +10,7 @@ const pineDesignerBody = (() => {
     eyeSpacing: [0.8, 1.2, 1],
     jaw: [0.8, 1.2, 1],
     occiput: [0.8, 1.2, 1],
+    ...Object.fromEntries(pineHeadShape.controls.map((k) => [k, [-1, 1, 0]])),
     mouthHeight: [-1, 1, 0]
   };
   const defaults = {
@@ -38,6 +39,38 @@ const pineDesignerBody = (() => {
       hand: 1.07,
       chest: 3.12,
       hips: 2.82
+    },
+    toddler: {
+      head: [0.31, 22.62, 3.8, 4.11, 4.47],
+      eye: 23.29,
+      mouth: 20.75,
+      chin: 0.06,
+      thigh: 1.9,
+      knee: 1.56,
+      ankle: 1.12,
+      shoe: [2.05, 1.37],
+      upper: 1.58,
+      elbow: 1.29,
+      cuff: 0.96,
+      hand: 0.92,
+      chest: 2.68,
+      hips: 2.45
+    },
+    baby: {
+      head: [0.31, 17.69, 3.43, 3.66, 3.89],
+      eye: 18.13,
+      mouth: 16.1,
+      chin: 0.02,
+      thigh: 1.64,
+      knee: 1.35,
+      ankle: 1.04,
+      shoe: [1.7, 1.17],
+      upper: 1.34,
+      elbow: 1.08,
+      cuff: 0.84,
+      hand: 0.79,
+      chest: 2.25,
+      hips: 2.18
     },
     adult: {
       head: [0.55, 40.1, 4.9, 4.9, 5.82],
@@ -420,13 +453,13 @@ const pineDesignerBody = (() => {
     roundedHead = true,
     surfaceDetails = roundedHead,
     softContours = surfaceDetails,
-    sculptedHead = ['1.9.0', '1.9.1', '1.9.2'].includes(recipe.packs?.['pine-core']),
-    layeredHair = ['1.9.1', '1.9.2'].includes(recipe.packs?.['pine-core']),
-    fittedJaw = recipe.packs?.['pine-core'] === '1.9.2'
+    sculptedHead = ['1.9.0', '1.9.1', '1.9.2', '1.10.0'].includes(recipe.packs?.['pine-core']),
+    layeredHair = ['1.9.1', '1.9.2', '1.10.0'].includes(recipe.packs?.['pine-core']),
+    fittedJaw = ['1.9.2', '1.10.0'].includes(recipe.packs?.['pine-core'])
   ) {
     const kind = recipe.base === 'adult' ? 'adult' : 'child';
-    const base = studioRig.profiles[kind],
-      measures = dimensions[kind];
+    const base = studioRig.profiles[recipe.base],
+      measures = dimensions[recipe.base];
     const selectedCut = kind === 'adult' && (recipe.gender === 'female' || recipe.gender === 'male');
     const cut = selectedCut ? torsoCuts[recipe.gender] : torsoCuts.original;
     const shape = recipe.shape || {},
@@ -456,7 +489,15 @@ const pineDesignerBody = (() => {
       collectionShoes = Object.hasOwn(pineEverydayStyles.clothes.shoes, parts.shoes);
     const hairStyle = pineHairStyles.styles[parts.hair];
     const faceOutline = pinePortraitStyles.outlines[recipe.face?.outline];
-    const jacket = !collectionTop && !workshopTop && parts.top !== 'pullover' && !tee && !hoodie && !cardigan,
+    const worldTop = Object.hasOwn(pineWorldWardrobe.tops, parts.top);
+    const jacket =
+        !worldTop &&
+        !collectionTop &&
+        !workshopTop &&
+        parts.top !== 'pullover' &&
+        !tee &&
+        !hoodie &&
+        !cardigan,
       scarf = parts.neck === 'scarf';
     const loose = Object.hasOwn(looseLengths, parts.hair) || !!hairStyle?.length;
     const hairstyle = hairStyle
@@ -469,7 +510,12 @@ const pineDesignerBody = (() => {
         : 'crop';
     const hasHat = !!parts.hat && parts.hat !== 'none' && typeof paintHat === 'function';
     const headShape = sculptedHead ? pineHeadShape[kind] : null;
-    const skinShape = fittedJaw ? pineHeadShape.withJaw(kind) : headShape;
+    const adjustableJaw = recipe.packs?.['pine-core'] === '1.10.0';
+    const skinShape = adjustableJaw
+      ? pineHeadShape.reshape(kind, shape)
+      : fittedJaw
+        ? pineHeadShape.withJaw(kind)
+        : headShape;
     const posterior = headShape ? pineHeadShape.posterior(measure(shape, 'occiput')) : null;
     const crownHeight = (h) => (headShape ? headShape.crown.raise(h) : h);
     const sliceHeight = (h) => (headShape ? headShape.crown.lower(h) : h);
@@ -506,6 +552,10 @@ const pineDesignerBody = (() => {
       ry: ry * s * width,
       rz: rz * s
     });
+    if (adjustableJaw) {
+      const [forward, height] = pineHeadPivots[kind];
+      rig.headPivot = [fit.x + fit.rx * forward, 0, fit.z + fit.rz * height];
+    }
     const eyeY = fit.ry * 0.485 * spacing,
       eyeZ = measures.eye * s;
     // Narrow the lower half progressively. The jaw control changes the chin without moving the temples.
@@ -576,7 +626,20 @@ const pineDesignerBody = (() => {
     const hipHeight = measures.hips * s;
     const hipThickness = hipHeight * cut.hipDepth;
     const hipHalf = hipBreadth + measures.thigh * s * 0.76 + cut.hipAllowance * s;
+    const collar = [rig.neck[0] - 0.035 * fit.rx, 0, rig.neck[2] - 0.27 * fit.rz],
+      upperNeck = [fit.x + (0.055 + 0.04 * (shape.jawNeck || 0)) * fit.rx, 0, fit.z - 0.64 * fit.rz];
     const sockets = {
+      ...(adjustableJaw
+        ? {
+            headPivot: socket('head', rig.headPivot),
+            collar: socket('torso', collar),
+            throat: socket('head', [
+              fit.x + (0.52 + 0.115 * (shape.jawNeck || 0)) * fit.rx,
+              0,
+              fit.z + (-0.897 + 0.032 * (shape.chinHeight || 0)) * fit.rz
+            ])
+          }
+        : {}),
       mouth: socket('head', rig.mouth),
       rightEye: socket('head', [eyeX, -eyeY, eyeZ]),
       leftEye: socket('head', [eyeX, eyeY, eyeZ]),
@@ -584,6 +647,10 @@ const pineDesignerBody = (() => {
       upperBack: socket('torso', [-0.89 * chestDepth, -0.15 * rig.shoulder[1], rig.shoulder[2] - 0.65 * s])
     };
     const materials = palette(recipe.colors, surfaceDetails);
+    if (adjustableJaw) {
+      for (const [index, amount] of [0.105, 0.084, 0.062, 0.04].entries())
+        materials['neckTone' + index] = tint(materials.faceMid, '805b4c', amount);
+    }
     if (headShape)
       Object.assign(materials, {
         hairRoot: tint(materials.hair, '302936', 0.2),
@@ -607,7 +674,13 @@ const pineDesignerBody = (() => {
       Object.entries(pineEverydayStyles.wearables).some(([slot, options]) =>
         Object.hasOwn(options, parts[slot])
       );
-    if (equipped || everyday) Object.assign(materials, pineWorkshopWear.materials(recipe.colors, tint));
+    if (equipped || everyday || worldTop || parts.charm)
+      Object.assign(materials, pineWorkshopWear.materials(recipe.colors, tint));
+    if (parts.charm) {
+      const c = (recipe.colors.charm || '#bf9a66').slice(1);
+      materials.charmMain = c;
+      materials.charmShade = tint(c, '45434d', 0.4);
+    }
     if (everyday) Object.assign(materials, pineEverydayStyles.materials(recipe.colors, tint));
     const detailedFace =
       Object.keys(recipe.face || {}).some(
@@ -944,8 +1017,12 @@ const pineDesignerBody = (() => {
       const upperLink = softContours ? contouredLink(b, pose.torso, limbContours.upperArm) : b.link;
       const foreLink = softContours ? contouredLink(b, pose.torso, limbContours.forearm) : b.link;
       for (const { side, shoulder, elbow, wrist, hand } of pose.arms) {
-        if (collectionTop || workshopTop) {
-          const sleeve = collectionTop ? pineEverydayStyles.sleeve : pineWorkshopWear.sleeve;
+        if (worldTop || collectionTop || workshopTop) {
+          const sleeve = worldTop
+            ? pineWorldWardrobe.sleeve
+            : collectionTop
+              ? pineEverydayStyles.sleeve
+              : pineWorkshopWear.sleeve;
           upperLink(shoulder, elbow, 1.035 * upper, 1.02 * elbowR, 0.97, (t, u, v) =>
             sleeve(parts.top, t, u, v, side, elbowR, false, k)
           );
@@ -1020,8 +1097,13 @@ const pineDesignerBody = (() => {
     }
     function drawTorso(pose, b, k) {
       b.frame(pose.torso);
-      const coatDrop =
-        parts.top === 'striped-cardigan' ? 1.48 * s : parts.top === 'field-jacket' ? 0.52 * s : 0;
+      const coatDrop = ['cross-robe', 'brocade', 'lab-coat', 'apron', 'mantle'].includes(parts.top)
+        ? 3.45 * s
+        : parts.top === 'striped-cardigan'
+          ? 1.48 * s
+          : parts.top === 'field-jacket'
+            ? 0.52 * s
+            : 0;
       const low =
           rig.pelvis[2] -
           hipHeight * 0.47 -
@@ -1081,6 +1163,7 @@ const pineDesignerBody = (() => {
           const bib = pineWorkshopWear.bib(u, v, t, k);
           if (bib) return bib;
         }
+        if (worldTop) return pineWorldWardrobe.fabric(parts.top, u, v, t, k);
         if (collectionTop) return pineEverydayStyles.overlay(parts.top, u, v, t, k);
         if (workshopTop) return pineWorkshopWear.fabric(parts.top, u, v, t, k);
         if (tee) {
@@ -1254,7 +1337,17 @@ const pineDesignerBody = (() => {
           2.5
         );
       }
-      if (parts.bag || parts.attachment) pineWorkshopWear.luggage(parts, b, k, chestDepth, broad, low, tall);
+      if (parts.bag || parts.attachment)
+        pineWorkshopWear.luggage(
+          pineWorldWardrobe.bags[parts.bag] ? { ...parts, bag: null } : parts,
+          b,
+          k,
+          chestDepth,
+          broad,
+          low,
+          tall
+        );
+      pineWorldWardrobe.carried(parts, b, k, chestDepth, broad, low, tall);
       if (parts.bottle) {
         const [x, y, z] = sockets.bottleDock.point,
           r = rig.height * 0.043;
@@ -1269,7 +1362,8 @@ const pineDesignerBody = (() => {
           3
         );
       }
-      b.blob(rig.neck[0], 0, rig.neck[2], fit.rx * 0.397, fit.ry * 0.41, fit.rz * 0.235, k.skin, 2.3);
+      if (!adjustableJaw)
+        b.blob(rig.neck[0], 0, rig.neck[2], fit.rx * 0.397, fit.ry * 0.41, fit.rz * 0.235, k.skin, 2.3);
       if (parts.belt || parts.brooch || Object.hasOwn(pineEverydayStyles.clothes.neck, parts.neck))
         pineEverydayStyles.torso(parts, b, k, chestDepth, broad, low, tall);
       if (parts.neck === 'bow') {
@@ -1425,7 +1519,7 @@ const pineDesignerBody = (() => {
             pose.head[8 + j] * pose.torso[8 + i]
         );
       const [headX, headY, headZ] = [0, 1, 2].map(axis);
-      const neck = rig.neck;
+      const neck = rig.headPivot || rig.neck;
       b.frame(pose.torso);
       b.stamp(
         cx - 1.72 * rx,
@@ -1793,7 +1887,7 @@ const pineDesignerBody = (() => {
       const rearX = cx - (headShape ? 1.315 : roundedHead ? 1.25 : 1) * rx,
         frontX = cx + (headShape ? 1.38 : roundedHead ? 1.1 : 1) * rx;
       const headHalf = faceOutline ? 1.22 * ry : 1.075 * ry;
-      if (headShape) {
+      if (headShape && !adjustableJaw) {
         // The source jaw sits in front of the hinge. Carry the nape up inside the jaw
         // so a nod or a turn cannot expose a gap between the mandible and the collar.
         b.link(
@@ -1813,6 +1907,18 @@ const pineDesignerBody = (() => {
           // A rotated stamp visits the enclosing world-space box. The open throat ring must
           // stop at its local lower plane; the moving neck supplies the volume below it.
           if (fittedJaw && h < -1) return 0;
+          if (adjustableJaw && h < -0.77) {
+            // Let the neck supply the back of this ring. Only the pad at the front
+            // is rigidly part of the skull; otherwise a nod drags the collar with it.
+            const f = clamp((u - 0.19) / 0.68, 0, 1);
+            const nape = clamp((0.1 - u) / 0.48, 0, 1);
+            const lower =
+              -0.882 -
+              0.058 * f * f * (3 - 2 * f) -
+              0.045 * nape * nape * (3 - 2 * nape) +
+              0.015 * (shape.chinHeight || 0) * f;
+            if (h < lower) return 0;
+          }
           section = skinShape.row(h);
           localX = posterior.unfit(u, h);
           lateral = y / (ry * breadthScale(h));
@@ -1864,9 +1970,19 @@ const pineDesignerBody = (() => {
         if (!surfaceDetails && (roundedHead ? h > 0.72 : h > 0.63 || (u < -0.52 && h > -0.6))) return k.hair;
         if (headShape) {
           const dx = localX - section.axis;
-          if (fittedJaw && h < -0.4) {
-            // Follow the lower border of the mandible from its angle below the ear to
-            // the chin pad. The thin cast shadow softens again towards the collar.
+          if (adjustableJaw && h < -0.54) {
+            // Submental shadow is local to the underside. It loses contrast toward
+            // the ear instead of drawing a diagonal seam across the whole neck.
+            const along = clamp((u - 0.07 - 0.12 * (shape.jawPosition || 0)) / 0.89, 0, 1);
+            const border =
+              -0.62 -
+              0.205 * along +
+              0.032 * (shape.chinHeight || 0) * along +
+              0.032 * (shape.jawAngle || 0) * (1 - along);
+            const shade = clamp((border - h) / 0.11, 0, 1) * clamp((u + 0.17) / 0.54, 0, 1);
+            if (shade > 0.68) return k.neckTone0;
+            if (shade > 0.4) return k.neckTone1;
+          } else if (fittedJaw && !adjustableJaw && h < -0.4) {
             const along = clamp((u + 0.18) / 1.17, 0, 1);
             const border =
               -0.48 -
@@ -2277,6 +2393,45 @@ const pineDesignerBody = (() => {
       }
       b.frame(null);
     }
+    function drawMovingNeck(pose, b, k) {
+      // Loft from a torso-bound collar to a skull-bound upper ring. The collar remains
+      // planted while the throat and nape follow the upper cervical joint independently.
+      const a = studioRig.point(pose.torso, collar),
+        c = studioRig.point(pose.head, upperNeck);
+      const delta = c.map((v, i) => v - a[i]),
+        length = Math.hypot(...delta),
+        axis = delta.map((v) => v / length);
+      const direction = [0, 4, 8].map((i) => 0.65 * pose.torso[i] + 0.35 * pose.head[i]);
+      const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+        along = dot(direction, axis);
+      const forward = direction.map((n, i) => n - along * axis[i]),
+        norm = Math.hypot(...forward);
+      for (let i = 0; i < 3; i++) forward[i] /= norm;
+      const left = [
+        axis[1] * forward[2] - axis[2] * forward[1],
+        axis[2] * forward[0] - axis[0] * forward[2],
+        axis[0] * forward[1] - axis[1] * forward[0]
+      ];
+      const radius = 0.73 * Math.max(fit.rx, fit.ry);
+      b.frame(null);
+      b.stamp(...a.flatMap((v, i) => [Math.min(v, c[i]) - radius, Math.max(v, c[i]) + radius]), (x, y, z) => {
+        const dx = x - a[0],
+          dy = y - a[1],
+          dz = z - a[2],
+          t = (dx * axis[0] + dy * axis[1] + dz * axis[2]) / length;
+        if (t < 0 || t > 1) return 0;
+        const smooth = t * t * (3 - 2 * t),
+          waist = Math.sin(Math.PI * t);
+        const face = (dx * forward[0] + dy * forward[1] + dz * forward[2]) / fit.rx,
+          lateral = (dx * left[0] + dy * left[1] + dz * left[2]) / fit.ry;
+        const front = 0.41 + 0.15 * smooth + 0.09 * (shape.jawNeck || 0) * smooth - 0.037 * waist;
+        const rear = 0.42 - 0.06 * smooth,
+          wide = 0.39 + 0.095 * smooth - 0.025 * waist;
+        if ((face / (face > 0 ? front : rear)) ** 2 + (lateral / wide) ** 2 > 1) return 0;
+        const light = clamp(0.48 + 0.7 * face - 0.18 * t - 0.12 * lateral, 0, 0.999);
+        return k['neckTone' + Math.floor(light * 4)];
+      });
+    }
     const art = {
       materials,
       devices: { phone: parts.phone, laptop: parts.laptop },
@@ -2313,6 +2468,7 @@ const pineDesignerBody = (() => {
         ],
         painted: [
           ...(fittedJaw ? ['jawShade'] : []),
+          ...(adjustableJaw ? ['neckTone0', 'neckTone1', 'neckTone2', 'neckTone3'] : []),
           ...(headShape ? ['underJaw', 'templeSkin', 'foreheadSkin', 'cheekLight', 'cheekWarm'] : []),
           'faceLight',
           'faceMid',
@@ -2328,9 +2484,21 @@ const pineDesignerBody = (() => {
       },
       paint(pose, brush, ink) {
         drawLegs(pose, brush, ink);
+        if (adjustableJaw) drawMovingNeck(pose, brush, ink);
         drawTorso(pose, brush, ink);
         drawArms(pose, brush, ink);
         drawHead(pose, brush, ink);
+        if (parts.implement && !pose.props?.length && !pose.bottle?.held) {
+          const id = parts.implement,
+            scale = rig.height / 50;
+          const item = activityMotion.atGrip(
+            id,
+            pose.arms[0].hand,
+            PineWorld.items.get(id).anchors.grip || [0, 0, 0],
+            scale
+          );
+          studioProps.paint({ props: [item] }, brush, ink);
+        }
       }
     };
     if (fittedJaw) {
@@ -2361,12 +2529,16 @@ const pineDesignerBody = (() => {
       even(rig.height * 1.14 + 2 * extension),
       even(rig.height * 1.18 + 0.35 * fit.rz + extension)
     ];
-    return { rig, art, sockets, box, density: 2, tags: [kind] };
+    return { rig, art, sockets, box, density: 2, tags: [recipe.base] };
   }
 
   function standingHeight(kind, scale = 1, sculpted = false) {
     const [, centerZ, , , radiusZ] = dimensions[kind].head;
-    return (centerZ + radiusZ * (sculpted ? pineHeadShape[kind].crown.raise(1) : 1)) * scale;
+    return (
+      (centerZ +
+        radiusZ * (sculpted ? pineHeadShape[kind === 'adult' ? 'adult' : 'child'].crown.raise(1) : 1)) *
+      scale
+    );
   }
   return { build, standingHeight, shapeRanges };
 })();

@@ -97,7 +97,7 @@
             <tr>
               <td><code>base / shape</code></td>
               <td>
-                child、adult 各有独立静止骨架。身高、肩宽、臂长、腿长、脸宽、眼距、下颌宽度均以 1
+                child、adult 各有独立静止骨架。1.10.0 起另有 toddler 与 baby。身高、肩宽、臂长、腿长、脸宽、眼距、下颌宽度均以 1
                 为基准，嘴高以 0 为基准。在 pine-core 1.3.0 中身高取 0.75–1.30，肩宽取
                 0.70–1.35，臂长与腿长各取 0.80–1.25。腿长调节腿与躯干的比例，身高调节全身尺度。
                 从 pine-core 1.9.0 起，<code>shape.occiput</code> 可调节耳后到后脑的深度，范围为 0.80–1.20，默认 1。导出时省略默认值。
@@ -294,7 +294,7 @@
         </p>
         <h2>在自己的页面使用</h2>
         <p>
-          按创作室页面的顺序先加载人物与动作模块，再加载 portrait-styles、hair-styles、head-sections、head-shape、short-hair、everyday-styles、workshop-wear、designer-body、appearance 和 appearance-store。可以把形象文件和 <code>female</code>、<code>male</code> 或 <code>child</code> 传给
+          按创作室页面的顺序先加载人物与动作模块，再按入口脚本顺序加载外观模块与外观存储。可以把形象文件和 <code>female</code>、<code>male</code> 或 <code>child</code> 传给
           <code>PineLooks.withBodyProfile(characterFile, profile)</code
           >，取得同一角色的新体型副本。用下面的代码构建演员与采样编排。
         </p>
@@ -314,6 +314,10 @@ const slices = actor.body.makePose(pose);</code></pre>
         <pre><code>node check-motion.cjs
 node check-appearance.cjs
 node tests/check-atelier.cjs</code></pre>
+        <h2>可编辑的颌颈与身份</h2>
+        <p>从 pine-core 1.10.0 起，成人、学童、幼儿和婴儿均可从配方创建。<code>identity.era</code> 可取 modern、historic、fantasy 或 scifi，<code>identity.role</code> 为至多 48 个字符的身份说明。两个字段均可省略。</p>
+        <p>在 <code>shape</code> 中，chinHeight 调颏尖高低，chinProjection 调前伸，chinRoundness 调圆钝度。jawPosition 和 jawAngle 调下颌后角的前后和高低，jawNeck 调前颈接点。范围均为 −1 到 1，正值分别表示升高、前伸、更圆、靠前、升高和靠前。默认值 0 在导出时省略。原有 jaw 仍控制宽度。四组形状起点见 <code>PineLooks.jawPresets</code>。</p>
+        <p>新版使用独立的领口与头部支点，领口跟随躯干，上颈连接移动的头部。身体接触点和面部按各自的骨架坐标采样。头部支点沿用 hm08 网格和六份儿童形变的坐标映射，使用 head____head 的八个参考顶点，对颈部表面的衔接则按像素身材重新拟合。<a href="https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/rigs/default.mhskel">MakeHuman 默认骨架</a> · <a href="jaw-controls-preview.png">同镜头对照</a> · <a href="jaw-pivot-preview.gif">颅底、前颈和领口的运动</a></p>
         <h2>许可与来源</h2>
         <p>
           本项目原创代码、角色、服饰、动作、切片示例与场景素材统一采用

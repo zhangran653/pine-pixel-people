@@ -115,7 +115,8 @@ const PineWardrobe = (() => {
     const characters = [...ids]
       .filter((id) => id.startsWith('look_'))
       .map((id) => {
-        const doc = provided.get(id);
+        const preset = looks.templateById.get(id);
+        const doc = provided.get(id) || (preset && looks.prepare(preset).recipe);
         if (!doc) throw new Error('缺少形象存档 · ' + id);
         return doc;
       });
@@ -181,6 +182,17 @@ const PineWardrobe = (() => {
       ? sessionStorage.getItem('pineCreek.threePreview.v1')
       : new URLSearchParams(location.hash.slice(1)).get('score');
   }
-  return { saved, hydrate, installPack, save, importCharacter, scoreFile, readScoreFile, handoff, snapshot };
+  return {
+    saved,
+    recipeFor: (id) => sessionDocs.get(id),
+    hydrate,
+    installPack,
+    save,
+    importCharacter,
+    scoreFile,
+    readScoreFile,
+    handoff,
+    snapshot
+  };
 })();
 globalThis.PineWardrobe = PineWardrobe;

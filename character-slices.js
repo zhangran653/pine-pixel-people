@@ -37,6 +37,14 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
       if (t < 0 || t > 1) return 0;
       const rx=dx-along*ax, ry=dy-along*ay, rz=dz-along*az;
       let r = radius;
+      if (['gourd','flask','elixir'].includes(art.bottleStyle)) {
+        const gourd=art.bottleStyle==='gourd',flask=art.bottleStyle==='flask';
+        r*=gourd ? (t>.87?.34:.40+.58*Math.abs(Math.sin((t+.04)*Math.PI*1.94))) : flask ? (t>.72?.41:.94) : (t>.66?.34:Math.max(.22,1-Math.abs(t-.36)*1.88));
+        if(rx*rx+ry*ry*(flask?2.65:1)+rz*rz>r*r)return 0;
+        if(t>.9)return ink.spout;
+        if(gourd&&t>.46&&t<.58||flask&&t>.37&&t<.51||!gourd&&!flask&&t>.59&&t<.69)return ink.bottleBand;
+        return rx*.5-ry*.7>.37*r?ink.enamelLight:ink.enamel;
+      }
       if (art.bottleStyle === 'thermos') {
         r *= t > .77 ? .86 : t < .08 ? .90 : 1;
         if (rx*rx+ry*ry+rz*rz > r*r) return 0;

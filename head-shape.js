@@ -31,7 +31,7 @@ const pineHeadShape = (() => {
   // The reference mesh was cut at the jaw to remove its neck. The pixel rig has a shorter
   // neck, so carry the underside of the chin back to the throat in the same cross-section.
   // Height, half-width, back of the throat, widest lateral point, front of the chin.
-  function jawSections(reference, child) {
+  function jawSections(reference, child, settings) {
     const lower = [
       [-1, 0.37, -0.415, -0.04, 0.32],
       [-0.96, 0.38, -0.42, -0.035, 0.325],
@@ -55,18 +55,39 @@ const pineHeadShape = (() => {
         width *= 1 + 0.04 * Math.sin(Math.PI * t);
         back += 0.025;
       }
+      // The lower neck ring and the measured cheek at -0.54 stay fixed. Amplitude
+      // falls to zero at both ends so neither the lips nor the head pivot move.
+      let chinCurve = 0;
+      if (settings) {
+        const arch = Math.sin(Math.PI * t),
+          tip = Math.sin(Math.PI * t) ** 1.8;
+        const neckBlend = Math.max(0, 1 - ((h + 0.922) / 0.101) ** 2);
+        // Bring the upper throat forward under the chin, then ease it back into the
+        // unchanged neck pivot. This sets the length of the visible underside in profile.
+        front += (child ? 0.13 : 0.18) * neckBlend * (1 + 0.88 * settings.jawNeck);
+        h += (child ? 0.016 : 0.026) * arch + 0.065 * settings.chinHeight * arch;
+        const forward = (0.19 + 0.16 * settings.jawPosition) * arch;
+        back += forward;
+        side += (0.15 + 0.12 * settings.jawPosition) * arch;
+        width *= 1 + (-0.075 + 0.12 * settings.chinRoundness) * tip;
+        front += (0.14 * settings.chinProjection - 0.022) * tip;
+        // A higher jaw angle lifts and tapers the lateral rear rather than the chin.
+        width *= 1 - 0.065 * settings.jawAngle * arch;
+        side += 0.07 * settings.jawAngle * arch;
+        chinCurve = settings.chinRoundness * tip;
+      }
       const surface = chinArc.map((w, i) => {
         const round = Math.sqrt(1 - lateral[i] ** 2);
-        const weight = round + (w - round) * t;
+        const weight = round + (w - round) * t + 0.18 * chinCurve * lateral[i] * (1 - lateral[i]);
         return side + (front - side) * weight;
       });
       return [h, width, back, side, ...surface];
     });
     return [...rings, ...reference.filter(([h]) => h >= -0.54)];
   }
-  function profile(child, fittedJaw = false) {
+  function profile(child, fittedJaw = false, settings) {
     const reference = pineHeadSections[child ? 'child' : 'adult'];
-    const sections = fittedJaw ? jawSections(reference, child) : reference;
+    const sections = fittedJaw ? jawSections(reference, child, settings) : reference;
     const gradients = sections[0].map((_, i) => slopes(sections, i));
     const neutral = posterior(1);
     const angles = lateral.map(Math.asin);
@@ -245,5 +266,16 @@ const pineHeadShape = (() => {
     if (!jaws.has(base)) jaws.set(base, profile(base === 'child', true));
     return jaws.get(base);
   }
-  return { adult: profile(false), child: profile(true), posterior, withJaw };
+  const controls = ['chinHeight', 'chinProjection', 'chinRoundness', 'jawPosition', 'jawAngle', 'jawNeck'];
+  const adjustable = new Map();
+  function reshape(base, shape) {
+    const settings = Object.fromEntries(controls.map((key) => [key, shape[key] ?? 0]));
+    const key = [base, ...Object.values(settings)].join('|');
+    if (!adjustable.has(key)) {
+      if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);
+      adjustable.set(key, profile(base === 'child', true, settings));
+    }
+    return adjustable.get(key);
+  }
+  return { adult: profile(false), child: profile(true), posterior, withJaw, controls, reshape };
 })();

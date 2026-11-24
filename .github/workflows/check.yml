@@ -1,4 +1,4 @@
-name: Character and motion compatibility
+name: Pixel world compatibility
 on: [push, pull_request]
 permissions:
   contents: read
@@ -11,5 +11,6 @@ jobs:
         with:
           node-version: '22'
       - run: node check-motion.cjs
+      - run: node tests/check-world.cjs
       - run: node check-appearance.cjs
       - run: node tests/check-atelier.cjs

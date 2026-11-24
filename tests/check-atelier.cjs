@@ -480,6 +480,32 @@ function checkEditor() {
         PineWardrobe.saved.get(priorJaw.id).packs['pine-core'] === PineLooks.volumeRelease,
       'jaw preview did not preserve the prior save'
     );
+    byId('tab-face').click();
+    const pick = document.querySelector('[data-jaw-preset="soft"]');
+    pick.click();
+    expect(byId('edit-jawNeck').value === '0.4', 'jaw/neck preset');
+    byId('jaw-points').click();
+    expect(byId('bearing').value === '90' && byId('jaw-points').checked, 'side profile landmarks');
+    const anchor = byId('mirror').toDataURL();
+    byId('jaw-points').click();
+    expect(byId('mirror').toDataURL() !== anchor, 'landmark overlay rendered');
+    byId('edit-jawNeck').value = '0.85';
+    byId('edit-jawNeck').dispatchEvent(new Event('input', { bubbles: true }));
+    byId('look-role').value = '星港向导';
+    byId('look-role').dispatchEvent(new Event('input'));
+    byId('look-era').value = 'scifi';
+    byId('look-era').dispatchEvent(new Event('change'));
+    byId('save-look').click();
+    const edited = [...PineWardrobe.saved.values()].find((p) => p.identity?.role === '星港向导');
+    expect(
+      edited?.shape.jawNeck === 0.85 && edited.identity.era === 'scifi',
+      'jaw geometry and editable role persist'
+    );
+    byId('shelf-era').value = 'historic';
+    byId('shelf-era').dispatchEvent(new Event('change'));
+    byId('look-query').value = '书生';
+    byId('look-query').dispatchEvent(new Event('input'));
+    expect(document.querySelectorAll('#look-shelf button').length === 1, 'realm and role search');
     target.dataset.state = 'pass';
     target.textContent =
       'Body profiles, legacy saves, head upgrade and occipital depth, scale, hairstyles, dyes, full-body and close-up detail, slice alignment, configurable workshop outfits, style search, hair filters, and independent portrait dyes passed';
@@ -489,6 +515,47 @@ function checkEditor() {
   }
 }
 
+function checkWorldEditor() {
+  const get = (id) => document.getElementById(id),
+    check = (ok, msg) => {
+      if (!ok) throw Error(msg);
+    };
+  const set = (id, value, event = 'change') => {
+    get(id).value = value;
+    get(id).dispatchEvent(new Event(event, { bubbles: true }));
+  };
+  const status = get('qa-result');
+  try {
+    check(get('world-grid').children.length === PineWorld.items.size, 'world inventory');
+    set('world-query', '飞机', 'input');
+    check(get('world-grid').children.length === 1, 'aircraft lookup');
+    const before = get('placed').length;
+    get('place-item').click();
+    check(get('placed').length === before + 1, 'scene placement');
+    set('place-x', '67');
+    set('place-heading', '90');
+    get('world-studio').addEventListener('click', (e) => e.preventDefault(), { once: true });
+    get('world-studio').click();
+    const saved = JSON.parse(sessionStorage.getItem('pineCreek.threePreview.v1')),
+      plan = PineWardrobe.readScoreFile(saved);
+    check(
+      plan.score.scene.some(
+        (p) => p.kind === 'aircraft' && p.x === 67 && Math.abs(p.heading - Math.PI / 2) < 1e-6
+      ),
+      'world transfer'
+    );
+    get('remove-place').click();
+    check(get('placed').length === before, 'remove placement');
+    set('world-scene', 'study');
+    check(get('world-clip').value === 'desk-code', 'office station');
+    status.dataset.state = 'pass';
+    status.textContent =
+      'World filters, scene placement, position, rotation, score handoff, and desk preset passed';
+  } catch (e) {
+    status.dataset.state = 'fail';
+    status.textContent = e.stack;
+  }
+}
 function checkStudioMotions() {
   const byId = (id) => document.getElementById(id);
   const target = byId('qa-result');
@@ -576,7 +643,8 @@ try {
       : 'google-chrome');
   for (const [name, check, query] of [
     ['atelier', checkEditor, '?bearing=90'],
-    ['studio', checkStudioMotions, '?demo=custom']
+    ['studio', checkStudioMotions, '?demo=custom'],
+    ['index', checkWorldEditor, '?scene=street']
   ]) {
     const page = readFileSync(join(root, name + '.html'), 'utf8')
       .replace('<head>', '<head><base href="' + base + '">')

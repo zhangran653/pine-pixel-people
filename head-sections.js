@@ -64,3 +64,6 @@ const pineHeadSections = {
     [1, 0, 0.0735, 0.0735, 0.0735, 0.0735, 0.0735, 0.0735, 0.0735, 0.0735]
   ]
 };
+
+// Sagittal positions [forward, height] of the head joint, in the same hm08 coordinates.
+const pineHeadPivots = {"adult": [-0.3497, -0.1644], "child": [0.0384, -0.2614]};

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#172620">
+  <title>松溪步道 · 像素徒步者</title>
+  <link rel="stylesheet" href="trail.css">
+  <script defer src="motion.js"></script>
+  <script defer src="character-slices.js"></script>
+  <script defer src="actor.js"></script>
+  <script defer src="surveyor-art.js"></script>
+  <script defer src="trail-art.js"></script>
+  <script defer src="scene.js"></script>
+</head>
+<body>
+  <main class="trail-shell">
+    <header class="mast">
+      <h1><span class="pine-mark" aria-hidden="true"></span>松溪步道</h1>
+      <nav aria-label="人物项目"><a href="atelier.html">人物创作室</a><a href="index.html">世界图鉴</a><a href="studio.html">动作工坊</a><a href="slice-study.html">原始人物</a><a href="motion-notes.html">动作方案</a></nav>
+    </header>
+    <section class="trail-game" aria-label="可环视的山间步道">
+      <div class="viewport">
+        <canvas id="trail-scene" width="480" height="245" tabindex="0" role="img" aria-label="松林、溪流与木桥边的红帽徒步者" aria-describedby="controls-help"></canvas>
+        <div class="place-label"><i aria-hidden="true"></i><output id="area">桥西小径</output></div>
+        <div class="character-picker" role="group" aria-label="选择人物">
+          <button type="button" data-character="hiker" aria-pressed="true">红帽徒步者</button>
+          <button type="button" data-character="surveyor" aria-pressed="false">山野测绘员</button>
+        </div>
+      </div>
+      <div class="console">
+        <div class="action-row">
+          <div class="actions" role="group" aria-label="人物动作">
+            <button class="primary" id="walk" type="button">沿路散步</button>
+            <button id="stand" type="button">站立</button>
+            <button id="sit" type="button" aria-pressed="false" title="到溪边的木凳坐下">坐下</button>
+            <button id="drink" type="button">喝水</button>
+            <button id="wave" type="button">挥手</button>
+            <button id="sway" type="button" aria-pressed="false">轻晃</button>
+          </div>
+          <div class="transport">
+            <output id="action-status" aria-live="polite">自然站立</output>
+            <button id="freeze" type="button" aria-pressed="false">定格</button>
+          </div>
+        </div>
+        <div class="character-size">
+          <div class="range-heading"><label for="character-size">人物大小</label><output id="size-value" for="character-size">60%</output></div>
+          <input id="character-size" type="range" min="45" max="110" step="1" value="60">
+        </div>
+        <div class="bearing">
+          <div class="range-heading"><label for="camera-angle">环视方位</label><output id="bearing-value" for="camera-angle">300°</output></div>
+          <input id="camera-angle" type="range" min="0" max="360" value="300">
+        </div>
+        <div class="waypoints" role="group" aria-label="选择步道目的地">
+          <div class="route-line" aria-hidden="true"><i id="route-position"></i></div>
+          <div class="route-buttons">
+            <button type="button" data-destination="-79">营地</button>
+            <button type="button" data-destination="14">木桥</button>
+            <button type="button" data-destination="79">路标</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="understage">
+      <p id="controls-help">拖动环视，点小路行走，点木凳坐下。<span class="key-help"><kbd>空格</kbd> 走停　<kbd>H</kbd> 挥手</span></p>
+      <details id="inspector">
+        <summary>人物近看与切片</summary>
+        <div class="slice-tools">
+          <figure class="portrait-figure"><canvas id="portrait" width="164" height="182" tabindex="0" role="img" aria-label="当前人物姿势近看，拖动或用左右键环视"></canvas><figcaption>拖动人物可环视</figcaption></figure>
+          <div class="slice-field">
+            <figure><canvas id="pose-slice" width="40" height="44" role="img" aria-label="人物水平切片，右侧为身体前方"></canvas><figcaption>俯视 · 人物面朝右</figcaption></figure>
+            <div class="range-heading"><label for="slice-level">切片高度</label><output for="slice-level" id="slice-value">14 / 50</output></div>
+            <input type="range" id="slice-level" min="1" max="50" value="14">
+            <p>定格后切换人物，可对照同一个动作。</p>
+          </div>
+        </div>
+      </details>
+    </div>
+    <noscript>请启用 JavaScript 以进入步道。</noscript>
+  </main>
+</body>
+</html>

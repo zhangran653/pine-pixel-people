@@ -55,6 +55,7 @@ const studioLibrary = (() => {
     roles,
     sample,
     keywords = '',
+    station,
     previewTurn = false
   }) {
     if (
@@ -76,28 +77,20 @@ const studioLibrary = (() => {
       roles.some((r) => !Array.isArray(r) || !r.length || !r.every(isId))
     )
       throw new Error('动作需要一或两个含有效标签的角色槽位');
-    const clip = { id, label, group, seconds, roles, sample, keywords, previewTurn };
+    const clip = {
+      id,
+      label,
+      group,
+      seconds,
+      roles,
+      sample,
+      keywords,
+      previewTurn,
+      ...(station ? { station } : {})
+    };
     actions.set(id, clip);
     return clip;
   }
-  const boxes = { adult: [64, 48, 52], child: [48, 40, 36], toddler: [40, 34, 31], baby: [36, 28, 24] };
-  for (const [id, label, kind, art, density] of [
-    ['hiker', '红帽徒步者', 'adult', hikerArt, 1],
-    ['surveyor', '山野测绘员', 'adult', surveyorArt, 2],
-    ['mother', '妈妈', 'adult', familyArt.mother, 2],
-    ['child', '学龄儿童', 'child', familyArt.child, 2],
-    ['toddler', '学步幼儿', 'toddler', familyArt.toddler, 2],
-    ['baby', '小宝宝', 'baby', familyArt.baby, 2]
-  ])
-    registerCharacter({
-      id,
-      label,
-      rig: kind,
-      art,
-      density,
-      tags: [...new Set([kind, id])],
-      box: boxes[kind]
-    });
   const everyone = ['adult', 'child', 'toddler', 'baby'],
     walkers = ['adult', 'child', 'toddler'],
     devices = ['adult', 'child'];
@@ -116,11 +109,17 @@ const studioLibrary = (() => {
     ['phone', '看手机', '现代生活', 4.0, [devices], '用手机 玩手机 刷手机 刷屏 看消息'],
     ['type', '电脑打字', '现代生活', 4.2, [devices], '用电脑 键盘 笔记本 办公 输入'],
     ['highfive', '相互击掌', '双人', 2.8, [walkers, walkers], '拍掌 庆祝 双人互动'],
-    ['cradle', '抱起轻摇', '亲子', 5.8, [['mother'], ['baby']], '抱宝宝 安抚 哄睡 亲子互动'],
-    ['peekaboo', '躲猫猫', '亲子', 4.0, [['mother'], ['baby']], '捉迷藏 遮眼 逗宝宝 亲子互动']
+    ['cradle', '抱起轻摇', '亲子', 5.8, [['adult'], ['baby']], '抱宝宝 安抚 哄睡 亲子互动'],
+    ['peekaboo', '躲猫猫', '亲子', 4.0, [['adult'], ['baby']], '捉迷藏 遮眼 逗宝宝 亲子互动']
   ])
     registerAction({ id, label, group, seconds, roles, keywords, sample: soloClips[id] || duetClips[id] });
-  for (const clip of [...gestureActions, ...movementActions, ...dailyActions, ...socialActions])
+  for (const clip of [
+    ...gestureActions,
+    ...movementActions,
+    ...dailyActions,
+    ...socialActions,
+    ...worldActions
+  ])
     registerAction(clip);
   function findActions(person, { group = '', query = '', eitherRole = false } = {}) {
     const words = query.normalize('NFKC').trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -295,12 +294,94 @@ const studioLibrary = (() => {
     presetLabels[id] = label;
     presets[id] = { version: 1, loop: true, steps: steps.map(([action, ...ids]) => built(action, ids)) };
   }
+  for (const [id, label, scene, steps] of [
+    [
+      'office',
+      '开发者的工作日',
+      'study',
+      [
+        ['desk-code', 'programmer'],
+        ['brief-team', 'manager'],
+        ['coffee-break', 'developer']
+      ]
+    ],
+    [
+      'shop',
+      '市集开张',
+      'market',
+      [
+        ['scan-code', 'cashier'],
+        ['serve-mug', 'barista'],
+        ['check-order', 'vendor']
+      ]
+    ],
+    [
+      'trip',
+      '导游带队出发',
+      'street',
+      [
+        ['guide-flag', 'guide'],
+        ['point-map', 'guide'],
+        ['drink', 'guide']
+      ]
+    ],
+    [
+      'manuscript',
+      '古镇书案',
+      'market',
+      [
+        ['desk-calligraphy', 'scribe'],
+        ['unroll-map', 'scholar'],
+        ['fan-cool', 'poet']
+      ]
+    ],
+    [
+      'moon',
+      '月下星图',
+      'grove',
+      [
+        ['raise-crystal', 'mage'],
+        ['read-stars', 'oracle'],
+        ['light-ward', 'ranger']
+      ]
+    ],
+    [
+      'orbit',
+      '星港巡检',
+      'station',
+      [
+        ['scan-air', 'astronaut'],
+        ['aim-beacon', 'engineer'],
+        ['compare-readings', 'navigator']
+      ]
+    ],
+    [
+      'airstrip',
+      '机场值勤',
+      'airfield',
+      [
+        ['dock-check', 'pilot'],
+        ['brief-team', 'pilot']
+      ]
+    ]
+  ]) {
+    presetLabels[id] = label;
+    presets[id] = {
+      version: 1,
+      loop: true,
+      scene: PineWorld.scenes[scene].objects.map((p) => ({ ...p })),
+      steps: steps.map(([action, person]) => built(action, ['look_' + person]))
+    };
+  }
+  // A desk already in the scene becomes the work surface during the first cue.
+  presets.office.scene = presets.office.scene.filter((p) => p.kind === 'desk' || p.kind === 'lamp');
+  presets.office.steps[0].target = 0;
   function validateStep(step, index = 0, cast = characters) {
     const fail = (msg) => {
       throw new Error('第 ' + (index + 1) + ' 段 · ' + msg);
     };
     if (!step || typeof step !== 'object' || Array.isArray(step)) fail('需要动作对象');
-    if (Object.keys(step).some((k) => !['action', 'actors', 'seconds', 'repeat'].includes(k)))
+    if (Object.keys(step).some((k) => !['action', 'actors', 'seconds', 'repeat', 'target'].includes(k)))
       fail('含有未知字段');
     const clip = actions.get(step.action);
     if (!clip) fail('无法识别动作 ' + String(step.action));
@@ -313,7 +394,15 @@ const studioLibrary = (() => {
     if (!Number.isFinite(seconds) || seconds <= 0) fail('单次时长须为正数');
     if (!Number.isSafeInteger(repeat) || repeat < 1 || !Number.isFinite(seconds * repeat))
       fail('重复次数或总时长无效');
-    return { action: clip.id, actors: [...step.actors], seconds, repeat };
+    if (step.target !== undefined && (!clip.station || !Number.isSafeInteger(step.target) || step.target < 0))
+      fail('此动作无法绑定指定物件');
+    return {
+      action: clip.id,
+      actors: [...step.actors],
+      seconds,
+      repeat,
+      ...(step.target === undefined ? {} : { target: step.target })
+    };
   }
   function compile(input, cast = characters) {
     if (typeof input === 'string') {
@@ -325,15 +414,19 @@ const studioLibrary = (() => {
     }
     if (!input || input.version !== 1 || !Array.isArray(input.steps))
       throw new Error('需要 version 为 1 且包含 steps 数组的编排');
-    if (Object.keys(input).some((k) => !['version', 'loop', 'steps'].includes(k)))
+    if (Object.keys(input).some((k) => !['version', 'loop', 'steps', 'scene'].includes(k)))
       throw new Error('编排含有未知字段');
     if (input.loop !== undefined && typeof input.loop !== 'boolean') throw new Error('loop 须为布尔值');
     const score = {
         version: 1,
+        ...(input.scene === undefined ? {} : { scene: PineWorld.normalize(input.scene) }),
         loop: input.loop ?? false,
         steps: input.steps.map((step, index) => validateStep(step, index, cast))
       },
       starts = [];
+    for (const step of score.steps)
+      if (step.target !== undefined && score.scene?.[step.target]?.kind !== actions.get(step.action).station)
+        throw Error('动作绑定的场景物件缺失或类型不符');
     let duration = 0;
     for (const step of score.steps) {
       starts.push(duration);
@@ -363,9 +456,29 @@ const studioLibrary = (() => {
     function sample(t) {
       const cue = locate(t);
       if (!cue) return [];
-      return cue.clip.sample(cue.u, ...cue.step.actors.map((id) => cast.get(id)));
+      const entries = cue.clip.sample(cue.u, ...cue.step.actors.map((id) => cast.get(id)));
+      if (cue.step.target === undefined) return entries;
+      // A placed station supplies the origin and heading for the whole gesture.
+      const e = entries[0],
+        destination = score.scene[cue.step.target];
+      const fixture = e.pose.props.find((item) => item.kind === cue.clip.station),
+        f = fixture.frame;
+      const angle = destination.heading - Math.atan2(f[4], f[0]),
+        c = Math.cos(angle),
+        s = Math.sin(angle);
+      e.x = destination.x - c * f[3] + s * f[7];
+      e.y = destination.y - s * f[3] - c * f[7];
+      e.z = destination.z - f[11];
+      e.heading = angle;
+      if (cue.clip.station === 'lamp') e.pose.props = e.pose.props.filter((p) => p.kind !== 'desk');
+      return entries;
     }
-    return { score, starts, duration, locate, sample };
+    function scenery(t) {
+      const target = locate(t)?.step.target,
+        scene = score.scene || [];
+      return target === undefined ? scene : scene.filter((_, index) => index !== target);
+    }
+    return { score, starts, duration, locate, sample, scenery };
   }
   return {
     version: 1,

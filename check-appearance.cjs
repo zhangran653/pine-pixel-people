@@ -13,6 +13,8 @@ const sources = [
   'actor',
   'surveyor-art',
   'family-art',
+  'vehicle-slices',
+  'world-objects',
   'activity-props',
   'studio-props',
   'studio-rig',
@@ -22,6 +24,7 @@ const sources = [
   'movement-clips',
   'daily-clips',
   'social-clips',
+  'work-clips',
   'studio-library',
   'portrait-styles',
   'hair-styles',
@@ -30,6 +33,7 @@ const sources = [
   'short-hair',
   'everyday-styles',
   'workshop-wear',
+  'world-wardrobe',
   'designer-body',
   'appearance',
   'appearance-store'
@@ -74,7 +78,8 @@ const a = client(),
   hat = json('packs/creek-hats.json'),
   first = json('packs/creek-child.json'),
   second = json('packs/maple-child.json');
-assert.equal(a.m.characters.size, 6);
+const builtins = a.l.templates.length + 6;
+assert.equal(a.m.characters.size, builtins);
 const coreVersions = json('character-v1.schema.json').properties.packs.properties['pine-core'].enum;
 assert.deepEqual(
   [...a.l.catalog.keys()],
@@ -86,10 +91,11 @@ assert.deepEqual(clone(a.l.manifest(hat)), clone(a.l.manifest(second.embeddedPac
 assert.ok(a.w.save(first).persistent);
 assert.ok(a.w.save(second).persistent);
 assert.equal(a.w.saved.size, 2);
-assert.equal(a.m.characters.size, 8);
+const importedSize = new Set([...a.l.templateById.keys(), first.id, second.id]).size + 6;
+assert.equal(a.m.characters.size, importedSize);
 const b = client(a.disk);
 assert.equal(b.w.hydrate(), 0);
-assert.equal(b.m.characters.size, 8);
+assert.equal(b.m.characters.size, importedSize);
 for (const doc of [first, second]) {
   assert.equal(
     digest(a.m.characters.get(doc.id), a.m, 'run'),
@@ -238,7 +244,7 @@ const corrupt = client(),
   malformed = clone(cast);
 malformed.score.steps[3].action = 'crawl';
 assert.throws(() => corrupt.w.readScoreFile(malformed, true));
-assert.equal(corrupt.m.characters.size, 6);
+assert.equal(corrupt.m.characters.size, builtins);
 assert.equal(corrupt.l.catalog.size, coreVersions.length);
 assert.equal(corrupt.disk.size, 0);
 const limited = client(new Map(), 1);
@@ -278,7 +284,7 @@ a.w.save({ ...first, label: '另一页的修改' });
 assert.throws(() => b.w.save({ ...first, label: '较旧的草稿' }));
 const garbage = client(new Map([['pineCreek.look.v1.broken', '{']]));
 assert.equal(garbage.w.hydrate(), 1);
-assert.equal(garbage.m.characters.size, 6);
+assert.equal(garbage.m.characters.size, builtins);
 // Frozen images from core 1.0.0 catch changes to old art even if both import and export change together.
 assert.deepEqual(clone(a.l.prepare(first).recipe), first);
 assert.deepEqual(clone(a.l.prepare(second).recipe), second);
@@ -737,7 +743,8 @@ for (const id of ['look_body_male', 'look_relay']) {
     colorDigest(after.model.colors.subarray(start)),
     id + ' upper face or hair changed with chin'
   );
-  assert.deepEqual(after.actor.sockets, before.actor.sockets);
+  for (const [key, socket] of Object.entries(before.actor.sockets))
+    assert.deepEqual(after.actor.sockets[key], socket, key + ' keeps its rest-space contact');
 }
 // Look straight across the parted fringe. A strand on each side must stand
 // physically forward of the exposed forehead, independent of its pigment.
@@ -1177,6 +1184,7 @@ assert.equal(finePortrait(archivedSurvey), finePortrait(surveyExample));
 assert.equal(digest(a.l.build(archivedSurvey), a.m, 'run'), digest(a.l.build(surveyExample), a.m, 'run'));
 const dressed = clone(a.l.templates.find((d) => d.id === 'look_workshop_hiker'));
 Object.assign(dressed.parts, {
+  charm: 'jade',
   glasses: 'round',
   wrist: 'watch',
   ears: 'hoops',

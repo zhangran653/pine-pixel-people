@@ -4,13 +4,15 @@ const { readFileSync } = require('node:fs');
 const { join, resolve } = require('node:path');
 const vm = require('node:vm');
 
-const context = vm.createContext({});
+const context = vm.createContext({ structuredClone });
 const builtins = [
   'motion',
   'character-slices',
   'actor',
   'surveyor-art',
   'family-art',
+  'vehicle-slices',
+  'world-objects',
   'activity-props',
   'studio-props',
   'studio-rig',
@@ -20,7 +22,18 @@ const builtins = [
   'movement-clips',
   'daily-clips',
   'social-clips',
-  'studio-library'
+  'work-clips',
+  'studio-library',
+  'portrait-styles',
+  'hair-styles',
+  'head-sections',
+  'head-shape',
+  'short-hair',
+  'everyday-styles',
+  'workshop-wear',
+  'world-wardrobe',
+  'designer-body',
+  'appearance'
 ];
 const files = builtins.map((name) => join(__dirname, name + '.js'));
 for (const path of [...files, ...process.argv.slice(2).map((arg) => resolve(arg))]) {
@@ -28,7 +41,8 @@ for (const path of [...files, ...process.argv.slice(2).map((arg) => resolve(arg)
 }
 
 const motion = context.PineMotion;
-const people = [...motion.characters.values()];
+// The six legacy actors cover the four rigs. Extensions supplied to the checker are also exercised.
+const people = [...motion.characters.values()].filter((p) => !context.PineLooks.templateById.has(p.id));
 const phases = [0, 0.15, 0.25, 0.375, 0.5, 0.625, 0.75, 0.85, 1];
 const distance = (a, b) => Math.hypot(...a.map((v, i) => v - b[i]));
 let combinations = 0;

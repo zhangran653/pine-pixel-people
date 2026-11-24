@@ -171,6 +171,7 @@ export function createPineCast(
   {
     metersPerUnit = (motion?.rig?.centimetersPerUnit ?? 3.4) / 100,
     sampleRate = 20,
+    world = globalThis.PineWorld,
     material,
     faceDetail = false,
     detail = faceDetail ? 'face' : 'standard'
@@ -201,6 +202,34 @@ export function createPineCast(
     lastEntries,
     disposed = false;
 
+  const objectMeshes = [],
+    objectGeometries = new Map();
+  function setScene(placements = []) {
+    if (disposed) throw Error('此场景已释放');
+    placements.forEach((p, i) => {
+      let geometry = objectGeometries.get(p.kind);
+      if (!geometry) {
+        const { body, model } = world.geometry(p.kind);
+        const temp = new THREE.Mesh(new THREE.BufferGeometry(), paint);
+        writeSurface(THREE, temp, body, model, scratch);
+        geometry = temp.geometry;
+        objectGeometries.set(p.kind, geometry);
+      }
+      let mesh = objectMeshes[i];
+      if (!mesh) {
+        mesh = new THREE.Mesh(geometry, paint);
+        mesh.castShadow = mesh.receiveShadow = true;
+        basis.add(mesh);
+        objectMeshes.push(mesh);
+      }
+      mesh.geometry = geometry;
+      mesh.visible = true;
+      mesh.name = 'world/' + p.kind;
+      mesh.position.set(p.x, p.y, p.z);
+      mesh.rotation.z = p.heading;
+    });
+    for (let i = placements.length; i < objectMeshes.length; i++) objectMeshes[i].visible = false;
+  }
   function setFrame(entries) {
     if (disposed) throw new Error('此人物组已释放');
     const cast = entries.map((e) => {
@@ -277,6 +306,7 @@ export function createPineCast(
       const start = plan.starts[cue.index] + cue.iteration * cue.step.seconds;
       time = Math.max(start, tick / sampleRate);
     }
+    setScene(plan.scenery?.(time) || []);
     setFrame(plan.sample(time));
     previousPlan = plan;
     previousTick = tick;
@@ -289,6 +319,9 @@ export function createPineCast(
     if (disposed) return;
     disposed = true;
     group.removeFromParent();
+    for (const geometry of objectGeometries.values()) geometry.dispose();
+    objectGeometries.clear();
+    objectMeshes.length = 0;
     for (const mesh of slots) mesh.geometry.dispose();
     for (const head of heads) head?.geometry.dispose();
     if (!material) paint.dispose();
@@ -302,6 +335,7 @@ export function createPineCast(
   }
   return {
     group,
+    setScene,
     setFrame,
     setTime,
     setDetail,

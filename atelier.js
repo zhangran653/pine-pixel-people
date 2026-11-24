@@ -15,6 +15,12 @@
     faceWidth: '脸宽',
     eyeSpacing: '眼距',
     jaw: '下颌宽度',
+    chinHeight: '下巴高低',
+    chinProjection: '下巴前后',
+    chinRoundness: '下巴圆钝度',
+    jawPosition: '下颌后角前后',
+    jawAngle: '下颌后角高低',
+    jawNeck: '颌颈接点前后',
     occiput: '后脑深度',
     mouthHeight: '嘴部高低',
     eyes: '眼型',
@@ -33,6 +39,8 @@
     ears: '耳饰',
     wrist: '腕饰',
     bottle: '随身水壶',
+    charm: '随身佩饰',
+    implement: '手持物品',
     phone: '手机外壳',
     laptop: '笔记本外壳',
     outline: '脸型',
@@ -54,6 +62,7 @@
     actor,
     tab = 'shape',
     view = 'body',
+    showJawPoints = false,
     cardKey = '',
     saved = false,
     dirty = false;
@@ -139,7 +148,8 @@
       u: phase,
       bearing,
       view,
-      detail: $('fine-face').checked
+      detail: $('fine-face').checked,
+      landmarks: showJawPoints && tab === 'face'
     });
   }
   function centimeters(doc, scale = doc.shape.height) {
@@ -257,7 +267,7 @@
     field.type = 'range';
     field.min = min;
     field.max = max;
-    field.step = key === 'mouthHeight' ? 0.05 : 0.01;
+    field.step = key === 'mouthHeight' || looks.jawControls.includes(key) ? 0.05 : 0.01;
     field.value = draft.shape[key] ?? normal;
     output.htmlFor = field.id;
     function updateReadout() {
@@ -266,6 +276,21 @@
         key === 'height'
           ? centimeters(draft) + ' cm · ' + percentage
           : (key === 'mouthHeight' && draft.shape[key] > 0 ? '+' : '') + percentage;
+      const endpoints = {
+        chinHeight: ['低', '高'],
+        chinProjection: ['后收', '前伸'],
+        chinRoundness: ['尖', '圆'],
+        jawPosition: ['靠后', '靠前'],
+        jawAngle: ['低', '高'],
+        jawNeck: ['靠后', '靠前']
+      };
+      if (endpoints[key]) {
+        const n = field.valueAsNumber;
+        output.value =
+          n === 0 ? '居中' : endpoints[key][Number(n > 0)] + ' ' + Math.round(Math.abs(n) * 100) + '%';
+        field.setAttribute('aria-valuetext', output.value);
+        return;
+      }
       output.value = text;
       field.setAttribute('aria-valuetext', text);
     }
@@ -318,6 +343,16 @@
     return label;
   }
   function markPresets() {
+    for (const b of document.querySelectorAll('[data-jaw-preset]')) {
+      const p = looks.jawPresets[b.dataset.jawPreset];
+      b.setAttribute(
+        'aria-pressed',
+        String(
+          draft.packs[looks.core] === looks.release &&
+            looks.jawControls.every((k) => (draft.shape[k] || 0) === (p.shape[k] || 0))
+        )
+      );
+    }
     const currentFace = draft.face || looks.facePresets.classic.face;
     for (const b of document.querySelectorAll('[data-face-preset]')) {
       const face = looks.facePresets[b.dataset.facePreset].face;
@@ -389,6 +424,7 @@
     return group;
   }
   function upgradeLabel() {
+    if (draft.packs[looks.core] === looks.jawRelease) return '试用可调下颌';
     if (draft.packs[looks.core] === looks.volumeRelease) return '试用新下颌';
     return looks.hasSculptedHead(draft) ? '试用新下颌与立体短发' : '试用新头型与短发';
   }
@@ -443,7 +479,68 @@
         )
       );
     more.append(legend, details);
-    area.append(grid, featureComparison(), more, ...tabKeys.face.map(slider));
+    const jaw = document.createElement('fieldset'),
+      jawTitle = document.createElement('legend'),
+      buttons = document.createElement('div');
+    jaw.className = 'jaw-controls';
+    jawTitle.textContent = '下巴与下颌';
+    buttons.className = 'category-buttons';
+    jaw.append(jawTitle, buttons);
+    for (const [id, preset] of Object.entries(looks.jawPresets)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.jawPreset = id;
+      b.textContent = preset.label;
+      b.setAttribute(
+        'aria-pressed',
+        String(looks.jawControls.every((k) => (draft.shape[k] || 0) === (preset.shape[k] || 0)))
+      );
+      b.onclick = () => {
+        for (const key of looks.jawControls) delete draft.shape[key];
+        Object.assign(draft.shape, preset.shape);
+        draft.packs[looks.core] = looks.release;
+        changed();
+        fields();
+      };
+      buttons.append(b);
+    }
+    const side = document.createElement('button');
+    side.type = 'button';
+    side.textContent = '看侧面';
+    side.onclick = () => {
+      setView('face');
+      orbit(90);
+    };
+    buttons.append(side);
+    const inspect = document.createElement('label'),
+      toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.id = 'jaw-points';
+    toggle.checked = showJawPoints;
+    inspect.className = 'jaw-points';
+    toggle.onchange = () => {
+      showJawPoints = toggle.checked;
+      if (toggle.checked) {
+        setView('face');
+        orbit(90);
+      }
+      show();
+    };
+    inspect.append(toggle, '显示接点');
+    for (const [name, color] of [
+      ['头部支点', '#8e5c91'],
+      ['颌颈转折', '#b76a3d'],
+      ['领口', '#567f9a']
+    ]) {
+      const tag = document.createElement('span'),
+        dot = document.createElement('i');
+      dot.style.background = color;
+      tag.append(dot, name);
+      inspect.append(tag);
+    }
+    if (draft.packs[looks.core] === looks.release) jaw.append(inspect);
+    jaw.append(...looks.jawControls.map(slider), slider('jaw'));
+    area.append(grid, jaw, featureComparison(), more, ...tabKeys.face.filter((k) => k !== 'jaw').map(slider));
     markPresets();
   }
   function featureComparison() {
@@ -958,6 +1055,8 @@
     cardKey = key;
     actor = looks.build(draft);
     $('look-name').value = draft.label;
+    $('look-era').value = draft.identity?.era || '';
+    $('look-role').value = draft.identity?.role || '';
     heading();
     fields();
     refreshAction();
@@ -978,14 +1077,34 @@
       ['已保存', [...wardrobe.saved].map(([id, d]) => ['saved:' + id, d])]
     ];
     compare.replaceChildren(new Option('无对照', ''));
+    const era = $('shelf-era').value,
+      terms = $('look-query').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    let matchCount = 0;
     for (const [section, items] of datasets) {
       if (!items.length) continue;
       const label = document.createElement('div');
       label.className = 'shelf-group';
       label.textContent = section;
-      root.append(label);
+      let visible = false;
       for (const [key, doc] of items) {
         entries.set(key, doc);
+        if (key !== cardKey) compare.add(new Option(section + ' · ' + doc.label, key));
+        const eraKey = doc.identity?.era || 'modern';
+        const haystack = [
+          doc.id,
+          doc.label,
+          doc.identity?.role,
+          PineWorld.realms[eraKey],
+          ...Object.entries(doc.parts).map(([k, v]) => looks.wearables[k]?.[v] || looks.slots[k]?.[v] || v)
+        ]
+          .join(' ')
+          .toLowerCase();
+        if ((era && era !== eraKey) || !terms.every((t) => haystack.includes(t))) continue;
+        if (!visible) {
+          root.append(label);
+          visible = true;
+        }
+        matchCount++;
         const b = document.createElement('button'),
           image = document.createElement('canvas'),
           title = document.createElement('small');
@@ -1000,12 +1119,19 @@
         thumbnails.set(image, { doc, bearing: 24 });
         shelfVisibility.observe(image);
         b.onclick = () => switchTo(() => activate(doc, key, section === '已保存'));
-        if (key !== cardKey) compare.add(new Option(section + ' · ' + doc.label, key));
       }
     }
     if ([...compare.options].some((o) => o.value === previous)) compare.value = previous;
     measurements();
-    $('shelf-count').textContent = looks.templates.length + ' 款预置 · 已保存 ' + wardrobe.saved.size + ' 个';
+    $('shelf-count').textContent =
+      era || terms.length
+        ? matchCount + ' 个结果'
+        : looks.templates.length + ' 款预置 · 已保存 ' + wardrobe.saved.size + ' 个';
+    if (!matchCount) {
+      const empty = document.createElement('p');
+      empty.textContent = '没有匹配的形象';
+      root.append(empty);
+    }
   }
   function save(copy = false) {
     if (!$('look-name').reportValidity()) return;
@@ -1099,6 +1225,24 @@
     };
   for (const b of document.querySelectorAll('[data-view]')) b.onclick = () => setView(b.dataset.view);
   $('fine-face').onchange = show;
+  for (const [id, label] of Object.entries(PineWorld.realms)) {
+    for (const field of ['shelf-era', 'look-era']) $(field).add(new Option(label, id));
+  }
+  for (const item of looks.templates)
+    if (item.identity?.role) $('role-options').append(new Option(item.identity.role, item.identity.role));
+  $('shelf-era').onchange = shelf;
+  $('look-query').oninput = shelf;
+  function editIdentity() {
+    const era = $('look-era').value,
+      role = $('look-role').value.trim();
+    if (era || role) draft.identity = { ...(era ? { era } : {}), ...(role ? { role } : {}) };
+    else delete draft.identity;
+    draft.packs[looks.core] = looks.editingRelease(draft);
+    dirty = true;
+    heading();
+  }
+  $('look-era').onchange = editIdentity;
+  $('look-role').oninput = editIdentity;
   $('look-name').oninput = () => {
     draft.label = $('look-name').value;
     dirty = true;
@@ -1378,8 +1522,20 @@
     }
   };
   const query = new URLSearchParams(location.search);
+  showJawPoints = query.get('points') === '1';
   const stored = wardrobe.saved.get(query.get('saved'));
-  const first = stored || looks.templates.find((doc) => doc.id === query.get('preset')) || looks.templates[0];
+  let transferredLook;
+  try {
+    const portable = new URLSearchParams(location.hash.slice(1)).get('character');
+    if (portable) transferredLook = looks.prepare(JSON.parse(portable)).recipe;
+  } catch (e) {
+    note(e.message, true);
+  }
+  const first =
+    transferredLook ||
+    stored ||
+    looks.templates.find((doc) => doc.id === query.get('preset')) ||
+    looks.templates[0];
   activate(first, (stored ? 'saved:' : 'preset:') + first.id, !!stored);
   const partner = looks.templates.find((doc) => doc.id !== first.id && doc.id === query.get('compare'));
   if (partner) {

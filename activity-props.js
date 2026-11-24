@@ -1,6 +1,7 @@
 // Voxel brushes for objects used by the activity library. The prop frame also defines its contact points.
 const activityProps = (() => {
   const materials = {
+    ...PineWorld.materials,
     pageIvory: 'f4e9c7',
     pageEdge: 'ccbb95',
     pageInk: '58656a',
@@ -165,7 +166,8 @@ const activityProps = (() => {
     }
   };
   function paint(item, b, k) {
-    if (!Object.hasOwn(painters, item.kind)) return false;
+    const painter = Object.hasOwn(painters, item.kind) ? painters[item.kind] : PineWorld.painters[item.kind];
+    if (!painter) return false;
     const s = item.scale ?? 1;
     b.frame(item.frame);
     const scaled = (p) => p.map((v) => v * s);
@@ -185,7 +187,7 @@ const activityProps = (() => {
         typeof ink === 'function' ? (x, y, z) => ink(x / s, y / s, z / s) : ink,
         power
       );
-    painters[item.kind]({ box, line, oval, k, item, cell: 1 / (s * (b.density || 1)) });
+    painter({ box, line, oval, k, item, cell: 1 / (s * (b.density || 1)) });
     return true;
   }
   return { materials, paint };

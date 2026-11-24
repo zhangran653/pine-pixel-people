@@ -394,7 +394,8 @@ const atelierPreview = (() => {
     layer,
     pixel = 1,
     detail = true,
-    fixed = null
+    fixed = null,
+    landmarks = false
   ) {
     if (!groups.length) return;
     const feature = ['eyes', 'brows', 'nose', 'mouth'].includes(view);
@@ -477,6 +478,26 @@ const atelierPreview = (() => {
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(layer, 0, 0, layer.width / ratio, layer.height / ratio);
       }
+      if (landmarks && portrait) {
+        for (const part of g.parts) {
+          if (!part.actor.sockets.headPivot) continue;
+          for (const [socket, color] of [
+            ['collar', '#567f9a'],
+            ['headPivot', '#8e5c91'],
+            ['throat', '#b76a3d']
+          ]) {
+            const pos = motion.rig.socket(part.actor, part.pose, socket),
+              [x, y] = fromPart(part, pos, camera);
+            ctx.fillStyle = color;
+            ctx.strokeStyle = '#fffcf0';
+            ctx.lineWidth = Math.max(1, 1.2 * pixel);
+            ctx.beginPath();
+            ctx.arc(ox + scale * x, oy + scale * y, Math.max(2, 3.4 * pixel), 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+          }
+        }
+      }
     });
     return measured;
   }
@@ -538,7 +559,9 @@ const atelierPreview = (() => {
           false,
           layer,
           w / logicalSizes.get(canvas)[0],
-          previous.detail
+          previous.detail,
+          null,
+          previous.landmarks
         );
       if (!direct) {
         display.imageSmoothingEnabled = false;
@@ -559,7 +582,8 @@ const atelierPreview = (() => {
       u = 0,
       bearing = 25,
       view = 'body',
-      detail = true
+      detail = true,
+      landmarks = false
     }) {
       if (disposed) return;
       const clip = motion.actions.get(action) || motion.actions.get('idle');
@@ -574,7 +598,13 @@ const atelierPreview = (() => {
         clip !== previous.clip ||
         phase !== previous.phase;
       if (frameChanged) groups = sampleFrame(motion, actor, compare, clip, phase);
-      if (!frameChanged && angle === previous.bearing && view === previous.view && detail === previous.detail)
+      if (
+        !frameChanged &&
+        angle === previous.bearing &&
+        view === previous.view &&
+        detail === previous.detail &&
+        landmarks === previous.landmarks
+      )
         return;
       previous = {
         actor,
@@ -585,7 +615,8 @@ const atelierPreview = (() => {
         phase,
         bearing: angle,
         view,
-        detail
+        detail,
+        landmarks
       };
       render();
     }

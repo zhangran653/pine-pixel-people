@@ -663,5 +663,5 @@ export function buildClearing(THREE, scene) {
   finish(objects, root, 'Pier, pines and river stones', true, true);
   finish(horizon, root, 'Distant woodline and ridges', false, false);
   finish(railing, rail, 'Cedar rails and capped posts', true, true);
-  return { rail };
+  return { root, rail };
 }

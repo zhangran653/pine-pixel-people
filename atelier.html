@@ -11,6 +11,8 @@
     <script defer src="actor.js"></script>
     <script defer src="surveyor-art.js"></script>
     <script defer src="family-art.js"></script>
+    <script defer src="vehicle-slices.js"></script>
+    <script defer src="world-objects.js"></script>
     <script defer src="activity-props.js"></script>
     <script defer src="studio-props.js"></script>
     <script defer src="studio-rig.js"></script>
@@ -20,7 +22,8 @@
     <script defer src="movement-clips.js"></script>
     <script defer src="daily-clips.js"></script>
     <script defer src="social-clips.js"></script>
-    <script defer src="studio-library.js"></script>
+    <script defer src="work-clips.js"></script>
+  <script defer src="studio-library.js"></script>
     <script defer src="portrait-styles.js"></script>
     <script defer src="hair-styles.js"></script>
     <script defer src="head-sections.js"></script>
@@ -28,6 +31,7 @@
     <script defer src="short-hair.js"></script>
     <script defer src="everyday-styles.js"></script>
     <script defer src="workshop-wear.js"></script>
+    <script defer src="world-wardrobe.js"></script>
     <script defer src="designer-body.js"></script>
     <script defer src="appearance.js"></script>
     <script defer src="appearance-store.js"></script>
@@ -103,6 +107,7 @@
           <label class="name-field"
             >角色名<input id="look-name" maxlength="48" required autocomplete="off"
           /></label>
+          <div class="identity-fields"><label>时代<select id="look-era"><option value="">未指定</option></select></label><label>职业或身份<input id="look-role" maxlength="48" list="role-options" autocomplete="off" placeholder="自定义身份"></label><datalist id="role-options"></datalist></div>
           <div class="base-row">
             <span id="profile-label">默认体型</span>
             <div class="switch" role="group" aria-labelledby="profile-label">
@@ -115,6 +120,8 @@
               <button type="button" data-body-profile="child" aria-label="儿童中性体型" aria-pressed="true">
                 儿童
               </button>
+              <button type="button" data-body-profile="toddler" aria-pressed="false">幼儿</button>
+              <button type="button" data-body-profile="baby" aria-pressed="false">婴儿</button>
             </div>
             <small id="legacy-body" hidden>原版成人体型</small>
           </div>
@@ -193,6 +200,7 @@
             <h2>形象库</h2>
             <span id="shelf-count"></span>
           </div>
+          <div class="shelf-search"><input type="search" id="look-query" aria-label="搜索形象" placeholder="搜索名称、职业或配件"><select id="shelf-era" aria-label="形象时代"><option value="">全部时代</option></select></div>
           <div id="look-shelf" class="shelf"></div>
         </section>
       </div>

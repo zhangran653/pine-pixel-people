@@ -1,82 +1,150 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#172620">
-  <title>松溪步道 · 像素徒步者</title>
-  <link rel="stylesheet" href="trail.css">
-  <script defer src="motion.js"></script>
-  <script defer src="character-slices.js"></script>
-  <script defer src="actor.js"></script>
-  <script defer src="surveyor-art.js"></script>
-  <script defer src="trail-art.js"></script>
-  <script defer src="scene.js"></script>
-</head>
-<body>
-  <main class="trail-shell">
-    <header class="mast">
-      <h1><span class="pine-mark" aria-hidden="true"></span>松溪步道</h1>
-      <nav aria-label="人物项目"><a href="atelier.html">人物创作室</a><a href="studio.html">动作工坊</a><a href="slice-study.html">原始人物</a><a href="motion-notes.html">动作方案</a></nav>
-    </header>
-    <section class="trail-game" aria-label="可环视的山间步道">
-      <div class="viewport">
-        <canvas id="trail-scene" width="480" height="245" tabindex="0" role="img" aria-label="松林、溪流与木桥边的红帽徒步者" aria-describedby="controls-help"></canvas>
-        <div class="place-label"><i aria-hidden="true"></i><output id="area">桥西小径</output></div>
-        <div class="character-picker" role="group" aria-label="选择人物">
-          <button type="button" data-character="hiker" aria-pressed="true">红帽徒步者</button>
-          <button type="button" data-character="surveyor" aria-pressed="false">山野测绘员</button>
-        </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#244638" />
+    <title>松溪像素世界 · 世界图鉴</title>
+    <link rel="stylesheet" href="world.css" />
+    <script defer src="motion.js"></script>
+    <script defer src="character-slices.js"></script>
+    <script defer src="actor.js"></script>
+    <script defer src="surveyor-art.js"></script>
+    <script defer src="family-art.js"></script>
+    <script defer src="vehicle-slices.js"></script>
+    <script defer src="world-objects.js"></script>
+    <script defer src="activity-props.js"></script>
+    <script defer src="studio-props.js"></script>
+    <script defer src="studio-rig.js"></script>
+    <script defer src="studio-actions.js"></script>
+    <script defer src="duet-clips.js"></script>
+    <script defer src="motion-gestures.js"></script>
+    <script defer src="movement-clips.js"></script>
+    <script defer src="daily-clips.js"></script>
+    <script defer src="social-clips.js"></script>
+    <script defer src="work-clips.js"></script>
+    <script defer src="studio-library.js"></script>
+    <script defer src="portrait-styles.js"></script>
+    <script defer src="hair-styles.js"></script>
+    <script defer src="head-sections.js"></script>
+    <script defer src="head-shape.js"></script>
+    <script defer src="short-hair.js"></script>
+    <script defer src="everyday-styles.js"></script>
+    <script defer src="workshop-wear.js"></script>
+    <script defer src="world-wardrobe.js"></script>
+    <script defer src="designer-body.js"></script>
+    <script defer src="appearance.js"></script>
+    <script defer src="appearance-store.js"></script>
+    <script defer src="world-editor.js"></script>
+  </head>
+  <body>
+    <main class="atlas">
+      <header class="top">
+        <a class="brand" href="index.html"><i aria-hidden="true">♠</i> 松溪像素世界</a>
+        <nav aria-label="项目导航">
+          <a href="index.html" aria-current="page">世界图鉴</a><a href="atelier.html">人物创作室</a
+          ><a href="studio.html">动作工坊</a><a href="three.html">Three.js</a>
+        </nav>
+      </header>
+      <div class="atlas-title">
+        <h1>世界图鉴</h1>
+        <p id="inventory-count"></p>
       </div>
-      <div class="console">
-        <div class="action-row">
-          <div class="actions" role="group" aria-label="人物动作">
-            <button class="primary" id="walk" type="button">沿路散步</button>
-            <button id="stand" type="button">站立</button>
-            <button id="sit" type="button" aria-pressed="false" title="到溪边的木凳坐下">坐下</button>
-            <button id="drink" type="button">喝水</button>
-            <button id="wave" type="button">挥手</button>
-            <button id="sway" type="button" aria-pressed="false">轻晃</button>
+      <div class="layout">
+        <section class="scene-panel" aria-label="场景编辑器">
+          <header class="scene-bar">
+            <label
+              >场景
+              <select id="world-scene"></select
+            ></label>
+            <div>
+              <button id="world-play" type="button" aria-pressed="false">播放动作</button
+              ><button type="button" id="world-reset-view">视角复位</button>
+            </div>
+          </header>
+          <div class="world-viewport">
+            <canvas
+              id="world-canvas"
+              tabindex="0"
+              aria-label="可旋转的像素场景，左右方向键旋转，上下方向键缩放"
+            ></canvas>
+            <div class="scene-caption">
+              <span id="scene-realm"></span>
+              <h2 id="scene-title"></h2>
+            </div>
+            <div class="camera-strip">
+              <label
+                >方位 <input type="range" id="world-angle" min="-180" max="180" step="1" value="35" /></label
+              ><output id="angle-label">35°</output
+              ><button type="button" id="zoom-out" aria-label="缩小">−</button
+              ><button type="button" id="zoom-in" aria-label="放大">＋</button>
+            </div>
           </div>
-          <div class="transport">
-            <output id="action-status" aria-live="polite">自然站立</output>
-            <button id="freeze" type="button" aria-pressed="false">定格</button>
+          <div class="cast-row">
+            <label>演员<select id="world-actor"></select></label
+            ><label>动作<select id="world-clip"></select></label>
           </div>
-        </div>
-        <div class="character-size">
-          <div class="range-heading"><label for="character-size">人物大小</label><output id="size-value" for="character-size">60%</output></div>
-          <input id="character-size" type="range" min="45" max="110" step="1" value="60">
-        </div>
-        <div class="bearing">
-          <div class="range-heading"><label for="camera-angle">环视方位</label><output id="bearing-value" for="camera-angle">300°</output></div>
-          <input id="camera-angle" type="range" min="0" max="360" value="300">
-        </div>
-        <div class="waypoints" role="group" aria-label="选择步道目的地">
-          <div class="route-line" aria-hidden="true"><i id="route-position"></i></div>
-          <div class="route-buttons">
-            <button type="button" data-destination="-79">营地</button>
-            <button type="button" data-destination="14">木桥</button>
-            <button type="button" data-destination="79">路标</button>
+          <details id="placements" open>
+            <summary>场景中的物件 <span id="placement-count"></span></summary>
+            <div class="placement-body">
+              <label class="pick-place">选择物件<select id="placed"></select></label>
+              <div class="coords">
+                <label>X<input id="place-x" type="number" min="-256" max="256" step="any" /></label
+                ><label>Y<input id="place-y" type="number" min="-256" max="256" step="any" /></label
+                ><label>高度<input id="place-z" type="number" min="0" max="256" step="any" /></label
+                ><label
+                  >朝向 °<input id="place-heading" type="number" min="-360" max="360" step="any" /></label
+                ><button type="button" id="remove-place">移除</button>
+              </div>
+            </div>
+          </details>
+          <footer class="scene-footer">
+            <span id="world-status" role="status" aria-live="polite"></span>
+            <div>
+              <button id="world-export">导出 JSON</button
+              ><label class="file-label"
+                >导入 JSON<input type="file" id="world-import" accept=".json,application/json" /></label
+              ><a id="world-studio" href="studio.html?board=1">编排动作 ↗</a
+              ><a id="world-three" href="three.html?show=studio">三维预览 ↗</a>
+            </div>
+          </footer>
+        </section>
+        <aside class="collection">
+          <header>
+            <h2>物件库</h2>
+            <output id="catalog-count"></output>
+          </header>
+          <input type="search" id="world-query" placeholder="搜索飞机、台灯、花草…" aria-label="搜索物件" />
+          <div class="catalog-filters">
+            <label
+              >分类<select id="world-family">
+                <option value="">全部分类</option>
+              </select></label
+            ><label
+              >时代<select id="world-realm">
+                <option value="">全部时代</option>
+              </select></label
+            >
           </div>
-        </div>
+          <div id="world-grid" class="object-grid" aria-label="物件列表"></div>
+          <div class="item-inspect">
+            <canvas id="item-preview" width="112" height="96" aria-hidden="true"></canvas>
+            <div>
+              <h3 id="item-name"></h3>
+              <p id="item-spec"></p>
+            </div>
+            <button id="place-item">放入场景</button>
+          </div>
+        </aside>
       </div>
-    </section>
-    <div class="understage">
-      <p id="controls-help">拖动环视，点小路行走，点木凳坐下。<span class="key-help"><kbd>空格</kbd> 走停　<kbd>H</kbd> 挥手</span></p>
-      <details id="inspector">
-        <summary>人物近看与切片</summary>
-        <div class="slice-tools">
-          <figure class="portrait-figure"><canvas id="portrait" width="164" height="182" tabindex="0" role="img" aria-label="当前人物姿势近看，拖动或用左右键环视"></canvas><figcaption>拖动人物可环视</figcaption></figure>
-          <div class="slice-field">
-            <figure><canvas id="pose-slice" width="40" height="44" role="img" aria-label="人物水平切片，右侧为身体前方"></canvas><figcaption>俯视 · 人物面朝右</figcaption></figure>
-            <div class="range-heading"><label for="slice-level">切片高度</label><output for="slice-level" id="slice-value">14 / 50</output></div>
-            <input type="range" id="slice-level" min="1" max="50" value="14">
-            <p>定格后切换人物，可对照同一个动作。</p>
-          </div>
-        </div>
-      </details>
-    </div>
-    <noscript>请启用 JavaScript 以进入步道。</noscript>
-  </main>
-</body>
+      <footer class="atlas-footer">
+        <span>Pine Pixel World · MIT</span>
+        <nav>
+          <a href="trail.html">松溪步道</a><a href="appearance-standard.html">形象规范</a
+          ><a href="motion-standard.html">动作规范</a
+          ><a href="https://github.com/zhangran653/pine-pixel-world">GitHub ↗</a>
+        </nav>
+      </footer>
+    </main>
+  </body>
 </html>

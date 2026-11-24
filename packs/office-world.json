@@ -1,0 +1,213 @@
+{
+  "format": "pine-cast",
+  "version": 1,
+  "score": {
+    "version": 1,
+    "scene": [
+      {
+        "kind": "desk",
+        "x": -13,
+        "y": 18,
+        "z": 0,
+        "heading": 0
+      },
+      {
+        "kind": "lamp",
+        "x": -17,
+        "y": 27,
+        "z": 21.1,
+        "heading": 0
+      }
+    ],
+    "loop": true,
+    "steps": [
+      {
+        "action": "desk-code",
+        "actors": [
+          "look_programmer"
+        ],
+        "seconds": 3.9,
+        "repeat": 1,
+        "target": 0
+      },
+      {
+        "action": "brief-team",
+        "actors": [
+          "look_manager"
+        ],
+        "seconds": 4.1,
+        "repeat": 1
+      },
+      {
+        "action": "coffee-break",
+        "actors": [
+          "look_developer"
+        ],
+        "seconds": 3.6,
+        "repeat": 1
+      }
+    ]
+  },
+  "characters": [
+    {
+      "format": "pine-character",
+      "version": 1,
+      "id": "look_programmer",
+      "label": "程序员",
+      "base": "adult",
+      "identity": {
+        "era": "modern",
+        "role": "程序员"
+      },
+      "gender": "female",
+      "packs": {
+        "pine-core": "1.10.0"
+      },
+      "shape": {
+        "height": 1,
+        "shoulders": 1,
+        "arms": 1,
+        "legs": 1,
+        "faceWidth": 1.01,
+        "eyeSpacing": 1,
+        "jaw": 1,
+        "mouthHeight": 0
+      },
+      "parts": {
+        "hair": "shoulder-length",
+        "top": "hoodie",
+        "bottom": "trousers",
+        "shoes": "sneakers",
+        "neck": "none",
+        "bag": "rucksack",
+        "glasses": "round",
+        "laptop": "stickers",
+        "audio": "headphones",
+        "hat": "none"
+      },
+      "face": {
+        "eyes": "downturned",
+        "brows": "willow",
+        "nose": "rounded",
+        "mouth": "soft-smile"
+      },
+      "colors": {
+        "skin": "#d9a083",
+        "hair": "#493634",
+        "eyes": "#343a38",
+        "top": "#516a85",
+        "bottom": "#494f60",
+        "shoes": "#654e43",
+        "accent": "#88bdad"
+      },
+      "baseNotice": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+    },
+    {
+      "format": "pine-character",
+      "version": 1,
+      "id": "look_manager",
+      "label": "项目经理",
+      "base": "adult",
+      "identity": {
+        "era": "modern",
+        "role": "项目经理"
+      },
+      "gender": "female",
+      "packs": {
+        "pine-core": "1.10.0"
+      },
+      "shape": {
+        "height": 1.035,
+        "shoulders": 1,
+        "arms": 1,
+        "legs": 1,
+        "faceWidth": 1.05,
+        "eyeSpacing": 1,
+        "jaw": 1,
+        "mouthHeight": 0
+      },
+      "parts": {
+        "hair": "low-bun",
+        "top": "blazer",
+        "bottom": "pinstripe",
+        "shoes": "loafers",
+        "neck": "none",
+        "bag": "briefcase",
+        "ears": "pearl",
+        "wrist": "watch",
+        "implement": "clipboard",
+        "hat": "none"
+      },
+      "face": {
+        "eyes": "round",
+        "brows": "arched",
+        "nose": "classic",
+        "mouth": "small"
+      },
+      "colors": {
+        "skin": "#e1b491",
+        "hair": "#69513e",
+        "eyes": "#343a38",
+        "top": "#655a75",
+        "bottom": "#535660",
+        "shoes": "#716052",
+        "accent": "#dbab78"
+      },
+      "baseNotice": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+    },
+    {
+      "format": "pine-character",
+      "version": 1,
+      "id": "look_developer",
+      "label": "软件开发工程师",
+      "base": "adult",
+      "identity": {
+        "era": "modern",
+        "role": "软件开发工程师"
+      },
+      "gender": "male",
+      "packs": {
+        "pine-core": "1.10.0"
+      },
+      "shape": {
+        "height": 0.98,
+        "shoulders": 1,
+        "arms": 1,
+        "legs": 1,
+        "faceWidth": 0.97,
+        "eyeSpacing": 1,
+        "jaw": 1,
+        "mouthHeight": 0
+      },
+      "parts": {
+        "hair": "side-part",
+        "top": "oxford",
+        "bottom": "cargo",
+        "shoes": "runners",
+        "neck": "none",
+        "glasses": "square",
+        "wrist": "digital",
+        "laptop": "field",
+        "charm": "pass",
+        "hat": "none"
+      },
+      "face": {
+        "eyes": "hooded",
+        "brows": "low-flat",
+        "nose": "broad",
+        "mouth": "relaxed"
+      },
+      "colors": {
+        "skin": "#af7657",
+        "hair": "#352e35",
+        "eyes": "#343a38",
+        "top": "#628d88",
+        "bottom": "#586068",
+        "shoes": "#52454a",
+        "accent": "#e3bf83",
+        "charm": "#d7b26c"
+      },
+      "baseNotice": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+    }
+  ]
+}
