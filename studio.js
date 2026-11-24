@@ -92,10 +92,10 @@
   function targets(selected = '') {
     const clip = lib.actions.get($which.value),
       field = id('action-target');
-    field.replaceChildren(option('随动作创建', ''));
+    field.replaceChildren(option(clip?.route && plan?.worldScene.some(p => p.kind === clip.route) ? '使用首个匹配设施' : '随动作创建', ''));
     const scene = plan?.score.scene || [];
     for (const [i, p] of scene.entries()) {
-      if (p.kind !== clip?.station) continue;
+      if (p.kind !== (clip?.station || clip?.route)) continue;
       const path = PineWorld.ancestors(scene, i).reverse()
         .map(n => PineWorld.items.get(scene[n].kind).label + ' · ' + (n + 1));
       field.add(option(path.join(' / '), String(i)));
@@ -318,6 +318,7 @@
   // A shared book or joined hands are hidden behind a partner in a side-on shot.
   // Let the viewer's first orbit take precedence over subsequent automatic cuts.
   const openingViews = {
+    'climb-stairs': [291, 16],
     'hold-hands': [18, 18],
     storytime: [21, 19],
     photograph: [324, 18],

@@ -196,11 +196,13 @@ export function startClearing(motion) {
     last = null;
     sync();
     sceneView = null;
-    clearing.visible = !plan.score.scene?.length;
+    const visible = plan.scenery(time);
+    const flights = new Set(plan.starts.map(t => plan.routeAt(t)).filter(p => p?.kind === 'stairs'));
+    clearing.visible = !(plan.score.scene?.length || visible.length || flights.size);
     floor.visible = !clearing.visible;
     id('rail-view').hidden = floor.visible;
     id('show-rail').parentElement.hidden = floor.visible;
-    if (plan.score.scene?.length) {
+    if (!clearing.visible) {
       cast.group.updateMatrixWorld(true);
       const box = new THREE.Box3().makeEmpty();
       cast.group.traverse((mesh) => {
@@ -209,6 +211,13 @@ export function startClearing(motion) {
           box.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld));
         }
       });
+      if (flights.size) {
+        const basis = cast.group.children[0];
+        const height = Math.max(36, ...plan.score.steps.flatMap(step => step.actors.map(id => motion.characters.get(id).rig.height)));
+        for (const p of flights)
+          for (const point of PineWorld.stairs.routeBounds(p, height))
+            box.expandByPoint(new THREE.Vector3(...point).applyMatrix4(basis.matrixWorld));
+      }
       if (!box.isEmpty()) {
         sceneView = box.getBoundingSphere(new THREE.Sphere());
         const size = box.getSize(new THREE.Vector3());

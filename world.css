@@ -247,6 +247,22 @@ input {
   flex-wrap: wrap;
   padding: 0.65rem 0.9rem;
 }
+.route-playback, .route-playback label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.route-playback {
+  border-bottom: 1px solid var(--line);
+  padding: 0.5rem 0.85rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+.route-playback label, .route-playback input { flex: 1; }
+.route-playback label { white-space: nowrap; }
+.route-playback input { width: 3rem; accent-color: var(--deep); }
+.route-playback output { font-variant-numeric: tabular-nums; }
+.route-playback button { font-size: inherit; padding: 0.28rem 0.48rem; }
 .cast-row select {
   max-width: 14rem;
 }

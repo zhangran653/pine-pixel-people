@@ -304,5 +304,66 @@ const movementActions = (() => {
       '宝宝 趴着 抬头'
     )
   );
+  // Each beat moves one sole between two marks on the actual flight. The other stays planted.
+  const stairBeats = (() => {
+    const beats = [], last = PineWorld.stairs.count + 3;
+    let marks = [[-1, 0], [-1, 0]], swing = 0;
+    function step(n, yaw) {
+      const next = marks.slice();
+      next[swing] = [n, yaw];
+      beats.push({ from: marks, to: next, swing });
+      marks = next;
+      swing = 1 - swing;
+    }
+    function rest(n) {
+      for (let i = 0; i < n; i++) beats.push({ from: marks, to: marks, swing: -1 });
+    }
+    function turn(n, yaw) {
+      for (const angle of [yaw - Math.PI / 2, yaw]) { step(n, angle); step(n, angle); }
+    }
+    rest(1);
+    for (let n = 0; n <= last; n++) step(n, 0);
+    step(last, 0);
+    rest(2);
+    turn(last, Math.PI);
+    rest(6);
+    for (let n = last - 1; n >= -1; n--) step(n, Math.PI);
+    step(-1, Math.PI);
+    turn(-1, tau);
+    rest(1);
+    return beats;
+  })();
+  function stairWalk(u, actor) {
+    const rig = actor.rig, at = clamp(u) * stairBeats.length;
+    const index = Math.min(stairBeats.length - 1, Math.floor(at)), t = at - index;
+    const beat = stairBeats[index], ease = t * t * (3 - 2 * t), arc = Math.sin(Math.PI * t) ** 2;
+    const yaw = side => mix(beat.from[side][1], beat.to[side][1], ease);
+    const heading = (yaw(0) + yaw(1)) / 2;
+    function mark([n, turn], side) {
+      const [x, z] = PineWorld.stairs.foothold(n), y = side * rig.hip[1];
+      return [x - y * Math.sin(turn), y * Math.cos(turn), z];
+    }
+    const feet = sides.map((side, i) => between(mark(beat.from[i], side), mark(beat.to[i], side), ease));
+    const x = (feet[0][0] + feet[1][0]) / 2, y = (feet[0][1] + feet[1][1]) / 2;
+    const bodyHeight = (feet[0][2] + feet[1][2]) / 2;
+    if (beat.swing >= 0) {
+      const levels = Math.abs(beat.to[beat.swing][0] - beat.from[beat.swing][0]);
+      feet[beat.swing][2] += arc * Math.max(rig.height * 0.09, levels * PineWorld.stairs.rise * PineWorld.stairs.scale * 0.7);
+    }
+    // The pixel sampling volume begins at zero. Keep its origin at the lower shoe throughout the stride.
+    const z = Math.min(feet[0][2], feet[1][2]), c = Math.cos(heading), s = Math.sin(heading);
+    const swing = beat.swing < 0 ? 0 : sides[beat.swing] * arc;
+    const stride = Math.abs(beat.to[0][0] - beat.to[1][0]);
+    const ch = { feet: feet.map(([px, py, pz]) => [c * (px - x) + s * (py - y), c * (py - y) - s * (px - x), rig.ankle + pz - z]),
+      hipOffset: [0, -swing * rig.height * 0.014, bodyHeight - z - 0.8 * stride],
+      pitch: 0.035 * stride + 0.025 * Math.abs(swing), roll: 0.025 * swing, headPitch: 0.06 * stride,
+      blink: blink(u) };
+    const rest = pose(rig, ch);
+    ch.hands = sides.map((side, i) => between(rest.arms[i].hand,
+      hand(rig, rest, i, [0.11 + side * swing * 0.3, 0.14, -0.84]), Math.abs(swing)));
+    return [entry(actor, pose(rig, ch), x, y, z, Math.atan2(s, c))];
+  }
+  clips.push({ ...solo('climb-stairs', '上下楼梯', '移动', 17, school, stairWalk, '上楼 下楼 爬楼 台阶 楼台 转身'),
+    route: 'stairs' });
   return clips;
 })();

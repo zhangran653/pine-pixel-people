@@ -81,7 +81,7 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 63,
-          "description": "场景中的物件序号，从 0 开始。物件类别须与动作的 station 相同。"
+          "description": "场景中的物件序号，从 0 开始。类别须匹配动作的 station 互动目标或 route 行走设施。"
         }
       }
     },

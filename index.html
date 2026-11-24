@@ -85,6 +85,10 @@
               ><button type="button" id="zoom-in" aria-label="放大">＋</button>
             </div>
           </div>
+          <div id="route-playback" class="route-playback" hidden>
+            <label>动作进度 <input id="world-scrub" type="range" min="0" max="1" step="0.001" value="0" /></label>
+            <output id="route-time" for="world-scrub"></output><button id="upper-landing" type="button">停在楼上</button>
+          </div>
           <div class="cast-row">
             <label>演员<select id="world-actor"></select></label
             ><label>动作<select id="world-clip"></select></label>

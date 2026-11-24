@@ -135,7 +135,7 @@ function createStudioStage(canvas) {
     view = null,
     entries = [],
     drawings = [],
-    scenery = [];
+    scenery = [], stairBounds = [];
   function camera(w, h) {
     const yaw = bearing * rad,
       elevation = tilt * rad,
@@ -204,6 +204,20 @@ function createStudioStage(canvas) {
     }
     ctx.resetTransform();
     ctx.imageSmoothingEnabled = false;
+    if (stairBounds.length) {
+      const projected = stairBounds.map(([x, y, z]) => view.project(anchorX + x, anchorY + y, z));
+      const xs = projected.map(p => p.x), ys = projected.map(p => p.y);
+      const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
+      const fit = Math.min(W / (right - left), H / (bottom - top)) * 0.88 * zoom;
+      const center = view.project(anchorX, anchorY);
+      ctx.fillStyle = '#e7eadc';
+      ctx.fillRect(0, 0, W, H);
+      compositor.draw(ctx, {
+        yaw: view.yaw, elevation: view.elevation, floorZ: 0, scaleX: fit * view.scale, scaleY: fit * view.scale,
+        x: W / 2 + fit * (center.x - (left + right) / 2), y: H / 2 + fit * (center.y - (top + bottom) / 2)
+      }, scenery, drawings);
+      return;
+    }
     ctx.drawImage(back, 0, 0, W, H);
     const sx = W / w,
       sy = H / h,
@@ -242,6 +256,10 @@ function createStudioStage(canvas) {
     });
     drawings = entries.flatMap(p => placeSliceLayers(p,
       detail === 'figure' && studioLibrary.figureLayers(p.actor, p.pose, p.model)));
+    stairBounds = scenery.filter(p => p.kind === 'stairs').flatMap(p =>
+      PineWorld.stairs.routeBounds(p, Math.max(36, ...entries.map(e => e.rig.height))));
+    if (stairBounds.length) for (const e of entries)
+      stairBounds.push([e.x, e.y, e.z], [e.x, e.y, e.z + e.rig.height]);
     draw();
   }
   function setView(angle, pitch = tilt, magnify = zoom) {

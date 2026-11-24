@@ -9,6 +9,7 @@
   const localKey = 'pinePixel.world.atlas.v1',
     rad = Math.PI / 180;
   const settings = {
+    stairs: ['庭院建筑', 'guide', 'climb-stairs', '#e5e8db', '#b5c39b', '#879d7d', '#d9caa8'],
     street: ['现代街区', 'guide', 'guide-flag', '#d5dfcf', '#a5bd87', '#7c9b72', '#d7c6a3'],
     garden: ['现实自然', 'florist', 'look-around', '#e7e4cf', '#afc38e', '#729873', '#d7c9a3'],
     study: ['现代室内', 'programmer', 'desk-code', '#e6ddd0', '#d3b48d', '#a38f71', '#e4ceaa'],
@@ -67,7 +68,7 @@
     if (key === 'study') return { ...M.presets.office, scene: structuredClone(M.presets.office.scene) };
     const actorPlacement = W.scenes[key].actorPlacement;
     return { version: 1, loop: true, scene, ...(actorPlacement ? { actorPlacement } : {}),
-      steps: [{ action, actors: ['look_' + id] }] };
+      steps: [{ action, actors: ['look_' + id], ...(key === 'stairs' ? {target: 0} : {}) }] };
   }
   function actors() {
     const select = $('world-actor');
@@ -140,6 +141,10 @@
     plan = next || M.compile(baseScore(key));
     if (requestedDetail && requestedDetail !== W.detailMode(plan.score.detail))
       plan = M.compile({ ...plan.score, detail: requestedDetail });
+    if (key === 'stairs' || sceneKey === 'stairs') {
+      angle = key === 'stairs' ? -70 : 35;
+      pitch = key === 'stairs' ? 16 : 24;
+    }
     sceneKey = key;
     activeSpace = W.items.get(plan.score.scene?.[inside]?.kind)?.interior ? inside : undefined;
     selection = activeSpace ?? 0;
@@ -191,10 +196,11 @@
         li.append(row);
         if (i !== null && W.items.get(list[i].kind).interior) {
           const view = document.createElement('button');
+          const deck = W.items.get(list[i].kind).interior.underside !== undefined;
           view.type = 'button';
           view.dataset.enter = i;
-          view.textContent = activeSpace === i ? '返回全景' : '看内部';
-          view.setAttribute('aria-label', activeSpace === i ? '返回全景' : '查看' + labelAt(list, i) + '内部');
+          view.textContent = activeSpace === i ? '返回全景' : deck ? '布置楼台' : '看内部';
+          view.setAttribute('aria-label', activeSpace === i ? '返回全景' : deck ? '布置' + labelAt(list, i) : '查看' + labelAt(list, i) + '内部');
           view.onclick = () => {
             viewSpace(activeSpace === i ? undefined : i);
             tree.querySelector('[data-enter="' + i + '"]').focus({ preventScroll: true });
@@ -213,6 +219,7 @@
   }
   function placements() {
     const list = plan.score.scene || [], el = $('placed');
+    $('route-playback').hidden = !plan.score.steps.some(s => M.actions.get(s.action).route === 'stairs');
     const rooms = list.map((p, i) => W.items.get(p.kind).interior ? i : -1).filter(i => i >= 0);
     const hasSpaces = rooms.length > 0, hasCast = plan.score.steps.length > 0;
     if (selection !== null || !hasCast) selection = Math.max(0, Math.min(selection ?? 0, list.length - 1));
@@ -241,7 +248,7 @@
     const owner = $('place-parent');
     owner.replaceChildren(option('', '场景根层'));
     for (const i of rooms) {
-      view.add(option(String(i), labelAt(list, i) + ' 内部'));
+      view.add(option(String(i), labelAt(list, i) + (W.items.get(list[i].kind).interior.underside !== undefined ? ' 楼面' : ' 内部')));
       if (isCast || !W.ancestors(list, i).includes(selection)) owner.add(option(String(i), labelAt(list, i)));
     }
     view.value = activeSpace ?? '';
@@ -252,7 +259,7 @@
     const target = isCast ? plan.score.steps[0]?.target : undefined;
     hint.hidden = !hasSpaces && !isCast;
     hint.textContent = target !== undefined ? '首段动作跟随「' + labelAt(list, target) + '」。这里设置自由动作的起点。' :
-      item?.parent !== undefined ? '坐标相对「' + labelAt(list, item.parent) + '」，高度 0 是室内地面。' :
+      item?.parent !== undefined ? '坐标相对「' + labelAt(list, item.parent) + '」，高度 0 是地板表面。' :
       isCast && hasSpaces ? '高度相对场景地面。人物走进有底座的建筑，会自动站到地板上。' :
       (item?.kind && W.items.get(item.kind).interior ? '移动或旋转建筑，里面的人物和物件会一起移动。' : '坐标相对整个场景。');
     for (const k of ['x', 'y', 'z', 'heading']) {
@@ -389,7 +396,8 @@
     grass: '草地',
     lamp: '灯具 书桌',
     shuttle: '飞船 太空',
-    pavilion: '古建筑 凉亭'
+    pavilion: '古建筑 凉亭',
+    stairs: '楼梯 台阶 上楼 下楼 楼层 平台 露台 二层 二楼'
   };
   function catalog() {
     thumbs.disconnect();
@@ -468,7 +476,12 @@
     const framing = placements.map(p => ({ ...p, ...W.geometry(p.kind, 'standard') }));
     const all = [...framing, ...actorDrawings];
     // Include the ground footprint during framing so placed items remain visible from every azimuth.
-    const points = all.flatMap(corners);
+    const route = cue?.clip.route;
+    const points = (route ? framing : all).flatMap(corners);
+    if (route === 'stairs') {
+      const p = plan.routeAt(t);
+      points.push(...W.stairs.routeBounds(p, actorDrawings[0].actor.rig.height));
+    }
     const bounds = (axis, def, fn) => fn(def, ...points.map((p) => p[axis]));
     const x0 = bounds(0, -15, Math.min) - 7,
       x1 = bounds(0, 15, Math.max) + 7,
@@ -573,6 +586,11 @@
     }, objects, actorLayers);
     $('world-angle').value = angle;
     $('angle-label').textContent = Math.round(angle) + '°';
+    const scrub = $('world-scrub');
+    if (!$('route-playback').hidden) {
+      scrub.value = plan.duration ? t / plan.duration : 0;
+      $('route-time').textContent = t.toFixed(1) + ' / ' + plan.duration.toFixed(1) + ' 秒';
+    }
   }
   function orient(a) {
     angle = ((((a + 180) % 360) + 360) % 360) - 180;
@@ -586,8 +604,8 @@
   $('zoom-in').onclick = () => magnify(1.15);
   $('zoom-out').onclick = () => magnify(1 / 1.15);
   $('world-reset-view').onclick = () => {
-    angle = 35;
-    pitch = 24;
+    angle = sceneKey === 'stairs' ? -70 : 35;
+    pitch = sceneKey === 'stairs' ? 16 : 24;
     zoom = 1;
     draw();
   };
@@ -639,6 +657,21 @@
     }
   }
   $('world-play').onclick = () => play(!playing);
+  $('world-scrub').oninput = e => {
+    play(false);
+    t = Number(e.target.value) * plan.duration;
+    lastSample = '';
+    draw();
+  };
+  $('upper-landing').onclick = () => {
+    const cue = plan.locate(t);
+    const index = cue?.clip.route === 'stairs' ? cue.index : plan.score.steps.findIndex(s => M.actions.get(s.action).route === 'stairs');
+    if (index < 0) return;
+    play(false);
+    t = plan.starts[index] + ((cue?.index === index ? cue.iteration : 0) + 0.5) * plan.score.steps[index].seconds;
+    lastSample = '';
+    draw();
+  };
   $('world-query').oninput = catalog;
   $('world-family').onchange = catalog;
   $('world-realm').onchange = catalog;
@@ -715,6 +748,9 @@
   const inside = query.get('inside');
   loadScene(sceneKey, incoming, detail === 'figure' || detail === 'standard' ? detail : undefined,
     inside !== null && /^\d+$/.test(inside) ? Number(inside) : undefined);
+  const phase = Number(query.get('phase'));
+  if (phase > 0 && phase <= 1) { t = phase * plan.duration; lastSample = ''; draw(); }
+  if (query.get('play') === '1') play(true);
   catalog();
   new ResizeObserver(draw).observe(canvas);
 })();

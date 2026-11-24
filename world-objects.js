@@ -34,7 +34,8 @@ const PineWorld = (() => {
     shine: 'd9fff2',
     night: '404560',
     sand: 'd7b77d',
-    stone: '91a49e'
+    stone: '91a49e',
+    stoneJoint: '839790'
   };
   const materials = Object.fromEntries(
     Object.entries(worldColors).map(([key, value]) => ['world_' + key, value])
@@ -288,6 +289,58 @@ const PineWorld = (() => {
     ['dome', '观测站穹顶', ['scifi']]
   ])
     item(id, label, 'buildings', eras, [48, 44, 36], 0, {}, building(id));
+  const stairs = {
+    count: 14, tread: 3, rise: 2, start: -28, halfWidth: 8, landing: 14, deck: 2, scale: 2.5,
+    // World-unit foot marks. Marks before the flight and past its last tread are level.
+    foothold(n) {
+      return [(this.start + (n - 0.5) * this.tread) * this.scale,
+        Math.max(0, Math.min(this.count, n)) * this.rise * this.scale];
+    },
+    routeBounds(p, height) {
+      const points = [], c = Math.cos(p.heading), s = Math.sin(p.heading);
+      for (const n of [-1, this.count + 3]) {
+        const [center, floor] = this.foothold(n);
+        for (const x of [center - 0.35 * height, center + 0.35 * height])
+          for (const y of [-this.halfWidth * this.scale, this.halfWidth * this.scale])
+            for (const z of [0, floor + 1.15 * height])
+              points.push([p.x + c * x - s * y, p.y + s * x + c * y, p.z + z]);
+      }
+      return points;
+    }
+  };
+  item('stairs', '木踏步楼梯与楼台', 'buildings', all, [60, 22, 42], 0, {}, ({ box, line, k }) => {
+    const { count, tread, rise, start, halfWidth: w, landing, deck } = stairs;
+    const end = start + count * tread, top = count * rise, railY = w - 0.7, railHeight = 9;
+    for (let i = 0; i < count; i++) {
+      const x = start + (i + 0.5) * tread, z = (i + 1) * rise;
+      box([x, 0, z / 2], [tread / 2, w, z / 2], k.stone);
+      box([x, 0, z - 0.5], [tread / 2, w + 0.35, 0.5], i % 2 ? k.timber : k.wood);
+      if (i % 3 === 0) box([x, railY, z + railHeight / 2], [0.45, 0.55, railHeight / 2], k.iron);
+    }
+    for (const side of [-w, w]) {
+      for (let z = 4; z < top; z += 4) {
+        const left = start + (z / rise) * tread;
+        box([(left + end) / 2, side, z], [(end - left) / 2, 0.28, 0.24], k.stoneJoint);
+        for (let x = left + (z % 8 ? 2 : 5); x < end - 0.5; x += 8)
+          box([x, side, z - 2], [0.25, 0.28, 2], k.stoneJoint);
+      }
+    }
+    box([end + landing / 2, 0, top - deck / 2], [landing / 2, w, deck / 2], k.bark);
+    for (let board = 0; board < 7; board++)
+      box([end + 1 + board * 2, 0, top - 0.5], [1, w + 0.35, 0.5], board % 3 ? k.timber : k.wood);
+    for (const y of [-railY, railY]) {
+      box([end + landing - 1, y, top / 2], [0.9, 0.9, top / 2], k.iron);
+      line([end + landing - 1, y, top - 7], [end + landing - 6, y, top - deck], 0.7, k.steelBlue);
+    }
+    for (const x of [end, end + landing - 1])
+      box([x, railY, top + railHeight / 2], [0.55, 0.55, railHeight / 2], k.iron);
+    for (const up of [4, railHeight]) {
+      const a = [start + tread / 2, railY, rise + up], b = [end - tread / 2, railY, top + up];
+      line(a, b, up === railHeight ? 0.8 : 0.42, up === railHeight ? k.bark : k.steelBlue);
+      line(b, [end + landing - 0.5, railY, top + up], up === railHeight ? 0.8 : 0.42,
+        up === railHeight ? k.bark : k.steelBlue);
+    }
+  });
   const deskTop = { x: 10, y: 17, height: 21.1 };
   function furniture(kind) {
     return ({ box, line, oval, k, item }) => {
@@ -480,6 +533,7 @@ const PineWorld = (() => {
     cottage: 2.5,
     pavilion: 2.55,
     stall: 2.35,
+    stairs: stairs.scale,
     dome: 2.85,
     pine: 1.65,
     oak: 1.75,
@@ -492,6 +546,10 @@ const PineWorld = (() => {
     ['pavilion', stoneFloor, 20, 16, 14], ['stall', stoneFloor, stallEaves, 16, 14],
     ['cottage', stoneFloor, 19.8, 12.6, 10.6], ['dome', domeFloor, 13, 13, 11]
   ]) items.get(id).interior = { floor, cutHeight, footprint: [halfX, halfY] };
+  const landingHeight = stairs.count * stairs.rise;
+  items.get('stairs').interior = { floor: landingHeight, underside: landingHeight - stairs.deck,
+    origin: [stairs.start + stairs.count * stairs.tread + stairs.landing / 2, 0],
+    footprint: [stairs.landing / 2, stairs.halfWidth] };
   function register(def, paint) {
     const { id, label, family, realms: eras, box, lift = 0, scale = 1, anchors = {} } = def;
     if (
@@ -534,6 +592,11 @@ const PineWorld = (() => {
     if (interior?.footprint !== undefined && (!Array.isArray(interior.footprint) || interior.footprint.length !== 2 ||
         !interior.footprint.every((n, i) => Number.isFinite(n) && n > 0 && n <= box[i] / 2)))
       throw Error('室内地坪范围需要两个有效的半宽');
+    if (interior?.origin !== undefined && (!Array.isArray(interior.origin) || interior.origin.length !== 2 ||
+        !interior.origin.every((n, i) => Number.isFinite(n) && Math.abs(n) <= box[i] / 2)))
+      throw Error('地坪原点需要采样盒内的两个平面坐标');
+    if (interior?.underside !== undefined && (!Number.isFinite(interior.underside) || interior.underside < 0 || interior.underside >= interior.floor))
+      throw Error('架空楼板的底面须低于楼面');
     item(
       id,
       label,
@@ -547,7 +610,9 @@ const PineWorld = (() => {
     const entry = items.get(id);
     entry.scale = scale;
     if (interior) entry.interior = { floor: interior.floor, cutHeight: interior.cutHeight ?? interior.floor,
-      footprint: interior.footprint?.slice() ?? [box[0] / 2, box[1] / 2] };
+      footprint: interior.footprint?.slice() ?? [box[0] / 2, box[1] / 2],
+      ...(interior.origin ? { origin: interior.origin.slice() } : {}),
+      ...(interior.underside === undefined ? {} : { underside: interior.underside }) };
     return entry;
   }
   const cache = new Map();
@@ -584,7 +649,7 @@ const PineWorld = (() => {
   // Reuse the original voxels. Keep the floor and the far side below the eaves.
   function cutaway(id, detail, bearing) {
     const whole = geometry(id, detail), def = items.get(id);
-    if (!def.interior) return [whole];
+    if (!def.interior || def.interior.underside !== undefined) return [whole];
     const { body, model } = whole, c = Math.cos(bearing), s = Math.sin(bearing);
     const axis = Math.abs(c) >= Math.abs(s) ? 0 : 1, nearPositive = (axis === 0 ? c : s) > 0;
     const key = axis * 2 + Number(nearPositive);
@@ -605,6 +670,11 @@ const PineWorld = (() => {
     return parts;
   }
   const scenes = {
+    stairs: {
+      label: '楼梯与二层露台',
+      objects: [place('stairs'), { ...place('plant', 6.5, 12), parent: 0 },
+        place('daisies', -72, 21), place('grass', -56, 26)]
+    },
     street: {
       label: '街角出行',
       objects: [
@@ -689,14 +759,20 @@ const PineWorld = (() => {
     }
     return p;
   }
-  function inside(room, p) {
+  function floorOrigin(room) {
     const { scale, interior } = items.get(room.kind), c = Math.cos(room.heading), s = Math.sin(room.heading);
+    const [dx, dy] = interior.origin || [0, 0];
+    return { x: room.x + (c * dx - s * dy) * scale, y: room.y + (s * dx + c * dy) * scale,
+      z: room.z + interior.floor * scale, heading: room.heading };
+  }
+  function inside(room, p) {
+    const origin = floorOrigin(room), c = Math.cos(room.heading), s = Math.sin(room.heading);
     const angle = room.heading + p.heading;
     return {
       ...(p.kind === undefined ? {} : { kind: p.kind }),
-      x: room.x + c * p.x - s * p.y,
-      y: room.y + s * p.x + c * p.y,
-      z: room.z + interior.floor * scale + p.z,
+      x: origin.x + c * p.x - s * p.y,
+      y: origin.y + s * p.x + c * p.y,
+      z: origin.z + p.z,
       heading: Math.abs(angle) <= Math.PI ? angle : Math.atan2(Math.sin(angle), Math.cos(angle))
     };
   }
@@ -708,12 +784,24 @@ const PineWorld = (() => {
     return Math.abs(surface.c * dx + surface.s * dy) <= surface.halfX + 1e-8 &&
       Math.abs(surface.c * dy - surface.s * dx) <= surface.halfY + 1e-8;
   }
+  function floorSurface(p) {
+    const { interior, scale } = items.get(p.kind), origin = floorOrigin(p);
+    return horizontalSurface(origin, interior.footprint[0] * scale, interior.footprint[1] * scale,
+      p.z + (interior.underside || 0) * scale, origin.z);
+  }
   function supportScene(placements) {
     const floors = [];
     for (const p of placements) {
       const { interior, scale } = items.get(p.kind);
-      if (interior) floors.push(horizontalSurface(p, interior.footprint[0] * scale, interior.footprint[1] * scale,
-        p.z, p.z + interior.floor * scale));
+      if (interior) floors.push(floorSurface(p));
+      if (p.kind === 'stairs') {
+        const { count, tread, rise, start, halfWidth } = stairs;
+        function strip(x, length, bottom, top) {
+          const center = { ...p, x: p.x + Math.cos(p.heading) * x * scale, y: p.y + Math.sin(p.heading) * x * scale };
+          floors.push(horizontalSurface(center, length * scale / 2, halfWidth * scale, p.z + bottom * scale, p.z + top * scale));
+        }
+        for (let i = 0; i < count; i++) strip(start + (i + 0.5) * tread, tread, 0, (i + 1) * rise);
+      }
     }
     if (!floors.length) return;
     // Walk up connected slabs in order. A raised building with air underneath stays overhead.
@@ -746,6 +834,11 @@ const PineWorld = (() => {
     return floorAt;
   }
   const resolvedScenes = new WeakSet();
+  function withScenery(placements, extra) {
+    const result = [...placements, extra];
+    resolvedScenes.add(result);
+    return result;
+  }
   function layout(raw, actor) {
     if (!Array.isArray(raw) || raw.length > 64) throw Error('场景最多容纳 64 个物件');
     const scene = Array.from(raw, p => placement(p, raw)), worldScene = [], visiting = new Set();
@@ -773,7 +866,16 @@ const PineWorld = (() => {
     const actorPlacement = actor === undefined ? undefined : placement(actor, raw, true);
     const castFrame = actorPlacement?.parent === undefined ? actorPlacement :
       inside(worldScene[actorPlacement.parent], actorPlacement);
-    return { scene, worldScene, actorPlacement, castFrame, floorAt, scenery };
+    let actorFloorAt = floorAt;
+    if (actorPlacement?.parent !== undefined) {
+      const rooms = ancestors(scene, actorPlacement.parent).map(i => floorSurface(worldScene[i]));
+      actorFloorAt = (x, y) => {
+        let z = 0;
+        for (const room of rooms) if (covers(room, x, y)) z = Math.max(z, room.top);
+        return floorAt(x, y, z) + actorPlacement.z;
+      };
+    }
+    return { scene, worldScene, actorPlacement, castFrame, floorAt, actorFloorAt, scenery };
   }
   const normalize = raw => layout(raw).scene;
   const resolveScene = raw => resolvedScenes.has(raw) ? raw : layout(raw).worldScene;
@@ -792,10 +894,10 @@ const PineWorld = (() => {
     return { ...inside(room, p), ...(room.parent === undefined ? {} : { parent: room.parent }) };
   }
   function relativeToRoom(room, p) {
-    const def = items.get(room.kind), dx = p.x - room.x, dy = p.y - room.y;
+    const origin = floorOrigin(room), dx = p.x - origin.x, dy = p.y - origin.y;
     const c = Math.cos(room.heading), s = Math.sin(room.heading), angle = p.heading - room.heading;
     return { x: c * dx + s * dy, y: -s * dx + c * dy,
-      z: p.z - room.z - def.scale * def.interior.floor, heading: Math.atan2(Math.sin(angle), Math.cos(angle)) };
+      z: p.z - origin.z, heading: Math.atan2(Math.sin(angle), Math.cos(angle)) };
   }
   function onFootprint(room, local) {
     const { scale, interior } = items.get(room.kind);
@@ -827,7 +929,8 @@ const PineWorld = (() => {
     if (!def?.interior) throw Error('请选择可容纳物件的建筑');
     const members = [];
     function consider(i, p) {
-      if (p.parent !== room.parent || p.z < room.z || p.z >= room.z + def.box[2] * def.scale) return;
+      if (p.parent !== room.parent || p.z < room.z + (def.interior.underside || 0) * def.scale ||
+          p.z >= room.z + def.box[2] * def.scale) return;
       const local = relativeToRoom(room, p);
       if (onFootprint(room, local)) members.push({ i, p, local });
     }
@@ -861,7 +964,7 @@ const PineWorld = (() => {
     return { ...score, scene: scene.filter((_, i) => i !== index).map(adopt), steps,
       ...(actorPlacement ? { actorPlacement: adopt(actorPlacement) } : {}) };
   }
-  return { realms, families, items, painters, materials, geometry, cutaway, detailMode, place, scenes,
-    normalize, resolveScene, layout, ancestors, reparent, collectContents, removePlacement, register };
+  return { realms, families, items, painters, materials, geometry, cutaway, detailMode, place, scenes, stairs,
+    normalize, resolveScene, layout, withScenery, ancestors, reparent, collectContents, removePlacement, register };
 })();
 globalThis.PineWorld = PineWorld;

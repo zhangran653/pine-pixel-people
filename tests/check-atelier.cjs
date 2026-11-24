@@ -773,6 +773,21 @@ function checkWorldEditor() {
     set('place-x', -17);
     set('world-detail', 'standard');
     check(Math.abs(scenePlan().sample(0)[0].z - 4.7) < 1e-7, 'returning to the stall uses its floor at standard quality too');
+    set('world-scene', 'stairs');
+    check(get('world-clip').value === 'climb-stairs' && !get('route-playback').hidden, 'stair scene with timeline');
+    const downstairs = get('world-canvas').toDataURL();
+    get('upper-landing').click();
+    check(get('world-scrub').valueAsNumber === 0.5 && get('world-canvas').toDataURL() !== downstairs, 'pause with both feet upstairs');
+    set('world-scrub', 0, 'input');
+    check(get('world-canvas').toDataURL() === downstairs, 'scrub back to the approach with the same camera');
+    set('place-heading', 90);
+    set('place-z', 8);
+    const climb = scenePlan(), top = climb.sample(climb.duration / 2)[0];
+    check(Math.abs(top.z - 78) < 1e-7 && top.y > 45 && climb.scenery(0).filter(p => p.kind === 'stairs').length === 1,
+      'a rotated and elevated stair route stays bound through the studio handoff');
+    const pot = climb.worldScene.find(p => p.kind === 'plant');
+    check(Math.abs(pot.x + 12) < 1e-6 && Math.abs(pot.y - 59) < 1e-6 && Math.abs(pot.z - 78) < 1e-6,
+      'the editable potted plant follows the upper landing');
     status.dataset.state = 'pass';
     status.textContent =
       'World filters, scene placement, interior views, hierarchy edits, rotation, quality, playback, and score handoff passed';

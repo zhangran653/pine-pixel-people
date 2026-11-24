@@ -56,6 +56,7 @@ const studioLibrary = (() => {
     sample,
     keywords = '',
     station,
+    route,
     previewTurn = false
   }) {
     if (
@@ -70,6 +71,7 @@ const studioLibrary = (() => {
       seconds <= 0
     )
       throw new Error('动作定义无效或 ID 重复');
+    if (route !== undefined && (station || !PineWorld.items.has(route))) throw new Error('行走路线需要已注册的场景设施');
     if (
       !Array.isArray(roles) ||
       roles.length < 1 ||
@@ -86,6 +88,7 @@ const studioLibrary = (() => {
       sample,
       keywords,
       previewTurn,
+      ...(route ? { route } : {}),
       ...(station ? { station } : {})
     };
     actions.set(id, clip);
@@ -395,7 +398,7 @@ const studioLibrary = (() => {
     if (!Number.isFinite(seconds) || seconds <= 0) fail('单次时长须为正数');
     if (!Number.isSafeInteger(repeat) || repeat < 1 || !Number.isFinite(seconds * repeat))
       fail('重复次数或总时长无效');
-    if (step.target !== undefined && (!clip.station || !Number.isSafeInteger(step.target) || step.target < 0))
+    if (step.target !== undefined && (!(clip.station || clip.route) || !Number.isSafeInteger(step.target) || step.target < 0))
       fail('此动作无法绑定指定物件');
     return {
       action: clip.id,
@@ -431,9 +434,18 @@ const studioLibrary = (() => {
         steps: input.steps.map((step, index) => validateStep(step, index, cast))
       },
       starts = [];
-    for (const step of score.steps)
-      if (step.target !== undefined && score.scene?.[step.target]?.kind !== actions.get(step.action).station)
+    const routes = new Map();
+    for (const step of score.steps) {
+      const clip = actions.get(step.action);
+      if (step.target !== undefined && score.scene?.[step.target]?.kind !== (clip.station || clip.route))
         throw Error('动作绑定的场景物件缺失或类型不符');
+      if (clip.route && !routes.has(clip.route)) {
+        const placed = worldScene.find(p => p.kind === clip.route);
+        const base = castFrame || origin;
+        const obj = placed || { kind: clip.route, ...base, z: floorAt ? floorAt(base.x, base.y, base.z) : base.z };
+        routes.set(clip.route, { obj, scenery: placed ? worldScene : PineWorld.withScenery(worldScene, obj) });
+      }
+    }
     let duration = 0;
     for (const step of score.steps) {
       starts.push(duration);
@@ -460,12 +472,17 @@ const studioLibrary = (() => {
       const u = at === duration ? 1 : studioRig.clamp(progress - iteration);
       return { index, iteration, u, step, clip: actions.get(step.action) };
     }
+    function routeFor(cue) {
+      return cue?.clip.route ? worldScene[cue.step.target] || routes.get(cue.clip.route).obj : undefined;
+    }
     function sample(t) {
       const cue = locate(t);
       if (!cue) return [];
       const entries = cue.clip.sample(cue.u, ...cue.step.actors.map((id) => cast.get(id)));
       let frame = castFrame;
-      if (cue.step.target !== undefined) {
+      if (cue.clip.route) {
+        frame = routeFor(cue);
+      } else if (cue.step.target !== undefined) {
         const first = entries[0], destination = worldScene[cue.step.target];
         const fixture = first.pose.props.find(p => p.kind === cue.clip.station).frame;
         const origin = studioRig.world(first, [fixture[3], fixture[7], fixture[11]]);
@@ -475,15 +492,15 @@ const studioLibrary = (() => {
           y: destination.y - s * origin[0] - c * origin[1], z: destination.z - origin[2], heading };
       }
       let surfaces;
-      if (floorAt && entries.length) {
-        const base = frame || origin;
+      if (floorAt && entries.length && !cue.clip.route) {
+        const base = frame || origin, support = cue.step.target === undefined ? layout.actorFloorAt : floorAt;
         surfaces = entries.map(e => {
           const [x, y] = studioRig.world(base, [e.x, e.y, 0]);
           const root = { x, y, z: 0, heading: base.heading + e.heading };
-          if (!e.pose.feet?.length) return [floorAt(x, y, base.z)];
+          if (!e.pose.feet?.length) return [support(x, y, base.z)];
           return e.pose.feet.map(foot => {
             const [fx, fy] = studioRig.world(root, foot);
-            return floorAt(fx, fy, base.z);
+            return support(fx, fy, base.z);
           });
         });
         if (cue.step.target === undefined) {
@@ -491,7 +508,7 @@ const studioLibrary = (() => {
           const feet = entries[0].pose.feet, levels = surfaces[0];
           const level = feet?.length === 2 && Math.abs(feet[0][2] - feet[1][2]) > 1e-6
             ? levels[feet[0][2] < feet[1][2] ? 0 : 1] : Math.min(...levels);
-          if (level > base.z) frame = { ...base, z: level };
+          if (Math.abs(level - base.z) > 1e-8) frame = { ...base, z: level };
         }
         if (!frame && surfaces.some(levels => levels.some(z => z > 0))) frame = origin;
       }
@@ -509,9 +526,11 @@ const studioLibrary = (() => {
       });
     }
     function scenery(t) {
-      return layout.scenery ? layout.scenery(locate(t)?.step.target) : worldScene;
+      const cue = locate(t);
+      if (cue?.clip.route) return routes.get(cue.clip.route).scenery;
+      return layout.scenery ? layout.scenery(cue?.step.target) : worldScene;
     }
-    return { score, worldScene, castFrame, starts, duration, locate, sample, scenery };
+    return { score, worldScene, castFrame, starts, duration, locate, sample, scenery, routeAt: t => routeFor(locate(t)) };
   }
   return {
     version: 1,

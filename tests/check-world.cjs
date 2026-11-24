@@ -188,6 +188,9 @@ const stallOffice = { ...flatStall, scene: [
   near(run.sample(0)[0].z, 4.7);
   near(run.sample(run.duration / 2)[0].z, 0);
   near(run.sample(run.duration)[0].z, 4.7);
+  const resident = motion.compile({ ...run.score, actorPlacement: { parent: 0, y: 20 } });
+  near(resident.sample(0)[0].z, 4.7);
+  near(resident.sample(resident.duration / 2)[0].z, 0);
   const edge = motion.compile({ ...flatStall, actorPlacement: { y: 32.9 } }).sample(0)[0];
   const ordinary = motion.compile({ ...flatStall, scene: [] }).sample(0)[0];
   const ankle = find('look_scholar').rig.ankle;
@@ -213,6 +216,52 @@ const stallOffice = { ...flatStall, scene: [
     const plan = motion.compile(motion.presets[id]);
     assert.equal(plan.score.actorPlacement.parent, 0);
     near(plan.sample(0)[0].z, 4.7);
+  }
+}
+// Check shoe contact against the rendered cells, not the height function used by the gait.
+{
+  const flight = world.stairs, close = (a, b) => assert.ok(Math.abs(a - b) < 1e-6, a + ' vs ' + b);
+  const sampleZ = (geometry, x, y) => {
+    const { body: { nx, ny, nz, density }, model } = geometry;
+    const ix = Math.floor(nx / 2 + x * density), iy = Math.floor(ny / 2 + y * density);
+    if (ix < 0 || iy < 0 || ix >= nx || iy >= ny) return 0;
+    for (let z = nz - 1; z >= 0; z--) if (model.colors[(z * ny + iy) * nx + ix]) return (z + 1) / density;
+    return 0;
+  };
+  const scene = [world.place('stairs')], geometry = world.geometry('stairs');
+  const terrain = world.layout(scene);
+  for (let n = 0; n <= flight.count + 3; n++) {
+    const [x, height] = flight.foothold(n);
+    for (const detail of ['figure', 'standard']) close(sampleZ(world.geometry('stairs', detail), x, 0), height);
+    close(terrain.floorAt(x, 0, height), height);
+    if (n > flight.count) close(terrain.floorAt(x, 0, 0), 0); // open space below the upper landing
+  }
+  for (const id of ['look_guide', 'child']) {
+    const actor = find(id), scores = { version: 1, loop: true, steps: [{ action: 'climb-stairs', actors: [id] }] };
+    const plan = motion.compile(scores), levels = new Set();
+    assert.equal(plan.scenery(1)[0].kind, 'stairs');
+    assert.equal(plan.score.scene, undefined, 'temporary preview geometry is separate from the authored scene');
+    for (let frame = 0; frame <= 400; frame++) {
+      const e = plan.sample(frame / 400 * plan.duration)[0];
+      const gaps = e.pose.feet.map(foot => {
+        const [x, y, ankle] = motion.rig.world(e, foot), floor = sampleZ(geometry, x, y), gap = ankle - actor.rig.ankle - floor;
+        if (Math.abs(gap) < 1e-6) levels.add(Math.round(floor * 100) / 100);
+        return gap;
+      });
+      close(Math.min(...gaps), 0);
+    }
+    assert.equal(levels.size, flight.count + 1);
+    const start = plan.sample(0)[0], upper = plan.sample(plan.duration / 2)[0], end = plan.sample(plan.duration)[0];
+    close(upper.z, 70); close(start.z, 0); close(end.z, 0); close(start.x, end.x); close(start.heading, end.heading);
+    assert.ok(upper.x - start.x > 100);
+    for (const foot of upper.pose.feet) close(motion.rig.world(upper, foot)[2] - actor.rig.ankle, 70);
+    const instance = world.place('stairs', 21, -34, 8, Math.PI / 2);
+    const bound = motion.compile({ ...scores, scene: [...scene, instance], steps: [{ ...scores.steps[0], target: 1 }] });
+    const e = bound.sample(bound.duration / 2)[0], p = motion.rig.world(instance, [upper.x, upper.y, upper.z]);
+    close(e.x, p[0]); close(e.y, p[1]); close(e.z, p[2]);
+    assert.equal(bound.scenery(1), bound.worldScene);
+    assert.deepEqual(clone(store.readScoreFile(store.scoreFile(bound.score)).score), clone(bound.score));
+    assert.throws(() => motion.compile({ ...scores, scene: [world.place('desk')], steps: [{ ...scores.steps[0], target: 0 }] }));
   }
 }
 for (const [id, asset] of world.items) {
