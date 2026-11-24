@@ -99,6 +99,63 @@ for (const id of ['look_body_male', 'look_body_female', 'look_relay', 'look_work
   }
 }
 const skull = vm.runInContext('pineHeadShape', context);
+// Measure the actual fine voxels, with one world-space pitch for both releases.
+function sideProfile(actor) {
+  const pose = motion.rig.pose(actor.rig);
+  const point = (name) => motion.rig.socket(actor, pose, name);
+  const eye = point('leftEye'), mouth = point('mouth'), ear = point('leftEarCanal'), chin = point('chinTip');
+  const band = actor.body.faceLayers(pose, actor.body.makePose(pose), chin[2] - 1, 4)[1];
+  const { body, model } = band, d = body.density;
+  assert.equal(d, 4);
+  function edges(y, z) {
+    const row = Math.floor((y - band.y) * d + body.ny / 2);
+    const layer = Math.floor((z - band.z) * d);
+    const start = (layer * body.ny + row) * body.nx;
+    const line = model.colors.subarray(start, start + body.nx);
+    const first = line.findIndex(Boolean), last = line.findLastIndex(Boolean);
+    assert.ok(first >= 0 && last > first);
+    return [first, last].map((i) => band.x + (i + 0.5 - body.nx / 2) / d);
+  }
+  const [rear, brow] = edges(0, eye[2] + 0.5 * (eye[2] - mouth[2]));
+  const cheek = edges(0.49 * ear[1], 0.53 * eye[2] + 0.47 * mouth[2])[1];
+  return { rear, brow, depth: brow - rear, cheek, chin: chin[0], lip: mouth[0] };
+}
+for (const id of ['look_body_male', 'look_fern', 'look_workshop_toddler', 'look_workshop_baby']) {
+  const doc = looks.templateById.get(id);
+  const build = (pin, shape = {}) => looks.build({
+    ...doc, packs: { 'pine-core': pin }, parts: { ...doc.parts, hair: 'bald', hat: 'none', neck: 'none' },
+    shape: { ...doc.shape, ...shape }
+  });
+  const old = build(looks.mandibleRelease), current = build(looks.release);
+  const before = sideProfile(old), after = sideProfile(current);
+  assert.ok(after.depth > 1.15 * before.depth && after.depth < 1.35 * before.depth, id + ' sagittal fit');
+  assert.ok(after.rear < before.rear && after.brow > before.brow, id + ' forehead and occiput');
+  assert.ok(after.cheek > before.cheek + 0.5 && after.chin > before.chin + 0.5, id + ' face and chin');
+  const shallow = build(looks.release, { headDepth: 0.8 }), deep = build(looks.release, { headDepth: 1.2 });
+  assert.ok(sideProfile(deep).depth > 1.4 * sideProfile(shallow).depth, id + ' head depth control');
+  for (const actor of [current, shallow, deep]) {
+    for (const name of ['headPivot', 'collar', 'leftEarCanal', 'rightEarCanal', 'leftJawJoint', 'rightJawJoint', 'leftJawAngle', 'rightJawAngle'])
+      assert.ok(distance(actor.sockets[name].point, old.sockets[name].point) < 1e-8, id + ' ' + name);
+    assert.deepEqual(actor.sockets.leftEye.point.slice(1), old.sockets.leftEye.point.slice(1));
+    assert.equal(actor.sockets.chinTip.point[2], old.sockets.chinTip.point[2]);
+  }
+  const soft = sideProfile(build(looks.release, { faceRelief: 0 }));
+  const raised = sideProfile(build(looks.release, { faceRelief: 1.8 }));
+  assert.equal(soft.depth, raised.depth);
+  assert.equal(soft.lip, raised.lip);
+  assert.ok(raised.cheek > soft.cheek && raised.chin > soft.chin, id + ' relief independent of head depth');
+}
+for (const [key, min, max] of [['headDepth', 0.8, 1.2], ['faceRelief', 0, 1.8]]) {
+  const seed = looks.templateById.get('look_body_male');
+  const variant = (v) => ({ ...seed, shape: { ...seed.shape, [key]: v } });
+  assert.deepEqual([shapeDefs[key].minimum, shapeDefs[key].maximum, shapeDefs[key].default], [min, max, 1]);
+  for (const v of [min, max]) {
+    assert.equal(looks.prepare(variant(v)).recipe.shape[key], v);
+    assert.throws(() => looks.prepare({ ...variant(v), packs: { 'pine-core': looks.mandibleRelease } }));
+  }
+  assert.ok(!Object.hasOwn(looks.prepare(variant(1)).recipe.shape, key));
+  assert.throws(() => looks.prepare(variant(max + 0.01)));
+}
 // Opening the jaw passes through the ear-side condyles, not the pitch joint in the cranium.
 for (const id of ['look_body_male', 'look_relay', 'look_workshop_toddler', 'look_workshop_baby']) {
   const doc = looks.templateById.get(id), a = looks.build(doc), rest = motion.rig.pose(a.rig);

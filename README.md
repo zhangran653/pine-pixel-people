@@ -27,6 +27,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 1.10.1 新增左右耳前的下颌关节。「侧面试张口」会显示下颌从耳道前下方经过下颌角到颏尖的走向。上唇与头骨一起保持稳定，下唇与下巴绕耳前的轴向下运动，较大张口时关节会稍向前滑。打哈欠和双人交谈也使用这个动作通道。已有 1.10.0 人物可在「五官」预览升级。[打开张合嘴演示](http://127.0.0.1:8000/atelier.html?preset=look_body_male&tab=face&bearing=90&points=1&action=open-mouth&play=1) · [正侧面张口动图](jaw-hinge-preview.gif)
 
+1.11.0 按参考网格的前后径与头宽重配头型。打开「五官 → 侧面轮廓」，用「头部前后径」调额头到后脑的距离，用「面部起伏」调鼻根、颧颊和颏尖的体积。要单独改变下巴的位置，可在「下巴与下颌」调「下巴前后」。1.10.1 存档可点「试用新侧面轮廓」，满意后保存。[裸头侧面](http://127.0.0.1:8000/atelier.html?preset=look_body_male&tab=face&hair=bald&bearing=90) · [短发斜前视角](http://127.0.0.1:8000/atelier.html?preset=look_body_male&tab=face&hair=crop&bearing=45) · [同镜头的正侧面和全身对照](head-depth-preview.png)
+
 物件库含 52 件素材，分为交通、植物、建筑、家具照明、书写数码、日用文娱、职业器具与奇幻科技装置。用途与时代可以交叉筛选。勘探车和双发飞机复用了原始 28 层图像。新增家具和手持物共享人物动作使用的绘制坐标，可注册新的物件类型。[物件与场景规范](world-standard.md) · [开发者工作日](packs/office-world.json)
 
 ## 动作工坊

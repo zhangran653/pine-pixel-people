@@ -22,6 +22,8 @@
     jawAngle: '下颌后角高低',
     jawNeck: '颌颈接点前后',
     occiput: '后脑深度',
+    headDepth: '头部前后径',
+    faceRelief: '面部起伏',
     mouthHeight: '嘴部高低',
     eyes: '眼型',
     brows: '眉形',
@@ -56,7 +58,7 @@
   };
   const tabKeys = {
     shape: ['height', 'shoulders', 'arms', 'legs'],
-    face: ['faceWidth', 'eyeSpacing', 'jaw', 'mouthHeight', 'occiput']
+    face: ['faceWidth', 'eyeSpacing', 'jaw', 'mouthHeight']
   };
   let draft,
     actor,
@@ -426,6 +428,7 @@
     return group;
   }
   function upgradeLabel() {
+    if (draft.packs[looks.core] === looks.mandibleRelease) return '试用新侧面轮廓';
     if (draft.packs[looks.core] === looks.neckRelease) return '试用耳前下颌关节';
     if (draft.packs[looks.core] === looks.jawRelease) return '试用可调下颌';
     if (draft.packs[looks.core] === looks.volumeRelease) return '试用新下颌';
@@ -514,7 +517,10 @@
       setView('face');
       orbit(90);
     };
-    buttons.append(side);
+    const profile = document.createElement('fieldset'), profileTitle = document.createElement('legend');
+    profile.className = 'jaw-controls';
+    profileTitle.textContent = '侧面轮廓';
+    profile.append(profileTitle, slider('headDepth'), slider('faceRelief'), slider('occiput'), side);
     if (actor.rig.jawPivot) {
       const trial = document.createElement('button');
       trial.type = 'button';
@@ -560,7 +566,7 @@
     }
     if (actor.rig.headPivot) jaw.append(inspect);
     jaw.append(...looks.jawControls.map(slider), slider('jaw'));
-    area.append(grid, jaw, featureComparison(), more, ...tabKeys.face.filter((k) => k !== 'jaw').map(slider));
+    area.append(profile, grid, jaw, featureComparison(), more, ...tabKeys.face.filter((k) => k !== 'jaw').map(slider));
     markPresets();
   }
   function featureComparison() {

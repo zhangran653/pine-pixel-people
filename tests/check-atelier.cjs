@@ -506,6 +506,32 @@ function checkEditor() {
       edited?.shape.jawNeck === 0.85 && edited.identity.era === 'scifi',
       'jaw geometry and editable role persist'
     );
+    const previousProfile = PineWardrobe.importCharacter({
+      ...edited, id: 'look_prior_profile', packs: { 'pine-core': PineLooks.mandibleRelease }
+    }).recipe;
+    byId('save-look').click();
+    document.querySelector('[data-key="saved:' + previousProfile.id + '"]').click();
+    byId('tab-face').click();
+    expect(byId('update-head')?.textContent === '试用新侧面轮廓', 'missing sagittal profile upgrade');
+    const originalSide = byId('mirror').toDataURL();
+    byId('update-head').click();
+    expect(originalSide !== byId('mirror').toDataURL(), 'upgrading did not change the side view');
+    for (const [key, min, max] of [['headDepth', 0.8, 1.2], ['faceRelief', 0, 1.8]]) {
+      const field = byId('edit-' + key);
+      expect(+field.min === min && +field.max === max && +field.value === 1, key + ' range or neutral');
+      field.value = min;
+      field.dispatchEvent(new Event('input'));
+      const low = byId('mirror').toDataURL();
+      field.value = max;
+      field.dispatchEvent(new Event('input'));
+      expect(low !== byId('mirror').toDataURL(), key + ' has no visible effect');
+    }
+    expect(PineWardrobe.saved.get(previousProfile.id).packs['pine-core'] === PineLooks.mandibleRelease,
+      'trying new depth overwrote the saved profile');
+    byId('save-look').click();
+    const savedProfile = PineWardrobe.saved.get(previousProfile.id);
+    expect(savedProfile.packs['pine-core'] === PineLooks.release &&
+      savedProfile.shape.headDepth === 1.2 && savedProfile.shape.faceRelief === 1.8, 'depth controls did not persist');
     byId('shelf-era').value = 'historic';
     byId('shelf-era').dispatchEvent(new Event('change'));
     byId('look-query').value = '书生';

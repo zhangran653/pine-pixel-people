@@ -734,8 +734,10 @@ for (const id of ['look_body_male', 'look_relay']) {
       id + ' detail seam crossed the lower jaw'
     );
   }
+  // The jaw-only revisions preserved the upper head. The later sagittal fit
+  // intentionally changes the forehead, so compare the endpoints of that contract.
   const before = upperHead(archived),
-    after = upperHead(face);
+    after = upperHead({ ...face, packs: { 'pine-core': a.l.mandibleRelease } });
   const b = after.actor.body,
     start = b.nx * b.ny * Math.ceil(a.m.rig.socket(after.actor, after.pose, 'mouth')[2] * b.density);
   assert.equal(

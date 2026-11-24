@@ -503,7 +503,7 @@ const pineWorkshopWear = (() => {
       return u > 0.34 * r ? k.attachmentLight : k.attachmentMain;
     });
   }
-  function facewear(parts, b, k, fit, eyeY, eyeZ, front) {
+  function facewear(parts, b, k, fit, eyeY, eyeZ, front, earFit = fit) {
     const glasses = parts.glasses,
       ears = parts.ears;
     for (const side of [-1, 1]) {
@@ -566,7 +566,7 @@ const pineWorkshopWear = (() => {
         const outside = side * (eyeY + wy * 0.91);
         b.link(
           [plane(outside, cz), outside, cz],
-          [fit.x + 0.02 * fit.rx, side * 1.016 * fit.ry, cz + 0.014 * fit.rz],
+          [earFit.x + 0.02 * earFit.rx, side * 1.016 * fit.ry, cz + 0.014 * fit.rz],
           0.042 * fit.rz,
           0.046 * fit.rz,
           1,
@@ -574,23 +574,23 @@ const pineWorkshopWear = (() => {
         );
       }
       if (Object.hasOwn(pineEverydayStyles.wearables.ears, ears))
-        pineEverydayStyles.earring(ears, b, k, fit, side);
+        pineEverydayStyles.earring(ears, b, k, earFit, side);
       else if (ears) {
         const y = side * fit.ry * 1.015,
-          x = fit.x + 0.05 * fit.rx,
+          x = earFit.x + 0.05 * earFit.rx,
           z = fit.z - 0.24 * fit.rz;
-        if (ears === 'studs') b.blob(x, y, z, 0.083 * fit.rx, 0.096 * fit.ry, 0.083 * fit.rz, k.earsLight);
+        if (ears === 'studs') b.blob(x, y, z, 0.083 * earFit.rx, 0.096 * fit.ry, 0.083 * fit.rz, k.earsLight);
         else
           b.stamp(
-            x - 0.14 * fit.rx,
-            x + 0.14 * fit.rx,
+            x - 0.14 * earFit.rx,
+            x + 0.14 * earFit.rx,
             y - 0.12 * fit.ry,
             y + 0.12 * fit.ry,
             z - 0.26 * fit.rz,
             z + 0.02 * fit.rz,
             (px, py, pz) => {
               const ring =
-                ((px - x) / (0.12 * fit.rx)) ** 2 + ((pz - z + 0.115 * fit.rz) / (0.137 * fit.rz)) ** 2;
+                ((px - x) / (0.12 * earFit.rx)) ** 2 + ((pz - z + 0.115 * fit.rz) / (0.137 * fit.rz)) ** 2;
               return Math.abs(py - y) < 0.063 * fit.ry && ring < 1 && ring > 0.24
                 ? pz < z - 0.13 * fit.rz
                   ? k.earsLight

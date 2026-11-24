@@ -66,7 +66,8 @@
             "1.9.1",
             "1.9.2",
             "1.10.0",
-            "1.10.1"
+            "1.10.1",
+            "1.11.0"
           ]
         }
       },
@@ -135,6 +136,18 @@
           "type": "number",
           "minimum": 0.8,
           "maximum": 1.2,
+          "default": 1
+        },
+        "headDepth": {
+          "type": "number",
+          "minimum": 0.8,
+          "maximum": 1.2,
+          "default": 1
+        },
+        "faceRelief": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1.8,
           "default": 1
         },
         "mouthHeight": {
@@ -806,6 +819,18 @@
     {
       "if": {
         "properties": {
+          "packs": { "properties": { "pine-core": { "not": { "const": "1.11.0" } } } }
+        }
+      },
+      "then": {
+        "properties": {
+          "shape": { "properties": { "headDepth": { "const": 1 }, "faceRelief": { "const": 1 } } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "shape": {
             "required": [
               "occiput"
@@ -830,7 +855,8 @@
                   "1.9.1",
                   "1.9.2",
                   "1.10.0",
-                  "1.10.1"
+                  "1.10.1",
+                  "1.11.0"
                 ]
               }
             }

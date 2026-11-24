@@ -15,7 +15,8 @@ const PineLooks = (() => {
     volumeRelease = '1.9.1',
     jawRelease = '1.9.2',
     neckRelease = '1.10.0',
-    release = '1.10.1';
+    mandibleRelease = '1.10.1',
+    release = '1.11.0';
   const releases = [
     originalRelease,
     styleRelease,
@@ -31,6 +32,7 @@ const PineLooks = (() => {
     volumeRelease,
     jawRelease,
     neckRelease,
+    mandibleRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -39,8 +41,11 @@ const PineLooks = (() => {
   function hasSculptedHead(recipe) {
     return releases.indexOf(recipe.packs[core]) >= releases.indexOf(sculptRelease);
   }
+  function hasMandible(recipe) {
+    return releases.indexOf(recipe.packs[core]) >= releases.indexOf(mandibleRelease);
+  }
   const shape = pineDesignerBody.shapeRanges;
-  const optionalShape = ['occiput', ...pineHeadShape.controls];
+  const optionalShape = ['occiput', 'headDepth', 'faceRelief', ...pineHeadShape.controls];
   const requiredShape = Object.keys(shape).filter((key) => !optionalShape.includes(key));
   const jawPresets = {
     natural: { label: '自然短颌', shape: {} },
@@ -389,7 +394,9 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (
+    if (['headDepth', 'faceRelief'].some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 1))
+      needed = release;
+    else if (
       pineHeadShape.controls.some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 0) ||
       recipe.identity !== undefined ||
       ['toddler', 'baby'].includes(recipe.base) ||
@@ -1025,10 +1032,12 @@ SOFTWARE.`;
     volumeRelease,
     jawRelease,
     neckRelease,
+    mandibleRelease,
     jawPresets,
     jawControls: pineHeadShape.controls,
     hasRoundedHead,
     hasSculptedHead,
+    hasMandible,
     editingRelease,
     usesExtendedShape,
     bodyProfiles,
@@ -1075,7 +1084,7 @@ for (const doc of PineLooks.templates) {
       label: doc.label,
       recipeId: doc.id,
       gender: doc.gender,
-      tags: doc.packs[PineLooks.core] === PineLooks.release ? [doc.base, 'mandible'] : [doc.base],
+      tags: PineLooks.hasMandible(doc) ? [doc.base, 'mandible'] : [doc.base],
       get rig() {
         return resolve().rig;
       },

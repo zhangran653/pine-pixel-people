@@ -5,6 +5,10 @@ const pineHeadShape = (() => {
     lateralSteps = 96;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const lateral = [0, 0.2, 0.4, 0.6, 0.76, 0.88, 1];
+  const earPlane = -0.115;
+  function lobe(position, center, radius) {
+    return Math.max(0, 1 - ((position - center) / radius) ** 2) ** 2;
+  }
   // Monotone Hermite interpolation avoids a corner at the brow or a bump at the jaw.
   function slopes(points, channel) {
     const sec = points.slice(1).map((p, i) => (p[channel] - points[i][channel]) / (p[0] - points[i][0]));
@@ -85,7 +89,7 @@ const pineHeadShape = (() => {
     });
     return [...rings, ...reference.filter(([h]) => h >= -0.54)];
   }
-  function profile(child, fittedJaw = false, settings) {
+  function profile(child, fittedJaw = false, settings, relief = 0) {
     const reference = pineHeadSections[child ? 'child' : 'adult'];
     const sections = fittedJaw ? jawSections(reference, child, settings) : reference;
     const gradients = sections[0].map((_, i) => slopes(sections, i));
@@ -106,6 +110,24 @@ const pineHeadShape = (() => {
         back = value(2),
         side = value(3);
       const front = lateral.slice(0, -1).map((_, j) => value(4 + j));
+      if (relief && h > -0.94 && h < 0.29) {
+        // Low, overlapping facial planes read in three-quarter view. The dental arch
+        // stays continuous, and the soft chin pad follows the selected chin height.
+        const cheek = lobe(h, -0.14, 0.36);
+        const bridge = lobe(h, 0.035, 0.25);
+        const mouthCorners = lobe(h, -0.42, 0.24);
+        const chin = lobe(h, -0.735 + 0.055 * settings.chinHeight, 0.19);
+        const amount = (child ? 0.8 : 1) * relief;
+        for (let j = 0; j < front.length; j++) {
+          const v = lateral[j];
+          front[j] += amount * (
+            0.115 * cheek * lobe(v, 0.50, 0.40) +
+            0.068 * bridge * lobe(v, 0, 0.44) +
+            0.045 * chin * lobe(v, 0, 0.78) -
+            0.062 * mouthCorners * lobe(v, 0.39, 0.37)
+          );
+        }
+      }
       // Seat the measured chin on the shorter neck of the pixel rig.
       const underChin = clamp((-h - 0.65) / 0.35, 0, 1);
       const inset = fittedJaw ? 0 : (child ? 0.13 : 0.19) * underChin * underChin * (3 - 2 * underChin);
@@ -222,7 +244,6 @@ const pineHeadShape = (() => {
   // Anchor the adjustment at the ears. The lower occiput tucks further in than the crown;
   // the ends of long hair gradually regain their original reach at the shoulders.
   function posterior(depth) {
-    const ear = -0.115;
     const levels = [
       [-2.2, 1, 0],
       [-1.55, 0.91, 0.25],
@@ -257,8 +278,8 @@ const pineHeadShape = (() => {
     });
     const width = (h) => widths[clamp(Math.round(((h - start) * n) / (end - start)), 0, n)];
     return {
-      fit: (x, h) => (x >= ear ? x : ear + (x - ear) * width(h)),
-      unfit: (x, h) => (x >= ear ? x : ear + (x - ear) / width(h))
+      fit: (x, h) => (x >= earPlane ? x : earPlane + (x - earPlane) * width(h)),
+      unfit: (x, h) => (x >= earPlane ? x : earPlane + (x - earPlane) / width(h))
     };
   }
   const jaws = new Map();
@@ -268,14 +289,14 @@ const pineHeadShape = (() => {
   }
   const controls = ['chinHeight', 'chinProjection', 'chinRoundness', 'jawPosition', 'jawAngle', 'jawNeck'];
   const adjustable = new Map();
-  function reshape(base, shape) {
+  function reshape(base, shape, relief = 0) {
     const settings = Object.fromEntries(controls.map((key) => [key, shape[key] ?? 0]));
-    const key = [base, ...Object.values(settings)].join('|');
+    const key = [base, relief, ...Object.values(settings)].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);
-      adjustable.set(key, profile(base === 'child', true, settings));
+      adjustable.set(key, profile(base === 'child', true, settings, relief));
     }
     return adjustable.get(key);
   }
-  return { adult: profile(false), child: profile(true), posterior, withJaw, controls, reshape };
+  return { adult: profile(false), child: profile(true), earPlane, posterior, withJaw, controls, reshape };
 })();

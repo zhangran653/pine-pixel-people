@@ -255,13 +255,18 @@ if __name__ == "__main__":
     print("const pineHeadPivots = " + json.dumps(pivots) + ";")
     # default.mhskel places jaw____head on the midline of the opening axis.
     # 7691 is the lateral jaw angle also used to trim the head from the neck.
-    jaw = {}
+    jaw, sagittal_units = {}, {}
     for name, v, c in subjects:
         triangles = [[v[i] for i in face] for face in faces]
         half_width = max(p[0] for seg in cross_section(triangles, v[237][1]) for p in seg)
+        # The section tables normalize the ear-to-forehead span to 1.18 and
+        # transverse distances to one temple half-width. Retain their real unit ratio.
+        sagittal_units[name] = round((v[237][2] - v[12323][2]) / (1.18 * half_width), 4)
         jaw[name] = {
             "hinge": sagittal_landmark(v, c, range(14590, 14598)),
             "angle": [*sagittal_landmark(v, c, [7691]), round(abs(v[7691][0]) / half_width, 4)],
         }
     print("// Mandibular hinge axis and lateral jaw angle, independent of the head/neck pivot.")
     print("const pineMandibleLandmarks = " + json.dumps(jaw) + ";")
+    print("// Physical length of a sagittal table unit relative to one transverse table unit.")
+    print("const pineSagittalUnits = " + json.dumps(sagittal_units) + ";")
