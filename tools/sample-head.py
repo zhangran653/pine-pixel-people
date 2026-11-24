@@ -214,9 +214,17 @@ def head_pivot(vertices, child):
     y, z = [mean(vertices[i][axis] for i in range(14070, 14078)) for axis in (1, 2)]
     chin, lip, ear, forehead, crown = [vertices[i] for i in (991, 455, 12323, 237, 881)]
     eyes = mean(vertices[i][1] for i in range(13606, 13614))
-    height = interpolate([(chin[1], -1), (lip[1], -.39 if child else -.43),
-                          (eyes, .14 if child else .13), (crown[1], 1)], y)
-    forward = -.115 + (z - ear[2]) * 1.18 / (forehead[2] - ear[2]) * (1 if z >= ear[2] else .94)
+    height = interpolate(
+        [
+            (chin[1], -1),
+            (lip[1], -0.39 if child else -0.43),
+            (eyes, 0.14 if child else 0.13),
+            (crown[1], 1),
+        ],
+        y,
+    )
+    forward_scale = 1.18 / (forehead[2] - ear[2])
+    forward = -0.115 + (z - ear[2]) * forward_scale * (1 if z >= ear[2] else 0.94)
     return [round(forward, 4), round(height, 4)]
 
 
@@ -241,5 +249,7 @@ if __name__ == "__main__":
         print("  ]" + ("," if name == "adult" else ""))
     print("};")
 
+    print()
     print("// Sagittal positions [forward, height] of the head joint, in the same hm08 coordinates.")
-    print("const pineHeadPivots = " + json.dumps({"adult": head_pivot(base, False), "child": head_pivot(child, True)}) + ";")
+    pivots = {"adult": head_pivot(base, False), "child": head_pivot(child, True)}
+    print("const pineHeadPivots = " + json.dumps(pivots) + ";")

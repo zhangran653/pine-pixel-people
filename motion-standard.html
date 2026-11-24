@@ -87,7 +87,7 @@ PineMotion.registerAction({
       </section>
       <section id="contact">
         <h2>让两个人碰到同一点</h2>
-        <p><code>roles</code> 有几个槽位，就按顺序传入几个人。每个槽位列出允许的标签，命中任意一个即可。击掌的两个槽位都接受 adult、child 或 toddler。托抱和躲猫猫使用 <code>[['mother'], ['baby']]</code>。兼容的新照护者可声明 <code>tags: ['adult', 'mother']</code>，并校准手臂和宝宝接触点。</p>
+        <p><code>roles</code> 有几个槽位，就按顺序传入几个人。每个槽位列出允许的标签，命中任意一个即可。击掌的两个槽位都接受 adult、child 或 toddler。托抱和躲猫猫使用 <code>[['adult'], ['baby']]</code>，任一成人形象都能扮演照护者。旧编排中的 <code>mother</code> 仍会选中原来的那位演员。</p>
         <p>每个人物都有命名接触点 <code>mouth</code>、<code>rightEye</code>、<code>leftEye</code>、<code>seat</code>（臀侧）和 <code>upperBack</code>（上背）。换服装或体型后如果锚点有偏移，可在注册人物时传入 <code>sockets: { upperBack: { frame: 'torso', point: [-1.95, -1.18, 11.65] } }</code>。point 是相对于静止人物原点的坐标，frame 选 head 或 torso。<code>PineMotion.rig.socket(actor, pose, 'upperBack')</code> 会给出当前姿势下的人物局部坐标。</p>
         <p>两个人物共享一个 u。击掌先选一个双方都能触到的场景坐标，再把它分别换算为两人的局部手掌目标。递接包裹时由一人绘制包裹，易手前后使用相同的场景坐标。牵手迈步时双方同步换脚。抱起时，宝宝臀侧和上背的接触点随躯干升降，妈妈的两只手分别追踪它们。可从每位演出者的 <code>contacts</code> 读取已求解的场景坐标检查间距。渲染器先把两人投到共同的像素切片，再根据相机角度绘制手臂、衣服和脸的遮挡。</p>
         <p>可用 <code>PineMotion.castFor(clip, actor, preferredPartner)</code> 按角色顺序获得匹配的一对演员。<code>PineMotion.findActions(actor, { group, query, eitherRole: true })</code> 同时查找可担当主角或搭档的动作。新增互动可在正侧面核对接触，再转到背面查看交错的手臂。想让相邻两段衔接平滑，可以为它们绘制相同的收尾和起始姿势。<a href="duet-clips.js">击掌、托抱和躲猫猫的实现</a></p>
