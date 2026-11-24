@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="world.css" />
     <script defer src="motion.js"></script>
     <script defer src="character-slices.js"></script>
+    <script defer src="scene-depth.js"></script>
     <script defer src="actor.js"></script>
     <script defer src="surveyor-art.js"></script>
     <script defer src="family-art.js"></script>
@@ -57,6 +58,9 @@
               >场景
               <select id="world-scene"></select
             ></label>
+            <label>精细度
+              <select id="world-detail"><option value="figure">精细</option><option value="standard">标准</option></select>
+            </label>
             <div>
               <button id="world-play" type="button" aria-pressed="false">播放动作</button
               ><button type="button" id="world-reset-view">视角复位</button>

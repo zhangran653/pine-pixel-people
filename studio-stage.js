@@ -89,16 +89,7 @@ function studioPortraitLayers(parts, motion, sampleLayers = motion.faceLayers) {
       continue;
     }
     cuts.add(p.z + layers[1].z);
-    const c = Math.cos(p.heading),
-      s = Math.sin(p.heading);
-    for (const layer of layers)
-      volumes.push({
-        ...layer,
-        heading: p.heading,
-        x: p.x + c * layer.x - s * layer.y,
-        y: p.y + s * layer.x + c * layer.y,
-        z: p.z + layer.z
-      });
+    volumes.push(...placeSliceLayers(p, layers));
   }
   if (!cuts.size) return null;
   if (parts.length === 1) return volumes;
@@ -128,6 +119,7 @@ function studioPortraitLayers(parts, motion, sampleLayers = motion.faceLayers) {
 
 function createStudioStage(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
+  const compositor = createSceneCompositor();
   const back = document.createElement('canvas'),
     front = document.createElement('canvas');
   const bg = back.getContext('2d', { alpha: false, willReadFrequently: true }),
@@ -233,39 +225,22 @@ function createStudioStage(canvas) {
       );
       ctx.fill();
     }
-    const depth = (d) => Math.cos(view.yaw) * d.x + Math.sin(view.yaw) * d.y;
-    const groups = scenery.map((d) => ({ order: depth(d), parts: [d] }));
-    if (entries.length)
-      groups.push({ order: entries.reduce((sum, e) => sum + depth(e), 0) / entries.length, parts: drawings });
-    for (const drawing of groups.sort((a, b) => a.order - b.order).flatMap((g) => g.parts)) {
-      const p = view.project(
-        anchorX + drawing.x * actorSize,
-        anchorY + drawing.y * actorSize,
-        drawing.z * actorSize
-      );
-      drawing.body.draw(
-        ctx,
-        drawing.model,
-        p.x * sx,
-        p.y * sy,
-        view.yaw - drawing.heading,
-        view.elevation,
-        world * sx
-      );
-    }
+    const origin = view.project(anchorX, anchorY);
+    compositor.draw(ctx, {
+      yaw: view.yaw, elevation: view.elevation, floorZ: 0, scaleX: world * sx, scaleY: world * sy,
+      x: origin.x * sx, y: origin.y * sy
+    }, scenery, drawings);
     ctx.drawImage(front, 0, 0, W, H);
   }
-  function setFrame(list, scene = []) {
-    scenery = scene.map((p) => ({ ...PineWorld.geometry(p.kind), ...p }));
+  function setFrame(list, scene = [], detail = 'figure') {
+    PineWorld.detailMode(detail);
+    scenery = scene.map((p) => ({ ...PineWorld.geometry(p.kind, detail), ...p }));
     entries = list.map((e) => {
       const actor = studioLibrary.characters.get(e.character);
       return { ...e, actor, rig: actor.rig, body: actor.body, model: actor.body.makePose(e.pose) };
     });
-    drawings = entries.length
-      ? studioPortraitLayers(entries, studioLibrary, studioLibrary.figureLayers) || [
-          mergeStudioActors(entries)
-        ]
-      : [];
+    drawings = entries.flatMap(p => placeSliceLayers(p,
+      detail === 'figure' && studioLibrary.figureLayers(p.actor, p.pose, p.model)));
     draw();
   }
   function setView(angle, pitch = tilt, magnify = zoom) {

@@ -414,11 +414,12 @@ const studioLibrary = (() => {
     }
     if (!input || input.version !== 1 || !Array.isArray(input.steps))
       throw new Error('需要 version 为 1 且包含 steps 数组的编排');
-    if (Object.keys(input).some((k) => !['version', 'loop', 'steps', 'scene'].includes(k)))
+    if (Object.keys(input).some((k) => !['version', 'loop', 'steps', 'scene', 'detail'].includes(k)))
       throw new Error('编排含有未知字段');
     if (input.loop !== undefined && typeof input.loop !== 'boolean') throw new Error('loop 须为布尔值');
     const score = {
         version: 1,
+        ...(input.detail === undefined ? {} : { detail: PineWorld.detailMode(input.detail) }),
         ...(input.scene === undefined ? {} : { scene: PineWorld.normalize(input.scene) }),
         loop: input.loop ?? false,
         steps: input.steps.map((step, index) => validateStep(step, index, cast))

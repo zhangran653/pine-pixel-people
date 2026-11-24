@@ -21,7 +21,13 @@
 
 世界坐标使用 +X 向前、+Y 向左、+Z 向上。默认每单位对应 3.4 厘米。实例的 `x, y, z` 指定地面原点，`heading` 是绕 Z 轴的弧度。编辑器显示角度。物件登记的 `box` 是采样盒的全尺寸。`lift` 是从原点到绘制坐标系的高度，`scale` 是从素材尺寸到场景尺寸的倍率。`anchors` 中的点使用素材的局部绘制坐标。将接触点换算到场景时，先加上 lift，再乘 scale，最后施加实例的旋转和平移。
 
-`PineWorld.items.get(id)` 提供元数据。`PineWorld.geometry(id)` 返回可复用的 `{body, model}`。原始车和飞机每个高度的像素都保存在各自的切片中，Canvas 可以重新沿 X、Y 或 Z 轴排片，Three.js 可以从同一批像素生成网格。
+`PineWorld.items.get(id)` 提供元数据。`PineWorld.geometry(id, detail)` 返回可复用的 `{body, model}`，默认精度为 `figure`。原始车和飞机的 28 层手绘切片在各档精度下共用同一份数据。Three.js 可以从这些像素生成网格。
+
+## 场景精细度与遮挡
+
+在世界图鉴的「精细度」选「精细」或「标准」。精细模式使用人物的精细全身与五官，在单件物件的采样预算内提高家具、植物和建筑的采样密度，并按屏幕像素密度绘制。标准模式使用基础切片，适合较慢的设备。每个场景可以独立保存选择，导出的编排、动作工坊和 Three.js 预览会读取同一设置。[打开精细书桌场景](index.html?scene=study&detail=figure)
+
+编排顶层的可选字段 `detail` 取 `"figure"` 或 `"standard"`。省略时场景默认精细。链接参数 `?detail=standard` 可以指定打开时的精细度，已有场景或 `#current` 上的角色与编排仍可使用。世界图鉴和动作工坊把已放置的物件、活动道具和人物投到同一张深度图，逐个画面像素显示最近的实心切片格。桌腿间和树枝间的空隙可以看到后方，调低精细度也使用同样的遮挡规则。[同一人物在凉亭里的前后对照](scene-occlusion-preview.png)
 
 下面的扩展示例使用两个盒子画出有不同颜色上下层的坐垫。把脚本放在世界图鉴的依赖之后、页面控制器之前加载，就可以在家具分类中选用它。引入模块的顺序见 [世界图鉴入口](index.html)。
 
@@ -46,6 +52,7 @@ PineWorld.register({
 ```js
 const plan = PineMotion.compile({
   version: 1,
+  detail: 'figure',
   loop: true,
   scene: [
     {kind: 'desk', x: -12, y: 18, heading: 0.4},

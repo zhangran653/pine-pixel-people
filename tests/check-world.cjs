@@ -4,6 +4,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 const { webcrypto, createHash } = require('node:crypto');
+require('./check-scene-depth.cjs');
 const root = path.join(__dirname, '..'),
   read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 const context = vm.createContext({ structuredClone, crypto: webcrypto });
@@ -20,6 +21,16 @@ const hash = (a) =>
     .update(Buffer.from(a.buffer, a.byteOffset, a.byteLength))
     .digest('hex');
 const find = (id) => motion.characters.get(id);
+assert.equal(world.detailMode(), 'figure');
+assert.ok(world.geometry('desk').body.density > world.geometry('desk', 'standard').body.density);
+assert.ok(world.geometry('lamp').body.density > world.geometry('lamp', 'standard').body.density);
+assert.equal(world.geometry('aircraft'), world.geometry('aircraft', 'standard'));
+assert.throws(() => world.geometry('lamp', 'invalid'));
+assert.throws(() => motion.compile({ version: 1, steps: [], detail: null }));
+for (const detail of ['figure', 'standard']) {
+  const book = motion.compile({ ...motion.presets.office, detail });
+  assert.equal(store.readScoreFile(store.scoreFile(book.score)).score.detail, detail);
+}
 for (const [id, asset] of world.items) {
   assert.ok(asset.family in world.families && asset.realms.every((k) => k in world.realms));
   const { model } = world.geometry(id);
@@ -607,6 +618,14 @@ async function three() {
     if (n.visible && n.name.startsWith('world/')) nodes.push(n);
   });
   assert.ok(nodes.some((m) => m.name === 'world/lamp' && m.geometry.drawRange.count > 0));
+  const lamp = cast.group.getObjectByName('world/lamp'), fineLamp = lamp.geometry;
+  const standard = motion.compile({ ...plan.score, detail: 'standard' });
+  cast.setTime(standard, 0);
+  assert.notEqual(lamp.geometry, fineLamp);
+  assert.equal(cast.group.getObjectByName('look_programmer/face').visible, false);
+  cast.setTime(plan, 0);
+  assert.equal(lamp.geometry, fineLamp, 'revisit the cached fine prop after changing quality');
+  assert.equal(cast.group.getObjectByName('look_programmer/face').visible, true);
   cast.setTime(plan, plan.starts[1]);
   const desk = cast.group.getObjectByName('world/desk');
   assert.ok(desk.visible);

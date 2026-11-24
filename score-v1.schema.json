@@ -28,6 +28,11 @@
       "items": {
         "$ref": "#/$defs/placement"
       }
+    },
+    "detail": {
+      "enum": ["figure", "standard"],
+      "default": "figure",
+      "description": "场景中人物和程序生成物件的采样精度。"
     }
   },
   "$defs": {

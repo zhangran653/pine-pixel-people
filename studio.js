@@ -341,11 +341,11 @@
       frame = Math.floor(t * 20 + 0.00001);
     if (force || frame !== lastFrame || cue?.index !== lastCue) {
       lastFrame = frame;
-      if (cue) stage.setFrame(show.sample(t), show.scenery(t));
+      if (cue) stage.setFrame(show.sample(t), show.scenery(t), show.score.detail);
       else
         stage.setFrame(
           soloClips.idle(0, lib.characters.get($who.value) || lib.characters.get('child')),
-          show.scenery(t)
+          show.scenery(t), show.score.detail
         );
       frameAction(cue?.clip);
     }
@@ -509,7 +509,7 @@
   id('try').addEventListener('click', () =>
     validated((s) => {
       pause();
-      preview = lib.compile({ version: 1, loop: previewLoop, scene: plan.score.scene || [], steps: [s] });
+      preview = lib.compile({ ...plan.score, loop: previewLoop, steps: [s] });
       previewTime = 0;
       invalidateTime();
       playing = true;
@@ -681,9 +681,8 @@
       if (incomingStep) $duration.value = incomingStep.seconds;
       previewLoop = incoming?.score.loop ?? previewLoop;
       preview = lib.compile({
-        version: 1,
+        ...plan.score,
         loop: previewLoop,
-        scene: plan.score.scene || [],
         steps: [draft()]
       });
       previewTime = autoplay ? 0 : preview.score.steps[0].seconds * 0.37;

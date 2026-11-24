@@ -4,7 +4,8 @@
     wardrobe = PineWardrobe,
     $ = (id) => document.getElementById(id);
   const canvas = $('world-canvas'),
-    ctx = canvas.getContext('2d', { alpha: false });
+    ctx = canvas.getContext('2d', { alpha: false }),
+    compositor = createSceneCompositor();
   const localKey = 'pinePixel.world.atlas.v1',
     rad = Math.PI / 180;
   const settings = {
@@ -31,7 +32,8 @@
   let selection = 0,
     memos = {},
     lastSample = '',
-    actorDrawings = [];
+    actorDrawings = [],
+    actorLayers = [];
   wardrobe.hydrate();
   try {
     const saved = JSON.parse(localStorage.getItem(localKey));
@@ -117,19 +119,22 @@
     draw();
     save();
   }
-  function loadScene(key, provided) {
+  function loadScene(key, provided, requestedDetail) {
     let next = provided;
     if (!next)
       try {
         if (memos[key]) next = wardrobe.readScoreFile(memos[key]);
       } catch {}
     plan = next || M.compile(baseScore(key));
+    if (requestedDetail && requestedDetail !== W.detailMode(plan.score.detail))
+      plan = M.compile({ ...plan.score, detail: requestedDetail });
     sceneKey = key;
     selection = 0;
     t = 0;
     lastSample = '';
     zoom = 1;
     $('world-scene').value = key;
+    $('world-detail').value = W.detailMode(plan.score.detail);
     $('scene-title').textContent = W.scenes[key].label;
     $('scene-realm').textContent = settings[key][0];
     actors();
@@ -214,7 +219,7 @@
     return pts;
   }
   function tile(canvas, id, direction = 37) {
-    const b = W.geometry(id),
+    const b = W.geometry(id, 'standard'),
       ctx = canvas.getContext('2d'),
       w = canvas.width,
       h = canvas.height;
@@ -319,10 +324,13 @@
   function draw() {
     if (!plan) return;
     const w = Math.max(2, Math.round(canvas.clientWidth)),
-      h = Math.max(2, Math.round(canvas.clientHeight));
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
+      h = Math.max(2, Math.round(canvas.clientHeight)),
+      detail = W.detailMode(plan.score.detail);
+    const ratio = Math.min(detail === 'figure' ? (window.devicePixelRatio || 1) : 1, 2, Math.sqrt(1600000 / (w * h)));
+    const width = Math.max(2, Math.round(w * ratio)), height = Math.max(2, Math.round(h * ratio));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
     }
     const yaw = angle * rad,
       elev = pitch * rad,
@@ -334,11 +342,15 @@
       actorDrawings = plan.sample(t).map((e) => {
         const a = M.characters.get(e.character),
           model = a.body.makePose(e.pose);
-        return { ...e, body: a.body, model };
+        return { ...e, actor: a, body: a.body, model };
       });
+      actorLayers = actorDrawings.flatMap(p => placeSliceLayers(p,
+        detail === 'figure' && M.figureLayers(p.actor, p.pose, p.model)));
     }
-    const objects = plan.scenery(t).map((p) => ({ ...p, ...W.geometry(p.kind) })),
-      all = [...objects, ...actorDrawings];
+    const placements = plan.scenery(t);
+    const objects = placements.map(p => ({ ...p, ...W.geometry(p.kind, detail) }));
+    const framing = detail === 'standard' ? objects : placements.map(p => ({ ...p, ...W.geometry(p.kind, 'standard') }));
+    const all = [...framing, ...actorDrawings];
     // Include the ground footprint during framing so placed items remain visible from every azimuth.
     const points = all.flatMap(corners);
     const bounds = (axis, def, fn) => fn(def, ...points.map((p) => p[axis]));
@@ -374,7 +386,7 @@
       ctx.fill();
     }
     const [, , , sky, turf, edge, path] = settings[sceneKey];
-    ctx.resetTransform();
+    ctx.setTransform(width / w, 0, 0, height / h, 0, 0);
     ctx.imageSmoothingEnabled = false;
     const wash = ctx.createLinearGradient(0, 0, w * 0.12, h);
     wash.addColorStop(0, sky);
@@ -439,8 +451,10 @@
       );
       ctx.fill();
     }
-    all.sort((a, b) => project(a.x, a.y, a.z)[2] - project(b.x, b.y, b.z)[2]);
-    for (const d of all) d.body.draw(ctx, d.model, ...screen(d.x, d.y, d.z), yaw - d.heading, elev, scale);
+    compositor.draw(ctx, {
+      yaw, elevation: elev, floorZ: 0, x: ox * width / w, y: oy * height / h,
+      scaleX: scale * width / w, scaleY: scale * height / h
+    }, objects, actorLayers);
     $('world-angle').value = angle;
     $('angle-label').textContent = Math.round(angle) + '°';
   }
@@ -512,10 +526,25 @@
   $('world-query').oninput = catalog;
   $('world-family').onchange = catalog;
   $('world-realm').onchange = catalog;
+  function updateViewLink() {
+    if (!['http:', 'https:'].includes(location.protocol)) return;
+    const url = new URL(location.href);
+    if (url.searchParams.has('scene')) url.searchParams.set('scene', sceneKey);
+    if (url.searchParams.has('detail') || url.hash) url.searchParams.set('detail', W.detailMode(plan.score.detail));
+    history.replaceState(history.state, '', url);
+  }
+  $('world-detail').onchange = () => {
+    plan = M.compile({ ...plan.score, detail: $('world-detail').value });
+    lastSample = '';
+    draw();
+    save();
+    updateViewLink();
+  };
   $('world-scene').onchange = () => {
     play(false);
     loadScene($('world-scene').value);
     save();
+    updateViewLink();
   };
   for (const id of ['world-studio', 'world-three']) $(id).onclick = () => wardrobe.handoff($(id), plan.score);
   $('world-export').onclick = () => {
@@ -557,7 +586,8 @@
     ' 个分类 · ' +
     Object.keys(W.realms).length +
     ' 种时代与世界';
-  loadScene(sceneKey, incoming);
+  const detail = query.get('detail');
+  loadScene(sceneKey, incoming, detail === 'figure' || detail === 'standard' ? detail : undefined);
   catalog();
   new ResizeObserver(draw).observe(canvas);
 })();

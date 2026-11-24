@@ -174,7 +174,7 @@ export function createPineCast(
     world = globalThis.PineWorld,
     material,
     faceDetail = false,
-    detail = faceDetail ? 'face' : 'standard'
+    detail = faceDetail ? 'face' : undefined
   } = {}
 ) {
   if (![metersPerUnit, sampleRate].every((n) => Number.isFinite(n) && n > 0))
@@ -183,7 +183,8 @@ export function createPineCast(
     if (!['standard', 'face', 'figure'].includes(mode)) throw new RangeError('未知的人物精度');
     return mode;
   }
-  checkDetail(detail);
+  let preferredDetail = detail, lastScene = [];
+  detail = checkDetail(detail ?? 'standard');
   const group = new THREE.Group(),
     basis = new THREE.Group();
   group.name = 'PineMotion';
@@ -206,14 +207,17 @@ export function createPineCast(
     objectGeometries = new Map();
   function setScene(placements = []) {
     if (disposed) throw Error('此场景已释放');
+    lastScene = placements;
+    const objectDetail = detail === 'figure' ? 'figure' : 'standard';
     placements.forEach((p, i) => {
-      let geometry = objectGeometries.get(p.kind);
+      const key = p.kind + '/' + objectDetail;
+      let geometry = objectGeometries.get(key);
       if (!geometry) {
-        const { body, model } = world.geometry(p.kind);
+        const { body, model } = world.geometry(p.kind, objectDetail);
         const temp = new THREE.Mesh(new THREE.BufferGeometry(), paint);
         writeSurface(THREE, temp, body, model, scratch);
         geometry = temp.geometry;
-        objectGeometries.set(p.kind, geometry);
+        objectGeometries.set(key, geometry);
       }
       let mesh = objectMeshes[i];
       if (!mesh) {
@@ -278,8 +282,10 @@ export function createPineCast(
   }
   function setDetail(mode) {
     if (disposed) throw new Error('此人物组已释放');
+    preferredDetail = checkDetail(mode);
     if (detail === mode) return false;
-    detail = checkDetail(mode);
+    detail = mode;
+    setScene(lastScene);
     if (lastEntries) {
       const plan = previousPlan;
       setFrame(lastEntries);
@@ -289,6 +295,11 @@ export function createPineCast(
   }
   function setTime(plan, seconds) {
     if (disposed) throw new Error('此人物组已释放');
+    const mode = plan.score?.detail ?? preferredDetail ?? (plan.score?.scene ? 'figure' : 'standard');
+    if (mode !== detail) {
+      detail = checkDetail(mode);
+      previousPlan = undefined;
+    }
     const t = Math.max(0, Math.min(plan.duration, Number.isFinite(seconds) ? seconds : 0));
     const cue = plan.locate(t),
       tick = Math.floor(t * sampleRate),
@@ -329,6 +340,7 @@ export function createPineCast(
     slots.length = 0;
     heads.length = 0;
     lastEntries = undefined;
+    lastScene = [];
     scratch.faces.length = 0;
     scratch.mask = new Int32Array(0);
     previousPlan = undefined;

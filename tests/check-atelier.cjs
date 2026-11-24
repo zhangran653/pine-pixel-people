@@ -665,6 +665,19 @@ function checkWorldEditor() {
   const status = get('qa-result');
   try {
     check(get('world-grid').children.length === PineWorld.items.size, 'world inventory');
+    const firstScene = get('world-scene').value;
+    check(get('world-detail').value === 'figure', 'legacy and new scenes open in full detail');
+    set('world-angle', '72', 'input');
+    const fine = get('world-canvas').toDataURL();
+    get('world-play').click();
+    set('world-detail', 'standard');
+    check(get('world-angle').value === '72' && get('world-play').getAttribute('aria-pressed') === 'true',
+      'changing detail preserves the orbit and playback');
+    get('world-play').click();
+    check(get('world-canvas').toDataURL() !== fine, 'the scene quality control changes the displayed pixels');
+    set('world-detail', 'figure');
+    check(get('world-canvas').toDataURL() === fine, 'the same figure detail and camera reproduce the same frame');
+    set('world-detail', 'standard');
     set('world-query', '飞机', 'input');
     check(get('world-grid').children.length === 1, 'aircraft lookup');
     const before = get('placed').length;
@@ -676,6 +689,7 @@ function checkWorldEditor() {
     get('world-studio').click();
     const saved = JSON.parse(sessionStorage.getItem('pineCreek.threePreview.v1')),
       plan = PineWardrobe.readScoreFile(saved);
+    check(plan.score.detail === 'standard', 'quality survives the real scene handoff and import');
     check(
       plan.score.scene.some(
         (p) => p.kind === 'aircraft' && p.x === 67 && Math.abs(p.heading - Math.PI / 2) < 1e-6
@@ -686,9 +700,12 @@ function checkWorldEditor() {
     check(get('placed').length === before, 'remove placement');
     set('world-scene', 'study');
     check(get('world-clip').value === 'desk-code', 'office station');
+    check(get('world-detail').value === 'figure', 'a different scene has its own quality');
+    set('world-scene', firstScene);
+    check(get('world-detail').value === 'standard', 'restore scene-specific quality');
     status.dataset.state = 'pass';
     status.textContent =
-      'World filters, scene placement, position, rotation, score handoff, and desk preset passed';
+      'World filters, scene placement, rotation, independent detail, playback, score handoff, and desk preset passed';
   } catch (e) {
     status.dataset.state = 'fail';
     status.textContent = e.stack;

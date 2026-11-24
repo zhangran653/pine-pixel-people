@@ -273,6 +273,18 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
   return {...createSliceProjector(nx,ny,nz,density), makePose, faceLayers};
 }
 
+// Each refined band has its own crop origin in the actor's local frame.
+function placeSliceLayers(part, layers) {
+  if (!layers) return [part];
+  const c = Math.cos(part.heading), s = Math.sin(part.heading);
+  return layers.map(layer => ({
+    ...layer, heading: part.heading,
+    x: part.x + c * layer.x - s * layer.y,
+    y: part.y + s * layer.x + c * layer.y,
+    z: part.z + layer.z
+  }));
+}
+
 function createSliceProjector(nx,ny,nz,density) {
   const dimensions=[nx,ny,nz], pitch=nx*ny;
   // Repack the same horizontal images along either lateral axis for edge-on views.

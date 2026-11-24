@@ -527,14 +527,23 @@ const PineWorld = (() => {
     return entry;
   }
   const cache = new Map();
-  function geometry(id) {
-    if (cache.has(id)) return cache.get(id);
+  function detailMode(value = 'figure') {
+    if (value !== 'figure' && value !== 'standard') throw Error('场景精细度须为 figure 或 standard');
+    return value;
+  }
+  function geometry(id, detail = 'figure') {
+    detailMode(detail);
     const def = items.get(id);
     if (!def) throw Error('未知场景物件 ' + id);
+    const bitmap = id === 'rover' || id === 'aircraft';
+    const base = Math.max(...def.box) > 25 ? 1 : 3;
+    const canRefine = def.box.reduce((cells, size) => cells * Math.ceil(size * (base + 1)), 1) <= 1000000;
+    const density = !bitmap && detail === 'figure' && canRefine ? base + 1 : base;
+    const key = id + '/' + density;
+    if (cache.has(key)) return cache.get(key);
     let result;
-    if (id === 'rover' || id === 'aircraft') result = pineVehicleSlices.model(id);
+    if (bitmap) result = pineVehicleSlices.model(id);
     else {
-      const density = Math.max(...def.box) > 25 ? 1 : 3;
       const body = createSliceActor({ materials: {}, paint() {} }, density, studioProps, def.box);
       const prop = activityMotion.prop(id, [0, 0, def.lift], 1);
       result = { body, model: body.makePose({ arms: [], props: [prop] }) };
@@ -543,7 +552,7 @@ const PineWorld = (() => {
       const b = result.body;
       result.body = createSliceProjector(b.nx, b.ny, b.nz, b.density / def.scale);
     }
-    cache.set(id, result);
+    cache.set(key, result);
     return result;
   }
   const place = (kind, x = 0, y = 0, z = 0, heading = 0) => ({ kind, x, y, z, heading });
@@ -621,6 +630,6 @@ const PineWorld = (() => {
       return q;
     });
   }
-  return { realms, families, items, painters, materials, geometry, place, scenes, normalize, register };
+  return { realms, families, items, painters, materials, geometry, detailMode, place, scenes, normalize, register };
 })();
 globalThis.PineWorld = PineWorld;

@@ -143,6 +143,11 @@ button:disabled {
 }
 .scene-bar {
   padding: 0.7rem 0.9rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+.scene-bar > div {
+  margin-inline-start: auto;
 }
 .scene-bar label,
 .cast-row label,
