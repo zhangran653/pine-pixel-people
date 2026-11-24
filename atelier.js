@@ -238,7 +238,7 @@
     draft.packs[looks.core] = looks.editingRelease(draft);
     const upgrade = $('update-head');
     if (upgrade) {
-      if (draft.packs[looks.core] === looks.release) upgrade.remove();
+      if (!upgradeLabel()) upgrade.remove();
       else upgrade.textContent = upgradeLabel();
     }
     const previousTags = actor.tags.join(' ');
@@ -350,14 +350,15 @@
     return label;
   }
   function markPresets() {
+    const hasMorphs = [looks.morphRelease, looks.release].includes(draft.packs[looks.core]);
     const soften = $('soften-cheeks');
     if (soften) {
-      soften.hidden = draft.packs[looks.core] !== looks.release;
+      soften.hidden = !hasMorphs;
       soften.disabled = !Object.keys(looks.cheekAdjustment(draft)).length;
     }
     for (const button of document.querySelectorAll('[data-cheek-preset]')) {
       const selected = looks.cheekPresets[button.dataset.cheekPreset].shape;
-      button.setAttribute('aria-pressed', String(draft.packs[looks.core] === looks.release &&
+      button.setAttribute('aria-pressed', String(hasMorphs &&
         cheekKeys.every((k) => (draft.shape[k] || 0) === (selected[k] || 0))));
     }
     for (const b of document.querySelectorAll('[data-jaw-preset]')) {
@@ -365,14 +366,14 @@
       b.setAttribute(
         'aria-pressed',
         String(
-          draft.packs[looks.core] === looks.release &&
+          hasMorphs &&
             looks.jawControls.every((k) => (draft.shape[k] || 0) === (p.shape[k] || 0))
         )
       );
     }
     const currentFace = draft.face || looks.facePresets.classic.face;
     for (const b of document.querySelectorAll('[data-face-preset]')) {
-      const preset = looks.facePresets[b.dataset.facePreset];
+      const preset = looks.infantFacePresets[b.dataset.facePreset] || looks.facePresets[b.dataset.facePreset];
       b.setAttribute('aria-pressed', String(Object.keys(preset.face).every((k) => preset.face[k] === currentFace[k]) &&
         looks.featureShapeKeys.every((k) => (draft.shape[k] || 0) === (preset.shape?.[k] || 0))));
     }
@@ -436,6 +437,9 @@
     return group;
   }
   function upgradeLabel() {
+    if (draft.packs[looks.core] === looks.release) return '';
+    if (draft.base === 'baby') return '试用婴儿头型';
+    if (draft.packs[looks.core] === looks.morphRelease) return '';
     if (draft.packs[looks.core] === looks.occipitalRelease) return '试用独立颧颊与五官';
     if (draft.packs[looks.core] === looks.sagittalRelease) return '试用微收后脑';
     if (draft.packs[looks.core] === looks.mandibleRelease) return '试用新侧面轮廓';
@@ -445,7 +449,7 @@
     return looks.hasSculptedHead(draft) ? '试用新下颌与立体短发' : '试用新头型与短发';
   }
   function figureUpgrade(area) {
-    if (draft.packs[looks.core] === looks.release) return;
+    if (!upgradeLabel()) return;
     const update = document.createElement('button');
     update.type = 'button';
     update.id = 'update-head';
@@ -459,6 +463,8 @@
   }
   function faceFields(area) {
     figureUpgrade(area);
+    if (draft.base === 'baby' && draft.packs[looks.core] === looks.release)
+      area.append(presetGroup('婴儿五官', looks.infantFacePresets, 'facePreset', (p) => looks.applyFacePreset(draft, p)));
     area.append(
       presetGroup('五官组合', looks.facePresets, 'facePreset', (p) => looks.applyFacePreset(draft, p))
     );
@@ -512,7 +518,7 @@
       b.onclick = () => {
         for (const key of looks.jawControls) delete draft.shape[key];
         Object.assign(draft.shape, preset.shape);
-        draft.packs[looks.core] = looks.release;
+        if (draft.packs[looks.core] !== looks.release) draft.packs[looks.core] = looks.morphRelease;
         changed();
         fields();
       };
@@ -1148,7 +1154,7 @@
   function setCheeks(choice) {
     for (const key of cheekKeys) delete draft.shape[key];
     Object.assign(draft.shape, choice.shape);
-    draft.packs[looks.core] = looks.release;
+    if (draft.packs[looks.core] !== looks.release) draft.packs[looks.core] = looks.morphRelease;
     changed();
   }
   function randomize(whole) {
@@ -1675,8 +1681,10 @@
     fields();
   }
   const featureExample = query.get('features');
-  if (Object.hasOwn(looks.facePresets, featureExample)) {
-    looks.applyFacePreset(draft, looks.facePresets[featureExample]);
+  const featureChoices = draft.base === 'baby' && draft.packs[looks.core] === looks.release
+    ? { ...looks.facePresets, ...looks.infantFacePresets } : looks.facePresets;
+  if (Object.hasOwn(featureChoices, featureExample)) {
+    looks.applyFacePreset(draft, featureChoices[featureExample]);
     changed();
     fields();
   }

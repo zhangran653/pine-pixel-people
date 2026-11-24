@@ -1,5 +1,13 @@
 // Portrait profiles are measured in head radii. Pigment marks follow the surface as the head turns.
 const pinePortraitStyles = (() => {
+  // Brush sizes are fractions of the same head radii used by the skin and rig.
+  // The randomizer also uses these dimensions to reserve space between features.
+  const proportions = {
+    standard: { outlineStrength: 1, eyeCenter: 0.485, eyeWidth: 1, eyeOpen: 1, browWidth: 1, browHeight: 1,
+      noseWidth: 1, noseLength: 1, noseReach: 1, lipWidth: 1, lipHeight: 1 },
+    baby: { outlineStrength: 0.46, eyeCenter: 0.456, eyeWidth: 1.035, eyeOpen: 1.12, browWidth: 0.80, browHeight: 0.84,
+      noseWidth: 0.84, noseLength: 0.68, noseReach: 0.65, lipWidth: 0.78, lipHeight: 0.86 }
+  };
   const morphs = {
     cheekHeight: ['颧骨高低', '低', '高'], cheekWidth: ['颧部宽度', '窄', '宽'],
     cheekProjection: ['颧骨前凸', '平缓', '突出'], cheekFullness: ['下颊丰满度', '清瘦', '饱满'],
@@ -149,11 +157,12 @@ const pinePortraitStyles = (() => {
     const peak = (at, span) => Math.max(0, 1 - ((h - at) / span) ** 2) ** 2;
     return 1 + row[1] * peak(-0.12, 0.51) + row[2] * peak(-0.57, 0.43) + row[3] * peak(0.45, 0.46);
   }
-  function jawBreadth(outline, jaw, h) {
+  function jawBreadth(outline, jaw, h, outlineStrength = 1) {
     const jawScale = 1 + 0.82 * (jaw - 1) * Math.max(0, Math.min(1, -h));
-    return jawScale * (outline ? outlineWidth(outline, h) : 1);
+    const width = outline ? outlineWidth(outline, h) : 1;
+    return jawScale * (outlineStrength === 1 ? width : 1 + outlineStrength * (width - 1));
   }
-  function eye(row, v, h, blink, side, k) {
+  function eye(row, v, h, blink, side, k, irisSpan = 1) {
     const [, width, up, down, tilt, power, crease] = row,
       q = v / width;
     if (Math.abs(q) >= 1) return 0;
@@ -173,7 +182,7 @@ const pinePortraitStyles = (() => {
     if (pos > top + 0.021 || pos < bottom - 0.014) return 0;
     if (blink > 0.86 || pos > top - 0.017) return k.lash;
     if (pos < bottom + 0.012 && q > 0.18) return k.browSoft;
-    const iris = (q / 0.5) ** 2 + ((pos - 0.009) / 0.127) ** 2;
+    const iris = (q / (0.5 * irisSpan)) ** 2 + ((pos - 0.009) / 0.127) ** 2;
     if (iris > 1) return k.sclera;
     if (q * side > -0.28 && q * side < -0.085 && pos > 0.014 && pos < 0.06) return k.glint;
     return iris < 0.22 ? k.pupil : pos < -0.015 ? k.irisLight : k.eyes;
@@ -202,9 +211,10 @@ const pinePortraitStyles = (() => {
     if (Math.abs(h - mid) < (gap || 0.014) * taper + 0.006) return k.lipLine;
     return h > mid ? k.upperLip : k.lowerLip;
   }
-  function nose(row, b, k, fit, eyeZ, front, widthScale = 1, bridgeScale = 1) {
-    const [, baseWidth, reach, length, start, wingStrength, tipHeight] = row,
+  function nose(row, b, k, fit, eyeZ, front, widthScale = 1, bridgeScale = 1, reachScale = 1) {
+    const [, baseWidth, baseReach, length, start, wingStrength, tipHeight] = row,
       { x: cx, rx, ry, rz } = fit;
+    const reach = baseReach * reachScale;
     const maxWidth = baseWidth * Math.max(1, widthScale) * ry;
     const root = eyeZ + start * rz,
       tip = eyeZ - length * rz;
@@ -358,6 +368,7 @@ const pinePortraitStyles = (() => {
     return 0;
   }
   return {
+    proportions,
     morphs,
     basicNoses,
     features,

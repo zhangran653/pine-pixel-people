@@ -1,4 +1,4 @@
-"""Rebuild head-sections.js offline from MakeHuman hm08 and its six CC0 child targets.
+"""Rebuild head-sections.js offline from hm08 and six CC0 targets per younger age.
 
 Usage: python3 tools/sample-head.py path/to/base.obj path/to/macrodetails > head-sections.js
 Upstream revision a8bc2d54ff0ac92e78ff71431b1023eda42bf482.
@@ -80,18 +80,18 @@ def read_mesh(path):
     return points, triangles
 
 
-def child_vertices(points, directory):
-    child = [list(p) for p in points]
+def age_vertices(points, directory, age):
+    vertices = [list(p) for p in points]
     for population in ("african", "asian", "caucasian"):
         for sex in ("female", "male"):
-            path = directory / f"{population}-{sex}-child.target"
+            path = directory / f"{population}-{sex}-{age}.target"
             for line in path.read_text().splitlines():
                 fields = line.split()
                 if len(fields) == 4 and fields[0].isdigit():
-                    p = child[int(fields[0])]
+                    p = vertices[int(fields[0])]
                     for axis, value in enumerate(fields[1:]):
                         p[axis] += float(value) / 6
-    return child
+    return vertices
 
 
 def cross_section(triangles, height):
@@ -115,17 +115,23 @@ def depths(lines, lateral):
     return sorted(hits)
 
 
-def sample(points, faces, child):
+def height_map(points, age):
+    chin, lip, crown = [points[i][1] for i in (991, 455, 881)]
+    eye = mean(points[i][1] for i in range(13606, 13614))
+    if age == "baby":
+        # Preserve the donor's longer vault and short lower face in physical height.
+        return [(2 * (y - chin) / (crown - chin) - 1, y) for y in (chin, lip, eye, crown)]
+    mouth_h, eye_h = (-0.39, 0.14) if age == "child" else (-0.43, 0.13)
+    return [(-1, chin), (mouth_h, lip), (eye_h, eye), (1, crown)]
+
+
+def sample(points, faces, age):
     triangles = [[points[i] for i in f] for f in faces]
-    # Same anatomical vertex indices in all seven assets. X is lateral, Y is up, Z faces forward.
-    chin, lip, ear, forehead, crown = (points[i] for i in (991, 455, 12323, 237, 881))
-    eye_y = mean(points[i][1] for i in range(13606, 13614))
-    zmap = [
-        (-1, chin[1]),
-        (-0.39 if child else -0.43, lip[1]),
-        (0.14 if child else 0.13, eye_y),
-        (1, crown[1]),
-    ]
+    # X is lateral, Y is up, Z faces forward.
+    chin, ear, forehead, crown = (points[i] for i in (991, 12323, 237, 881))
+    zmap = height_map(points, age)
+    mouth_y, eye_y = zmap[1][0], zmap[2][0]
+    baby = age == "baby"
     cut = [(points[i][1], points[i][2]) for i in (991, 7691, 941)]
     # Ear pinnae are painted as separate features; span the two skull widths on either side of the ear.
     ear_lo, ear_hi = points[7612][1], points[7576][1]
@@ -155,6 +161,11 @@ def sample(points, faces, child):
         )
         if ear_lo < y < ear_hi:
             width = min(width, interpolate(ear_widths, y))
+        if baby and ear_lo < y < ear_hi:
+            # The infant ear flares past the temple. Measure the cheek in front
+            # of the pinna, which the renderer adds separately at the ear canal.
+            cheek = [p[0] for seg in lines for p in seg if p[1] > ear[2] + 0.38 / forward_scale]
+            width = min(width, max(cheek))
         center = depths(lines, 1e-6)
         t = max(0, min(1, (h + 0.92) / 0.47))
         rear = max(throat, center[0]) + (
@@ -170,10 +181,10 @@ def sample(points, faces, child):
         front_row = []
         for v in LATERAL:
             z = front(v)
-            if -0.58 < h < 0.43 and v < 0.38:
+            if (-0.72 if baby else -0.58) < h < 0.43 and v < 0.38:
                 z = min(z, ridge - 0.055 * (v / 0.38) ** 2 / forward_scale)
             # An open eyelid in the skin mesh must not cut a hole in the painted eye socket.
-            if 0.07 < h < 0.23 and 0.17 <= v <= 0.62:
+            if (eye_y - 0.09 < h < eye_y + 0.09 if baby else 0.07 < h < 0.23) and 0.17 <= v <= 0.62:
                 z = max(z, front(0.7) + 0.10 * (1 - v) / forward_scale)
             front_row.append(game_x(z))
         edge = depths(lines, 0.98 * width)
@@ -181,23 +192,23 @@ def sample(points, faces, child):
         if edge:
             outer_midpoint = (max(rear, edge[0]) + edge[-1]) * 0.5
             axis += 0.56 * (game_x(outer_midpoint) - axis)
-        fullness = 1 + (0.065 if child else 0.045) * math.exp(
+        fullness = 1 + {"adult": 0.045, "child": 0.065, "baby": 0.015}[age] * math.exp(
             -(((h + 0.38) / 0.34) ** 2)
         )
         result.append(
             [h, width / temple_width * fullness, game_x(rear), axis, *front_row]
         )
     # Close the donor's open eyelids with a skin bed. The runtime supplies both eyes.
-    below = next(r for r in result if r[0] == 0)
-    above = next(r for r in result if r[0] == 0.26)
+    low_eye, high_eye = (-0.27, 0) if baby else (0, 0.26)
+    below = next(r for r in result if r[0] == low_eye)
+    above = next(r for r in result if r[0] == high_eye)
     for row in result:
-        if 0 < row[0] < 0.26:
+        if low_eye < row[0] < high_eye:
             for k in range(3, len(row)):
-                row[k] = interpolate([(0, below[k]), (0.26, above[k])], row[0])
+                row[k] = interpolate([(low_eye, below[k]), (high_eye, above[k])], row[0])
                 if k in (6, 7):
                     row[k] -= 0.018
     # The pigment representing the lips lies on a continuous dental arch at all mouth settings.
-    mouth_y = -0.39 if child else -0.43
     lo = max(i for i, r in enumerate(result) if r[0] < mouth_y - 0.105)
     hi = min(i for i, r in enumerate(result) if r[0] > mouth_y + 0.105)
     for k in (4, 5):
@@ -209,19 +220,10 @@ def sample(points, faces, child):
     return [[round(v, 4) for v in row] for row in result]
 
 
-def sagittal_landmark(vertices, child, indices):
+def sagittal_landmark(vertices, age, indices):
     y, z = [mean(vertices[i][axis] for i in indices) for axis in (1, 2)]
-    chin, lip, ear, forehead, crown = [vertices[i] for i in (991, 455, 12323, 237, 881)]
-    eyes = mean(vertices[i][1] for i in range(13606, 13614))
-    height = interpolate(
-        [
-            (chin[1], -1),
-            (lip[1], -0.39 if child else -0.43),
-            (eyes, 0.14 if child else 0.13),
-            (crown[1], 1),
-        ],
-        y,
-    )
+    ear, forehead = [vertices[i] for i in (12323, 237)]
+    height = interpolate([(y, h) for h, y in height_map(vertices, age)], y)
     forward_scale = 1.18 / (forehead[2] - ear[2])
     forward = -0.115 + (z - ear[2]) * forward_scale * (1 if z >= ear[2] else 0.94)
     return [round(forward, 4), round(height, 4)]
@@ -229,44 +231,46 @@ def sagittal_landmark(vertices, child, indices):
 
 if __name__ == "__main__":
     base, faces = read_mesh(Path(sys.argv[1]))
-    child = child_vertices(base, Path(sys.argv[2]))
+    subjects = {"adult": base, **{age: age_vertices(base, Path(sys.argv[2]), age) for age in ("child", "baby")}}
     print(
-        "// Generated by tools/sample-head.py from the CC0 MakeHuman hm08 mesh and child targets."
+        "// Generated by tools/sample-head.py from the CC0 MakeHuman hm08 mesh, child and baby targets."
     )
     print(
         "// Height, half-width, rear, temple axis, then front depths at 0, .2, .4, .6, .76 and .88 of half-width."
     )
     print("const pineHeadSections = {")
-    for name, vertices in [("adult", base), ("child", child)]:
+    for name, vertices in subjects.items():
         print("  " + name + ": [")
         print(
             ",\n".join(
                 "    " + json.dumps(row)
-                for row in sample(vertices, faces, name == "child")
+                for row in sample(vertices, faces, name)
             )
         )
-        print("  ]" + ("," if name == "adult" else ""))
+        print("  ]" + ("," if name != "baby" else ""))
     print("};")
 
     print()
     print("// Sagittal positions [forward, height] of the head joint, in the same hm08 coordinates.")
-    subjects = [("adult", base, False), ("child", child, True)]
-    pivots = {name: sagittal_landmark(v, c, range(14070, 14078)) for name, v, c in subjects}
+    pivots = {name: sagittal_landmark(v, name, range(14070, 14078)) for name, v in subjects.items()}
     print("const pineHeadPivots = " + json.dumps(pivots) + ";")
     # default.mhskel places jaw____head on the midline of the opening axis.
     # 7691 is the lateral jaw angle also used to trim the head from the neck.
     jaw, sagittal_units = {}, {}
-    for name, v, c in subjects:
+    for name, v in subjects.items():
         triangles = [[v[i] for i in face] for face in faces]
         half_width = max(p[0] for seg in cross_section(triangles, v[237][1]) for p in seg)
         # The section tables normalize the ear-to-forehead span to 1.18 and
         # transverse distances to one temple half-width. Retain their real unit ratio.
         sagittal_units[name] = round((v[237][2] - v[12323][2]) / (1.18 * half_width), 4)
         jaw[name] = {
-            "hinge": sagittal_landmark(v, c, range(14590, 14598)),
-            "angle": [*sagittal_landmark(v, c, [7691]), round(abs(v[7691][0]) / half_width, 4)],
+            "hinge": sagittal_landmark(v, name, range(14590, 14598)),
+            "angle": [*sagittal_landmark(v, name, [7691]), round(abs(v[7691][0]) / half_width, 4)],
         }
     print("// Mandibular hinge axis and lateral jaw angle, independent of the head/neck pivot.")
     print("const pineMandibleLandmarks = " + json.dumps(jaw) + ";")
     print("// Physical length of a sagittal table unit relative to one transverse table unit.")
     print("const pineSagittalUnits = " + json.dumps(sagittal_units) + ";")
+    landmarks = {key: sagittal_landmark(subjects["baby"], "baby", indices)[1]
+                 for key, indices in {"eye": range(13606, 13614), "mouth": [455], "ear": [12323]}.items()}
+    print("const pineInfantLandmarks = " + json.dumps(landmarks) + ";")

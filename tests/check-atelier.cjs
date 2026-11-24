@@ -608,12 +608,30 @@ function checkEditor() {
     byId('save-look').click();
     expect((PineWardrobe.saved.get(generated.id).shape.cheekFullness || 0) === repaired &&
       PineWardrobe.saved.size === savedCount + 1, 'save the local cheek correction under the same character ID');
+    const oldBaby = PineWardrobe.importCharacter({
+      ...PineLooks.templateById.get('look_workshop_baby'), id: 'look_archived_infant',
+      packs: { 'pine-core': PineLooks.morphRelease }
+    }).recipe;
+    byId('shelf-era').value = '';
+    byId('look-query').value = oldBaby.id;
+    byId('look-query').dispatchEvent(new Event('input'));
+    document.querySelector('[data-key="saved:' + oldBaby.id + '"]').click();
+    byId('tab-face').click();
+    expect(byId('update-head')?.textContent === '试用婴儿头型', 'missing infant-specific upgrade');
+    const earlierBaby = byId('mirror').toDataURL();
+    byId('update-head').click();
+    expect(earlierBaby !== byId('mirror').toDataURL() && !byId('update-head'), 'infant preview did not change');
+    document.querySelector('[data-face-preset="infant-almond"]').click();
+    expect(byId('edit-nose').value === 'broad', 'infant preset should use the ordinary editable nose slot');
+    expect(PineWardrobe.saved.get(oldBaby.id).packs['pine-core'] === PineLooks.morphRelease, 'preview changed the previous save');
+    byId('save-look').click();
+    expect(PineWardrobe.saved.get(oldBaby.id).packs['pine-core'] === PineLooks.release, 'save the new infant in place');
     target.dataset.state = 'pass';
     target.textContent =
       'Body profiles, legacy saves, head upgrades, facial morphs, guided random portraits, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';
   } catch (err) {
     target.dataset.state = 'fail';
-    target.textContent = err.message;
+    target.textContent = err.stack || err.message;
   }
 }
 

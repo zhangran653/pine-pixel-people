@@ -18,7 +18,8 @@ const PineLooks = (() => {
     mandibleRelease = '1.10.1',
     sagittalRelease = '1.11.0',
     occipitalRelease = '1.11.1',
-    release = '1.12.0';
+    morphRelease = '1.12.0',
+    release = '1.13.0';
   const releases = [
     originalRelease,
     styleRelease,
@@ -37,6 +38,7 @@ const PineLooks = (() => {
     mandibleRelease,
     sagittalRelease,
     occipitalRelease,
+    morphRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -137,13 +139,21 @@ SOFTWARE.`;
     if (recipe.base !== 'adult') return recipe.base;
     return recipe.gender === 'female' || recipe.gender === 'male' ? recipe.gender : null;
   }
+  function clearAdultFaceDetails(face) {
+    if (!face) return;
+    delete face.facialHair;
+    if (face.complexion === 'fine-lines') delete face.complexion;
+  }
   function withBodyProfile(recipe, profile) {
     if (!Object.hasOwn(bodyProfiles, profile)) throw new Error('未知的默认体型');
     const { base, gender } = bodyProfiles[profile];
     const next = JSON.parse(JSON.stringify(recipe));
     next.base = base;
     next.gender = gender;
-    next.packs[core] = editingRelease(next);
+    if (base === 'baby' && recipe.base !== 'baby') {
+      next.packs[core] = release;
+      clearAdultFaceDetails(next.face);
+    } else next.packs[core] = editingRelease(next);
     return next;
   }
   const originalSlots = {
@@ -320,6 +330,11 @@ SOFTWARE.`;
     ['level-full', '平眼尾 · 丰上唇', 'level-eye', 'tapered', 'broad', 'upper-full',
       { eyeWidth: 0.36, eyeDepth: -0.35, noseBridge: 0.42, upperLipFullness: 0.55 }]
   ]) facePresets[id] = { label, face: { eyes, brows, nose, mouth }, shape };
+  const infantFacePresets = {
+    'infant-round': { label: '圆眼浅笑', face: { eyes: 'round', brows: 'fine', nose: 'button', mouth: 'soft-smile' } },
+    'infant-almond': { label: '杏眼小嘴', face: { eyes: 'almond', brows: 'straight', nose: 'broad', mouth: 'small' } },
+    'infant-crescent': { label: '弯眼丰唇', face: { eyes: 'crescent', brows: 'short-brow', nose: 'rounded', mouth: 'lower-full' } }
+  };
   function applyFacePreset(recipe, preset) {
     recipe.face = { ...recipe.face, ...preset.face };
     for (const key of featureShapeKeys) delete recipe.shape[key];
@@ -425,7 +440,7 @@ SOFTWARE.`;
     const pin = recipe.packs[core];
     let needed = originalRelease;
     if (morphKeys.some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 0))
-      needed = release;
+      needed = morphRelease;
     else if (['headDepth', 'faceRelief'].some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 1))
       needed = sagittalRelease;
     else if (
@@ -907,7 +922,7 @@ SOFTWARE.`;
     mother: ['female', 'bun', 'gentle'],
     child: ['child', 'crop', 'cheerful'],
     toddler: ['toddler', 'curly', 'cheerful'],
-    baby: ['baby', 'crop', 'gentle']
+    baby: ['baby', 'crop', 'infant-round']
   };
   for (const [id, outfit] of Object.entries(pineWorkshopWear.outfits)) {
     const [profile, hair, face] = workshopProfiles[id];
@@ -915,7 +930,7 @@ SOFTWARE.`;
     model.id = 'look_workshop_' + id;
     model.label = outfit.label;
     model.parts.hair = hair;
-    model.face = { ...facePresets[face].face };
+    model.face = { ...(infantFacePresets[face] || facePresets[face]).face };
     const palettes = {
       hiker: ['dc9a70', '493a39', '2a333a'],
       surveyor: ['c88a66', '393139', '674f3d'],
@@ -1061,9 +1076,17 @@ SOFTWARE.`;
     ...Object.values(facePresets),
     { face: { nose: 'long', mouth: 'thin' } }, { face: { nose: 'upturned', mouth: 'pursed' } }
   ];
+  const infantEyes = [
+    ['round', 'short-brow'], ['soft-oval', 'fine'], ['level-eye', 'classic'],
+    ['almond', 'tapered'], ['monolid', 'short-brow'], ['crescent', 'straight'], ['doe-eye', 'fine']
+  ].map(([eyes, brows]) => ({ face: { eyes, brows } }));
+  const infantNoses = [
+    ['button', 'small'], ['short', 'relaxed'], ['rounded', 'bow'], ['classic', 'soft-smile'],
+    ['wide', 'lower-full'], ['broad', 'small'], ['upturned', 'classic']
+  ].map(([nose, mouth]) => ({ face: { nose, mouth } }));
   const naturalHairDyes = ['墨黑', '深棕', '栗棕', '铜红', '蜜金', '银灰', '乌木黑', '巧克力',
     '焦糖棕', '栗红', '亚麻金', '浅铂金', '赤铜', '浅灰白'].map((name) => hairColors[name]);
-  const babyHair = ['bald', 'crop', 'curly', 'crew', 'side-part'];
+  const babyHair = ['bald', 'crop', 'curly', 'crew'];
   const profileDraws = ['female', 'male', 'child', 'female', 'male', 'toddler', 'female', 'male', 'child', 'baby'];
   const bodySizes = ['height', 'shoulders', 'arms', 'legs'];
 
@@ -1075,7 +1098,9 @@ SOFTWARE.`;
   function cheekAdjustment(recipe, style = 'soft') {
     const s = recipe.shape;
     const outline = pinePortraitStyles.outlines[recipe.face?.outline];
-    const breadth = (h) => pinePortraitStyles.jawBreadth(outline, s.jaw ?? 1, h);
+    const infant = recipe.base === 'baby' && recipe.packs?.[core] === release;
+    const breadth = (h) => pinePortraitStyles.jawBreadth(outline, s.jaw ?? 1, h,
+      infant ? pinePortraitStyles.proportions.baby.outlineStrength : 1);
     const lowerWidth = Math.max(0, breadth(-0.46) - breadth(-0.15));
     const low = Math.max(0, -(s.cheekHeight || 0));
     const projection = s.cheekProjection || 0;
@@ -1094,6 +1119,7 @@ SOFTWARE.`;
   // Limit the generated pigment footprints in head radii, using the painter's selected feature styles.
   function fitRandomFace(doc) {
     const { eyes, brows, nose, mouth, outline } = doc.face, s = doc.shape;
+    const fit = pinePortraitStyles.proportions[doc.base === 'baby' ? 'baby' : 'standard'];
     const eye = pinePortraitStyles.eyes[eyes], brow = pinePortraitStyles.brows[brows];
     const eyeHalf = eye?.[1] ?? ({ round: 0.24, almond: 0.272 }[eyes] || 0.251);
     const upperLid = eye ? eye[2] + Math.max(0.021, eye[6] + 0.014)
@@ -1102,17 +1128,17 @@ SOFTWARE.`;
       ? brow[2] + brow[3] * (1 - (brow[7] === 'peak' ? 0.85 * Math.abs(brow[6]) : 0.77 * brow[6] ** 2)) - brow[5]
       : 0.209 + (brows === 'arched' ? 0.096 : brows === 'straight' ? 0.025 : 0.055) * (1 - 0.12 ** 2)
         - (brows === 'thick' ? 0.077 : 0.049);
-    const lidTop = upperLid * (1 + 0.42 * s.eyeOpening);
-    const minBrow = Math.ceil(100 * (lidTop + 0.035 - browBase) / 0.092) / 100;
-    const maxBrow = Math.floor(100 * (lidTop + 0.14 - browBase) / 0.092) / 100;
+    const lidTop = upperLid * fit.eyeOpen * (1 + 0.42 * s.eyeOpening);
+    const minBrow = Math.ceil(100 * (lidTop + 0.035 - browBase * fit.browHeight) / 0.092) / 100;
+    const maxBrow = Math.floor(100 * (lidTop + 0.14 - browBase * fit.browHeight) / 0.092) / 100;
     s.browHeight = Math.max(-1, Math.min(1, Math.max(minBrow, Math.min(maxBrow, s.browHeight))));
-    s.eyeSpacing = Math.max(s.eyeSpacing, Math.ceil(100 * (0.145 + eyeHalf * (1 + 0.23 * s.eyeWidth)) / 0.485) / 100);
+    s.eyeSpacing = Math.max(s.eyeSpacing, Math.ceil(100 * (0.145 + eyeHalf * fit.eyeWidth * (1 + 0.23 * s.eyeWidth)) / fit.eyeCenter) / 100);
 
     const noseRow = pinePortraitStyles.noses[nose] || pinePortraitStyles.basicNoses[nose];
     const upperLip = pinePortraitStyles.mouths[mouth]?.[2] ?? (mouth === 'full' ? 0.092 : 0.061);
     // Include the wing below the tip and the extra lip peak painted by the bow style.
-    const clearance = noseRow[3] + Math.max(0.105, Math.min(0.11, noseRow[6]))
-      + Math.max(upperLip, mouth === 'bow' ? 0.105 : 0) * (1 + 0.54 * s.upperLipFullness) + 0.04;
+    const clearance = (noseRow[3] + Math.max(0.105, Math.min(0.11, noseRow[6]))) * fit.noseLength
+      + Math.max(upperLip, mouth === 'bow' ? 0.105 : 0) * fit.lipHeight * (1 + 0.54 * s.upperLipFullness) + 0.04;
     s.mouthHeight = Math.min(s.mouthHeight, pineDesignerBody.maxMouthHeight(doc.base, clearance));
     if (outline === 'diamond') s.cheekWidth = Math.min(0.3, s.cheekWidth);
     if (s.cheekHeight > 0.32 && s.cheekProjection > 0.32) s.cheekFullness = Math.max(-0.12, s.cheekFullness);
@@ -1122,11 +1148,13 @@ SOFTWARE.`;
     const expressive = style === 'expressive';
     const doc = structuredClone(recipe);
     doc.packs[core] = release;
-    const eyePair = pick(eyePairs, random), nosePair = pick(nosePairs, random);
+    const infant = doc.base === 'baby';
+    const eyePair = pick(infant ? infantEyes : eyePairs, random), nosePair = pick(infant ? infantNoses : nosePairs, random);
     const cheeks = pick(cheekChoices, random);
     doc.face = { ...doc.face, eyes: eyePair.face.eyes, brows: eyePair.face.brows,
       nose: nosePair.face.nose, mouth: nosePair.face.mouth };
-    const outline = pick(['', ...Object.keys(faceDetails.outline)], random);
+    if (infant) clearAdultFaceDetails(doc.face);
+    const outline = pick(infant ? ['', 'oval', 'round', 'pear'] : ['', ...Object.keys(faceDetails.outline)], random);
     if (outline) doc.face.outline = outline;
     else delete doc.face.outline;
     const ageFullness = { baby: 0.12, toddler: 0.06 }[doc.base] || 0;
@@ -1137,7 +1165,8 @@ SOFTWARE.`;
       let center = (group.shape?.[key] || 0) * (expressive ? 1 : 0.82);
       if (key === 'cheekFullness') center = Math.min(0, center) + ageFullness;
       const offset = (random() + random() - 1) * (expressive ? 0.52 : 0.28);
-      doc.shape[key] = Math.round(100 * Math.max(-1, Math.min(1, center + offset))) / 100;
+      const value = (center + offset) * (infant ? 0.65 : 1);
+      doc.shape[key] = Math.round(100 * Math.max(-1, Math.min(1, value))) / 100;
     }
     doc.shape.eyeSpacing = expressive ? between(0.87, 1.13, random) : between(0.94, 1.06, random);
     doc.shape.faceWidth = expressive ? between(0.89, 1.11, random) : between(0.94, 1.06, random);
@@ -1192,6 +1221,7 @@ SOFTWARE.`;
     mandibleRelease,
     sagittalRelease,
     occipitalRelease,
+    morphRelease,
     morphs: pinePortraitStyles.morphs,
     cheekPresets,
     cheekAdjustment,
@@ -1209,6 +1239,7 @@ SOFTWARE.`;
     withBodyProfile,
     features,
     facePresets,
+    infantFacePresets,
     applyFacePreset,
     featureShapeKeys,
     outfits,

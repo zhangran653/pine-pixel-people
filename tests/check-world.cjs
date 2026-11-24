@@ -99,6 +99,53 @@ for (const id of ['look_body_male', 'look_body_female', 'look_relay', 'look_work
   }
 }
 const skull = vm.runInContext('pineHeadShape', context);
+// The same editable face should visibly age when only its underlying head changes.
+{
+  const recipe = clone(looks.templateById.get('look_workshop_baby'));
+  recipe.face = clone(looks.facePresets.gentle.face);
+  const archived = { ...recipe, packs: { 'pine-core': looks.morphRelease } };
+  const old = looks.build(archived), infant = looks.build(recipe);
+  function digests(actor) {
+    const rest = motion.rig.pose(actor.rig), coarse = actor.body.makePose(rest);
+    return [hash(coarse.colors), hash(motion.faceLayers(actor, rest, coarse)[1].model.colors)];
+  }
+  assert.deepEqual(digests(old), [
+    '89e9dadea7e44eb0526b32a270bea13c895a09c1265eb1150c15839864ba2513',
+    '306cddaaeba496a4d4c709ac5ccff86406be2644c9e5a1dd8e033145a8d0ff09'
+  ], 'the 1.12 baby must replay its original figure and portrait');
+  const z = (actor, name) => actor.sockets[name].point[2];
+  assert.equal(infant.rig.height, old.rig.height);
+  assert.ok(z(infant, 'leftEye') < z(old, 'leftEye') - 0.8);
+  assert.ok(z(infant, 'mouth') < z(old, 'mouth') - 0.6);
+  assert.ok(z(infant, 'leftEarCanal') < z(old, 'leftEarCanal') - 0.6);
+  const lowerFace = a => z(a, 'leftEye') - z(a, 'chinTip');
+  assert.ok(lowerFace(infant) < 0.82 * lowerFace(old));
+  const rest = motion.rig.pose(infant.rig);
+  const band = motion.faceLayers(infant, rest, infant.body.makePose(rest))[1];
+  const [mx, my, mz] = motion.rig.socket(infant, rest, 'mouth');
+  const { nx, ny, density } = band.body;
+  const mouthRow = (Math.floor((mz - band.z) * density) * ny + Math.floor((my - band.y) * density + ny / 2)) * nx;
+  const tip = band.model.colors.subarray(mouthRow, mouthRow + nx).findLastIndex(Boolean);
+  assert.ok(Math.abs(band.x + (tip + 0.5 - nx / 2) / density - mx) < 1.6 / density, 'mouth contact lies on the rendered lips');
+  // Exercise the reusable prop contact without changing the clip's age eligibility.
+  const sip = motion.actions.get('drink').sample(0.50, infant)[0].pose;
+  assert.ok(distance(sip.bottle.lip, motion.rig.socket(infant, sip, 'mouth')) < 1e-7);
+  const head = skull.reshape('baby', {}, 1, true);
+  for (const h of [-0.75, -0.45, 0.3, 0.8]) assert.notEqual(head.row(h).width, skull.child.row(h).width);
+  for (const base of ['adult', 'child', 'toddler']) {
+    const doc = { ...recipe, base };
+    assert.deepEqual(digests(looks.build(doc)), digests(looks.build({ ...doc, packs: archived.packs })), base);
+  }
+  const adult = { ...archived, base: 'adult', face: { ...recipe.face, facialHair: 'beard', complexion: 'fine-lines' } };
+  const converted = looks.withBodyProfile(adult, 'baby');
+  assert.equal(converted.packs['pine-core'], looks.release);
+  assert.deepEqual(clone(converted.face), clone(recipe.face));
+  assert.deepEqual(clone(converted.colors), clone(adult.colors));
+  const reroll = looks.randomFace({ ...archived, face: { ...adult.face } }, () => 0.5);
+  assert.ok(!reroll.face.facialHair && !reroll.face.complexion);
+  assert.equal(looks.prepare(archived).recipe.packs['pine-core'], looks.morphRelease);
+  assert.equal(looks.withBodyProfile(archived, 'baby').packs['pine-core'], looks.morphRelease);
+}
 {
   const seed = looks.templateById.get('look_body_male');
   const pixels = (doc) => {
@@ -137,14 +184,15 @@ const skull = vm.runInContext('pineHeadShape', context);
   const pairings = new Set(), expressHair = new Set(), naturalHair = new Set();
   function checkSpacing(doc) {
     const s = doc.shape, eyes = styles.eyes[doc.face.eyes], brows = styles.brows[doc.face.brows];
-    if (eyes) assert.ok(0.485 * s.eyeSpacing - eyes[1] * (1 + 0.23 * (s.eyeWidth || 0)) >= 0.145 - 1e-8);
+    const fit = styles.proportions[doc.base === 'baby' ? 'baby' : 'standard'];
+    if (eyes) assert.ok(fit.eyeCenter * s.eyeSpacing - eyes[1] * fit.eyeWidth * (1 + 0.23 * (s.eyeWidth || 0)) >= 0.145 - 1e-8);
     if (eyes && brows) {
       // Sample the real pigment brushes at the pupil axis with the eye open.
       let upperLid = 0, lowerBrow = Infinity;
       for (let i = 0; i <= 230; i++) {
         const h = i / 500;
-        if (styles.eye(eyes, 0, h / (1 + 0.42 * (s.eyeOpening || 0)), 0, 1, ink)) upperLid = h;
-        if (styles.brow(brows, 0, h - 0.092 * (s.browHeight || 0), ink)) lowerBrow = Math.min(lowerBrow, h);
+        if (styles.eye(eyes, 0, h / (fit.eyeOpen * (1 + 0.42 * (s.eyeOpening || 0))), 0, 1, ink)) upperLid = h;
+        if (styles.brow(brows, 0, (h - 0.092 * (s.browHeight || 0)) / fit.browHeight, ink)) lowerBrow = Math.min(lowerBrow, h);
       }
       const gap = lowerBrow - upperLid;
       assert.ok(gap >= 0.034 && gap < 0.146, doc.face.eyes + '/' + doc.face.brows + ' brow gap ' + gap);
@@ -165,6 +213,20 @@ const skull = vm.runInContext('pineHeadShape', context);
   const random = seeded(83);
   const base = JSON.stringify(seed), colors = new Set(), ages = new Set(), ids = new Set(), outlines = new Set();
   const lowCheeks = [];
+  const babySeed = looks.templateById.get('look_workshop_baby');
+  for (const style of ['natural', 'expressive']) {
+    const babyRandom = seeded(17603), combinations = new Set();
+    for (let i = 0; i < 64; i++) {
+      const baby = looks.randomCharacter({ source: babySeed, locks: ['body'], style, random: babyRandom });
+      assert.equal(baby.base, 'baby');
+      assert.ok(['bald', 'crop', 'curly', 'crew'].includes(baby.parts.hair));
+      assert.ok(['', 'oval', 'round', 'pear'].includes(baby.face.outline || ''));
+      assert.ok(!['aquiline', 'long'].includes(baby.face.nose) && baby.face.eyes !== 'deep-set');
+      checkSpacing(baby);
+      combinations.add(baby.face.eyes + '/' + baby.face.nose);
+    }
+    assert.ok(combinations.size >= 28, 'independent infant eyes and noses in ' + style);
+  }
   for (let i = 0; i < 160; i++) {
     const doc = looks.prepare(looks.randomCharacter(random)).recipe;
     checkSpacing(doc);
@@ -199,7 +261,8 @@ const skull = vm.runInContext('pineHeadShape', context);
       const vertical = (actor.sockets.leftEye.point[2] - actor.sockets.mouth.point[2]) / radius;
       const nose = styles.noses[expressive.face.nose] || styles.basicNoses[expressive.face.nose];
       const lip = styles.mouths[expressive.face.mouth]?.[2] ?? (expressive.face.mouth === 'full' ? 0.092 : 0.061);
-      assert.ok(vertical - nose[3] - 0.105 - lip * (1 + 0.54 * (expressive.shape.upperLipFullness || 0)) >= 0.0399,
+      const fit = styles.proportions[expressive.base === 'baby' ? 'baby' : 'standard'];
+      assert.ok(vertical - (nose[3] + 0.105) * fit.noseLength - lip * fit.lipHeight * (1 + 0.54 * (expressive.shape.upperLipFullness || 0)) >= 0.0399,
         'nose and upper lip need space on the ' + expressive.base + ' rig');
     }
   }
@@ -375,7 +438,12 @@ for (const id of ['look_body_male', 'look_relay', 'look_workshop_toddler', 'look
   const socket = (p, name) => motion.rig.socket(a, p, name);
   const joint = socket(rest, 'leftJawJoint'), ear = socket(rest, 'leftEarCanal');
   assert.ok(joint[0] > ear[0] && joint[2] < ear[2] && joint[2] > socket(rest, 'leftJawAngle')[2], id);
-  assert.ok(distance(joint, ear) < 0.06 * a.rig.height);
+  if (doc.base === 'baby') {
+    // Check the infant donor's ear-to-hinge offsets in head units. Its head
+    // occupies more of the standing height than the older actors' heads.
+    assert.ok(Math.abs((ear[2] - joint[2]) / 3.89 - 0.2644) < 0.001);
+    assert.ok(Math.abs((joint[0] - ear[0]) / 3.43 - 0.3547) < 0.001);
+  } else assert.ok(distance(joint, ear) < 0.06 * a.rig.height);
   assert.deepEqual(clone(socket(rest, 'rightJawJoint')), [joint[0], -joint[1], joint[2]]);
   for (const fixed of ['leftEye', 'rightEye', 'upperLip', 'collar', 'headPivot'])
     assert.deepEqual(socket(wide, fixed), socket(rest, fixed), id + ' ' + fixed);
@@ -448,11 +516,11 @@ for (const config of [
   { height: 1.3, arms: 0.8, legs: 0.8, shoulders: 1.35 }
 ]) {
   const a = looks.build({ ...base, shape: { ...base.shape, ...config } });
-  const [parent, child] = motion.actions.get('cradle').sample(0.5, a, baby);
-  assert.ok(
-    distance(parent.contacts.seatHand, child.contacts.seat) < 0.01 &&
-      distance(parent.contacts.backHand, child.contacts.back) < 0.01
-  );
+  for (const phase of [0.45, 0.53, 0.62]) {
+    const [parent, child] = motion.actions.get('cradle').sample(phase, a, baby);
+    assert.ok(distance(parent.contacts.seatHand, child.contacts.seat) < 0.01 &&
+      distance(parent.contacts.backHand, child.contacts.back) < 0.01);
+  }
 }
 assert.throws(() => world.normalize([{ kind: 'absent' }]));
 assert.throws(() => world.normalize([{ kind: 'chair', z: -1 }]));

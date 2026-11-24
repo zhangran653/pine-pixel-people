@@ -174,9 +174,9 @@
         <p>
           12 种唇形直接画在脸面上，用唇线、嘴角和上下唇的色差区分款式。唇心位于头部局部坐标 Y = 0，水壶在这里接触脸面。旧存档按各自版本绘制。「体型」「发型」和「五官」提供新版外形试用入口，点击「保存形象」后会记录新版本。<a href="atelier.html?preset=look_body_female&amp;tab=face&amp;bearing=90">从正侧面查看唇线</a>
         </p>
-        <h2 id="head-reference">成人与儿童的头型参考</h2>
+        <h2 id="head-reference">成人、儿童与婴儿的头型参考</h2>
         <p>
-          成人取样自 MakeHuman 的中性 hm08 基础网格。儿童使用同一拓扑，将官方六份儿童形变等权混合，再单独取样。基础网格与这些形变均采用 CC0 1.0。项目的绘制工具、原创人物与动作继续采用 MIT。<a href="https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/3dobjs/base.obj">基础网格</a> · <a href="https://github.com/makehumancommunity/makehuman/tree/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/targets/macrodetails">形变数据</a> · <a href="https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/LICENSE.md#c-the-license-for-the-bundled-assets">上游素材许可</a>
+          成人取样自 MakeHuman 的中性 hm08 基础网格。学龄儿童和婴儿使用同一拓扑，各自等权混合该年龄的六份官方形变，再独立采样。基础网格与这些形变均采用 CC0 1.0。项目的绘制工具、原创人物与动作采用 MIT。<a href="https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/3dobjs/base.obj">基础网格</a> · <a href="https://github.com/makehumancommunity/makehuman/tree/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/targets/macrodetails">形变数据</a> · <a href="https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/LICENSE.md#c-the-license-for-the-bundled-assets">上游素材许可</a>
         </p>
         <p>
           采样脚本对齐颏底、唇线、眼位与颅顶，分别提取 29 个高度的截面。每层记录半脸宽、后缘、颞部位置，以及从面中线到脸侧的六个前表面深度。眼睑、鼻和嘴仍可独立更换，头顶与颈部按像素骨架衔接。运行时只读截面表。「后脑深度」从耳部向后调节，单人近景使用固定镜头。<a href="short-hair-profile-preview.png">查看同镜头的上一轮工作稿与新头型</a>
@@ -192,6 +192,12 @@
         </p>
         <p>
           1.11.1 根据每层截面从耳部到后缘的实际距离，轻收枕部最凸的一段，并在上下两端平滑接入原来的头顶与后颈。头皮和发束共用这项按高度预先计算的修正。「后脑深度」可继续单独调节。<a href="occiput-profile-preview.png">查看裸头和短发的后缘对照</a>
+        </p>
+        <p id="infant-head">
+          <code>base: "baby"</code> 和 <code>pine-core 1.13.0</code> 选用独立的婴儿头型。参考形变对应 MakeHuman 年龄滑杆约一岁的一端。将参考颏底记作 −1、颅顶记作 +1，婴儿眼线在 −0.130，唇线在 −0.577，耳孔在 −0.264。像素颅顶、下巴与颈部按原骨架重新衔接。眼、口、耳及下颌的动作接点随之定位。截面表在构建前生成，游戏仍按原有密度绘制像素层。<a href="https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/modifiers/modeling_modifiers_desc.json">上游年龄定义</a> · <a href="infant-head-preview.png">正面、侧面和短发对照</a>
+        </p>
+        <p>
+          婴儿和其他人物使用相同的眼、眉、鼻、嘴及染色槽，尺寸以各自头型为基准。三个婴儿五官起点可从 <code>PineLooks.infantFacePresets</code> 读取并交给 <code>PineLooks.applyFacePreset</code>。<code>randomFace</code> 与 <code>randomCharacter</code> 会按婴儿的眉眼和鼻唇间距选配，肤色独立抽取。载入旧婴儿时依照配方原先锁定的版本绘制，创作室提供「试用婴儿头型」与保存操作。<a href="atelier.html?preset=look_workshop_baby&amp;tab=face&amp;features=infant-almond&amp;bearing=35">试用杏眼小嘴</a>
         </p>
         <p>
           用 Python 3 在项目根目录执行下面的命令即可重新生成截面表。两个参数分别指向上述固定版本的网格及其形变目录。<a href="tools/sample-head.py">采样脚本</a> · <a href="head-sections.js">生成的截面数据</a>

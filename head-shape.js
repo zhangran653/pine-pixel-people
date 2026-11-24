@@ -35,8 +35,21 @@ const pineHeadShape = (() => {
   // The reference mesh was cut at the jaw to remove its neck. The pixel rig has a shorter
   // neck, so carry the underside of the chin back to the throat in the same cross-section.
   // Height, half-width, back of the throat, widest lateral point, front of the chin.
-  function jawSections(reference, child, settings) {
-    const lower = [
+  function jawSections(reference, base, settings) {
+    const infant = base === 'baby', child = base === 'child';
+    // The infant's menton sits close to the lower lip. Join its measured cheek
+    // with a shallow chin pad and a broad curve back into the short neck.
+    const lower = infant ? [
+      [-1, 0.345, -0.33, 0.015, 0.32],
+      [-0.964, 0.37, -0.34, 0.036, 0.40],
+      [-0.928, 0.42, -0.346, 0.086, 0.56],
+      [-0.89, 0.49, -0.35, 0.155, 0.73],
+      [-0.85, 0.57, -0.35, 0.22, 0.85],
+      [-0.80, 0.665, -0.345, 0.275, 0.918],
+      [-0.73, 0.755, -0.325, 0.325, 0.968],
+      [-0.65, 0.825, -0.305, 0.351, 0.997],
+      [-0.59, 0.858, -0.30, 0.363, 1.012]
+    ] : [
       [-1, 0.37, -0.415, -0.04, 0.32],
       [-0.96, 0.38, -0.42, -0.035, 0.325],
       [-0.925, 0.392, -0.42, -0.022, 0.35],
@@ -68,13 +81,14 @@ const pineHeadShape = (() => {
         const neckBlend = Math.max(0, 1 - ((h + 0.922) / 0.101) ** 2);
         // Bring the upper throat forward under the chin, then ease it back into the
         // unchanged neck pivot. This sets the length of the visible underside in profile.
-        front += (child ? 0.13 : 0.18) * neckBlend * (1 + 0.88 * settings.jawNeck);
-        h += (child ? 0.016 : 0.026) * arch + 0.065 * settings.chinHeight * arch;
-        const forward = (0.19 + 0.16 * settings.jawPosition) * arch;
+        const scale = infant ? 0.54 : 1;
+        front += (infant ? 0.065 : child ? 0.13 : 0.18) * neckBlend * (1 + 0.88 * settings.jawNeck);
+        h += (infant ? 0.008 : child ? 0.016 : 0.026) * arch + 0.065 * scale * settings.chinHeight * arch;
+        const forward = scale * (0.19 + 0.16 * settings.jawPosition) * arch;
         back += forward;
-        side += (0.15 + 0.12 * settings.jawPosition) * arch;
+        side += scale * (0.15 + 0.12 * settings.jawPosition) * arch;
         width *= 1 + (-0.075 + 0.12 * settings.chinRoundness) * tip;
-        front += (0.14 * settings.chinProjection - 0.022) * tip;
+        front += scale * (0.14 * settings.chinProjection - 0.022) * tip;
         // A higher jaw angle lifts and tapers the lateral rear rather than the chin.
         width *= 1 - 0.065 * settings.jawAngle * arch;
         side += 0.07 * settings.jawAngle * arch;
@@ -89,13 +103,14 @@ const pineHeadShape = (() => {
     });
     return [...rings, ...reference.filter(([h]) => h >= -0.54)];
   }
-  function profile(child, fittedJaw = false, settings, relief = 0, facial) {
-    const reference = pineHeadSections[child ? 'child' : 'adult'];
-    const sections = fittedJaw ? jawSections(reference, child, settings) : reference;
+  function profile(base, fittedJaw = false, settings, relief = 0, facial) {
+    const child = base !== 'adult', infant = base === 'baby';
+    const reference = pineHeadSections[base];
+    const sections = fittedJaw ? jawSections(reference, base, settings) : reference;
     const gradients = sections[0].map((_, i) => slopes(sections, i));
     const neutral = posterior(1);
     const angles = lateral.map(Math.asin);
-    const cheekCenter = facial ? -0.205 + 0.20 * facial.cheekHeight : -0.14;
+    const cheekCenter = facial ? (infant ? -0.34 : -0.205) + (infant ? 0.12 : 0.20) * facial.cheekHeight : -0.14;
     const meridians = Array.from({ length: lateralSteps + 1 }, (_, j) => {
       const angle = Math.asin(j / lateralSteps);
       let interval = 0;
@@ -111,15 +126,22 @@ const pineHeadShape = (() => {
         back = value(2),
         side = value(3);
       const front = lateral.slice(0, -1).map((_, j) => value(4 + j));
+      if (infant) {
+        // Ease the donor's upper dental arch into the short, separately painted
+        // nose. The far cheek must not form another tip in three-quarter view.
+        const inset = 0.082 * lobe(h, -0.51, 0.315);
+        front.forEach((v, j) => { front[j] = v - inset * (1 - 0.42 * lateral[j] ** 2); });
+        side -= 0.14 * inset;
+      }
       if ((relief || facial) && h > -0.94 && h < (facial ? 0.48 : 0.29)) {
         // Low, overlapping facial planes read in three-quarter view. The dental arch
         // stays continuous, and the soft chin pad follows the selected chin height.
         const cheek = lobe(h, cheekCenter, facial ? 0.43 : 0.36);
-        const bridge = lobe(h, 0.035, 0.25);
-        const mouthCorners = lobe(h, -0.42, 0.24);
-        const chin = lobe(h, -0.735 + 0.055 * settings.chinHeight, 0.19);
-        const amount = (child ? 0.8 : 1) * relief;
-        const lower = facial ? lobe(h, -0.42, 0.29) : 0;
+        const bridge = lobe(h, infant ? pineInfantLandmarks.eye - 0.05 : 0.035, 0.25);
+        const mouthCorners = lobe(h, infant ? pineInfantLandmarks.mouth : -0.42, 0.24);
+        const chin = lobe(h, (infant ? -0.81 : -0.735) + 0.055 * settings.chinHeight, 0.19);
+        const amount = (infant ? 0.43 : child ? 0.8 : 1) * relief;
+        const lower = facial ? lobe(h, infant ? -0.53 : -0.42, infant ? 0.23 : 0.29) : 0;
         if (facial) width *= 1 + 0.13 * facial.cheekWidth * cheek + 0.075 * facial.cheekFullness * lower;
         for (let j = 0; j < front.length; j++) {
           const v = lateral[j];
@@ -130,11 +152,11 @@ const pineHeadShape = (() => {
             0.062 * mouthCorners * lobe(v, 0.39, 0.37)
           );
           if (facial) {
-            const softness = child ? 0.8 : 1;
+            const softness = infant ? 0.50 : child ? 0.8 : 1;
             front[j] += softness * (
               0.123 * facial.cheekProjection * cheek * lobe(v, 0.59, 0.46) +
               (0.025 + 0.138 * facial.cheekFullness) * lower * lobe(v, 0.64, 0.40) -
-              0.117 * facial.eyeDepth * lobe(h, 0.145, 0.23) * lobe(v, 0.50 * facial.eyeSpacing, 0.32)
+              0.117 * facial.eyeDepth * lobe(h, infant ? pineInfantLandmarks.eye : 0.145, 0.23) * lobe(v, 0.50 * facial.eyeSpacing, 0.32)
             );
           }
         }
@@ -307,7 +329,7 @@ const pineHeadShape = (() => {
   }
   const jaws = new Map();
   function withJaw(base) {
-    if (!jaws.has(base)) jaws.set(base, profile(base === 'child', true));
+    if (!jaws.has(base)) jaws.set(base, profile(base, true));
     return jaws.get(base);
   }
   const controls = ['chinHeight', 'chinProjection', 'chinRoundness', 'jawPosition', 'jawAngle', 'jawNeck'];
@@ -322,9 +344,11 @@ const pineHeadShape = (() => {
     const key = [base, relief, ...Object.values(settings), ...(facial ? Object.values(facial) : [])].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);
-      adjustable.set(key, profile(base === 'child', true, settings, relief, facial));
+      adjustable.set(key, profile(base, true, settings, relief, facial));
     }
     return adjustable.get(key);
   }
-  return { adult: profile(false), child: profile(true), earPlane, posterior, withJaw, controls, reshape };
+  let baby;
+  return { adult: profile('adult'), child: profile('child'), get baby() { return baby ||= profile('baby'); },
+    earPlane, posterior, withJaw, controls, reshape };
 })();
