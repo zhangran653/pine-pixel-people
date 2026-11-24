@@ -519,21 +519,26 @@ function headProfile(recipe) {
     fineGrid: model
   };
 }
-for (const [id, oldBodyHash, oldHeadHash] of [
+for (const [id, oldBodyHash, oldHeadHash, sculptBodyHash, sculptHeadHash] of [
   [
     'look_body_male',
     'f96d3c05bc74d4c229a3ae6fca7e355b3b994299152bea535773e84187fd3252',
-    '379be5196bc19f68b70a899ecb0da714aea90157edc59ed49d766ab7dd4e8065'
+    '379be5196bc19f68b70a899ecb0da714aea90157edc59ed49d766ab7dd4e8065',
+    '35cd83623efeea22f3edf71f0d20834f9d442aa5e333e203b0a99bb44ae84b97',
+    'a4aabbf2f1758a1764b289d93df70754ce90b16ff04ef0c10f9fc618d50d36bb'
   ],
   [
     'look_relay',
     '9128e0bd075881a00565cd97d08567100ddbb4c45f224cbb15353c1672e4b192',
-    '68b1ed8a2c49522c1ff658a5f215e5d16f9e585abdb1ede61eee5748ac21465e'
+    '68b1ed8a2c49522c1ff658a5f215e5d16f9e585abdb1ede61eee5748ac21465e',
+    '3656d7057216acf5a8861b3af380e24b3613633c821b0d89278ee314c9388536',
+    '5cfb4d94ad70aa46c402a354bcdc7597a163a01e3e24947ee389b544772f5e2d'
   ]
 ]) {
   const seed = a.l.templates.find((doc) => doc.id === id);
   const crop = {
     ...seed,
+    packs: { 'pine-core': a.l.sculptRelease },
     shape: { ...seed.shape, height: 1 },
     parts: { ...seed.parts, hat: 'none', neck: 'none', hair: 'crop' }
   };
@@ -542,6 +547,8 @@ for (const [id, oldBodyHash, oldHeadHash] of [
   assert.equal(colorDigest(archivedCrop.bodyGrid.colors), oldBodyHash);
   assert.equal(colorDigest(archivedCrop.fineGrid.colors), oldHeadHash);
   const sculpted = headProfile(crop);
+  assert.equal(colorDigest(sculpted.bodyGrid.colors), sculptBodyHash);
+  assert.equal(colorDigest(sculpted.fineGrid.colors), sculptHeadHash);
   const baldRecipe = { ...crop, parts: { ...crop.parts, hair: 'bald' } };
   const bald = headProfile(baldRecipe);
   const oldBald = headProfile({ ...baldRecipe, packs: prior.packs });
@@ -583,6 +590,75 @@ for (const [id, oldBodyHash, oldHeadHash] of [
   assert.equal(a.l.editingRelease(oldCustom), a.l.sculptRelease);
   assert.throws(() => a.l.prepare(oldCustom), /1\.9\.0/);
   assert.throws(() => a.l.prepare(withDepth(1.21)));
+}
+// Count occupied samples, ignoring every pigment. A painted stripe on skin adds zero volume.
+function upperHead(recipe) {
+  const actor = a.l.build(recipe),
+    pose = a.m.rig.pose(actor.rig, {}),
+    body = actor.body;
+  const model = body.makePose(pose);
+  const child = recipe.base === 'child',
+    rz = child ? 4.89 : 5.82;
+  const center = a.m.rig.point(pose.head, [child ? 0.38 : 0.55, 0, child ? 27.69 : 40.1]);
+  const start = Math.floor((center[2] + 0.02 * rz) * body.density) * body.nx * body.ny;
+  let cells = 0;
+  for (let i = start; i < model.colors.length; i++) if (model.colors[i]) cells++;
+  return { actor, pose, model, cells, templeZ: center[2] + 0.46 * rz };
+}
+function templeEdges({ actor, pose, model, templeZ }) {
+  // Pin sampling pitch so a changed bounding box cannot masquerade as gained volume.
+  const cut = a.m.rig.socket(actor, pose, 'mouth')[2] - actor.rig.height * 0.068;
+  const band = actor.body.faceLayers(pose, model, cut, 4)[1],
+    body = band.body;
+  assert.equal(body.density, 4);
+  const z = Math.floor((templeZ - band.z) * body.density);
+  let min = body.ny,
+    max = -1;
+  for (let y = 0; y < body.ny; y++) {
+    const row = (z * body.ny + y) * body.nx;
+    if (band.model.colors.subarray(row, row + body.nx).some(Boolean)) {
+      min = Math.min(min, y);
+      max = y;
+    }
+  }
+  assert.ok(max >= min);
+  return [min, max].map((y) => y + band.y * body.density - body.ny / 2);
+}
+for (const id of ['look_body_male', 'look_relay']) {
+  const seed = a.l.templates.find((d) => d.id === id);
+  const recipe = (hair, pin = a.l.volumeRelease, hat = 'none') => ({
+    ...seed,
+    packs: { 'pine-core': pin },
+    shape: { ...seed.shape, height: 1 },
+    parts: { ...seed.parts, hair, hat, neck: 'none' }
+  });
+  const old = a.l.sculptRelease,
+    cut = upperHead(recipe('crop')),
+    bald = upperHead(recipe('bald'));
+  const trims = Object.keys(a.l.hairGroups).filter(
+    (hair) => a.l.hairGroups[hair] === '短发' && hair !== 'bald'
+  );
+  assert.equal(trims.length, 9);
+  for (const hair of trims) {
+    const current = hair === 'crop' ? cut : upperHead(recipe(hair));
+    assert.ok(current.cells > 1.055 * upperHead(recipe(hair, old)).cells, id + ' ' + hair + ' volume');
+  }
+  const previous = templeEdges(upperHead(recipe('crop', old))),
+    next = templeEdges(cut);
+  assert.ok(previous[0] - next[0] >= 2 && next[1] - previous[1] >= 2, id + ' flat temple locks');
+  for (const hair of ['bald', 'shoulder-length']) {
+    assert.equal(
+      colorDigest(upperHead(recipe(hair)).model.colors),
+      colorDigest(upperHead(recipe(hair, old)).model.colors)
+    );
+  }
+  const dyed = upperHead({ ...recipe('crop'), colors: { ...seed.colors, hair: '#c6b7a8' } });
+  const mask = (sample) => colorDigest(Uint8Array.from(sample.model.colors, (color) => Number(!!color)));
+  assert.equal(mask(dyed), mask(cut));
+  assert.notEqual(colorDigest(dyed.model.colors), colorDigest(cut.model.colors));
+  const worn = (hair) => upperHead(recipe(hair, a.l.volumeRelease, 'pine-core/sunhat')).cells;
+  const underHat = worn('crop') - worn('bald');
+  assert.ok(underHat > 0 && underHat < 0.15 * (cut.cells - bald.cells), id + ' hat compression');
 }
 // Look straight across the parted fringe. A strand on each side must stand
 // physically forward of the exposed forehead, independent of its pigment.

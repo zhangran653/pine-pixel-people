@@ -12,7 +12,8 @@ const PineLooks = (() => {
     wardrobeRelease = '1.7.0',
     collectionRelease = '1.8.0',
     sculptRelease = '1.9.0',
-    release = sculptRelease;
+    volumeRelease = '1.9.1',
+    release = volumeRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -24,6 +25,7 @@ const PineLooks = (() => {
     contourRelease,
     wardrobeRelease,
     collectionRelease,
+    sculptRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -651,7 +653,8 @@ SOFTWARE.`;
         hasRoundedHead(recipe),
         releases.indexOf(recipe.packs[core]) >= releases.indexOf(strandRelease),
         releases.indexOf(recipe.packs[core]) >= releases.indexOf(contourRelease),
-        hasSculptedHead(recipe)
+        hasSculptedHead(recipe),
+        releases.indexOf(recipe.packs[core]) >= releases.indexOf(volumeRelease)
       )
     });
     actor.gender = recipe.gender ?? 'unspecified';
@@ -899,6 +902,7 @@ SOFTWARE.`;
     wardrobeRelease,
     collectionRelease,
     sculptRelease,
+    volumeRelease,
     hasRoundedHead,
     hasSculptedHead,
     editingRelease,

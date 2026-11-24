@@ -1,5 +1,5 @@
-// A close-cut foundation follows the anatomical sections. Overlapping locks are swept through
-// head space and baked into a small top-down height field, shared across poses and hair dyes.
+// Short cuts combine a clipped foundation, locks across the crown, and tapered locks
+// around the hairline. Their occupied sections are shared across poses and hair dyes.
 const pineShortHair = (() => {
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
   const mix = (a, b, t) => a + (b - a) * t;
@@ -92,6 +92,32 @@ const pineShortHair = (() => {
     },
     quiff: { rise: 0.085, side: 0.07, edge: 0.57, locks: brushed, lift: 0.33, tips: 0.048, combed: true }
   };
+  // Extra clipper length at the crown and flanks; loft, sweep (degrees towards the nape),
+  // and lift at the free ends distinguish the scissor cuts. All lengths are in head radii.
+  const volumes = {
+    buzz: { rise: 0.035, side: 0.036 },
+    fade: { rise: 0.063, side: 0.082, deck: 0.05 },
+    crew: { rise: 0.075, side: 0.113, deck: 0.085 },
+    crop: { loft: 0.225, sweep: -12, fringe: 0.15 },
+    'side-part': { loft: 0.205, sweep: -28, fringe: 0.125 },
+    pixie: { loft: 0.17, sweep: -22, fringe: 0.135 },
+    undercut: { loft: 0.19, sweep: -24, fringe: 0.15 },
+    'slick-back': { loft: 0.118, sweep: 25, fringe: 0.045 },
+    quiff: { loft: 0.165, sweep: 17, fringe: 0.085 }
+  };
+  // Locks end at different heights around the fringe, in front of and behind the ear,
+  // and at the nape. The points above the ears leave room for the exposed pinna.
+  // Tip angle, variation in tip height, half-width in degrees, relative thickness.
+  const sideGuides = [
+    [19, -0.065, 18, 0.86],
+    [43, 0.005, 17, 1.05],
+    [66, -0.09, 16, 1.08],
+    [89, 0.055, 20, 0.96],
+    [112, -0.085, 18, 1.02],
+    [135, 0.018, 17, 0.86],
+    [157, -0.095, 16, 0.72],
+    [177, -0.025, 15, 0.61]
+  ];
   const angles = 168,
     rows = 168,
     low = -0.86,
@@ -113,7 +139,60 @@ const pineShortHair = (() => {
     }
     return (a + b) / 2;
   }
-  function shell(head, cut, hat) {
+  function sideLocks(cut, volume, bearings, hat) {
+    const depth = new Float32Array(rows * angles),
+      gap = new Float32Array(depth.length),
+      tone = new Uint8Array(depth.length);
+    const edges = bearings.map((b) => b.edge);
+    for (const side of [-1, 1]) {
+      for (const [index, [end, delta, width, strength]] of sideGuides.entries()) {
+        if (end === 177 && side === 1) continue; // One lock crosses the back midline.
+        const handed = cut.part || cut === cuts.pixie ? side : 0;
+        const endDeg = side * end + 3 * Math.sin(2.1 * index + side);
+        const whorl = ease(114, 176, end);
+        const direction = mix(side * volume.sweep, cut.combed ? 23 : -18, whorl);
+        const startDeg = endDeg - direction + 7 * handed + 5 * Math.sin(1.7 * index);
+        const tipIndex = (Math.floor((endDeg * angles) / 360) + angles) % angles;
+        // The undercut retains the clipped band under the heavy top. Brushed hair clears the brow.
+        const trim = cut === cuts.undercut ? 0.39 : cut.combed ? 0.19 * Math.max(0, 1 - end / 105) : 0;
+        const tip = edges[tipIndex] + delta + trim + handed * 0.06 + 0.025 * Math.sin(index + side);
+        const start = 0.94 - 0.038 * (index % 3);
+        const length = volume.loft * strength * (1 - 0.23 * handed) * (1 - 0.22 * whorl);
+        const light = 0.48 * Math.cos((endDeg * tau) / 360) - 0.48 * Math.sin((endDeg * tau) / 360);
+        for (let j = 0; j < rows; j++) {
+          const h = low + ((j + 0.5) * (high - low)) / rows;
+          const t = (start - h) / (start - tip);
+          if (t <= 0 || t >= 1) continue;
+          const bend = (8 + 4 * Math.sin(index + 2 * side)) * mix(side, 0.4, whorl) * Math.sin(Math.PI * t);
+          const middle = ((mix(startDeg, endDeg, ease(0, 1, t)) + bend) * angles) / 360;
+          const halfWidth =
+            ((width * angles) / 360) * (0.48 + 0.52 * ease(0, 0.27, t)) * (1 - 0.95 * ease(0.55, 1, t));
+          const lift =
+            length * (0.43 + 0.57 * Math.sin(Math.PI * t)) * (hat ? 0.49 * (1 - ease(0.12, 0.55, h)) : 1);
+          for (let col = Math.ceil(middle - halfWidth - 0.5); col <= middle + halfWidth - 0.5; col++) {
+            const q = (col + 0.5 - middle) / halfWidth,
+              bevel = Math.sqrt(Math.max(0, 1 - q * q));
+            const relief = lift * bevel;
+            const i = (col + angles) % angles,
+              at = j * angles + i;
+            if (relief <= depth[at]) continue;
+            depth[at] = relief;
+            // The last few sections curl away from skin. Preserve air under these tapered ends.
+            gap[at] = relief * 0.44 * ease(0.7, 0.97, t);
+            const highlight =
+              q < -0.12 &&
+              q > -0.64 &&
+              t > 0.16 &&
+              t < 0.54 + 0.12 * Math.sin(index) &&
+              (light > -0.34 || index % 3 === 1);
+            tone[at] = q > 0.68 || t > 0.89 ? 1 : highlight ? 3 : 2;
+          }
+        }
+      }
+    }
+    return { depth, gap, tone };
+  }
+  function shell(head, cut, hat, volume) {
     const radius = new Float32Array(angles * rows),
       colors = new Uint8Array(radius.length),
       axes = new Float32Array(rows);
@@ -135,19 +214,28 @@ const pineShortHair = (() => {
       const edge = mix(mix(nape, ear, ease(-0.89, -0.11, c)), fringe, ease(0.3, 0.86, c));
       return { theta, c, s, edge };
     });
+    const locks = volume?.loft ? sideLocks(cut, volume, bearings, hat) : null;
+    const inner = locks && new Float32Array(radius.length);
+    const lowest = bearings.map((b) => b.edge - 0.105);
     for (let j = 0; j < rows; j++) {
       const h = low + ((j + 0.5) * (high - low)) / rows,
         axis = head.row(h).axis;
       axes[j] = axis;
-      const stretch = hat ? 0.012 : cut.rise;
+      const stretch = hat ? 0.012 : cut.rise + (volume?.rise || 0);
       const sourceH = h < 0 ? h : h / (1 + stretch);
       if (sourceH >= 1) continue;
       const section = head.row(sourceH);
       for (let i = 0; i < angles; i++) {
         const { theta, c, s, edge } = bearings[i];
-        if (h < edge) continue;
+        const at = j * angles + i;
+        const lockDepth = locks?.depth[at] || 0;
+        if (h < edge && !lockDepth) continue;
         const rim = ease(edge, edge + 0.19, h);
-        const sideBulk = hat ? 0.026 : cut.side;
+        // Clippers graduate from fine stubble near the ear to a fuller ridge above the temples.
+        const sideBulk = hat
+          ? 0.026
+          : cut.side +
+            (volume?.side || 0) * (cut === cuts.buzz ? 0.82 : ease(edge + 0.04, edge + (cut.fade || 0.3), h));
         const flow = theta + 0.52 * h - 0.25 * h * h + 0.2 * Math.sin(2 * theta - 1.5 * h);
         const strand = 0.5 + 0.5 * Math.cos(13 * flow + 1.1 * Math.sin(4 * theta + 0.8));
         const root = boundary(head, section, c, s, axis);
@@ -156,7 +244,15 @@ const pineShortHair = (() => {
           root +
           (sideBulk * (0.38 + 0.62 * rim) * (0.83 + 0.17 * strand) + crownLock) *
             Math.min(1, 6 * (1 - sourceH));
-        const at = j * angles + i;
+        if (lockDepth) {
+          const foundation = h >= edge ? cover : root;
+          const outer = foundation + lockDepth;
+          radius[at] = outer * outer;
+          inner[at] = h >= edge ? 0 : (root + locks.gap[at]) ** 2;
+          lowest[i] = Math.min(lowest[i], h - (high - low) / rows);
+          colors[at] = locks.tone[at];
+          continue;
+        }
         radius[at] = cover * cover;
         const fade = cut.fade ? 1 - ease(0, cut.fade, h - edge) : 0;
         const glint = 0.42 * c - 0.35 * s + 0.51 * h;
@@ -166,6 +262,8 @@ const pineShortHair = (() => {
         else if (fade > 0.47) colors[at] = grain > 0.62 ? 7 : 6;
         else if (fade > 0.11) colors[at] = grain < -0.46 ? 6 : 7;
         else if (cut === cuts.buzz) colors[at] = grain > 0.6 ? 3 : glint < -0.32 ? 7 : 2;
+        else if (volume?.side)
+          colors[at] = glint + 0.32 * grain > 0.56 ? 3 : glint + 0.17 * grain < -0.37 ? 1 : 2;
         else
           colors[at] =
             (glint < -0.29 && strand < 0.6) || (strand < 0.15 && h < 0.62)
@@ -177,9 +275,9 @@ const pineShortHair = (() => {
                 : 2;
       }
     }
-    return { radius, colors, axes, edges: bearings.map((b) => b.edge) };
+    return { radius, colors, axes, inner, lowest };
   }
-  function canopy(head, cut) {
+  function canopy(head, cut, volume) {
     const hi = new Float32Array(nx * ny).fill(-2),
       lo = new Float32Array(nx * ny).fill(2);
     const shade = new Uint8Array(nx * ny);
@@ -199,24 +297,33 @@ const pineShortHair = (() => {
             z = dome[n];
           if (z > 0.36) {
             // The crew cut has a softly clipped deck, rising above the brow at the front.
-            const comb = Math.cos(29 * y - 4 * x + Math.sin(11 * x)),
+            const comb = Math.cos(
+                29 * y - 4 * x + Math.sin(11 * x) + (volume ? 0.8 * Math.sin(6 * y + 4 * x) : 0)
+              ),
               front = ease(-0.82, 0.72, x);
             const gain = cut.brush * (0.36 + 0.8 * front) * ease(0.36, 0.78, z);
-            const deck = (cut === cuts.crew ? 1.085 : 1.052) + 0.108 * x - 0.057 * y * y;
-            hi[n] = Math.min(z + gain + 0.018 * comb, deck + 0.012 * comb);
+            const lift = volume ? volume.deck * (0.58 + 0.42 * front) : 0;
+            const deck = (cut === cuts.crew ? 1.085 : 1.052) + 0.108 * x - 0.057 * y * y + lift;
+            hi[n] = Math.min(z + gain + lift + 0.018 * comb, deck + 0.012 * comb);
             lo[n] = z - 0.11;
-            shade[n] = comb > 0.72 ? 3 : comb < -0.78 ? 1 : 2;
+            const bristle = volume ? Math.sin(24 * x + 4 * y + Math.cos(14 * y)) : 0;
+            shade[n] = comb > 0.72 && bristle > -0.28 ? 3 : comb < -0.78 && bristle < 0.1 ? 1 : 2;
           }
         }
     if (!cut.locks) return { hi, lo, shade };
     const guides = cut.combed ? cut.locks : [...back, ...cut.locks];
     for (const [index, g] of guides.entries()) {
-      const [ax, ay, mx, my, angle, h, w] = g,
+      const [ax, ay, mx, my, angle, tipHeight, w] = g,
         theta = (angle * Math.PI) / 180,
         c = Math.cos(theta),
         s = Math.sin(theta);
+      const forward = ease(-0.1, 0.85, c);
+      const h = tipHeight - (volume ? forward * (0.03 + 0.04 * Math.sin(2.8 * index)) : 0);
       const section = head.row(h),
-        radius = boundary(head, section, c, s) + cut.tips;
+        radius =
+          boundary(head, section, c, s) +
+          cut.tips +
+          (volume ? volume.fringe * (0.31 + 0.69 * forward) * (0.87 + 0.13 * Math.sin(index)) : 0);
       const bx = section.axis + radius * c,
         by = radius * s;
       // A quadratic passing through the guide at its midpoint controls the flow across the head.
@@ -231,7 +338,9 @@ const pineShortHair = (() => {
           y = rev * rev * ay + 2 * t * rev * ctrlY + t * t * by;
         const surface = head.topAt(x, y),
           fall = ease(cut.combed ? 0.55 : 0.63, 1, t);
-        const arch = rear ? 0.073 : cut.lift;
+        const arch =
+          (rear ? 0.073 : cut.lift) +
+          (volume ? volume.fringe * (rear ? 0.13 : 0.4 + 0.23 * Math.cos(1.8 * index)) : 0);
         const crown = cut.combed
           ? Math.exp(-(((t - 0.24) / 0.29) ** 2))
           : 0.55 + 0.45 * Math.sin(Math.PI * t);
@@ -301,20 +410,21 @@ const pineShortHair = (() => {
     }
     return { hi, lo, shade };
   }
-  function get(id, base, hat) {
+  function get(id, base, hat, layered = false) {
     if (!Object.hasOwn(cuts, id)) return null;
-    const key = base + '/' + id + (hat ? '/hat' : '');
+    const key = base + '/' + id + (hat ? '/hat' : '') + (layered ? '/layered' : '');
     if (cache.has(key)) return cache.get(key);
     const head = pineHeadShape[base],
       cut = cuts[id],
-      foundation = shell(head, cut, hat);
-    const locks = (cut.locks || cut.brush) && !hat ? canopy(head, cut) : null;
+      volume = layered ? volumes[id] : null,
+      foundation = shell(head, cut, hat, volume);
+    const locks = (cut.locks || cut.brush) && !hat ? canopy(head, cut, volume) : null;
     const read = (x, y, h) => {
       if (h < low || h >= high) return 0;
       const row = Math.floor(((h - low) * rows) / (high - low)),
         dx = x - foundation.axes[row];
       const angle = (Math.floor((Math.atan2(y, dx) * angles) / tau) + angles) % angles;
-      if (h < foundation.edges[angle] - 0.105) return 0;
+      if (h < foundation.lowest[angle]) return 0;
       if (locks) {
         const i = Math.floor((x - ix) * chartDensity),
           j = Math.floor((y - iy) * chartDensity);
@@ -325,7 +435,10 @@ const pineShortHair = (() => {
         }
       }
       const at = row * angles + angle;
-      return dx * dx + y * y <= foundation.radius[at] ? foundation.colors[at] : 0;
+      const distance = dx * dx + y * y;
+      return distance <= foundation.radius[at] && (!foundation.inner || distance >= foundation.inner[at])
+        ? foundation.colors[at]
+        : 0;
     };
     cache.set(key, read);
     return read;

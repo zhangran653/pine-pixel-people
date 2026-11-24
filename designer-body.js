@@ -420,7 +420,8 @@ const pineDesignerBody = (() => {
     roundedHead = true,
     surfaceDetails = roundedHead,
     softContours = surfaceDetails,
-    sculptedHead = recipe.packs?.['pine-core'] === '1.9.0'
+    sculptedHead = ['1.9.0', '1.9.1'].includes(recipe.packs?.['pine-core']),
+    layeredHair = recipe.packs?.['pine-core'] === '1.9.1'
   ) {
     const kind = recipe.base === 'adult' ? 'adult' : 'child';
     const base = studioRig.profiles[kind],
@@ -470,7 +471,7 @@ const pineDesignerBody = (() => {
     const posterior = headShape ? pineHeadShape.posterior(measure(shape, 'occiput')) : null;
     const crownHeight = (h) => (headShape ? headShape.crown.raise(h) : h);
     const sliceHeight = (h) => (headShape ? headShape.crown.lower(h) : h);
-    const shortHair = sculptedHead ? pineShortHair.get(parts.hair, kind, hasHat) : null;
+    const shortHair = sculptedHead ? pineShortHair.get(parts.hair, kind, hasHat, layeredHair) : null;
     const ankle = base.ankle * s;
     const legChange = (base.hip[2] - base.ankle) * (legs - 1) * s;
     const hipBreadth = base.hip[1] * s * (1 + 0.17 * (shoulders - 1)) * cut.hipSpan;
@@ -2104,7 +2105,7 @@ const pineDesignerBody = (() => {
         k.stubbleMid,
         k.stubbleDark
       ];
-      const scalpWidth = surfaceDetails ? 1.24 : 1.115;
+      const scalpWidth = shortHair && layeredHair ? 1.43 : surfaceDetails ? 1.24 : 1.115;
       if (hairStyle?.shave !== 'bare')
         b.stamp(
           cx - (headShape ? 1.56 : surfaceDetails ? 1.48 : roundedHead ? 1.4 : 1.12) * rx,

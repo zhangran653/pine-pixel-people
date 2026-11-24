@@ -222,7 +222,11 @@
   function changed() {
     dirty = true;
     draft.packs[looks.core] = looks.editingRelease(draft);
-    if (draft.packs[looks.core] === looks.release) $('update-head')?.remove();
+    const upgrade = $('update-head');
+    if (upgrade) {
+      if (draft.packs[looks.core] === looks.release) upgrade.remove();
+      else upgrade.textContent = upgradeLabel();
+    }
     actor = looks.build({ ...draft, label: draft.label.trim() || '未命名形象' });
     heading();
     markPresets();
@@ -384,12 +388,15 @@
     }
     return group;
   }
+  function upgradeLabel() {
+    return looks.hasSculptedHead(draft) ? '试用立体短发' : '试用新头型与短发';
+  }
   function figureUpgrade(area) {
     if (draft.packs[looks.core] === looks.release) return;
     const update = document.createElement('button');
     update.type = 'button';
     update.id = 'update-head';
-    update.textContent = '试用新头型与短发';
+    update.textContent = upgradeLabel();
     update.onclick = () => {
       draft.packs[looks.core] = looks.release;
       changed();

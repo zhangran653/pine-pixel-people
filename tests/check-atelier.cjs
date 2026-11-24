@@ -432,7 +432,7 @@ function checkEditor() {
     depth.dispatchEvent(new Event('input'));
     const shallow = byId('mirror').toDataURL();
     expect(
-      !byId('update-head') &&
+      byId('update-head')?.textContent === '试用立体短发' &&
         PineWardrobe.saved.get(oldCut.id).packs['pine-core'] === PineLooks.collectionRelease,
       'profile edit overwrote archived hair'
     );
@@ -446,6 +446,23 @@ function checkEditor() {
     expect(
       reshaped.shape.occiput === 1.2 && reshaped.packs['pine-core'] === PineLooks.sculptRelease,
       'profile failed to persist'
+    );
+    byId('tab-hair').click();
+    const oldHair = byId('mirror').toDataURL();
+    byId('update-head').click();
+    expect(
+      !byId('update-head') && oldHair !== byId('mirror').toDataURL(),
+      'short hair upgrade was invisible'
+    );
+    expect(
+      PineWardrobe.saved.get(oldCut.id).packs['pine-core'] === PineLooks.sculptRelease,
+      'short hair preview overwrote saved character'
+    );
+    byId('save-look').click();
+    const lifted = PineWardrobe.saved.get(oldCut.id);
+    expect(
+      lifted.packs['pine-core'] === PineLooks.volumeRelease && lifted.shape.occiput === 1.2,
+      'short hair upgrade lost shape or pack version'
     );
     target.dataset.state = 'pass';
     target.textContent =
