@@ -4,8 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#244638" />
-    <title>松溪像素世界 · 世界图鉴</title>
+    <title>世界编辑器 · 松溪像素世界</title>
     <link rel="stylesheet" href="world.css" />
+    <link rel="stylesheet" href="workspace.css">
+    <script defer src="workspace.js"></script>
     <script defer src="motion.js"></script>
     <script defer src="character-slices.js"></script>
     <script defer src="scene-depth.js"></script>
@@ -38,21 +40,33 @@
     <script defer src="appearance-store.js"></script>
     <script defer src="world-editor.js"></script>
   </head>
-  <body>
-    <main class="atlas">
-      <header class="top">
-        <a class="brand" href="index.html"><i aria-hidden="true">♠</i> 松溪像素世界</a>
-        <nav aria-label="项目导航">
-          <a href="index.html" aria-current="page">世界图鉴</a><a href="atelier.html">人物创作室</a
-          ><a href="studio.html">动作工坊</a><a href="three.html">Three.js</a>
-        </nav>
+  <body data-workspace="world">
+    <header data-app-nav="world"></header>
+    <main class="atlas workspace-main">
+      <header class="page-heading">
+        <div class="page-name">
+          <h1>世界编辑器</h1>
+          <span id="inventory-count"></span>
+        </div>
+        <div class="page-actions">
+          <div class="history-tools" role="group" aria-label="编辑历史">
+            <button id="edit-undo" type="button" disabled title="撤销上一步">撤销</button>
+            <button id="edit-redo" type="button" disabled title="重做上一步">重做</button>
+          </div>
+          <details class="workspace-files">
+            <summary>文件</summary>
+            <div>
+              <button id="world-export" type="button">导出场景 JSON</button>
+              <button id="open-world-file" type="button">导入场景 JSON</button>
+            </div>
+          </details>
+          <a id="world-studio" class="work-primary" href="studio.html?board=1">编排场景动作 <span aria-hidden="true">→</span></a>
+        </div>
       </header>
-      <div class="atlas-title">
-        <h1>世界图鉴</h1>
-        <p id="inventory-count"></p>
-      </div>
-      <div class="layout">
-        <section class="scene-panel" aria-label="场景编辑器">
+      <p id="world-status" class="workspace-notice" role="status" aria-live="polite"></p>
+      <input type="file" id="world-import" accept=".json,application/json" hidden>
+      <div class="layout workspace-desk" data-desk>
+        <section class="scene-panel desk-preview" id="scene-preview" data-label="预览" aria-label="场景编辑器">
           <header class="scene-bar">
             <label
               >场景
@@ -71,8 +85,9 @@
             <canvas
               id="world-canvas"
               tabindex="0"
-              aria-label="可旋转的像素场景，左右方向键旋转，上下方向键缩放"
+              aria-label="像素场景，点选演员或物件，拖动环视。方向键旋转或缩放，空格播放"
             ></canvas>
+            <span class="pick-hint" id="picked-name">点选物件 · 拖动环视</span>
             <div class="scene-caption">
               <span id="scene-realm"></span>
               <h2 id="scene-title"></h2>
@@ -89,13 +104,38 @@
             <label>动作进度 <input id="world-scrub" type="range" min="0" max="1" step="0.001" value="0" /></label>
             <output id="route-time" for="world-scrub"></output><button id="upper-landing" type="button">停在楼上</button>
           </div>
-          <div class="cast-row">
-            <label>演员<select id="world-actor"></select></label
-            ><label>动作<select id="world-clip"></select></label>
-            <button id="select-cast" type="button">演员位置</button>
+        </section>
+        <div class="tool-side"><div class="tool-tabs" role="tablist" aria-label="编辑工具"></div>
+        <section class="collection tool-pane" data-tool id="object-library" data-label="物件库">
+          <header>
+            <h2>选择物件</h2>
+            <output id="catalog-count"></output>
+          </header>
+          <input type="search" id="world-query" placeholder="搜索飞机、台灯、花草…" aria-label="搜索物件" />
+          <div class="catalog-filters">
+            <label
+              >分类<select id="world-family">
+                <option value="">全部分类</option>
+              </select></label
+            ><label
+              >时代<select id="world-realm">
+                <option value="">全部时代</option>
+              </select></label
+            >
           </div>
-          <details id="placements" open>
-            <summary><span id="placement-title">场景中的物件</span> <span id="placement-count"></span></summary>
+          <button class="clear-filter" id="clear-objects" type="button" hidden>清除筛选</button>
+          <div id="world-grid" class="object-grid" aria-label="物件列表"></div>
+          <div class="item-inspect">
+            <canvas id="item-preview" width="112" height="96" aria-hidden="true"></canvas>
+            <div>
+              <h3 id="item-name"></h3>
+              <p id="item-spec"></p>
+            </div>
+            <button id="place-item">放入场景</button>
+          </div>
+        </section>
+          <section id="placements" class="tool-pane" data-tool data-label="场景层级" data-count="tree-count" hidden>
+            <h2><span id="placement-title">场景中的物件</span> <span id="placement-count"></span></h2>
             <div class="placement-body">
               <ul id="scene-tree" class="scene-tree" aria-label="场景层级" hidden></ul>
               <div class="placement-inspector">
@@ -114,54 +154,19 @@
                 <small id="coordinate-note" hidden></small>
               </div>
             </div>
-          </details>
-          <footer class="scene-footer">
-            <span id="world-status" role="status" aria-live="polite"></span>
-            <div>
-              <button id="world-export">导出 JSON</button
-              ><label class="file-label"
-                >导入 JSON<input type="file" id="world-import" accept=".json,application/json" /></label
-              ><a id="world-studio" href="studio.html?board=1">编排动作 ↗</a
-              ><a id="world-three" href="three.html?show=studio">三维预览 ↗</a>
-            </div>
-          </footer>
-        </section>
-        <aside class="collection">
-          <header>
-            <h2>物件库</h2>
-            <output id="catalog-count"></output>
-          </header>
-          <input type="search" id="world-query" placeholder="搜索飞机、台灯、花草…" aria-label="搜索物件" />
-          <div class="catalog-filters">
-            <label
-              >分类<select id="world-family">
-                <option value="">全部分类</option>
-              </select></label
-            ><label
-              >时代<select id="world-realm">
-                <option value="">全部时代</option>
-              </select></label
-            >
+            <button type="button" id="more-items" class="back-to-tools">继续添加物件</button>
+          </section>
+          <section class="tool-pane" data-tool id="scene-cast" data-label="演员与动作" hidden>
+            <h2>首段演员与动作</h2>
+          <div class="cast-row">
+            <label>演员<select id="world-actor"></select></label
+            ><label>动作<select id="world-clip"></select></label>
+            <button id="select-cast" type="button">演员位置</button>
+            <a id="edit-scene-actor" class="back-to-tools" href="atelier.html">打开人物外观</a>
           </div>
-          <div id="world-grid" class="object-grid" aria-label="物件列表"></div>
-          <div class="item-inspect">
-            <canvas id="item-preview" width="112" height="96" aria-hidden="true"></canvas>
-            <div>
-              <h3 id="item-name"></h3>
-              <p id="item-spec"></p>
-            </div>
-            <button id="place-item">放入场景</button>
-          </div>
-        </aside>
+          </section>
+        </div>
       </div>
-      <footer class="atlas-footer">
-        <span>Pine Pixel World · MIT</span>
-        <nav>
-          <a href="trail.html">松溪步道</a><a href="appearance-standard.html">形象规范</a
-          ><a href="motion-standard.html">动作规范</a
-          ><a href="https://github.com/zhangran653/pine-pixel-world">GitHub ↗</a>
-        </nav>
-      </footer>
     </main>
   </body>
 </html>

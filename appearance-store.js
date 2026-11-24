@@ -178,9 +178,30 @@ const PineWardrobe = (() => {
     }
   }
   function snapshot() {
-    return location.hash === '#current'
-      ? sessionStorage.getItem('pineCreek.threePreview.v1')
-      : new URLSearchParams(location.hash.slice(1)).get('score');
+    if (location.hash !== '#current') return new URLSearchParams(location.hash.slice(1)).get('score');
+    // Back or reload must open the transfer for this navigation entry, even after a later preview.
+    if (globalThis.history?.state?.pineTransfer) return history.state.pineTransfer;
+    const json = sessionStorage.getItem('pineCreek.threePreview.v1');
+    if (json && globalThis.history) {
+      try { history.replaceState({ ...history.state, pineTransfer: json }, ''); } catch {}
+    }
+    return json;
+  }
+  function preview(link, score, seconds, playing, characters) {
+    const url = new URL(link.href);
+    url.searchParams.set('time', String(seconds));
+    url.searchParams.set('play', playing ? '1' : '0');
+    link.href = url;
+    handoff(link, score, characters);
+  }
+  function editorLink(actor, tab) {
+    const params = new URLSearchParams({ tab });
+    if (saved.has(actor.id)) params.set('saved', actor.id);
+    else if (sessionDocs.has(actor.id)) {
+      return 'atelier.html?' + params + '#' + new URLSearchParams({ character: JSON.stringify(sessionDocs.get(actor.id)) });
+    } else if (looks.templateById.has(actor.recipeId)) params.set('preset', actor.recipeId);
+    else return;
+    return 'atelier.html?' + params;
   }
   return {
     saved,
@@ -192,6 +213,8 @@ const PineWardrobe = (() => {
     scoreFile,
     readScoreFile,
     handoff,
+    preview,
+    editorLink,
     snapshot
   };
 })();

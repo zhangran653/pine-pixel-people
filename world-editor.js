@@ -20,7 +20,15 @@
     station: ['科幻聚落', 'astronaut', 'scan-air', '#d7e0e4', '#a3b4b5', '#7b9299', '#bdc5bf']
   };
   settings.garden[1] = 'style_florist';
-  const demos = Object.keys(W.scenes);
+  const scenes = { ...W.scenes, work: { label: '我的工作场景', objects: [] } };
+  settings.work = ['自建场景', 'guide', 'idle', '#e1e7da', '#b1c39d', '#899e7c', '#d6c9a9'];
+  const customNames = {};
+  function registerWork(id, title) {
+    if (!/^work\.[a-zA-Z0-9._-]{1,144}$/.test(id) || typeof title !== 'string') return;
+    customNames[id] = title.slice(0, 64);
+    scenes[id] = { label: customNames[id], objects: [] };
+    settings[id] = settings.work;
+  }
   let sceneKey = 'street',
     plan,
     angle = 35,
@@ -37,21 +45,25 @@
     lastSample = '',
     actorDrawings = [],
     actorLayers = [];
+  let pickFrame, picked = false;
   wardrobe.hydrate();
   try {
     const saved = JSON.parse(localStorage.getItem(localKey));
     if (saved?.version === 1) {
       memos = saved.books || {};
-      if (demos.includes(saved.active)) sceneKey = saved.active;
+      for (const [id, name] of Object.entries(saved.names || {})) registerWork(id, name);
+      if (Object.hasOwn(scenes, saved.active)) sceneKey = saved.active;
     }
   } catch {}
   const note = (s) => ($('world-status').textContent = s);
-  function save() {
+  function save(message) {
     try {
       memos[sceneKey] = wardrobe.scoreFile(plan.score);
-      localStorage.setItem(localKey, JSON.stringify({ version: 1, active: sceneKey, books: memos }));
+      const latest = PineWorkspace.readLibrary(localKey);
+      localStorage.setItem(localKey, JSON.stringify({ version: 1, active: sceneKey,
+        books: { ...latest.books, [sceneKey]: memos[sceneKey] }, names: { ...latest.names, ...customNames } }));
       updateViewLink(true);
-      note('已保存到此浏览器');
+      note(message || '场景已保存到此浏览器');
     } catch (e) {
       note('未能保存到浏览器 · ' + e.message);
     }
@@ -59,14 +71,14 @@
   function option(id, text) {
     return new Option(text, id);
   }
-  for (const [id, s] of Object.entries(W.scenes)) $('world-scene').add(option(id, s.label));
+  for (const [id, s] of Object.entries(scenes)) $('world-scene').add(option(id, s.label));
   for (const [id, title] of Object.entries(W.families)) $('world-family').add(option(id, title));
   for (const [id, title] of Object.entries(W.realms)) $('world-realm').add(option(id, title));
   function baseScore(key) {
     const [, id, action] = settings[key],
-      scene = W.scenes[key].objects.map((p) => ({ ...p }));
+      scene = scenes[key].objects.map((p) => ({ ...p }));
     if (key === 'study') return { ...M.presets.office, scene: structuredClone(M.presets.office.scene) };
-    const actorPlacement = W.scenes[key].actorPlacement;
+    const actorPlacement = scenes[key].actorPlacement;
     return { version: 1, loop: true, scene, ...(actorPlacement ? { actorPlacement } : {}),
       steps: [{ action, actors: ['look_' + id], ...(key === 'stairs' ? {target: 0} : {}) }] };
   }
@@ -81,6 +93,9 @@
       select.add(option(id, M.characters.get(id).label));
     select.value = id || 'look_guide';
     const actor = M.characters.get(select.value);
+    const appearance = wardrobe.editorLink(actor, 'shape');
+    $('edit-scene-actor').hidden = !appearance;
+    if (appearance) $('edit-scene-actor').href = appearance;
     const clips = $('world-clip');
     clips.replaceChildren();
     for (const c of M.findActions(actor)) {
@@ -117,7 +132,22 @@
   }
   $('world-actor').onchange = () => editCast(false);
   $('world-clip').onchange = () => editCast(true);
-  function change(score, afterCompile) {
+  const readEdit = () => ({ score: plan.score, selection, activeSpace });
+  const edits = PineWorkspace.editHistory(readEdit, state => {
+    plan = M.compile(state.score);
+    selection = state.selection;
+    activeSpace = state.activeSpace;
+    play(false);
+    t = 0;
+    lastSample = '';
+    $('world-detail').value = W.detailMode(plan.score.detail);
+    actors();
+    placements();
+    draw();
+    save('已恢复场景编辑');
+  });
+  function change(score, afterCompile, message) {
+    const previous = readEdit();
     try {
       plan = M.compile(score);
     } catch (error) {
@@ -125,12 +155,13 @@
       placements();
       return;
     }
+    edits.record(previous);
     if (afterCompile) afterCompile();
     t = 0;
     lastSample = '';
     placements();
     draw();
-    save();
+    save(message);
   }
   function loadScene(key, provided, requestedDetail, inside) {
     let next = provided;
@@ -146,6 +177,7 @@
       pitch = key === 'stairs' ? 16 : 24;
     }
     sceneKey = key;
+    picked = false;
     activeSpace = W.items.get(plan.score.scene?.[inside]?.kind)?.interior ? inside : undefined;
     selection = activeSpace ?? 0;
     t = 0;
@@ -153,15 +185,17 @@
     zoom = 1;
     $('world-scene').value = key;
     $('world-detail').value = W.detailMode(plan.score.detail);
-    $('scene-title').textContent = W.scenes[key].label;
+    $('scene-title').textContent = scenes[key].label;
     $('scene-realm').textContent = settings[key][0];
     actors();
     placements();
+    edits.clear();
     draw();
   }
   const labelAt = (list, i) => W.items.get(list[i].kind).label + ' · ' + (i + 1);
   function selectNode(i) {
     selection = i;
+    picked = true;
     placements();
     $('scene-tree').querySelector('[data-node="' + (i ?? 'cast') + '"]')?.focus({ preventScroll: true });
   }
@@ -219,7 +253,9 @@
   }
   function placements() {
     const list = plan.score.scene || [], el = $('placed');
-    $('route-playback').hidden = !plan.score.steps.some(s => M.actions.get(s.action).route === 'stairs');
+    $('route-playback').hidden = !plan.duration;
+    $('upper-landing').hidden = !plan.score.steps.some(s => M.actions.get(s.action).route === 'stairs');
+    $('world-play').disabled = !plan.duration;
     const rooms = list.map((p, i) => W.items.get(p.kind).interior ? i : -1).filter(i => i >= 0);
     const hasSpaces = rooms.length > 0, hasCast = plan.score.steps.length > 0;
     if (selection !== null || !hasCast) selection = Math.max(0, Math.min(selection ?? 0, list.length - 1));
@@ -227,11 +263,14 @@
     const ids = [...new Set(plan.score.steps.flatMap(step => step.actors))];
     const castLabel = ids.length === 1 ? '演员 · ' + M.characters.get(ids[0]).label : '演员组 · ' + ids.length + ' 人';
     const item = isCast ? plan.score.actorPlacement || { x: 0, y: 0, z: 0, heading: 0 } : list[selection];
+    $('picked-name').textContent = !picked || !item ? '点选物件 · 拖动环视' :
+      isCast ? '已选演员' : '已选 · ' + W.items.get(item.kind).label;
     el.replaceChildren();
     for (let i = 0; i < list.length; i++) el.add(option(String(i), labelAt(list, i)));
     if (!list.length) el.add(option('', '场景为空'));
     el.value = isCast || !list.length ? '' : String(selection);
     $('placement-count').textContent = '(' + list.length + ')';
+    $('tree-count').textContent = list.length;
     $('placement-title').textContent = hasSpaces ? '场景层级' : '场景中的物件';
     $('scene-tree').hidden = !hasSpaces;
     $('scene-tree').parentElement.classList.toggle('with-spaces', hasSpaces);
@@ -273,7 +312,8 @@
   $('placed').onchange = () => {
     selectNode(Number($('placed').value));
   };
-  $('select-cast').onclick = () => { $('placements').open = true; selectNode(null); };
+  $('select-cast').onclick = () => { PineWorkspace.openTool('placements', true); selectNode(null); };
+  $('more-items').onclick = () => { PineWorkspace.openTool('object-library'); $('world-query').focus(); };
   $('world-space').onchange = e => viewSpace(e.target.value === '' ? undefined : Number(e.target.value));
   $('place-parent').onchange = e => change(W.reparent(plan.score, selection,
     e.target.value === '' ? undefined : Number(e.target.value)));
@@ -299,11 +339,11 @@
     };
   }
   $('remove-place').onclick = () => {
-    const removed = selection, parent = plan.score.scene[removed].parent;
+    const removed = selection, parent = plan.score.scene[removed].parent, label = W.items.get(plan.score.scene[removed].kind).label;
     change(W.removePlacement(plan.score, removed), () => {
       if (activeSpace === removed) activeSpace = parent;
       if (activeSpace > removed) activeSpace--;
-    });
+    }, '已移除「' + label + '」，可撤销。');
   };
   $('place-item').onclick = () => {
     const scene = [...(plan.score.scene || [])];
@@ -314,7 +354,8 @@
     const n = scene.length;
     scene.push(activeSpace === undefined ? W.place(selected, 15 + 6 * (n % 4), -12 + 8 * (n % 5)) :
       { ...W.place(selected), parent: activeSpace });
-    change({ ...plan.score, scene }, () => { selection = n; });
+    change({ ...plan.score, scene }, () => { selection = n; picked = true; }, '已放入「' + W.items.get(selected).label + '」，可以调整位置。');
+    PineWorkspace.openTool('placements', true);
   };
   function camera(yaw, tilt) {
     const a = Math.cos(yaw),
@@ -433,11 +474,13 @@
       b.onclick = () => selectItem(d.id);
     }
     $('catalog-count').textContent = found.length + ' 件';
+    $('clear-objects').hidden = !(family || realm || q.length);
+    document.querySelector('.item-inspect').hidden = !found.length;
     if (found.length) {
       selectItem(found.some((d) => d.id === selected) ? selected : found[0].id);
     } else {
       const p = document.createElement('p');
-      p.textContent = '没有匹配的物件';
+      p.textContent = '没有匹配的物件。可以清除筛选，重新选择。';
       grid.append(p);
     }
     $('place-item').disabled = !found.length;
@@ -466,13 +509,15 @@
         return { ...e, actor: a, body: a.body, model };
       });
       actorLayers = actorDrawings.flatMap(p => placeSliceLayers(p,
-        detail === 'figure' && M.figureLayers(p.actor, p.pose, p.model)));
+        detail === 'figure' && M.figureLayers(p.actor, p.pose, p.model))).map(p => ({ ...p, pickId: null }));
     }
     const placements = plan.scenery(t);
     const openRooms = new Set(W.ancestors(plan.score.scene || [], activeSpace).map(i => plan.worldScene[i]));
-    const objects = placements.flatMap(p => openRooms.has(p)
-      ? W.cutaway(p.kind, detail, yaw - p.heading).map(part => ({ ...p, ...part }))
-      : [{ ...p, ...W.geometry(p.kind, detail) }]);
+    const objects = placements.flatMap(p => {
+      const index = plan.worldScene.indexOf(p), pickId = index < 0 ? undefined : index;
+      const parts = openRooms.has(p) ? W.cutaway(p.kind, detail, yaw - p.heading) : [W.geometry(p.kind, detail)];
+      return parts.map(part => ({ ...p, ...part, pickId }));
+    });
     const framing = placements.map(p => ({ ...p, ...W.geometry(p.kind, 'standard') }));
     const all = [...framing, ...actorDrawings];
     // Include the ground footprint during framing so placed items remain visible from every azimuth.
@@ -580,10 +625,12 @@
       );
       ctx.fill();
     }
-    compositor.draw(ctx, {
+    const view = {
       yaw, elevation: elev, floorZ: 0, x: ox * width / w, y: oy * height / h,
       scaleX: scale * width / w, scaleY: scale * height / h
-    }, objects, actorLayers);
+    };
+    compositor.draw(ctx, view, objects, actorLayers);
+    pickFrame = { view, objects, actorLayers, cue, detail };
     $('world-angle').value = angle;
     $('angle-label').textContent = Math.round(angle) + '°';
     const scrub = $('world-scrub');
@@ -611,19 +658,44 @@
   };
   let drag = null;
   canvas.onpointerdown = (e) => {
-    drag = [e.clientX, e.clientY, angle, pitch];
+    if (!e.isPrimary || e.button !== 0) return;
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, angle, pitch, moved: false };
     canvas.setPointerCapture(e.pointerId);
   };
   canvas.onpointermove = (e) => {
-    if (drag) {
-      pitch = Math.max(8, Math.min(66, drag[3] + 0.22 * (e.clientY - drag[1])));
-      orient(drag[2] + 0.47 * (e.clientX - drag[0]));
-    }
+    if (drag?.id !== e.pointerId) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+    drag.moved = true;
+    pitch = Math.max(8, Math.min(66, drag.pitch + 0.22 * dy));
+    orient(drag.angle + 0.47 * dx);
   };
-  canvas.onpointercancel = canvas.onpointerup = () => {
+  canvas.onpointerup = e => {
+    if (drag?.id !== e.pointerId) return;
+    const tap = !drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5;
     drag = null;
+    if (!tap || !pickFrame) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * canvas.width / rect.width, y = (e.clientY - rect.top) * canvas.height / rect.height;
+    const { view, objects, actorLayers, cue, detail } = pickFrame;
+    const parts = [...objects];
+    // A bound fixture is drawn with the actor. Its matching stationary cells still belong to the placed object.
+    if (cue?.clip.station && cue.step.target !== undefined) {
+      const fixture = plan.worldScene[cue.step.target];
+      parts.push({ ...fixture, ...W.geometry(fixture.kind, detail), pickId: cue.step.target });
+    }
+    const hit = pickSceneVolume(view, x, y, parts.concat(actorLayers));
+    if (hit === undefined) return;
+    selectNode(hit);
+    PineWorkspace.openTool(hit === null ? 'scene-cast' : 'placements', true);
   };
+  canvas.onpointercancel = canvas.onlostpointercapture = () => { drag = null; };
   canvas.onkeydown = (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (plan.duration) play(!playing);
+      return;
+    }
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
     e.preventDefault();
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') magnify(e.key === 'ArrowUp' ? 1.1 : 1 / 1.1);
@@ -675,6 +747,11 @@
   $('world-query').oninput = catalog;
   $('world-family').onchange = catalog;
   $('world-realm').onchange = catalog;
+  $('clear-objects').onclick = () => {
+    for (const key of ['world-query', 'world-family', 'world-realm']) $(key).value = '';
+    catalog();
+    $('world-query').focus();
+  };
   function updateViewLink(saved = false) {
     if (!['http:', 'https:'].includes(location.protocol)) return;
     const url = new URL(location.href);
@@ -689,6 +766,7 @@
     history.replaceState(history.state, '', url);
   }
   $('world-detail').onchange = () => {
+    edits.record(readEdit());
     plan = M.compile({ ...plan.score, detail: $('world-detail').value });
     lastSample = '';
     draw();
@@ -703,7 +781,8 @@
     const link = $(id), url = new URL(link.href);
     url.searchParams.set('scene', sceneKey);
     link.href = url;
-    wardrobe.handoff(link, plan.score);
+    if (id === 'world-three') wardrobe.preview(link, plan.score, t, playing);
+    else wardrobe.handoff(link, plan.score);
   };
   $('world-export').onclick = () => {
     const url = URL.createObjectURL(
@@ -713,16 +792,20 @@
     a.href = url;
     a.download = 'pine-world-' + sceneKey + '.json';
     a.click();
+    note('已导出「' + scenes[sceneKey].label + '」');
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+  $('open-world-file').onclick = () => $('world-import').click();
   $('world-import').onchange = async (e) => {
     try {
       const f = e.target.files[0];
       if (f) {
         const imported = wardrobe.readScoreFile(await f.text(), true);
         play(false);
+        const previous = readEdit();
         loadScene(sceneKey, imported);
-        save();
+        edits.record(previous);
+        save('已导入「' + f.name + '」，可撤销。');
       }
     } catch (err) {
       note(err.message);
@@ -736,7 +819,9 @@
     note(e.message);
   }
   const query = new URLSearchParams(location.search);
-  if (demos.includes(query.get('scene'))) sceneKey = query.get('scene');
+  const priorView = PineWorkspace.resumed;
+  if (!incoming && Object.hasOwn(scenes, priorView?.sceneKey)) sceneKey = priorView.sceneKey;
+  if (Object.hasOwn(scenes, query.get('scene'))) sceneKey = query.get('scene');
   $('inventory-count').textContent =
     W.items.size +
     ' 件物件 · ' +
@@ -746,11 +831,44 @@
     ' 种时代与世界';
   const detail = query.get('detail');
   const inside = query.get('inside');
+  if (incoming && query.get('destination') === 'work' && !Object.hasOwn(scenes, query.get('scene'))) {
+    const key = query.get('book') || '';
+    const work = /^[a-zA-Z0-9._-]{1,144}$/.test(key) ? 'work.' + key : 'work';
+    if (!Object.hasOwn(scenes, work)) {
+      registerWork(work, (query.get('title') || '我的编排') + ' · 场景');
+      $('world-scene').add(option(work, scenes[work].label));
+    }
+    if (incoming.score.scene === undefined) {
+      const base = memos[work] ? work : sceneKey;
+      const previous = memos[base] ? wardrobe.readScoreFile(memos[base]).score : baseScore(base);
+      incoming = M.compile({ ...incoming.score, scene: previous.scene || [],
+        ...(previous.actorPlacement && !incoming.score.actorPlacement ? { actorPlacement: previous.actorPlacement } : {}) });
+    }
+    sceneKey = work;
+  }
   loadScene(sceneKey, incoming, detail === 'figure' || detail === 'standard' ? detail : undefined,
     inside !== null && /^\d+$/.test(inside) ? Number(inside) : undefined);
+  if (incoming && query.get('destination') === 'work') save('已载入动作编排，可以布置场景。');
+  if (activeSpace !== undefined) PineWorkspace.openTool('placements');
   const phase = Number(query.get('phase'));
   if (phase > 0 && phase <= 1) { t = phase * plan.duration; lastSample = ''; draw(); }
   if (query.get('play') === '1') play(true);
+  if (!incoming && priorView?.sceneKey === sceneKey && [priorView.angle, priorView.pitch, priorView.zoom, priorView.t].every(Number.isFinite)) {
+    ({ angle, pitch, zoom, selection, picked } = priorView);
+    activeSpace = W.items.get(plan.score.scene?.[priorView.activeSpace]?.kind)?.interior ? priorView.activeSpace : undefined;
+    t = Math.max(0, Math.min(plan.duration, priorView.t));
+    lastSample = '';
+    if (priorView.filters) {
+      $('world-query').value = priorView.filters.query;
+      $('world-family').value = priorView.filters.family;
+      $('world-realm').value = priorView.filters.realm;
+      if (W.items.has(priorView.selected)) selected = priorView.selected;
+    }
+    placements();
+    draw();
+  }
+  PineWorkspace.rememberView(() => ({ sceneKey, activeSpace, selection, selected, picked, angle, pitch, zoom, t,
+    filters: { query: $('world-query').value, family: $('world-family').value, realm: $('world-realm').value } }));
   catalog();
   new ResizeObserver(draw).observe(canvas);
 })();

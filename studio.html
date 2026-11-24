@@ -4,10 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#14251e">
-  <title>动作工坊 · 松溪步道</title>
+  <title>动作工坊 · 松溪像素世界</title>
   <link rel="stylesheet" href="trail.css">
   <link rel="stylesheet" href="studio.css">
-  <script defer src="motion.js"></script>
+    <link rel="stylesheet" href="workspace.css">
+    <script defer src="workspace.js"></script>
+    <script defer src="motion.js"></script>
   <script defer src="character-slices.js"></script>
     <script defer src="scene-depth.js"></script>
   <script defer src="actor.js"></script>
@@ -42,59 +44,85 @@
   <script defer src="atelier-preview.js"></script>
   <script defer src="studio.js"></script>
 </head>
-<body>
-  <main class="studio-shell">
-    <header class="mast"><h1><span class="pine-mark" aria-hidden="true"></span>动作工坊</h1><nav aria-label="项目"><a href="atelier.html">人物创作室</a><a id="preview-three" href="three.html?show=studio">三维预览</a><a id="edit-world" href="index.html">编辑场景</a><a href="trail.html">松溪步道</a><a href="motion-standard.html">接入规范</a></nav></header>
-    <div class="workstation">
-      <section class="monitor studio-panel" aria-label="动作预览">
+<body data-workspace="studio">
+    <header data-app-nav="studio"></header>
+  <main class="workspace-main studio-shell">
+    <header class="page-heading">
+      <div class="page-name">
+        <h1>动作工坊</h1>
+        <span id="book-status" role="status"></span>
+      </div>
+      <div class="page-actions">
+        <div class="history-tools" role="group" aria-label="编辑历史">
+          <button id="edit-undo" type="button" disabled title="撤销上一步">撤销</button>
+          <button id="edit-redo" type="button" disabled title="重做上一步">重做</button>
+        </div>
+        <details class="workspace-files">
+          <summary>文件</summary>
+          <div>
+            <button id="import" type="button">导入编排 JSON</button>
+            <button id="export" type="button">导出编排 JSON</button>
+          </div>
+        </details>
+        <a id="edit-world" class="work-primary" href="index.html">把编排放进世界 <span aria-hidden="true">→</span></a>
+      </div>
+    </header>
+    <p id="feedback" class="workspace-notice" role="status" aria-live="polite"></p>
+    <input type="file" id="load-file" accept=".json,application/json" hidden>
+    <div class="workstation workspace-desk" data-desk>
+      <section class="monitor studio-panel desk-preview" id="motion-preview" data-label="预览" aria-label="动作预览">
         <header class="take"><div><h2 id="take-title">抱起轻摇</h2><p id="take-actors">妈妈与小宝宝</p></div><output id="take-number">第 1 段</output></header>
         <div class="set"><canvas id="studio-canvas" width="680" height="360" tabindex="0" role="img" aria-label="可拖动环视的动作场景"></canvas></div>
         <div class="playback">
           <div class="playline"><button id="play" class="studio-primary" type="button">播放编排</button><button id="rewind" type="button">从头</button><button id="return-score" type="button" hidden>返回编排</button><label class="loop-check"><input id="loop" type="checkbox">循环播放</label></div>
           <div class="scrub-head"><label for="scrub">播放进度</label><output id="elapsed" for="scrub">0.0 / 0.0 秒</output></div>
           <input id="scrub" type="range" min="0" max="1" step="any" value="0">
-          <div class="view-settings">
+          <details class="camera-settings"><summary>镜头设置</summary><div class="view-settings">
             <div><label for="orbit">环视方位 <output id="degrees">78°</output></label><input id="orbit" type="range" min="0" max="360" value="78"></div>
             <div><label for="zoom">镜头远近 <output id="magnification">100%</output></label><input id="zoom" type="range" min="65" max="165" value="100"></div>
-          </div>
+          </div></details>
         </div>
       </section>
-      <section class="editor studio-panel" aria-label="动作库">
-        <h2>动作库</h2>
+      <div class="tool-side"><div class="tool-tabs" role="tablist" aria-label="编辑工具"></div>
+      <section class="editor studio-panel tool-pane" data-tool id="motion-library" data-label="动作库" aria-label="动作库">
+        <h2>选择动作</h2>
         <form id="edit-form">
+          <div class="actor-field">
+            <div>
+              <label for="who">人物</label><a href="atelier.html?tab=face&amp;random=1">随机捏人</a>
+              <a id="edit-outfit" href="atelier.html?tab=wear">编辑穿搭</a>
+            </div>
+            <select id="who"></select>
+          </div>
           <div class="motion-search">
             <label for="motion-query">查找动作<input id="motion-query" type="search" placeholder="搜名称、用途或英文 ID" autocomplete="off"></label>
             <label for="motion-group">动作分类<select id="motion-group"><option value="">全部分类</option></select></label>
           </div>
           <div class="fields">
-            <div class="actor-field">
-              <div><label for="who">人物</label><a href="atelier.html?tab=face&amp;random=1">随机捏人 ↗</a><a id="edit-outfit" href="atelier.html?tab=wear">试穿同款 ↗</a></div>
-              <select id="who"></select>
-            </div>
             <label>动作<select id="which" aria-describedby="motion-count"></select></label>
             <label id="target-field" hidden>场景中的交互物件<select id="action-target"></select></label>
             <label id="with-field" hidden>搭档<select id="with"></select></label>
             <label>单次秒数<input id="seconds" type="number" min="0" step="any" required></label>
             <label>重复次数<input id="times" type="number" value="1" min="1" step="1" required></label>
           </div>
-          <p id="motion-count" role="status"></p>
-          <details id="motion-browser">
+          <div class="result-line"><p id="motion-count" role="status"></p><button type="button" id="clear-motions" class="clear-filter" hidden>清除筛选</button></div>
+          <div class="edit-actions"><button id="try" type="button">单段试看</button><button id="append" class="studio-primary" type="submit">加入末尾</button><button id="replace" type="button">替换选中段</button></div>
+          <details id="motion-browser" open>
             <summary>按姿势挑动作</summary>
             <div id="motion-cards"></div>
             <div id="motion-pages" hidden><button type="button" id="motion-prev">上一页</button><output id="motion-page"></output><button type="button" id="motion-next">下一页</button></div>
           </details>
-          <div class="edit-actions"><button id="try" type="button">单段试看</button><button id="append" class="studio-primary" type="submit">加入末尾</button><button id="replace" type="button">替换选中段</button></div>
         </form>
       </section>
-      <section class="score studio-panel" aria-label="动作编排">
-        <header class="score-heading"><h2>动作编排</h2><output id="score-length"></output></header>
+      <section class="score studio-panel tool-pane" data-tool id="motion-score" data-label="时间线" data-count="cue-count" aria-label="动作编排" hidden>
+        <header class="score-heading"><h2>编排顺序</h2><output id="score-length"></output></header>
         <label class="preset-field" for="preset">编排本<select id="preset"></select></label>
         <ol id="cue-list" aria-label="按播放顺序排列的动作"></ol>
         <p id="empty-score" hidden>从动作库选择人物和动作，点「加入末尾」添加第一段。</p>
-        <div class="cue-tools"><button id="up" type="button">上移</button><button id="down" type="button">下移</button><button id="remove" type="button">移除</button></div>
-        <div class="score-files"><button id="export" type="button">导出 JSON</button><button id="import" type="button">导入 JSON</button><input type="file" id="load-file" accept=".json,application/json" hidden></div>
-        <p id="feedback" role="status" aria-live="polite"></p>
+        <div class="cue-tools"><button id="edit-cue" type="button">编辑此段</button><button id="up" type="button">上移</button><button id="down" type="button">下移</button><button id="remove" type="button">移除</button></div>
+        <button class="back-to-tools" type="button" id="add-cue">从动作库添加</button>
       </section>
+      </div>
     </div>
     <noscript>请启用 JavaScript 以播放和编排人物动作。</noscript>
   </main>

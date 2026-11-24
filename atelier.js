@@ -85,6 +85,34 @@
     priorAngle = 24,
     swatchKey = '',
     swatchFrame = 0;
+  const draftKey = 'pinePixel.atelier.draft.v1';
+  const readEdit = () => ({ doc: clone(draft), key: cardKey, dirty, saved });
+  let previousEdit;
+  const edits = PineWorkspace.editHistory(readEdit, state => {
+    restoreEdit(state);
+    note('已恢复形象编辑');
+  });
+  function restoreEdit(state) {
+    const raw = state.doc;
+    const doc = looks.prepare({ ...raw, label: raw.label.trim() || '未命名形象' }).recipe;
+    activate(doc, state.key, state.saved, true, false);
+    draft.label = raw.label;
+    $('look-name').value = raw.label;
+    dirty = state.dirty;
+    previousEdit = null;
+    heading();
+  }
+  function keepDraft() {
+    if (!draft) return;
+    try {
+      sessionStorage.setItem(draftKey, JSON.stringify({
+        ...readEdit(), tab, view, bearing, action, phase, compare: $('compare').value,
+        fine: $('fine-face').checked, url: location.href
+      }));
+    } catch {}
+  }
+  window.addEventListener('pagehide', keepDraft);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) keepDraft(); });
   const swatchActors = new Map(),
     thumbnails = new WeakMap();
   function paintThumbnail(canvas) {
@@ -210,9 +238,15 @@
     show();
   }
   function heading() {
+    if (previousEdit && dirty && JSON.stringify(previousEdit.doc) !== JSON.stringify(draft)) {
+      const field = document.activeElement;
+      edits.record(previousEdit, field?.matches('input') ? field : null);
+    }
+    previousEdit = readEdit();
     $('mirror-name').textContent = draft.label || '未命名形象';
     measurements();
     $('save-state').textContent = dirty ? '有未保存的修改' : saved ? '已保存' : '新形象';
+    $('save-state').dataset.dirty = String(dirty);
     const profile = looks.bodyProfileOf(draft);
     for (const b of document.querySelectorAll('[data-body-profile]'))
       b.setAttribute('aria-pressed', String(b.dataset.bodyProfile === profile));
@@ -462,6 +496,26 @@
     };
     area.append(update);
   }
+  const expandedFields = new Map();
+  function foldFields(group) {
+    const name = group.querySelector('legend').textContent;
+    const section = document.createElement('details'), summary = document.createElement('summary');
+    section.className = 'field-fold';
+    section.dataset.fold = name;
+    section.open = expandedFields.get(name) === true;
+    summary.textContent = name;
+    section.append(summary, group);
+    section.ontoggle = () => { if (section.isConnected) expandedFields.set(name, section.open); };
+    return section;
+  }
+  function revealField(el) {
+    const section = el?.closest('details');
+    if (section) {
+      section.open = true;
+      if (section.dataset.fold) expandedFields.set(section.dataset.fold, true);
+    }
+    return el;
+  }
   function faceFields(area) {
     figureUpgrade(area);
     if (looks.hasInfantHead(draft))
@@ -625,7 +679,8 @@
     }
     if (actor.rig.headPivot) jaw.append(inspect);
     jaw.append(...looks.jawControls.map(slider), slider('jaw'));
-    area.append(random, cheeks, grid, ...facialControls, profile, jaw, featureComparison(), more, ...tabKeys.face.filter((k) => k !== 'jaw').map(slider));
+    area.append(random, grid, featureComparison(), ...tabKeys.face.filter(k => k !== 'jaw').map(slider),
+      ...facialControls, ...[cheeks, jaw, profile, more].map(foldFields));
     markPresets();
   }
   function featureComparison() {
@@ -1053,7 +1108,7 @@
       legend.textContent = title;
       grid.className = 'wardrobe-grid';
       section.append(legend, grid);
-      area.append(section);
+      area.append(foldFields(section));
       return grid;
     }
     const clothing = group('服装与鞋帽');
@@ -1132,7 +1187,9 @@
     area.append(button);
   }
   let randomOrigin = null;
-  function activate(doc, key, isSaved, keepId = false) {
+  function activate(doc, key, isSaved, keepId = false, resetEdits = true) {
+    if (resetEdits) edits.clear();
+    previousEdit = null;
     randomOrigin = null;
     $('undo-random').hidden = true;
     draft = clone(doc);
@@ -1163,7 +1220,9 @@
     const style = $('random-style').value;
     if (whole) {
       const locks = [...document.querySelectorAll('[data-random-lock]:checked')].map((el) => el.dataset.randomLock);
-      activate(looks.randomCharacter({ source: draft, style, locks }), '', false, true);
+      const prior = readEdit();
+      activate(looks.randomCharacter({ source: draft, style, locks }), '', false, true, false);
+      edits.record(prior);
     } else {
       draft = looks.randomFace(draft, { style });
       changed();
@@ -1191,8 +1250,8 @@
     root.replaceChildren();
     entries.clear();
     const datasets = [
-      ['预置', looks.templates.map((d) => ['preset:' + d.id, d])],
-      ['已保存', [...wardrobe.saved].map(([id, d]) => ['saved:' + id, d])]
+      ['已保存', [...wardrobe.saved].map(([id, d]) => ['saved:' + id, d])],
+      ['预置', looks.templates.map((d) => ['preset:' + d.id, d])]
     ];
     compare.replaceChildren(new Option('无对照', ''));
     const era = $('shelf-era').value,
@@ -1217,7 +1276,8 @@
         ]
           .join(' ')
           .toLowerCase();
-        if ((era && era !== eraKey) || !terms.every((t) => haystack.includes(t))) continue;
+        const source = $('shelf-source').value;
+        if ((source && !key.startsWith(source + ':')) || (era && era !== eraKey) || !terms.every((t) => haystack.includes(t))) continue;
         if (!visible) {
           root.append(label);
           visible = true;
@@ -1236,23 +1296,28 @@
         root.append(b);
         thumbnails.set(image, { doc, bearing: 24 });
         shelfVisibility.observe(image);
-        b.onclick = () => switchTo(() => activate(doc, key, section === '已保存'));
+        b.onclick = () => switchTo(() => {
+          activate(doc, key, section === '已保存');
+          PineWorkspace.openTool('person-edit', true);
+        });
       }
     }
     if ([...compare.options].some((o) => o.value === previous)) compare.value = previous;
     measurements();
     $('shelf-count').textContent =
-      era || terms.length
+      era || terms.length || $('shelf-source').value
         ? matchCount + ' 个结果'
         : looks.templates.length + ' 款预置 · 已保存 ' + wardrobe.saved.size + ' 个';
+    $('clear-looks').hidden = !(era || terms.length || $('shelf-source').value);
     if (!matchCount) {
       const empty = document.createElement('p');
-      empty.textContent = '没有匹配的形象';
+      empty.textContent = $('shelf-source').value === 'saved' && !wardrobe.saved.size
+        ? '保存形象后，可以在这里再次打开。' : '没有匹配的形象，可以清除筛选。';
       root.append(empty);
     }
   }
   function save(copy = false) {
-    if (!$('look-name').reportValidity()) return;
+    if (!validName()) return;
     const result = wardrobe.save({ ...draft, id: copy ? looks.newId() : draft.id });
     activate(result.recipe, 'saved:' + result.recipe.id, true);
     if (!result.persistent) $('save-state').textContent = '仅在本页保存';
@@ -1291,6 +1356,7 @@
     $('switch-dialog').showModal();
   }
   $('switch-dialog').addEventListener('close', () => {
+    if (pendingSwitch && $('switch-dialog').returnValue === 'save' && report(() => save())) report(pendingSwitch);
     if (pendingSwitch && $('switch-dialog').returnValue === 'discard') report(pendingSwitch);
     pendingSwitch = null;
     $('switch-dialog').returnValue = '';
@@ -1348,6 +1414,12 @@
   for (const item of looks.templates)
     if (item.identity?.role) $('role-options').append(new Option(item.identity.role, item.identity.role));
   $('shelf-era').onchange = shelf;
+  $('shelf-source').onchange = shelf;
+  $('clear-looks').onclick = () => {
+    for (const id of ['look-query', 'shelf-era', 'shelf-source']) $(id).value = '';
+    shelf();
+    $('look-query').focus();
+  };
   $('look-query').oninput = shelf;
   function editIdentity() {
     const era = $('look-era').value,
@@ -1441,7 +1513,7 @@
   });
   $('export-look').onclick = () =>
     report(() => {
-      if (!$('look-name').reportValidity()) return;
+      if (!validName()) return;
       const { recipe } = looks.prepare(draft),
         a = document.createElement('a');
       a.href = URL.createObjectURL(
@@ -1452,14 +1524,28 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       note('已导出「' + recipe.label + '」，可在另一台设备导入。');
     });
+  function validName() {
+    const el = $('look-name');
+    if (el.validity.valid && el.value.trim()) return true;
+    PineWorkspace.openTool('person-edit');
+    el.focus();
+    if (!el.reportValidity() || !el.value.trim()) note('请输入角色名。', true);
+    return false;
+  }
   function transfer(e, write) {
     try {
-      if (!$('look-name').reportValidity() || (write && !save())) {
+      if (!validName() || (write && !save())) {
         e.preventDefault();
         return;
       }
       const data = score();
-      wardrobe.handoff(e.currentTarget, data.score, data.docs);
+      if (write) {
+        const destination = new URL(e.currentTarget.href);
+        destination.searchParams.set('person', draft.id);
+        e.currentTarget.href = destination;
+      }
+      if (write) wardrobe.handoff(e.currentTarget, data.score, data.docs);
+      else wardrobe.preview(e.currentTarget, data.score, phase * PineMotion.actions.get(action).seconds, playing, data.docs);
     } catch (error) {
       e.preventDefault();
       note(error.message, true);
@@ -1591,8 +1677,7 @@
             return;
           }
           if (item.slot === 'morph') {
-            const field = $('edit-' + item.value), panel = field.closest('details');
-            if (panel) panel.open = true;
+            const field = revealField($('edit-' + item.value));
             field.focus();
             return;
           }
@@ -1605,7 +1690,7 @@
           }[item.slot];
           if (data) {
             const option = document.querySelector('[data-' + data + '="' + item.value + '"]');
-            option?.click();
+            revealField(option)?.click();
             document
               .querySelector('[data-' + data + '="' + item.value + '"]')
               ?.focus({ preventScroll: true });
@@ -1616,7 +1701,7 @@
               value = [...field.options].find((o) => o.value.split('@')[0] === value.split('@')[0])?.value;
             if (!field || !value) return;
             field.value = value;
-            field.dispatchEvent(new Event('change'));
+            revealField(field).dispatchEvent(new Event('change'));
             $('edit-' + item.slot)?.focus({ preventScroll: true });
           }
         };
@@ -1710,6 +1795,24 @@
   if (Number.isInteger(openingAngle) && openingAngle >= 0 && openingAngle <= 360) orbit(openingAngle);
   else orientation();
   if (query.get('play') === '1' && requestedAction === action) togglePlay();
+  try {
+    const local = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
+    const navigation = performance.getEntriesByType('navigation')[0]?.type;
+    if (local?.doc && ((!location.search && !location.hash) ||
+        (local.url === location.href && ['reload', 'back_forward'].includes(navigation)))) {
+      restoreEdit(local);
+      const tabButton = [...document.querySelectorAll('[data-tab]')].find(b => b.dataset.tab === local.tab);
+      if (tabButton) changeTab(tabButton);
+      if ([...$('action').options].some(o => o.value === local.action)) action = $('action').value = local.action;
+      if ([...$('compare').options].some(o => o.value === local.compare)) $('compare').value = local.compare;
+      if (typeof local.fine === 'boolean') $('fine-face').checked = local.fine;
+      if (Number.isFinite(local.phase)) phase = local.phase;
+      if (Number.isFinite(local.bearing)) orbit(local.bearing);
+      setView(local.view === 'face' ? 'face' : 'body');
+      measurements();
+      if (dirty) note('已恢复本标签页的未保存草稿。');
+    }
+  } catch {}
   if (skipped) note('有 ' + skipped + ' 个无效的本地存档，其他形象已载入。', true);
   if (location.protocol !== 'file:')
     fetch('packs/creek-hats.json')

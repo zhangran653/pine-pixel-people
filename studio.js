@@ -16,19 +16,42 @@
   const storeKey = 'pineCreek.motionScores.v1',
     url = new URL(location.href),
     blank = () => ({ version: 1, loop: true, steps: [] });
-  let books = {},
+  let books = {}, worldSource = '',
     savedBook;
   try {
     const data = JSON.parse(localStorage.getItem(storeKey) || '{}');
     if (data?.books && typeof data.books === 'object' && !Array.isArray(data.books)) books = data.books;
     savedBook = data?.book;
+    worldSource = data?.worldSource || '';
   } catch {
     /* Offline storage is optional. */
   }
-  const transferred = !!incoming && url.searchParams.get('board') === '1';
-  if (transferred) books.world = PineWardrobe.scoreFile(incoming.score);
-  const goodBook = (b) => (b === 'world' && books.world) || b === 'custom' || Object.hasOwn(lib.presets, b);
-  let book = [transferred ? 'world' : null, url.searchParams.get('demo'), savedBook, 'family'].find(goodBook);
+  const board = url.searchParams.get('board');
+  const previousBooks = 'kept.';
+  const pendingBooks = new Set();
+  const owner = url.searchParams.get('person');
+  const personBook = owner && incoming?.score.steps.some(s => s.actors.includes(owner)) ? 'person.' + owner : 'character';
+  const transferred = incoming && (board === '1' ? 'world' : board === 'character' ? personBook : '');
+  function bookTitle(key) {
+    const raw = books[key], steps = (raw?.score || raw)?.steps || [];
+    const actor = key.startsWith('person.') ? key.slice(7) : steps[0]?.actors[0];
+    const name = raw?.characters?.find(doc => doc.id === actor)?.label || lib.characters.get(actor)?.label;
+    return (name || '人物') + (key.startsWith(previousBooks) ? ' · ' + steps.length + ' 段 · ' + (lib.actions.get(steps[0]?.action)?.label || '空编排') : '的编排');
+  }
+  if (transferred) {
+    const next = PineWardrobe.scoreFile(incoming.score), previous = books[transferred];
+    const prior = JSON.stringify(previous);
+    if (previous && prior !== JSON.stringify(next) &&
+        !Object.keys(books).some(k => k.startsWith(previousBooks) && JSON.stringify(books[k]) === prior)) {
+      const key = previousBooks + PineLooks.newId();
+      books[key] = previous;
+      pendingBooks.add(key);
+    }
+    books[transferred] = next;
+  }
+  if (transferred === 'world') worldSource = url.searchParams.get('scene') || '';
+  const goodBook = b => typeof b === 'string' && (Object.hasOwn(books, b) || b === 'custom' || Object.hasOwn(lib.presets, b));
+  let book = [transferred, url.searchParams.get('demo'), savedBook, 'family'].find(goodBook);
   let plan,
     selected = 0,
     position = 0,
@@ -62,14 +85,22 @@
   }
   function save() {
     books[book] = PineWardrobe.scoreFile(plan.score);
+    pendingBooks.add(book);
     try {
-      localStorage.setItem(storeKey, JSON.stringify({ book, books }));
+      const latest = PineWorkspace.readLibrary(storeKey);
+      const merged = { ...latest.books };
+      for (const key of pendingBooks) merged[key] = books[key];
+      localStorage.setItem(storeKey, JSON.stringify({ book, books: merged, worldSource: book === 'world' ? worldSource : latest.worldSource }));
+      pendingBooks.clear();
+      id('book-status').textContent = $preset.selectedOptions[0].textContent + ' · 已自动保存';
+      return true;
     } catch {
-      /* Export remains available. */
+      id('book-status').textContent = '仅在本页，可从文件菜单导出';
+      return false;
     }
   }
   id('preview-three').addEventListener('click', (event) => {
-    PineWardrobe.handoff(event.currentTarget, active().score);
+    PineWardrobe.preview(event.currentTarget, active().score, now(), playing);
   });
   const option = (label, value) => new Option(label, value);
   const query = id('motion-query'),
@@ -78,6 +109,12 @@
     category.add(option(name, name));
   for (const [key, label] of Object.entries(lib.presetLabels)) $preset.add(option(label, key));
   if (books.world) $preset.add(option('从世界图鉴带入', 'world'));
+  if (books.character) $preset.add(option('当前人物的编排', 'character'));
+  for (const key of Object.keys(books).filter(k => k.startsWith('person.'))) $preset.add(option(bookTitle(key), key));
+  const kept = document.createElement('optgroup');
+  kept.label = '之前的编排';
+  for (const key of Object.keys(books).filter(k => k.startsWith(previousBooks)).reverse()) kept.append(option(bookTitle(key), key));
+  if (kept.childElementCount) $preset.append(kept);
   $preset.add(option('我的编排', 'custom'));
   function visibleCast() {
     return [...lib.characters.values()].filter(
@@ -191,17 +228,10 @@
     const groups = new Map(),
       p = lib.characters.get($who.value);
     const outfit = id('edit-outfit');
-    const editable = PineWardrobe.saved.has(p.id),
-      preset = PineLooks.templateById.has(p.recipeId);
-    const imported = PineWardrobe.recipeFor(p.id);
-    outfit.hidden = !preset && !editable && !imported;
-    outfit.textContent = '编辑穿搭 ↗';
-    if (!outfit.hidden)
-      outfit.href =
-        'atelier.html?tab=wear&' +
-        (editable ? 'saved=' + encodeURIComponent(p.id) : 'preset=' + encodeURIComponent(p.recipeId));
-    if (!editable && imported)
-      outfit.href = 'atelier.html?tab=wear#' + new URLSearchParams({ character: JSON.stringify(imported) });
+    const link = PineWardrobe.editorLink(p, 'wear');
+    outfit.hidden = !link;
+    outfit.textContent = '编辑穿搭';
+    if (link) outfit.href = link;
     $which.replaceChildren();
     const available = lib.findActions(p, { group: category.value, query: query.value });
     for (const clip of available) {
@@ -215,6 +245,7 @@
     }
     if ([...$which.options].some((o) => o.value === wanted)) $which.value = wanted;
     const hasMatch = available.length > 0;
+    id('clear-motions').hidden = !query.value && !category.value;
     $which.disabled = !hasMatch;
     id('try').disabled = id('append').disabled = !hasMatch;
     id('replace').disabled = selected < 0 || !hasMatch;
@@ -287,7 +318,10 @@
       body.append(name, meta);
       button.append(num, body, len);
       button.setAttribute('aria-pressed', String(i === selected));
-      button.addEventListener('click', () => pick(i));
+      button.addEventListener('click', () => {
+        pick(i);
+        $list.querySelector('[data-index="' + i + '"]').focus({ preventScroll: true });
+      });
       li.append(button);
       $list.append(li);
     });
@@ -296,6 +330,8 @@
     id('up').disabled = selected <= 0;
     id('down').disabled = selected < 0 || selected >= plan.score.steps.length - 1;
     id('remove').disabled = selected < 0;
+    id('cue-count').textContent = plan.score.steps.length;
+    id('edit-cue').disabled = selected < 0;
     id('replace').disabled = selected < 0 || !$which.value;
     id('loop').checked = plan.score.loop;
     lastCue = -1;
@@ -442,8 +478,19 @@
     rebuildList();
     render(true);
   }
-  function updateScore(steps, selection) {
+  const readEdit = () => ({ score: { ...plan.score }, selected });
+  const edits = PineWorkspace.editHistory(readEdit, state => {
+    applyScore(lib.compile(state.score), state.selected);
+    setNote('已恢复时间线');
+  });
+  function updateScore(steps, selection, message) {
     const next = lib.compile({ ...plan.score, steps });
+    edits.record(readEdit());
+    applyScore(next, selection);
+    setNote(message);
+  }
+  function applyScore(next, selection) {
+    const steps = next.score.steps;
     pause();
     preview = null;
     plan = next;
@@ -454,9 +501,9 @@
     rebuildList();
     render(true);
     save();
-    setNote();
   }
   function openBook(key, poster = false) {
+    edits.clear();
     pause();
     preview = null;
     book = key;
@@ -477,13 +524,15 @@
     rebuildList();
     render(true);
     setNote();
-    save();
+    return save();
   }
   id('edit-world').onclick = () => {
     const link = id('edit-world'), dest = new URL(link.href);
-    const scene = url.searchParams.get('scene');
-    if (book === 'world' && Object.hasOwn(PineWorld.scenes, scene)) dest.searchParams.set('scene', scene);
+    dest.searchParams.set('destination', 'work');
+    if (book === 'world' && worldSource) dest.searchParams.set('scene', worldSource);
     else dest.searchParams.delete('scene');
+    dest.searchParams.set('book', book);
+    dest.searchParams.set('title', $preset.selectedOptions[0].textContent);
     link.href = dest;
     PineWardrobe.handoff(link, plan.score);
   };
@@ -494,6 +543,15 @@
     if (prior && $which.value === prior) $duration.value = duration;
   }
   query.addEventListener('input', filterActions);
+  id('clear-motions').onclick = () => { query.value = ''; category.value = ''; filterActions(); query.focus(); };
+  id('add-cue').onclick = () => { PineWorkspace.openTool('motion-library'); query.focus(); };
+  id('edit-cue').onclick = () => {
+    if (selected < 0) return;
+    pick(selected);
+    PineWorkspace.openTool('motion-library');
+    $which.focus();
+    setNote('正在编辑第 ' + (selected + 1) + ' 段，修改后点「替换选中段」。');
+  };
   category.addEventListener('change', filterActions);
   query.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -532,14 +590,18 @@
   );
   id('edit-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    validated((s) => updateScore([...plan.score.steps, s], plan.score.steps.length));
+    validated(s => {
+      updateScore([...plan.score.steps, s], plan.score.steps.length, '已加入「' + lib.actions.get(s.action).label + '」');
+      PineWorkspace.openTool('motion-score', true);
+    });
   });
   id('replace').addEventListener('click', () =>
     validated((s) => {
       if (selected >= 0) {
         const steps = [...plan.score.steps];
         steps[selected] = s;
-        updateScore(steps, selected);
+        updateScore(steps, selected, '已替换第 ' + (selected + 1) + ' 段');
+        PineWorkspace.openTool('motion-score', true);
       }
     })
   );
@@ -548,7 +610,7 @@
     if (j < 0 || j >= plan.score.steps.length) return;
     const steps = [...plan.score.steps];
     [steps[j], steps[selected]] = [steps[selected], steps[j]];
-    updateScore(steps, j);
+    updateScore(steps, j, '已移到第 ' + (j + 1) + ' 段');
   }
   id('up').addEventListener('click', () => shift(-1));
   id('down').addEventListener('click', () => shift(1));
@@ -556,7 +618,7 @@
     if (selected >= 0)
       updateScore(
         plan.score.steps.filter((_, i) => i !== selected),
-        selected
+        selected, '已移除第 ' + (selected + 1) + ' 段，可撤销。'
       );
   });
   id('play').addEventListener('click', togglePlay);
@@ -577,6 +639,7 @@
     render(true);
   });
   id('loop').addEventListener('change', () => {
+    if (!preview) edits.record(readEdit());
     active().score.loop = id('loop').checked;
     if (preview) previewLoop = preview.score.loop;
     else save();
@@ -676,7 +739,15 @@
   new ResizeObserver(() => stage.draw()).observe(surface.parentElement);
   const autoplay =
     url.searchParams.get('play') === '1' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  openBook(book, !autoplay);
+  const persisted = openBook(book, !autoplay);
+  if (transferred && persisted && ['https:', 'http:'].includes(location.protocol)) {
+    const local = new URL(location.href);
+    local.hash = '';
+    local.searchParams.delete('board');
+    local.searchParams.set('demo', book);
+    history.replaceState(history.state, '', local);
+  }
+  if (transferred) setNote(board === 'character' ? '人物和试演动作已加入时间线。' : '已载入此场景的完整编排。');
   if (incomingError) setNote(incomingError);
   const incomingStep = incoming?.score.steps[0];
   const requested = lib.characters.get(incomingStep?.actors[0] || url.searchParams.get('actor'));
@@ -703,4 +774,38 @@
     }
   }
   if (autoplay && active().duration) togglePlay();
+  const priorView = PineWorkspace.resumed;
+  if (!incoming && priorView?.book === book && [priorView.position, priorView.bearing, priorView.tilt, priorView.zoom].every(Number.isFinite)) {
+    if (plan.score.steps[priorView.selected]) pick(priorView.selected);
+    position = Math.max(0, Math.min(plan.duration, priorView.position));
+    if (priorView.preview) {
+      try {
+        preview = PineWardrobe.readScoreFile(priorView.preview);
+        toForm(preview.score.steps[0]);
+        previewTime = Math.max(0, Math.min(preview.duration, priorView.previewTime));
+        previewLoop = preview.score.loop;
+      } catch { preview = null; }
+    }
+    manualBearing = priorView.manualBearing;
+    setView(priorView.bearing, priorView.tilt, priorView.zoom);
+    const form = priorView.form;
+    if (form && [...$who.options].some(o => o.value === form.who)) {
+      $who.value = form.who;
+      query.value = form.query;
+      category.value = form.group;
+      listActions(form.action, form.partner);
+      if ($which.value === form.action) {
+        $duration.value = form.seconds;
+        $repeat.value = form.repeat;
+        targets(form.target);
+      }
+    }
+    invalidateTime();
+    render(true);
+  }
+  PineWorkspace.rememberView(() => ({ book, selected, position, previewTime, manualBearing,
+    bearing: stage.bearing, tilt: stage.tilt, zoom: stage.zoom,
+    form: { who: $who.value, action: $which.value, partner: $with.value, query: query.value, group: category.value,
+      seconds: $duration.value, repeat: $repeat.value, target: id('action-target').value },
+    ...(preview ? { preview: PineWardrobe.scoreFile(preview.score) } : {}) }));
 })();

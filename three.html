@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#14231f">
-  <title>溪畔观景台 · Three.js 人物场景</title>
+  <title>三维预览 · 松溪像素世界</title>
   <link rel="stylesheet" href="trail.css">
   <link rel="stylesheet" href="three.css">
   <script type="importmap">{"imports":{"three":"./vendor/three-r187/three.module.js"}}</script>
-  <script defer src="motion.js"></script>
+    <link rel="stylesheet" href="workspace.css">
+    <script defer src="workspace.js"></script>
+    <script defer src="motion.js"></script>
   <script defer src="character-slices.js"></script>
   <script defer src="actor.js"></script>
   <script defer src="surveyor-art.js"></script>
@@ -38,11 +40,16 @@
   <script defer src="appearance.js"></script>
   <script defer src="appearance-store.js"></script>
 </head>
-<body>
-  <main class="trail-shell three-shell">
-    <header class="mast">
-      <h1><span class="pine-mark" aria-hidden="true"></span>溪畔观景台</h1>
-      <nav aria-label="人物项目"><a href="atelier.html">人物创作室</a><a href="studio.html">动作工坊</a><a href="motion-standard.html#three">Three.js 接入</a></nav>
+<body data-workspace="three">
+    <header data-app-nav="three"></header>
+  <main class="workspace-main three-shell">
+    <header class="page-heading">
+      <div class="page-name">
+        <h1>三维预览</h1>
+      </div>
+      <div class="page-actions">
+          <a id="preview-back" class="work-button" href="studio.html">打开动作工坊</a>
+      </div>
     </header>
     <section class="three-panel" aria-label="可环视的 Three.js 人物场景">
       <div class="three-set">

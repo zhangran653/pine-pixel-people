@@ -80,6 +80,19 @@ function projectSceneVolume(target, part, view) {
   }
 }
 
+// Trace just the clicked output pixel through the same cells and depth ties as the rendered frame.
+function pickSceneVolume(view, x, y, parts) {
+  const pixel = { width: 1, height: 1, colors: new Uint32Array(1), depth: new Float32Array([-Infinity]) };
+  const ray = { ...view, x: view.x - Math.floor(x), y: view.y - Math.floor(y) };
+  let selected;
+  for (const part of parts) {
+    const depth = pixel.depth[0], color = pixel.colors[0];
+    projectSceneVolume(pixel, part, ray);
+    if (depth !== pixel.depth[0] || color !== pixel.colors[0]) selected = part.pickId;
+  }
+  return selected;
+}
+
 function createSceneCompositor() {
   const overlay = document.createElement('canvas'), ink = overlay.getContext('2d');
   let pixels, frame, background, cameraKey, previous = [];

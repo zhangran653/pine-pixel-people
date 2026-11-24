@@ -6,6 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../scene-depth.js'), 'utf8');
 const project = vm.runInNewContext(source + '\nprojectSceneVolume');
+const pick = vm.runInNewContext(source + '\npickSceneVolume');
 const width = 31, height = 23;
 function buffer() {
   return { width, height, colors: new Uint32Array(width * height), depth: new Float32Array(width * height).fill(-Infinity) };
@@ -26,9 +27,9 @@ function stack(nx, ny, nz, density, color, occupied, position) {
 }
 const rail = stack(7, 6, 5, 1.25, 0xff4477bb, (x, y, z) =>
   z === 4 || ((y === 0 || y === 5) && (x === 0 || x === 6)) || (x === y && z === 2),
-  { x: -0.72, y: 0.34, z: 0.36, heading: 0 });
+  { x: -0.72, y: 0.34, z: 0.36, heading: 0, pickId: 0 });
 const crossbar = stack(6, 5, 4, 1.75, 0xff996655, (x, y, z) =>
-  y === 2 || (z === 1 && x > 0 && y > 0), { x: 0.28, y: 0.04, z: 0.76, heading: 0.64 });
+  y === 2 || (z === 1 && x > 0 && y > 0), { x: 0.28, y: 0.04, z: 0.76, heading: 0.64, pickId: null });
 
 function reference(part, view, pixelX, pixelY) {
   const u = (pixelX + 0.5 - view.x) / view.scaleX, v = (pixelY + 0.5 - view.y) / view.scaleY;
@@ -65,6 +66,8 @@ for (const [azimuth, tilt] of [[0, 0], [90, 8], [-145, 24], [35, 24], [180, 66],
     const nearest = Math.max(r, b), expected = nearest === -Infinity ? 0 : r > b ? rail.color : crossbar.color;
     assert.equal(forward.colors[p], expected, 'color at ' + [azimuth, tilt, x, y]);
     assert.equal(forward.depth[p], nearest, 'depth at ' + [azimuth, tilt, x, y]);
+    assert.equal(pick(view, x + 0.4, y + 0.1, [rail, crossbar]),
+      expected === 0 ? undefined : expected === rail.color ? rail.pickId : crossbar.pickId, 'select visible cell');
     if (r !== -Infinity && b !== -Infinity) {
       if (r > b) railWins++;
       if (b > r) barWins++;

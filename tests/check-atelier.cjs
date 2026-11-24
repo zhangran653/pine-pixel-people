@@ -32,6 +32,14 @@ function checkEditor() {
   }
   try {
     expect(byId('bearing').value === '90', 'profile link did not open at the requested bearing');
+    const firstName = byId('look-name').value;
+    byId('look-name').value = '交互测试人物';
+    byId('look-name').dispatchEvent(new Event('input'));
+    byId('edit-undo').click();
+    expect(byId('look-name').value === firstName, 'undo character edits');
+    byId('edit-redo').click();
+    expect(byId('look-name').value === '交互测试人物', 'redo character edits');
+    byId('edit-undo').click();
     const photos = new Map();
     for (const profile of ['child', 'female', 'male']) {
       const b = document.querySelector('[data-body-profile="' + profile + '"]');
@@ -683,6 +691,11 @@ function checkWorldEditor() {
     const before = get('placed').length;
     get('place-item').click();
     check(get('placed').length === before + 1, 'scene placement');
+    check(!get('placements').hidden && get('object-library').hidden, 'new objects open the inspector');
+    get('edit-undo').click();
+    check(get('placed').length === before, 'undo object insertion');
+    get('edit-redo').click();
+    check(get('placed').length === before + 1 && get('place-heading').value === '0', 'restore object and selection');
     set('place-x', '67');
     set('place-heading', '90');
     get('world-studio').addEventListener('click', (e) => e.preventDefault(), { once: true });
@@ -829,6 +842,11 @@ function checkStudioMotions() {
     set('times', '2', 'input');
     byId('append').click();
     expect(byId('cue-list').children.length === 1 && byId('scrub').max === '3.6', 'repeated cue');
+    expect(!byId('motion-score').hidden && byId('tool-motion-score').getAttribute('aria-selected') === 'true', 'append selects timeline');
+    byId('edit-undo').click();
+    expect(byId('cue-list').children.length === 0, 'undo timeline append');
+    byId('edit-redo').click();
+    expect(byId('cue-list').children.length === 1, 'redo timeline append');
     byId('loop').click();
     expect(!byId('loop').checked, 'score loop');
     set('motion-query', 'xyz-无匹配', 'input');
@@ -872,6 +890,24 @@ function checkStudioMotions() {
   }
 }
 
+function checkCharacterTransfer() {
+  const target = document.getElementById('qa-result');
+  try {
+    const book = document.getElementById('preset').value;
+    const score = JSON.parse(localStorage.getItem('pineCreek.motionScores.v1')).books[book];
+    const plan = PineWardrobe.readScoreFile(score);
+    if (book !== 'person.look_guide' || plan.score.steps.length !== 1 || plan.score.steps[0].action !== 'drink' ||
+        plan.score.steps[0].actors[0] !== 'look_guide' || document.getElementById('return-score').hidden !== true ||
+        !document.getElementById('cue-list').textContent.includes(document.getElementById('take-actors').textContent))
+      throw Error('The actor and action in the monitor must be in the editable timeline');
+    target.dataset.state = 'pass';
+    target.textContent = 'A character handoff opens its own editable timeline with the displayed actor and action';
+  } catch (error) {
+    target.dataset.state = 'fail';
+    target.textContent = error.message;
+  }
+}
+
 const root = resolve(__dirname, '..'),
   dir = mkdtempSync(join(tmpdir(), 'pine-atelier-check-'));
 try {
@@ -884,6 +920,9 @@ try {
   for (const [name, check, query] of [
     ['atelier', checkEditor, '?bearing=90'],
     ['studio', checkStudioMotions, '?demo=custom'],
+    ['studio', checkCharacterTransfer, '?board=character&person=look_guide#score=' + encodeURIComponent(JSON.stringify({
+      version: 1, steps: [{ action: 'drink', actors: ['look_guide'] }]
+    }))],
     ['index', checkWorldEditor, '?scene=street']
   ]) {
     const page = readFileSync(join(root, name + '.html'), 'utf8')

@@ -4,8 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#1b302a" />
-    <title>人物创作室 · 松溪像素</title>
+    <title>人物创作室 · 松溪像素世界</title>
     <link rel="stylesheet" href="atelier.css" />
+    <link rel="stylesheet" href="workspace.css">
+    <script defer src="workspace.js"></script>
     <script defer src="motion.js"></script>
     <script defer src="character-slices.js"></script>
     <script defer src="actor.js"></script>
@@ -39,30 +41,35 @@
     <script defer src="atelier-preview.js"></script>
     <script defer src="atelier.js"></script>
   </head>
-  <body>
-    <header class="topbar">
-      <div class="bar-inner">
-        <a class="wordmark" href="index.html"><span class="tree" aria-hidden="true"></span>松溪像素</a>
-        <nav aria-label="项目">
-          <a href="atelier.html" aria-current="page">人物创作室</a><a href="studio.html">动作工坊</a
-          ><a href="appearance-standard.html">创作规范</a>
-        </nav>
-      </div>
-    </header>
-    <main>
-      <header class="title-row">
-        <div>
+  <body data-workspace="atelier">
+    <header data-app-nav="atelier"></header>
+    <main class="workspace-main">
+      <header class="page-heading">
+        <div class="page-name">
           <h1>人物创作室</h1>
-          <p>从一款基型出发，捏出自己的像素人物。</p>
+          <span id="save-state" role="status">新形象</span>
         </div>
-        <div class="file-tools">
-          <button id="load" type="button">导入角色</button
-          ><button id="export-look" type="button">导出 JSON <span aria-hidden="true">↓</span></button
-          ><input id="look-file" type="file" accept=".json,application/json" hidden />
+        <div class="page-actions">
+          <div class="history-tools" role="group" aria-label="编辑历史">
+            <button id="edit-undo" type="button" disabled title="撤销上一步">撤销</button>
+            <button id="edit-redo" type="button" disabled title="重做上一步">重做</button>
+          </div>
+          <details class="workspace-files">
+            <summary>文件</summary>
+            <div>
+              <button id="load" type="button">导入人物 JSON</button>
+              <button id="export-look" type="button">导出人物 JSON</button>
+              <button id="fork-look" type="button">另存为新形象</button>
+            </div>
+          </details>
+          <button id="save-look" class="work-button" type="button">保存形象</button>
+          <a id="studio-link" class="work-primary" href="studio.html?board=character">用此人物编排动作 <span aria-hidden="true">→</span></a>
         </div>
       </header>
-      <div class="workbench">
-        <section class="preview-panel" aria-label="人物试衣镜">
+      <p id="feedback" class="workspace-notice" role="status" aria-live="polite"></p>
+      <input id="look-file" type="file" accept=".json,application/json" hidden>
+      <div class="workbench workspace-desk" data-desk>
+        <section class="preview-panel desk-preview" id="person-preview" data-label="预览" aria-label="人物试衣镜">
           <div class="stage-head">
             <div class="stage-name">
               <h2 id="mirror-name">溪谷学童</h2>
@@ -96,32 +103,18 @@
           <div class="compare">
             <label for="compare">对照人物</label
             ><select id="compare"></select
-            ><a id="three-link" href="three.html?show=studio">三维试演 <span aria-hidden="true">↗</span></a>
+            >
           </div>
         </section>
-        <section class="inspector" aria-label="形象编辑">
+        <div class="tool-side"><div class="tool-tabs" role="tablist" aria-label="编辑工具"></div>
+        <section class="inspector tool-pane" id="person-edit" data-tool data-label="编辑形象" aria-label="形象编辑">
           <div class="inspector-head">
-            <h2>编辑形象</h2>
-            <span id="save-state" role="status">新形象</span>
+            <h2>人物设定</h2>
           </div>
-          <div class="category-buttons random-actions"><button type="button" id="random-character">随机人物</button><button type="button" id="undo-random" hidden>撤销随机</button></div>
-          <details class="random-settings">
-            <summary>随机设置</summary>
-            <label class="random-style">变化幅度
-              <select id="random-style"><option value="natural">自然协调</option><option value="expressive">特征鲜明</option></select>
-            </label>
-            <fieldset>
-              <legend>生成整个人物时保留</legend>
-              <label><input type="checkbox" data-random-lock="body">体型</label>
-              <label><input type="checkbox" data-random-lock="skin">肤色</label>
-              <label><input type="checkbox" data-random-lock="hair">发型与发色</label>
-              <label><input type="checkbox" data-random-lock="wear">穿搭与配饰</label>
-            </fieldset>
-          </details>
           <label class="name-field"
             >角色名<input id="look-name" maxlength="48" required autocomplete="off"
           /></label>
-          <div class="identity-fields"><label>时代<select id="look-era"><option value="">未指定</option></select></label><label>职业或身份<input id="look-role" maxlength="48" list="role-options" autocomplete="off" placeholder="自定义身份"></label><datalist id="role-options"></datalist></div>
+          <details class="identity-settings"><summary>身份资料</summary><div class="identity-fields"><label>时代<select id="look-era"><option value="">未指定</option></select></label><label>职业或身份<input id="look-role" maxlength="48" list="role-options" autocomplete="off" placeholder="自定义身份"></label><datalist id="role-options"></datalist></div></details>
           <div class="base-row">
             <span id="profile-label">默认体型</span>
             <div class="switch" role="group" aria-labelledby="profile-label">
@@ -139,6 +132,20 @@
             </div>
             <small id="legacy-body" hidden>原版成人体型</small>
           </div>
+          <div class="category-buttons random-actions"><button type="button" id="random-character">随机人物</button><button type="button" id="undo-random" hidden>撤销随机</button></div>
+          <details class="random-settings">
+            <summary>随机设置</summary>
+            <label class="random-style">变化幅度
+              <select id="random-style"><option value="natural">自然协调</option><option value="expressive">特征鲜明</option></select>
+            </label>
+            <fieldset>
+              <legend>生成整个人物时保留</legend>
+              <label><input type="checkbox" data-random-lock="body">体型</label>
+              <label><input type="checkbox" data-random-lock="skin">肤色</label>
+              <label><input type="checkbox" data-random-lock="hair">发型与发色</label>
+              <label><input type="checkbox" data-random-lock="wear">穿搭与配饰</label>
+            </fieldset>
+          </details>
           <div class="tabs" role="tablist" aria-label="编辑类别">
             <button
               id="tab-shape"
@@ -201,31 +208,26 @@
             </section>
           </div>
           <div id="editor-fields" class="fields" role="tabpanel" aria-labelledby="tab-shape"></div>
-          <div class="save-actions">
-            <button id="save-look" class="primary">保存形象</button
-            ><button id="fork-look">另存为新形象</button>
-          </div>
-          <a id="studio-link" class="studio-link" href="studio.html"
-            >保存并进入动作工坊 <span aria-hidden="true">→</span></a
-          >
         </section>
-        <section class="collection" aria-label="人物形象库">
+        <section class="collection tool-pane" id="person-library" data-tool data-label="形象库" aria-label="人物形象库" hidden>
           <div class="collection-head">
-            <h2>形象库</h2>
+            <h2>选择人物</h2>
             <span id="shelf-count"></span>
           </div>
           <div class="shelf-search"><input type="search" id="look-query" aria-label="搜索形象" placeholder="搜索名称、职业或配件"><select id="shelf-era" aria-label="形象时代"><option value="">全部时代</option></select></div>
+          <label class="library-source">来源<select id="shelf-source"><option value="">所有形象</option><option value="saved">我的形象</option><option value="preset">内置预设</option></select></label>
+          <button type="button" class="clear-filter" id="clear-looks" hidden>清除筛选</button>
           <div id="look-shelf" class="shelf"></div>
         </section>
+        </div>
       </div>
-      <p id="feedback" role="status" aria-live="polite"></p>
       <input id="pack-file" type="file" accept=".json,application/json" hidden />
       <dialog id="switch-dialog" aria-labelledby="switch-title">
         <form method="dialog">
           <h2 id="switch-title">当前形象有未保存的修改</h2>
-          <p>继续切换会放弃本次修改。</p>
+          <p>可以先保存当前形象，再打开选中的人物。</p>
           <div class="file-tools">
-            <button value="cancel" autofocus>继续编辑</button><button value="discard">放弃修改并切换</button>
+            <button value="cancel" autofocus>继续编辑</button><button value="save">保存并切换</button><button value="discard">放弃修改并切换</button>
           </div>
         </form>
       </dialog>

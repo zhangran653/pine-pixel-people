@@ -43,7 +43,8 @@ function showcases(motion) {
   try {
     const snapshot = PineWardrobe.snapshot();
     if (snapshot) {
-      register('studio', '工坊当前编排', snapshot);
+      const source = new URLSearchParams(location.search).get('from');
+      register('studio', source === 'world' ? '当前场景' : source === 'atelier' ? '当前人物试演' : '工坊当前编排', snapshot);
       return choices;
     }
   } catch {
@@ -193,6 +194,11 @@ export function startClearing(motion) {
     if (first && key === 'greet') time = plan.duration * 0.48;
     if (first && key === 'family') time = plan.score.steps[0].seconds * 0.53;
     playing = !!plan.duration && (first ? !matchMedia('(prefers-reduced-motion: reduce)').matches : playing);
+    if (first && key === 'studio') {
+      const params = new URLSearchParams(location.search), at = Number(params.get('time'));
+      if (params.has('time') && Number.isFinite(at)) time = Math.max(0, Math.min(plan.duration, at));
+      if (params.has('play')) playing = playing && params.get('play') === '1';
+    }
     last = null;
     sync();
     sceneView = null;
