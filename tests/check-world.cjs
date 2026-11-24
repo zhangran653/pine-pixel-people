@@ -351,15 +351,17 @@ for (const [id, outline] of [['look_body_female', 'square'], ['look_fern', 'roun
     assert.deepEqual(before.sockets[point], after.sockets[point], point + ' must stay seated');
   }
 }
-// Measure the actual fine voxels, with one world-space pitch for both releases.
-function sideProfile(actor) {
+// Measure both outlines of the rendered fine voxels at a fixed world-space pitch.
+function portraitBand(actor, density = 4) {
   const pose = motion.rig.pose(actor.rig);
-  const point = (name) => motion.rig.socket(actor, pose, name);
-  const eye = point('leftEye'), mouth = point('mouth'), ear = point('leftEarCanal'), chin = point('chinTip');
-  const band = actor.body.faceLayers(pose, actor.body.makePose(pose), chin[2] - 1, 4)[1];
+  const chin = motion.rig.socket(actor, pose, 'chinTip');
+  const band = actor.body.faceLayers(pose, actor.body.makePose(pose), chin[2] - 1, density)[1];
+  assert.equal(band.body.density, density);
+  return band;
+}
+function portraitEdges(band) {
   const { body, model } = band, d = body.density;
-  assert.equal(d, 4);
-  function edges(y, z) {
+  return (y, z) => {
     const row = Math.floor((y - band.y) * d + body.ny / 2);
     const layer = Math.floor((z - band.z) * d);
     const start = (layer * body.ny + row) * body.nx;
@@ -367,10 +369,66 @@ function sideProfile(actor) {
     const first = line.findIndex(Boolean), last = line.findLastIndex(Boolean);
     assert.ok(first >= 0 && last > first);
     return [first, last].map((i) => band.x + (i + 0.5 - body.nx / 2) / d);
-  }
+  };
+}
+function sideProfile(actor) {
+  const pose = motion.rig.pose(actor.rig);
+  const point = (name) => motion.rig.socket(actor, pose, name);
+  const eye = point('leftEye'), mouth = point('mouth'), ear = point('leftEarCanal'), chin = point('chinTip');
+  const edges = portraitEdges(portraitBand(actor));
   const [rear, brow] = edges(0, eye[2] + 0.5 * (eye[2] - mouth[2]));
   const cheek = edges(0.49 * ear[1], 0.53 * eye[2] + 0.47 * mouth[2])[1];
   return { rear, brow, depth: brow - rear, cheek, chin: chin[0], lip: mouth[0] };
+}
+{
+  const baby = looks.templateById.get('look_workshop_baby');
+  const oldDoc = { ...baby, packs: { 'pine-core': looks.infantRelease } };
+  assert.ok(looks.hasInfantHead(oldDoc) && looks.hasInfantHead(baby));
+  const old = looks.build(oldDoc), current = looks.build(baby);
+  const rest = motion.rig.pose(old.rig), model = old.body.makePose(rest);
+  assert.equal(hash(model.colors), '5919f9c4ce2b25550a1540b2fa62dc117c20f14a649cbcc82b614fa968b97e5d');
+  assert.equal(hash(motion.faceLayers(old, rest, model)[1].model.colors),
+    'be8ac6a748d64ca88d331b8cb5dcf42d49292c64e61c6b81957995229f0dfcf2', 'replay the 1.13.0 knit cap and portrait');
+  const bareParts = { ...baby.parts, hair: 'bald', hat: 'none' };
+  const oldBand = portraitBand(looks.build({ ...oldDoc, parts: bareParts }), 6);
+  const bareBand = portraitBand(looks.build({ ...baby, parts: bareParts }), 6);
+  const previous = portraitEdges(oldBand), revised = portraitEdges(bareBand);
+  const nape = old.sockets.mouth.point[2] + 0.14;
+  const upperNape = old.sockets.leftEarCanal.point[2] - 0.36;
+  const bulge = old.sockets.leftEarCanal.point[2] + 1.50;
+  assert.ok(previous(0, nape)[0] - revised(0, nape)[0] > 0.5, 'fill the notch behind the lower ear');
+  const step = edges => edges(0, nape)[0] - edges(0, upperNape)[0];
+  assert.ok(step(revised) > 0 && step(revised) < 0.65 * step(previous), 'ease the turn into the neck');
+  const trim = revised(0, bulge)[0] - previous(0, bulge)[0];
+  assert.ok(trim > 0 && trim < 0.5, 'retain a rounded, slightly shallower upper occiput');
+  const rim = old.sockets.leftEye.point[2] + 2.8;
+  const oldKnit = portraitEdges(portraitBand(old, 6))(0, rim), knit = portraitEdges(portraitBand(current, 6))(0, rim);
+  assert.ok(Math.abs(knit[1] - oldKnit[1]) < 1e-8, 'front of folded band');
+  const wool = revised(0, rim)[0] - knit[0];
+  assert.ok(wool > 0.15 && wool < previous(0, rim)[0] - oldKnit[0] - 0.3, 'fit the folded band outside the new scalp');
+  // Along a line through both earlobes, the visible pinnae and head form one
+  // piece. The old lobes were separated from the skin by a voxel on each side.
+  function solidEarRow(band, z) {
+    const { nx, ny, density } = band.body;
+    const x = Math.floor((old.sockets.leftEarCanal.point[0] - band.x) * density + nx / 2);
+    const layer = Math.floor((z - band.z) * density);
+    const row = Array.from({ length: ny }, (_, y) => band.model.colors[(layer * ny + y) * nx + x]);
+    const first = row.findIndex(Boolean), last = row.findLastIndex(Boolean);
+    return first >= 0 && row.slice(first, last + 1).every(Boolean);
+  }
+  for (const offset of [-0.82, -0.67]) {
+    const z = old.sockets.leftEarCanal.point[2] + offset;
+    assert.ok(!solidEarRow(oldBand, z) && solidEarRow(bareBand, z), 'seat each earlobe against the temple');
+  }
+  for (const shape of [{ headDepth: 0.8, occiput: 1.2 }, { headDepth: 1.2, occiput: 0.8 }]) {
+    const proportions = { ...baby.shape, ...shape };
+    const a = looks.build({ ...oldDoc, shape: proportions }), b = looks.build({ ...baby, shape: proportions });
+    assert.deepEqual(b.sockets, a.sockets, 'face and motion anchors at both ends of the depth sliders');
+  }
+  const before = skull.reshape('baby', baby.shape, 1, true), after = skull.reshape('baby', baby.shape, 1, true, true);
+  for (const h of [-0.85, -0.54, -0.27, 0, 0.26, 0.55, 0.88]) {
+    for (const y of [0, 0.4, 0.76]) assert.equal(after.frontAt(after.row(h), y), before.frontAt(before.row(h), y));
+  }
 }
 for (const id of ['look_body_male', 'look_fern', 'look_workshop_toddler', 'look_workshop_baby']) {
   const doc = looks.templateById.get(id);

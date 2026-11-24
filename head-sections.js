@@ -103,3 +103,5 @@ const pineMandibleLandmarks = {"adult": {"hinge": [0.1359, -0.2503], "angle": [0
 // Physical length of a sagittal table unit relative to one transverse table unit.
 const pineSagittalUnits = {"adult": 1.2896, "child": 1.3181, "baby": 1.4482};
 const pineInfantLandmarks = {"eye": -0.13, "mouth": -0.5769, "ear": -0.2641};
+// Uncut posterior midline [height, depth] from the nape to the upper vault.
+const pineInfantRear = [[-1, -0.3727], [-0.97, -0.372], [-0.93, -0.3716], [-0.87, -0.3719], [-0.8, -0.3799], [-0.72, -0.4], [-0.63, -0.4432], [-0.54, -0.4919], [-0.45, -0.5452], [-0.36, -0.5911], [-0.27, -0.6272], [-0.18, -0.6523], [-0.09, -0.6701], [0, -0.6832], [0.1, -0.6891], [0.18, -0.6881], [0.26, -0.6795], [0.34, -0.669], [0.43, -0.6368], [0.52, -0.6047], [0.62, -0.5363], [0.72, -0.4639], [0.81, -0.3503], [0.88, -0.2592]];

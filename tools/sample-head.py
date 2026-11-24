@@ -229,6 +229,23 @@ def sagittal_landmark(vertices, age, indices):
     return [round(forward, 4), round(height, 4)]
 
 
+def infant_rear(vertices, faces):
+    # Follow the posterior skin itself. The oblique jaw/neck cut used for the
+    # facial rings removes part of the nape behind the infant's ears.
+    triangles = [[vertices[i] for i in face] for face in faces]
+    zmap = height_map(vertices, "baby")
+    ear_z = vertices[12323][2]
+    scale = 0.94 * 1.18 / (vertices[237][2] - ear_z)
+    result = []
+    for h in HEIGHTS:
+        if h > 0.88:
+            break
+        lines = cross_section(triangles, interpolate(zmap, h))
+        back = depths(lines, 1e-6)[0]
+        result.append([h, round(-0.115 + (back - ear_z) * scale, 4)])
+    return result
+
+
 if __name__ == "__main__":
     base, faces = read_mesh(Path(sys.argv[1]))
     subjects = {"adult": base, **{age: age_vertices(base, Path(sys.argv[2]), age) for age in ("child", "baby")}}
@@ -274,3 +291,5 @@ if __name__ == "__main__":
     landmarks = {key: sagittal_landmark(subjects["baby"], "baby", indices)[1]
                  for key, indices in {"eye": range(13606, 13614), "mouth": [455], "ear": [12323]}.items()}
     print("const pineInfantLandmarks = " + json.dumps(landmarks) + ";")
+    print("// Uncut posterior midline [height, depth] from the nape to the upper vault.")
+    print("const pineInfantRear = " + json.dumps(infant_rear(subjects["baby"], faces)) + ";")

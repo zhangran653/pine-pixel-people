@@ -200,6 +200,9 @@
           婴儿和其他人物使用相同的眼、眉、鼻、嘴及染色槽，尺寸以各自头型为基准。三个婴儿五官起点可从 <code>PineLooks.infantFacePresets</code> 读取并交给 <code>PineLooks.applyFacePreset</code>。<code>randomFace</code> 与 <code>randomCharacter</code> 会按婴儿的眉眼和鼻唇间距选配，肤色独立抽取。载入旧婴儿时依照配方原先锁定的版本绘制，创作室提供「试用婴儿头型」与保存操作。<a href="atelier.html?preset=look_workshop_baby&amp;tab=face&amp;features=infant-almond&amp;bearing=35">试用杏眼小嘴</a>
         </p>
         <p>
+          <code>pine-core 1.13.1</code> 为婴儿单独采样参考网格后脑正中从颈部到头顶的轮廓。耳后各层沿这条曲线连接，耳垂随两侧头骨的宽度贴合，下颌可独立张合。头发沿相同的后缘生长，反折棉帽按婴儿头围收拢后侧帽沿。1.13.0 存档可以在「五官」中点「试用婴儿后脑曲线」，再保存选中的形象。<a href="atelier.html?preset=look_workshop_baby&amp;tab=face&amp;hat=none&amp;hair=bald&amp;bearing=90">旋转查看裸头</a> · <a href="infant-nape-preview.png">裸头、细发与戴帽对照</a>
+        </p>
+        <p>
           用 Python 3 在项目根目录执行下面的命令即可重新生成截面表。两个参数分别指向上述固定版本的网格及其形变目录。<a href="tools/sample-head.py">采样脚本</a> · <a href="head-sections.js">生成的截面数据</a>
         </p>
         <pre><code>python3 tools/sample-head.py path/to/base.obj path/to/macrodetails &gt; head-sections.js</code></pre>

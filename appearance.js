@@ -19,7 +19,8 @@ const PineLooks = (() => {
     sagittalRelease = '1.11.0',
     occipitalRelease = '1.11.1',
     morphRelease = '1.12.0',
-    release = '1.13.0';
+    infantRelease = '1.13.0',
+    release = '1.13.1';
   const releases = [
     originalRelease,
     styleRelease,
@@ -39,6 +40,7 @@ const PineLooks = (() => {
     sagittalRelease,
     occipitalRelease,
     morphRelease,
+    infantRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -49,6 +51,12 @@ const PineLooks = (() => {
   }
   function hasMandible(recipe) {
     return releases.indexOf(recipe.packs[core]) >= releases.indexOf(mandibleRelease);
+  }
+  function hasFacialMorphs(recipe) {
+    return releases.indexOf(recipe.packs[core]) >= releases.indexOf(morphRelease);
+  }
+  function hasInfantHead(recipe) {
+    return recipe.base === 'baby' && releases.indexOf(recipe.packs?.[core]) >= releases.indexOf(infantRelease);
   }
   const shape = pineDesignerBody.shapeRanges;
   const morphKeys = Object.keys(pinePortraitStyles.morphs);
@@ -753,11 +761,15 @@ SOFTWARE.`;
   function paintHat(part) {
     if (!part) return null;
     return (_pose, b, ink, fit) => {
+      function fitX(x, h) {
+        const mapped = fit.posterior ? fit.posterior.fit(x, h) : x;
+        const ear = pineHeadShape.earPlane;
+        return fit.hatRearScale && mapped < ear ? ear + (mapped - ear) * fit.hatRearScale : mapped;
+      }
       for (const p of part.primitives) {
         const xmin = p.center[0] - p.size[0],
           xmax = p.center[0] + p.size[0];
-        const left = fit.posterior ? fit.posterior.fit(xmin, p.center[2]) : xmin;
-        const right = fit.posterior ? fit.posterior.fit(xmax, p.center[2]) : xmax;
+        const left = fitX(xmin, p.center[2]), right = fitX(xmax, p.center[2]);
         const bottom = fit.crown?.raise(p.center[2] - p.size[2]),
           top = fit.crown?.raise(p.center[2] + p.size[2]);
         const x = fit.x + (fit.posterior ? (left + right) * 0.5 : p.center[0]) * fit.rx,
@@ -1098,7 +1110,7 @@ SOFTWARE.`;
   function cheekAdjustment(recipe, style = 'soft') {
     const s = recipe.shape;
     const outline = pinePortraitStyles.outlines[recipe.face?.outline];
-    const infant = recipe.base === 'baby' && recipe.packs?.[core] === release;
+    const infant = hasInfantHead(recipe);
     const breadth = (h) => pinePortraitStyles.jawBreadth(outline, s.jaw ?? 1, h,
       infant ? pinePortraitStyles.proportions.baby.outlineStrength : 1);
     const lowerWidth = Math.max(0, breadth(-0.46) - breadth(-0.15));
@@ -1222,6 +1234,7 @@ SOFTWARE.`;
     sagittalRelease,
     occipitalRelease,
     morphRelease,
+    infantRelease,
     morphs: pinePortraitStyles.morphs,
     cheekPresets,
     cheekAdjustment,
@@ -1232,6 +1245,8 @@ SOFTWARE.`;
     hasRoundedHead,
     hasSculptedHead,
     hasMandible,
+    hasFacialMorphs,
+    hasInfantHead,
     editingRelease,
     usesExtendedShape,
     bodyProfiles,

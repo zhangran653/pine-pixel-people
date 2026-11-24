@@ -103,10 +103,33 @@ const pineHeadShape = (() => {
     });
     return [...rings, ...reference.filter(([h]) => h >= -0.54)];
   }
-  function profile(base, fittedJaw = false, settings, relief = 0, facial) {
+  function fitInfantNape(sections) {
+    const tangents = slopes(pineInfantRear, 1);
+    let i = 0;
+    return sections.map((ring) => {
+      const h = ring[0];
+      if (h > pineInfantRear.at(-1)[0]) return ring;
+      while (i < pineInfantRear.length - 2 && h > pineInfantRear[i + 1][0]) i++;
+      const measured = sample(pineInfantRear, tangents, i, 1, h);
+      const neck = clamp((-0.65 - h) / 0.27, 0, 1);
+      // Seat the low end on the moving neck. Shift the middle arc as a unit
+      // to retain its curvature, then blend into the original upper vault.
+      const middle = clamp(Math.min((h + 0.70) / 0.42, (0.88 - h) / 0.40), 0, 1);
+      const back = measured + 0.034 * neck * neck * (3 - 2 * neck) + 0.030 * middle * middle * (3 - 2 * middle);
+      const fitted = ring.slice();
+      fitted[2] = back;
+      return fitted;
+    });
+  }
+  function profile(base, fittedJaw = false, settings, relief = 0, facial, refitNape = false) {
     const child = base !== 'adult', infant = base === 'baby';
     const reference = pineHeadSections[base];
-    const sections = fittedJaw ? jawSections(reference, base, settings) : reference;
+    const faceRings = fittedJaw ? jawSections(reference, base, settings) : reference;
+    const sections = refitNape ? fitInfantNape(faceRings) : faceRings;
+    // Across the upper ear the face table switches from a cheek to a temple
+    // measurement. Bridge that short interval on the sides and rear only.
+    const temples = refitNape && reference.filter(([h]) => [-0.36, -0.18, 0.26, 0.43].includes(h));
+    const templeSlopes = refitNape && slopes(temples, 1);
     const gradients = sections[0].map((_, i) => slopes(sections, i));
     const neutral = posterior(1);
     const angles = lateral.map(Math.asin);
@@ -187,7 +210,9 @@ const pineHeadShape = (() => {
       const face = Float32Array.from(meridians, ({ interval, angle }) =>
         sample(outline, tangent, interval, 1, angle)
       );
-      return { axis, rear, fore: face[0] - axis, width, face };
+      const templeDelta = refitNape && h > -0.18 && h < 0.26
+        ? sample(temples, templeSlopes, 1, 1, h) - value(1) : 0;
+      return { axis, rear, fore: face[0] - axis, width, templeDelta, face };
     });
     const row = (h) => rows[clamp(Math.round(((h + 1) * count) / 2), 0, count)];
     function frontAt(r, v) {
@@ -223,8 +248,13 @@ const pineHeadShape = (() => {
       }
     }
     function insideSkin(r, x, y) {
-      if (r.width < 0.001 || Math.abs(y) > r.width) return false;
-      const v = y / r.width,
+      let width = r.width;
+      if (r.templeDelta && x < 0.55) {
+        const t = clamp((0.55 - x) / 0.44, 0, 1);
+        width += r.templeDelta * t * t * (3 - 2 * t);
+      }
+      if (width < 0.001 || Math.abs(y) > width) return false;
+      const v = y / width,
         dx = x - r.axis;
       if (dx < 0) return dx * dx <= r.rear * r.rear * (1 - v * v);
       return x <= frontAt(r, v);
@@ -334,21 +364,28 @@ const pineHeadShape = (() => {
   }
   const controls = ['chinHeight', 'chinProjection', 'chinRoundness', 'jawPosition', 'jawAngle', 'jawNeck'];
   const adjustable = new Map();
-  function reshape(base, shape, relief = 0, individual = false) {
+  function reshape(base, shape, relief = 0, individual = false, refitNape = false) {
     const settings = Object.fromEntries(controls.map((key) => [key, shape[key] ?? 0]));
     const facial = individual && {
       cheekHeight: shape.cheekHeight || 0, cheekWidth: shape.cheekWidth || 0,
       cheekProjection: shape.cheekProjection || 0, cheekFullness: shape.cheekFullness || 0,
       eyeDepth: shape.eyeDepth || 0, eyeSpacing: shape.eyeSpacing ?? 1
     };
-    const key = [base, relief, ...Object.values(settings), ...(facial ? Object.values(facial) : [])].join('|');
+    const key = [base, relief, refitNape, ...Object.values(settings), ...(facial ? Object.values(facial) : [])].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);
-      adjustable.set(key, profile(base, true, settings, relief, facial));
+      adjustable.set(key, profile(base, true, settings, relief, facial, refitNape));
     }
     return adjustable.get(key);
   }
-  let baby;
-  return { adult: profile('adult'), child: profile('child'), get baby() { return baby ||= profile('baby'); },
-    earPlane, posterior, withJaw, controls, reshape };
+  let baby, babyNape;
+  const heads = {
+    adult: profile('adult'), child: profile('child'), get baby() { return baby ||= profile('baby'); },
+    scalp(base, refitNape = false) {
+      if (!refitNape || base !== 'baby') return heads[base];
+      return babyNape ||= profile('baby', false, undefined, 0, undefined, true);
+    },
+    earPlane, posterior, withJaw, controls, reshape
+  };
+  return heads;
 })();

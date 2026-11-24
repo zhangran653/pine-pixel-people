@@ -350,7 +350,7 @@
     return label;
   }
   function markPresets() {
-    const hasMorphs = [looks.morphRelease, looks.release].includes(draft.packs[looks.core]);
+    const hasMorphs = looks.hasFacialMorphs(draft);
     const soften = $('soften-cheeks');
     if (soften) {
       soften.hidden = !hasMorphs;
@@ -438,8 +438,9 @@
   }
   function upgradeLabel() {
     if (draft.packs[looks.core] === looks.release) return '';
+    if (looks.hasInfantHead(draft)) return '试用婴儿后脑曲线';
     if (draft.base === 'baby') return '试用婴儿头型';
-    if (draft.packs[looks.core] === looks.morphRelease) return '';
+    if (looks.hasFacialMorphs(draft)) return '';
     if (draft.packs[looks.core] === looks.occipitalRelease) return '试用独立颧颊与五官';
     if (draft.packs[looks.core] === looks.sagittalRelease) return '试用微收后脑';
     if (draft.packs[looks.core] === looks.mandibleRelease) return '试用新侧面轮廓';
@@ -463,7 +464,7 @@
   }
   function faceFields(area) {
     figureUpgrade(area);
-    if (draft.base === 'baby' && draft.packs[looks.core] === looks.release)
+    if (looks.hasInfantHead(draft))
       area.append(presetGroup('婴儿五官', looks.infantFacePresets, 'facePreset', (p) => looks.applyFacePreset(draft, p)));
     area.append(
       presetGroup('五官组合', looks.facePresets, 'facePreset', (p) => looks.applyFacePreset(draft, p))
@@ -518,7 +519,7 @@
       b.onclick = () => {
         for (const key of looks.jawControls) delete draft.shape[key];
         Object.assign(draft.shape, preset.shape);
-        if (draft.packs[looks.core] !== looks.release) draft.packs[looks.core] = looks.morphRelease;
+        if (!looks.hasFacialMorphs(draft)) draft.packs[looks.core] = looks.morphRelease;
         changed();
         fields();
       };
@@ -1028,6 +1029,13 @@
     }
     refresh();
   }
+  function selectHat(value) {
+    const [qualified, version] = value.split('@'), owner = qualified.split('/')[0];
+    draft.parts.hat = qualified;
+    draft.packs = { [looks.core]: draft.packs[looks.core] };
+    delete draft.embeddedPacks;
+    if (qualified !== 'none' && owner !== looks.core) draft.packs[owner] = version;
+  }
   function wearFields(area) {
     const apply = (outfit) => looks.applyOutfit(draft, outfit);
     const featured = presetGroup('工坊同款', looks.workshopOutfits, 'outfit', apply);
@@ -1077,14 +1085,7 @@
         'hat',
         hats,
         hat === 'none' ? hat : hat + '@' + draft.packs[hat.split('/')[0]],
-        (value) => {
-          const [qualified, version] = value.split('@'),
-            owner = qualified.split('/')[0];
-          draft.parts.hat = qualified;
-          draft.packs = { [looks.core]: pin };
-          delete draft.embeddedPacks;
-          if (qualified !== 'none' && owner !== looks.core) draft.packs[owner] = version;
-        }
+        selectHat
       )
     );
     const head = group('头部配件'),
@@ -1154,7 +1155,7 @@
   function setCheeks(choice) {
     for (const key of cheekKeys) delete draft.shape[key];
     Object.assign(draft.shape, choice.shape);
-    if (draft.packs[looks.core] !== looks.release) draft.packs[looks.core] = looks.morphRelease;
+    if (!looks.hasFacialMorphs(draft)) draft.packs[looks.core] = looks.morphRelease;
     changed();
   }
   function randomize(whole) {
@@ -1681,7 +1682,7 @@
     fields();
   }
   const featureExample = query.get('features');
-  const featureChoices = draft.base === 'baby' && draft.packs[looks.core] === looks.release
+  const featureChoices = looks.hasInfantHead(draft)
     ? { ...looks.facePresets, ...looks.infantFacePresets } : looks.facePresets;
   if (Object.hasOwn(featureChoices, featureExample)) {
     looks.applyFacePreset(draft, featureChoices[featureExample]);
@@ -1689,11 +1690,16 @@
     fields();
   }
   const requestedHair = query.get('hair');
-  if (Object.hasOwn(looks.slots.hair, requestedHair) && requestedHair !== draft.parts.hair) {
+  const changeHair = Object.hasOwn(looks.slots.hair, requestedHair) && requestedHair !== draft.parts.hair;
+  const removeHat = query.get('hat') === 'none' && draft.parts.hat !== 'none';
+  if (changeHair) {
     draft.parts.hair = requestedHair;
     hairGroup = looks.hairGroups[requestedHair];
+  }
+  if (removeHat) selectHat('none');
+  if (changeHair || removeHat) {
     changed();
-    if (tab === 'hair') fields();
+    if (tab === 'hair' || tab === 'wear') fields();
   }
   const requestedAction = query.get('action');
   if (requestedAction && [...$('action').options].some((o) => o.value === requestedAction)) {

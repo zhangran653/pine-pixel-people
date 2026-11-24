@@ -410,11 +410,11 @@ const pineShortHair = (() => {
     }
     return { hi, lo, shade };
   }
-  function get(id, base, hat, layered = false) {
+  function get(id, base, hat, layered = false, refitNape = false) {
     if (!Object.hasOwn(cuts, id)) return null;
-    const key = base + '/' + id + (hat ? '/hat' : '') + (layered ? '/layered' : '');
+    const key = base + '/' + id + (hat ? '/hat' : '') + (layered ? '/layered' : '') + (refitNape ? '/nape' : '');
     if (cache.has(key)) return cache.get(key);
-    const head = pineHeadShape[base],
+    const head = pineHeadShape.scalp(base, refitNape),
       cut = cuts[id],
       volume = layered ? volumes[id] : null,
       foundation = shell(head, cut, hat, volume);

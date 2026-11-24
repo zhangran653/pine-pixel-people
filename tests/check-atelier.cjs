@@ -626,6 +626,24 @@ function checkEditor() {
     expect(PineWardrobe.saved.get(oldBaby.id).packs['pine-core'] === PineLooks.morphRelease, 'preview changed the previous save');
     byId('save-look').click();
     expect(PineWardrobe.saved.get(oldBaby.id).packs['pine-core'] === PineLooks.release, 'save the new infant in place');
+    const firstInfant = PineWardrobe.importCharacter({
+      ...oldBaby, id: 'look_prior_infant_nape', packs: { 'pine-core': PineLooks.infantRelease }
+    }).recipe;
+    byId('look-query').value = firstInfant.id;
+    byId('look-query').dispatchEvent(new Event('input'));
+    document.querySelector('[data-key="saved:' + firstInfant.id + '"]').click();
+    byId('tab-face').click();
+    document.querySelector('[data-cheek-preset="low"]').click();
+    expect(byId('update-head')?.textContent === '试用婴儿后脑曲线' &&
+      document.querySelector('[data-face-preset="infant-almond"]'), '1.13.0 infant keeps its own head and face presets');
+    byId('bearing').value = '90';
+    byId('bearing').dispatchEvent(new Event('input'));
+    const previousNape = byId('mirror').toDataURL();
+    byId('update-head').click();
+    expect(!byId('update-head') && byId('mirror').toDataURL() !== previousNape, 'preview the new posterior profile');
+    expect(PineWardrobe.saved.get(firstInfant.id).packs['pine-core'] === PineLooks.infantRelease, 'preview must preserve the pinned save');
+    byId('save-look').click();
+    expect(PineWardrobe.saved.get(firstInfant.id).packs['pine-core'] === PineLooks.release, 'save the refitted nape');
     target.dataset.state = 'pass';
     target.textContent =
       'Body profiles, legacy saves, head upgrades, facial morphs, guided random portraits, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';
