@@ -97,11 +97,11 @@ const studioRig = (() => {
       if (!Array.isArray(rig[key]) || rig[key].length !== 3 || !rig[key].every(Number.isFinite))
         throw new Error('体型坐标无效 · ' + key);
     }
-    if (
-      rig.headPivot !== undefined &&
-      (!Array.isArray(rig.headPivot) || rig.headPivot.length !== 3 || !rig.headPivot.every(Number.isFinite))
-    )
-      throw Error('头颈支点需要三个有限坐标');
+    for (const name of ['headPivot', 'jawPivot']) {
+      const p = rig[name];
+      if (p !== undefined && (!Array.isArray(p) || p.length !== 3 || !p.every(Number.isFinite)))
+        throw Error('骨骼支点需要三个有限坐标 · ' + name);
+    }
     return rig;
   }
   function bindSockets(rig, overrides = {}) {
@@ -125,7 +125,7 @@ const studioRig = (() => {
     for (const [name, s] of Object.entries(sockets)) {
       if (
         !s ||
-        !['head', 'torso'].includes(s.frame) ||
+        !(['head', 'torso'].includes(s.frame) || (s.frame === 'jaw' && rig.jawPivot)) ||
         !Array.isArray(s.point) ||
         s.point.length !== 3 ||
         !s.point.every(Number.isFinite)
@@ -138,6 +138,11 @@ const studioRig = (() => {
     const anchor = actor.sockets[name];
     if (!anchor) throw new Error('未知接触点 · ' + name);
     return point(pose[anchor.frame], anchor.point);
+  }
+  function mandibleFrame(rig, open) {
+    const reach = Math.hypot(rig.mouth[0] - rig.jawPivot[0], rig.mouth[2] - rig.jawPivot[2]);
+    const glide = reach * 0.075 * open * open;
+    return frame(rig.jawPivot, [glide, 0, -0.35 * glide], 0, 0.38 * open, 0);
   }
   function pose(rig, channels = {}) {
     const torso = frame(
@@ -197,7 +202,18 @@ const studioRig = (() => {
       const wrist = elbow.map((v, k) => mix(v, hand[k], rig.forearm / (rig.forearm + rig.palm)));
       return { side, shoulder, elbow, wrist, hand };
     });
-    return { torso, head, feet, legs, arms, blink: channels.blink || 0, props: [], bottle: null, bob: 0 };
+    const result = { torso, head, feet, legs, arms, blink: channels.blink || 0, props: [], bottle: null, bob: 0 };
+    if (rig.jawPivot) {
+      const open = clamp(channels.jawOpen || 0);
+      result.jawOpen = open;
+      result.jaw = head;
+      if (open > 0) {
+        // As the condyles roll, they also slide a little anteriorly and inferiorly.
+        result.jawLocal = mandibleFrame(rig, open);
+        result.jaw = compose(head, result.jawLocal);
+      }
+    }
+    return result;
   }
   return {
     centimetersPerUnit: 3.4,
@@ -208,6 +224,7 @@ const studioRig = (() => {
     validate,
     bindSockets,
     socket,
+    mandibleFrame,
     pose,
     point,
     frame,

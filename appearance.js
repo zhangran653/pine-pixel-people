@@ -14,7 +14,8 @@ const PineLooks = (() => {
     sculptRelease = '1.9.0',
     volumeRelease = '1.9.1',
     jawRelease = '1.9.2',
-    release = '1.10.0';
+    neckRelease = '1.10.0',
+    release = '1.10.1';
   const releases = [
     originalRelease,
     styleRelease,
@@ -29,6 +30,7 @@ const PineLooks = (() => {
     sculptRelease,
     volumeRelease,
     jawRelease,
+    neckRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -398,7 +400,7 @@ SOFTWARE.`;
       Object.hasOwn(recipe.colors, 'charm') ||
       pineWorldWardrobe.hats.some((h) => recipe.parts.hat === core + '/' + h.id)
     )
-      needed = release;
+      needed = neckRelease;
     else if (recipe.shape.occiput !== undefined && recipe.shape.occiput !== 1) needed = sculptRelease;
     else if (usesCollection(recipe)) needed = collectionRelease;
     else if (pineWorkshopWear.needsRelease(recipe.parts, recipe.colors)) needed = wardrobeRelease;
@@ -547,7 +549,7 @@ SOFTWARE.`;
       manifest({
         ...sunhat,
         release: pin,
-        parts: pin === release ? [...hats, ...pineWorldWardrobe.hats] : hats
+        parts: releases.indexOf(pin) >= releases.indexOf(neckRelease) ? [...hats, ...pineWorldWardrobe.hats] : hats
       })
     );
   }
@@ -1022,6 +1024,7 @@ SOFTWARE.`;
     sculptRelease,
     volumeRelease,
     jawRelease,
+    neckRelease,
     jawPresets,
     jawControls: pineHeadShape.controls,
     hasRoundedHead,
@@ -1072,7 +1075,7 @@ for (const doc of PineLooks.templates) {
       label: doc.label,
       recipeId: doc.id,
       gender: doc.gender,
-      tags: [doc.base],
+      tags: doc.packs[PineLooks.core] === PineLooks.release ? [doc.base, 'mandible'] : [doc.base],
       get rig() {
         return resolve().rig;
       },

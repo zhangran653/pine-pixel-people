@@ -237,7 +237,9 @@
       if (draft.packs[looks.core] === looks.release) upgrade.remove();
       else upgrade.textContent = upgradeLabel();
     }
+    const previousTags = actor.tags.join(' ');
     actor = looks.build({ ...draft, label: draft.label.trim() || '未命名形象' });
+    if (actor.tags.join(' ') !== previousTags) refreshAction();
     heading();
     markPresets();
     $('editor-fields')
@@ -424,6 +426,7 @@
     return group;
   }
   function upgradeLabel() {
+    if (draft.packs[looks.core] === looks.neckRelease) return '试用耳前下颌关节';
     if (draft.packs[looks.core] === looks.jawRelease) return '试用可调下颌';
     if (draft.packs[looks.core] === looks.volumeRelease) return '试用新下颌';
     return looks.hasSculptedHead(draft) ? '试用新下颌与立体短发' : '试用新头型与短发';
@@ -512,6 +515,22 @@
       orbit(90);
     };
     buttons.append(side);
+    if (actor.rig.jawPivot) {
+      const trial = document.createElement('button');
+      trial.type = 'button';
+      trial.id = 'jaw-demo';
+      trial.textContent = '侧面试张口';
+      trial.onclick = () => {
+        showJawPoints = true;
+        toggle.checked = true;
+        $('action').value = 'open-mouth';
+        $('action').dispatchEvent(new Event('change'));
+        setView('face');
+        orbit(90);
+        if (!playing) togglePlay();
+      };
+      buttons.append(trial);
+    }
     const inspect = document.createElement('label'),
       toggle = document.createElement('input');
     toggle.type = 'checkbox';
@@ -528,7 +547,8 @@
     };
     inspect.append(toggle, '显示接点');
     for (const [name, color] of [
-      ['头部支点', '#8e5c91'],
+      ...(actor.rig.jawPivot ? [['下颌关节 · 张口', '#326f59']] : []),
+      ['颅底 · 点头', '#8e5c91'],
       ['颌颈转折', '#b76a3d'],
       ['领口', '#567f9a']
     ]) {
@@ -538,7 +558,7 @@
       tag.append(dot, name);
       inspect.append(tag);
     }
-    if (draft.packs[looks.core] === looks.release) jaw.append(inspect);
+    if (actor.rig.headPivot) jaw.append(inspect);
     jaw.append(...looks.jawControls.map(slider), slider('jaw'));
     area.append(grid, jaw, featureComparison(), more, ...tabKeys.face.filter((k) => k !== 'jaw').map(slider));
     markPresets();
@@ -1221,7 +1241,6 @@
       draft = looks.withBodyProfile(draft, b.dataset.bodyProfile);
       changed();
       fields();
-      refreshAction();
     };
   for (const b of document.querySelectorAll('[data-view]')) b.onclick = () => setView(b.dataset.view);
   $('fine-face').onchange = show;
@@ -1562,6 +1581,7 @@
   const openingAngle = Number(query.get('bearing') || NaN);
   if (Number.isInteger(openingAngle) && openingAngle >= 0 && openingAngle <= 360) orbit(openingAngle);
   else orientation();
+  if (query.get('play') === '1' && requestedAction === action) togglePlay();
   if (skipped) note('有 ' + skipped + ' 个无效的本地存档，其他形象已载入。', true);
   if (location.protocol !== 'file:')
     fetch('packs/creek-hats.json')

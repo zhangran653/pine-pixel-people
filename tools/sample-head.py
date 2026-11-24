@@ -209,9 +209,8 @@ def sample(points, faces, child):
     return [[round(v, 4) for v in row] for row in result]
 
 
-def head_pivot(vertices, child):
-    # Eight helper vertices of head____head in MakeHuman's default.mhskel, same pinned revision.
-    y, z = [mean(vertices[i][axis] for i in range(14070, 14078)) for axis in (1, 2)]
+def sagittal_landmark(vertices, child, indices):
+    y, z = [mean(vertices[i][axis] for i in indices) for axis in (1, 2)]
     chin, lip, ear, forehead, crown = [vertices[i] for i in (991, 455, 12323, 237, 881)]
     eyes = mean(vertices[i][1] for i in range(13606, 13614))
     height = interpolate(
@@ -251,5 +250,18 @@ if __name__ == "__main__":
 
     print()
     print("// Sagittal positions [forward, height] of the head joint, in the same hm08 coordinates.")
-    pivots = {"adult": head_pivot(base, False), "child": head_pivot(child, True)}
+    subjects = [("adult", base, False), ("child", child, True)]
+    pivots = {name: sagittal_landmark(v, c, range(14070, 14078)) for name, v, c in subjects}
     print("const pineHeadPivots = " + json.dumps(pivots) + ";")
+    # default.mhskel places jaw____head on the midline of the opening axis.
+    # 7691 is the lateral jaw angle also used to trim the head from the neck.
+    jaw = {}
+    for name, v, c in subjects:
+        triangles = [[v[i] for i in face] for face in faces]
+        half_width = max(p[0] for seg in cross_section(triangles, v[237][1]) for p in seg)
+        jaw[name] = {
+            "hinge": sagittal_landmark(v, c, range(14590, 14598)),
+            "angle": [*sagittal_landmark(v, c, [7691]), round(abs(v[7691][0]) / half_width, 4)],
+        }
+    print("// Mandibular hinge axis and lateral jaw angle, independent of the head/neck pivot.")
+    print("const pineMandibleLandmarks = " + json.dumps(jaw) + ";")

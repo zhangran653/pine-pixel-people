@@ -67,3 +67,5 @@ const pineHeadSections = {
 
 // Sagittal positions [forward, height] of the head joint, in the same hm08 coordinates.
 const pineHeadPivots = {"adult": [-0.3497, -0.1644], "child": [0.0384, -0.2614]};
+// Mandibular hinge axis and lateral jaw angle, independent of the head/neck pivot.
+const pineMandibleLandmarks = {"adult": {"hinge": [0.1359, -0.2503], "angle": [0.1536, -0.5161, 0.7245]}, "child": {"hinge": [0.1686, -0.1796], "angle": [0.1405, -0.5524, 0.7125]}};

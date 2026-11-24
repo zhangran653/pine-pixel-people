@@ -952,9 +952,10 @@ const [female, male] = referenceModels.map((doc) => {
   const person = a.l.build(doc);
   assert.equal(person.gender, doc.gender);
   assert.deepEqual(clone(person.tags), ['adult']);
+  assert.equal(a.m.accepts(a.m.actions.get('open-mouth'), 0, person), false);
   assert.deepEqual(
     [...a.m.actions.values()].filter((clip) => a.m.accepts(clip, 0, person)).map((clip) => clip.id),
-    [...a.m.findActions(a.m.characters.get(person.tags.includes('adult') ? 'surveyor' : 'child'))].map(
+    [...a.m.findActions(a.m.characters.get('surveyor'))].filter((clip) => clip.id !== 'open-mouth').map(
       (clip) => clip.id
     )
   );

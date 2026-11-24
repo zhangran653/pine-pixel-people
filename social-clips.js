@@ -157,6 +157,7 @@ const socialActions = (() => {
         beat = Math.sin(tau * v * 3),
         left = 0.5 - 0.5 * Math.cos(tau * v);
       const ch = {
+        jawOpen: mirror ? 0 : talk * (0.12 + 0.34 * Math.sin(tau * v * 5) ** 2),
         headYaw: mirror ? 0.11 * Math.sin(tau * v) : 0.08 * beat * talk,
         headPitch: mirror ? -0.07 * left : 0.11 * (1 - talk) * Math.sin(tau * v * 2),
         roll: mirror ? 0.09 * Math.sin(tau * v) : 0,

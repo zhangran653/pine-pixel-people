@@ -58,13 +58,15 @@ const activityMotion = (() => {
       if (
         !key ||
         typeof key !== 'object' ||
-        Object.keys(key).some((k) => k !== 'at' && k !== 'blink' && !Object.hasOwn(defaults, k))
+        Object.keys(key).some((k) => !['at', 'blink', 'jawOpen'].includes(k) && !Object.hasOwn(defaults, k))
       )
         throw Error('无效的手势关键帧字段');
       if (!Number.isFinite(key.at) || (i && key.at <= keys[i - 1].at)) throw Error('关键帧时间须严格递增');
-      const next = { at: key.at, blink: key.blink ?? 0 };
-      if (!Number.isFinite(next.blink) || next.blink < 0 || next.blink > 1)
-        throw Error('闭眼程度须在 0 至 1');
+      const next = { at: key.at, blink: key.blink ?? 0, jawOpen: key.jawOpen ?? 0 };
+      for (const name of ['blink', 'jawOpen']) {
+        if (!Number.isFinite(next[name]) || next[name] < 0 || next[name] > 1)
+          throw Error('面部动作通道须在 0 至 1 · ' + name);
+      }
       for (const [name, neutral] of Object.entries(defaults)) {
         const v = key[name] ?? neutral;
         if (!Array.isArray(v) || v.length !== 3 || !v.every(Number.isFinite))
@@ -93,6 +95,7 @@ const activityMotion = (() => {
       ch.headRoll = headRoll;
       ch.hipOffset = (ch.hipOffset || zero).map((p, i) => p + shift[i] * r.height);
       ch.blink = Math.max(blink(u), mix(first.blink, last.blink, w));
+      ch.jawOpen = mix(first.jawOpen, last.jawOpen, w);
       const rest = pose(r, ch);
       ch.hands = [hand(r, rest, 0, channel('right')), hand(r, rest, 1, channel('left'))];
       return [entry(a, pose(r, ch))];
@@ -130,6 +133,16 @@ const gestureActions = (() => {
     const frames = [{ at: 0 }, ...keys.map(([at, channels]) => ({ at, ...channels })), { at: 1 }];
     result.push(solo(id, label, section, seconds, roles, gesture(frames), keywords));
   }
+  add(
+    'open-mouth', '自然张合嘴', '日常', 2.8, ['mandible'],
+    [
+      [0.14, { jawOpen: 0 }],
+      [0.48, { jawOpen: 1 }],
+      [0.62, { jawOpen: 0.94 }],
+      [0.94, { jawOpen: 0 }]
+    ],
+    '开口 张口 下颌骨 耳前关节 闭嘴'
+  );
   add(
     'nod',
     '点头回应',
@@ -337,7 +350,7 @@ const gestureActions = (() => {
     ],
     '难过 伤心 哭'
   );
-  const yawn = { right: [0.39, -0.23, 0.21], head: [0, -0.21, 0.04], blink: 0.92 };
+  const yawn = { right: [0.39, -0.23, 0.21], head: [0, -0.21, 0.04], blink: 0.92, jawOpen: 0.87 };
   add(
     'yawn',
     '掩口打哈欠',
@@ -348,7 +361,7 @@ const gestureActions = (() => {
       [0.22, { right: [0.4, -0.1, -0.06], head: [0, 0.06, 0] }],
       [0.45, yawn],
       [0.64, yawn],
-      [0.79, { ...yawn, head: [0, 0.1, 0], blink: 0.35 }]
+      [0.79, { ...yawn, head: [0, 0.1, 0], blink: 0.35, jawOpen: 0.25 }]
     ],
     '困倦 起床'
   );

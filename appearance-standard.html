@@ -316,6 +316,8 @@ node tests/check-atelier.cjs</code></pre>
         <p>从 pine-core 1.10.0 起，成人、学童、幼儿和婴儿均可从配方创建。<code>identity.era</code> 可取 modern、historic、fantasy 或 scifi，<code>identity.role</code> 为至多 48 个字符的身份说明。两个字段均可省略。</p>
         <p>在 <code>shape</code> 中，chinHeight 调颏尖高低，chinProjection 调前伸，chinRoundness 调圆钝度。jawPosition 和 jawAngle 调下颌后角的前后和高低，jawNeck 调前颈接点。范围均为 −1 到 1，正值分别表示升高、前伸、更圆、靠前、升高和靠前。默认值 0 在导出时省略。原有 jaw 仍控制宽度。四组形状起点见 <code>PineLooks.jawPresets</code>。</p>
         <p>新版使用独立的领口与头部支点，领口跟随躯干，上颈连接移动的头部。身体接触点和面部按各自的骨架坐标采样。头部支点沿用 hm08 网格和六份儿童形变的坐标映射，使用 head____head 的八个参考顶点，对颈部表面的衔接则按像素身材重新拟合。<a href="https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/rigs/default.mhskel">MakeHuman 默认骨架</a> · <a href="jaw-controls-preview.png">同镜头对照</a> · <a href="jaw-pivot-preview.gif">颅底、前颈和领口的运动</a></p>
+        <p>1.10.1 将耳前的下颌关节与颅底点头支点分开。张口轴的前后和高低取自 MakeHuman 的 <code>jaw____head</code>（顶点 14590–14597），下颌角取自同一网格的顶点 7691。左右端点按人物头宽拟合。开口在这条横轴上旋转，大幅张口再加入少量前下滑动。旋转和滑动幅度为像素人物的动画参数。<a href="https://www.nidcr.nih.gov/health-info/tmd">NIDCR 关于耳前双侧关节的说明</a> · <a href="jaw-hinge-preview.gif">两视角张口动图</a></p>
+        <p>下颌上的接触点包括 <code>leftJawJoint</code>、<code>rightJawJoint</code>、<code>leftJawAngle</code>、<code>rightJawAngle</code>、<code>chinTip</code> 和 <code>lowerLip</code>。<code>upperLip</code> 随头骨，<code>collar</code> 随躯干。带 <code>mandible</code> 标签的人物可共用「自然张合嘴」，姿势通道为 <code>jawOpen</code>。1.10.0 及更早的存档按所锁版本复演。</p>
         <h2>许可与来源</h2>
         <p>
           本项目原创代码、角色、服饰、动作、切片示例与场景素材统一采用

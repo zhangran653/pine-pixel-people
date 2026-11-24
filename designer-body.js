@@ -453,9 +453,9 @@ const pineDesignerBody = (() => {
     roundedHead = true,
     surfaceDetails = roundedHead,
     softContours = surfaceDetails,
-    sculptedHead = ['1.9.0', '1.9.1', '1.9.2', '1.10.0'].includes(recipe.packs?.['pine-core']),
-    layeredHair = ['1.9.1', '1.9.2', '1.10.0'].includes(recipe.packs?.['pine-core']),
-    fittedJaw = ['1.9.2', '1.10.0'].includes(recipe.packs?.['pine-core'])
+    sculptedHead = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1'].includes(recipe.packs?.['pine-core']),
+    layeredHair = ['1.9.1', '1.9.2', '1.10.0', '1.10.1'].includes(recipe.packs?.['pine-core']),
+    fittedJaw = ['1.9.2', '1.10.0', '1.10.1'].includes(recipe.packs?.['pine-core'])
   ) {
     const kind = recipe.base === 'adult' ? 'adult' : 'child';
     const base = studioRig.profiles[recipe.base],
@@ -510,7 +510,8 @@ const pineDesignerBody = (() => {
         : 'crop';
     const hasHat = !!parts.hat && parts.hat !== 'none' && typeof paintHat === 'function';
     const headShape = sculptedHead ? pineHeadShape[kind] : null;
-    const adjustableJaw = recipe.packs?.['pine-core'] === '1.10.0';
+    const articulatedJaw = recipe.packs?.['pine-core'] === '1.10.1';
+    const adjustableJaw = articulatedJaw || recipe.packs?.['pine-core'] === '1.10.0';
     const skinShape = adjustableJaw
       ? pineHeadShape.reshape(kind, shape)
       : fittedJaw
@@ -555,6 +556,11 @@ const pineDesignerBody = (() => {
     if (adjustableJaw) {
       const [forward, height] = pineHeadPivots[kind];
       rig.headPivot = [fit.x + fit.rx * forward, 0, fit.z + fit.rz * height];
+    }
+    const mandible = articulatedJaw ? pineMandibleLandmarks[kind] : null;
+    if (mandible) {
+      const [forward, height] = mandible.hinge;
+      rig.jawPivot = [fit.x + forward * fit.rx, 0, fit.z + height * fit.rz];
     }
     const eyeY = fit.ry * 0.485 * spacing,
       eyeZ = measures.eye * s;
@@ -646,10 +652,36 @@ const pineDesignerBody = (() => {
       seat: socket('torso', [rig.pelvis[0], 0, rig.pelvis[2] - 0.79 * hipHeight]),
       upperBack: socket('torso', [-0.89 * chestDepth, -0.15 * rig.shoulder[1], rig.shoulder[2] - 0.65 * s])
     };
+    let angleForward, angleHeight;
+    if (mandible) {
+      angleForward = mandible.angle[0] + 0.12 * (shape.jawPosition || 0);
+      angleHeight = mandible.angle[1] + 0.06 * (shape.jawAngle || 0);
+      for (const [side, sign] of [['left', 1], ['right', -1]]) {
+        sockets[side + 'EarCanal'] = socket('head', [
+          fit.x - 0.127 * fit.rx, sign * 0.97 * fit.ry, fit.z - 0.067 * fit.rz
+        ]);
+        // The reference is a midline hinge. Fit its paired ends inside the pinnae of this character.
+        sockets[side + 'JawJoint'] = socket('jaw', [rig.jawPivot[0], sign * 0.83 * fit.ry, rig.jawPivot[2]]);
+        sockets[side + 'JawAngle'] = socket('jaw', [
+          fit.x + angleForward * fit.rx,
+          sign * mandible.angle[2] * fit.ry * breadthScale(angleHeight),
+          fit.z + angleHeight * fit.rz
+        ]);
+      }
+      const chinZ = fit.z + (-0.755 + 0.062 * (shape.chinHeight || 0)) * fit.rz;
+      sockets.chinTip = socket('jaw', [faceFront(0, chinZ), 0, chinZ]);
+      const lip = (offset) => [faceFront(0, mouthZ + offset), 0, mouthZ + offset];
+      sockets.upperLip = socket('head', lip(0.04 * fit.rz));
+      sockets.lowerLip = socket('jaw', lip(-0.04 * fit.rz));
+    }
     const materials = palette(recipe.colors, surfaceDetails);
     if (adjustableJaw) {
       for (const [index, amount] of [0.105, 0.084, 0.062, 0.04].entries())
         materials['neckTone' + index] = tint(materials.faceMid, '805b4c', amount);
+    }
+    if (mandible) {
+      materials.oralShade = tint(materials.lipLine, '371f2b', 0.73);
+      materials.oralTongue = tint(materials.lipLine, 'bf786e', 0.47);
     }
     if (headShape)
       Object.assign(materials, {
@@ -1887,6 +1919,10 @@ const pineDesignerBody = (() => {
       const rearX = cx - (headShape ? 1.315 : roundedHead ? 1.25 : 1) * rx,
         frontX = cx + (headShape ? 1.38 : roundedHead ? 1.1 : 1) * rx;
       const headHalf = faceOutline ? 1.22 * ry : 1.075 * ry;
+      const jawFrame = articulatedJaw && pose.jawLocal;
+      const lipWidth = lipStyle?.[1] ?? ({ small: 0.184, full: 0.284, smile: 0.309 }[mouth] ?? 0.263);
+      const lipHalf = lipWidth * (1 + 0.13 * (pose.jawOpen || 0));
+      const lipLift = lipStyle?.[4] ?? (mouth === 'smile' ? 0.102 : 0.034);
       if (headShape && !adjustableJaw) {
         // The source jaw sits in front of the hinge. Carry the nape up inside the jaw
         // so a nod or a turn cannot expose a gap between the mandible and the collar.
@@ -1899,7 +1935,46 @@ const pineDesignerBody = (() => {
           (t, x, y) => (x > 0 && Math.abs(y) < 0.23 * ry ? k.skin : k.underJaw)
         );
       }
-      b.stamp(rearX, frontX, -headHalf, headHalf, cz - rz, cz + crownHeight(1) * rz, (x, y, z) => {
+      b.stamp(rearX, frontX, -headHalf, headHalf, cz - rz - (jawFrame ? 0.45 * rx : 0), cz + crownHeight(1) * rz, (x, y, z) => {
+        if (jawFrame && z < mouthZ + 0.14 * rz) {
+          // Inverse skinning at each destination voxel keeps the lip edges solid through rotation.
+          const forward = (x - cx) / rx, across = Math.abs(y) / ry;
+          const dx = x - jawFrame[3], dz = z - jawFrame[11];
+          const restX = jawFrame[0] * dx + jawFrame[8] * dz;
+          const restZ = jawFrame[2] * dx + jawFrame[10] * dz;
+          const front = studioRig.ramp(forward, mandible.hinge[0] - 0.15, 0.76);
+          const cheekTop = rig.jawPivot[2] - (rig.jawPivot[2] - mouthZ) * front;
+          const below = 1 - studioRig.ramp(z, cheekTop - 0.32 * rz, cheekTop + 0.055 * rz);
+          const rear = studioRig.ramp(forward, mandible.hinge[0] - 0.54, mandible.hinge[0] + 0.05);
+          let weight = below * rear;
+          let cheekInset = 0;
+          if (forward > 0.57 && across < 0.70) {
+            const q = across / lipHalf, corner = clamp(1 - q * q, 0, 1);
+            const seam = mouthZ + rz * lipLift * Math.min(1, q * q);
+            const lower = jawFrame[8] * (x - jawFrame[3] - jawFrame[2] * seam) / jawFrame[0] +
+              jawFrame[10] * seam + jawFrame[11];
+            const gap = Math.max(0, seam - lower) * corner;
+            const opening = z >= seam ? 0 : clamp((seam - z) / Math.max(0.01 * rz, seam - lower), 0, 1);
+            // The mouth corners recede as the lower lip descends. A protruding cheek
+            // here would hide both lips in profile even when the jaws are far apart.
+            cheekInset = 0.21 * rx * pose.jawOpen * Math.sin(Math.PI * opening) *
+              studioRig.ramp(across, lipHalf * 0.6, lipHalf) * (1 - studioRig.ramp(across, lipHalf * 1.15, 0.70)) *
+              studioRig.ramp(forward, 0.57, 0.85);
+            if (gap > 0 && z < seam && z > seam - gap) {
+              const t = (seam - z) / gap;
+              const frontLip = surface(y, seam);
+              const inset = rx * pose.jawOpen * corner * (0.055 + 0.19 * Math.sin(Math.PI * t));
+              // Only the exposed oral opening cuts the front surface. Lips retain their own pigment.
+              if (x > frontLip - inset) return 0;
+              if (x > frontLip - 0.42 * rx) return t > 0.78 ? k.oralTongue : k.oralShade;
+            }
+            const followLip = 1 - studioRig.ramp(across, lipHalf * 0.7, lipHalf * 1.46);
+            weight += (opening - weight) * followLip * studioRig.ramp(forward, 0.58, 0.83);
+          }
+          weight *= 1 - studioRig.ramp(z, mouthZ + 0.035 * rz, mouthZ + 0.14 * rz);
+          x += weight * (restX - x) + cheekInset;
+          z += weight * (restZ - z);
+        }
         const h = sliceHeight((z - cz) / rz),
           u = (x - cx) / rx;
         let section, localX, lateral;
@@ -1922,6 +1997,12 @@ const pineDesignerBody = (() => {
           section = skinShape.row(h);
           localX = posterior.unfit(u, h);
           lateral = y / (ry * breadthScale(h));
+          if (mandible && z < mouthZ && Math.abs(u - angleForward) < 0.43 && Math.abs(h - angleHeight) < 0.23) {
+            // Keep a small volume at the gonion under the ear, clear of the midline throat.
+            const side = Math.max(0, 1 - ((u - angleForward) / 0.43) ** 2 - ((h - angleHeight) / 0.23) ** 2);
+            const belowLip = studioRig.ramp(mouthZ - z, 0, 0.10 * rz);
+            lateral /= 1 + (kind === 'adult' ? 0.062 : 0.036) * side * side * belowLip;
+          }
           if (!skinShape.insideSkin(section, localX, lateral)) return 0;
         } else if (roundedHead) {
           const dx = u - skullAxis(h),
@@ -2504,12 +2585,15 @@ const pineDesignerBody = (() => {
     if (fittedJaw) {
       const throat = [fit.x, 0, fit.z - 1.02 * fit.rz];
       const chin = [fit.x + 0.73 * fit.rx, 0, fit.z - 0.89 * fit.rz];
+      // Reserve the open chin at both ends of the cycle. The eyes and upper lip
+      // must stay on the same sampling grid when only the mandible moves.
+      const openChin = mandible ? studioRig.point(studioRig.mandibleFrame(rig, 1), chin) : chin;
       art.portraitFloor = ({ head }) => {
         // The lower rim is an ellipse. Project its radius onto world Z as the head nods or rolls.
         const radius = 0.39 * Math.hypot(head[8] * fit.rx, head[9] * fit.ry);
         return Math.min(
           studioRig.point(head, throat)[2] - radius,
-          studioRig.point(head, chin)[2] - 0.3 * Math.abs(head[9]) * fit.ry
+          studioRig.point(head, openChin)[2] - 0.3 * Math.abs(head[9]) * fit.ry
         );
       };
     }
@@ -2529,7 +2613,7 @@ const pineDesignerBody = (() => {
       even(rig.height * 1.14 + 2 * extension),
       even(rig.height * 1.18 + 0.35 * fit.rz + extension)
     ];
-    return { rig, art, sockets, box, density: 2, tags: [recipe.base] };
+    return { rig, art, sockets, box, density: 2, tags: articulatedJaw ? [recipe.base, 'mandible'] : [recipe.base] };
   }
 
   function standingHeight(kind, scale = 1, sculpted = false) {

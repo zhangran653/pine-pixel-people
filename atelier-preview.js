@@ -481,11 +481,37 @@ const atelierPreview = (() => {
       if (landmarks && portrait) {
         for (const part of g.parts) {
           if (!part.actor.sockets.headPivot) continue;
-          for (const [socket, color] of [
+          const markers = [
             ['collar', '#567f9a'],
             ['headPivot', '#8e5c91'],
             ['throat', '#b76a3d']
-          ]) {
+          ];
+          if (part.actor.sockets.leftJawJoint) {
+            const relative = camera.yaw - part.heading;
+            const sides = ['left', 'right'].map((side) => {
+              const p = motion.rig.socket(part.actor, part.pose, side + 'JawJoint');
+              return { side, p, depth: Math.cos(relative) * p[0] + Math.sin(relative) * p[1] };
+            }).sort((a, b) => b.depth - a.depth);
+            const span = Math.hypot(...sides[0].p.map((v, i) => v - sides[1].p[i]));
+            const visible = sides[0].depth - sides[1].depth > 0.75 * span ? sides.slice(0, 1) : sides;
+            ctx.save();
+            ctx.lineWidth = Math.max(1, 1.35 * pixel);
+            ctx.strokeStyle = '#326f59';
+            ctx.setLineDash([3 * pixel, 2 * pixel]);
+            for (const { side } of visible) {
+              const names = [side + 'JawJoint', side + 'JawAngle', 'chinTip'];
+              ctx.beginPath();
+              names.forEach((name, i) => {
+                const [x, y] = fromPart(part, motion.rig.socket(part.actor, part.pose, name), camera);
+                if (i) ctx.lineTo(ox + scale * x, oy + scale * y);
+                else ctx.moveTo(ox + scale * x, oy + scale * y);
+              });
+              ctx.stroke();
+              markers.push([names[0], '#326f59']);
+            }
+            ctx.restore();
+          }
+          for (const [socket, color] of markers) {
             const pos = motion.rig.socket(part.actor, part.pose, socket),
               [x, y] = fromPart(part, pos, camera);
             ctx.fillStyle = color;

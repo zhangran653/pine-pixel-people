@@ -99,6 +99,42 @@ for (const id of ['look_body_male', 'look_body_female', 'look_relay', 'look_work
   }
 }
 const skull = vm.runInContext('pineHeadShape', context);
+// Opening the jaw passes through the ear-side condyles, not the pitch joint in the cranium.
+for (const id of ['look_body_male', 'look_relay', 'look_workshop_toddler', 'look_workshop_baby']) {
+  const doc = looks.templateById.get(id), a = looks.build(doc), rest = motion.rig.pose(a.rig);
+  const wide = motion.rig.pose(a.rig, { jawOpen: 1 });
+  const socket = (p, name) => motion.rig.socket(a, p, name);
+  const joint = socket(rest, 'leftJawJoint'), ear = socket(rest, 'leftEarCanal');
+  assert.ok(joint[0] > ear[0] && joint[2] < ear[2] && joint[2] > socket(rest, 'leftJawAngle')[2], id);
+  assert.ok(distance(joint, ear) < 0.06 * a.rig.height);
+  assert.deepEqual(clone(socket(rest, 'rightJawJoint')), [joint[0], -joint[1], joint[2]]);
+  for (const fixed of ['leftEye', 'rightEye', 'upperLip', 'collar', 'headPivot'])
+    assert.deepEqual(socket(wide, fixed), socket(rest, fixed), id + ' ' + fixed);
+  const openJoint = socket(wide, 'leftJawJoint');
+  assert.ok(openJoint[0] > joint[0] && openJoint[2] < joint[2]);
+  for (const name of ['chinTip', 'lowerLip']) {
+    const p = socket(rest, name), q = socket(wide, name);
+    assert.ok(q[2] < p[2] - 0.015 * a.rig.height);
+    assert.ok(Math.abs(distance(p, joint) - distance(q, openJoint)) < 1e-7);
+    assert.ok(distance(p, q) > 3 * distance(joint, openJoint));
+  }
+  const tilted = motion.rig.pose(a.rig, { headPitch: 0.26, headYaw: -0.48, jawOpen: 1 });
+  const localChin = motion.rig.point(wide.jawLocal, a.sockets.chinTip.point);
+  assert.ok(distance(socket(tilted, 'chinTip'), motion.rig.point(tilted.head, localChin)) < 1e-7);
+  const fine = [rest, wide].map((pose) => motion.faceLayers(a, pose, a.body.makePose(pose))[1]);
+  const [closed, opened] = fine;
+  const grid = (b) => [b.x, b.y, b.z, b.body.density, b.body.nx, b.body.ny, b.body.nz];
+  assert.deepEqual(grid(closed), grid(opened), id + ' stable facial grid');
+  assert.notEqual(hash(closed.model.colors), hash(opened.model.colors));
+  const eyeFloor = Math.floor((socket(rest, 'leftEye')[2] - closed.z) * closed.body.density) - 1;
+  const plane = closed.body.nx * closed.body.ny;
+  assert.equal(hash(closed.model.colors.subarray(eyeFloor * plane)), hash(opened.model.colors.subarray(eyeFloor * plane)));
+  const open = motion.actions.get('open-mouth'), legacy = looks.build({ ...doc, packs: { 'pine-core': looks.neckRelease } });
+  assert.equal(motion.accepts(open, 0, a), true);
+  assert.equal(motion.accepts(open, 0, legacy), false);
+  assert.equal(motion.rig.pose(legacy.rig, { jawOpen: 1 }).jaw, undefined);
+  assert.ok(open.sample(0.48, a)[0].pose.jawOpen > 0.99);
+}
 for (const kind of ['child', 'adult']) {
   const old = skull.withJaw(kind),
     current = skull.reshape(kind, {});
@@ -182,6 +218,19 @@ async function three() {
   const shape = desk.geometry;
   cast.setScene([world.place('desk', 18, 6), world.place('test-cushion')]);
   assert.equal(cast.group.getObjectByName('world/desk').geometry, shape);
+  const speaking = motion.compile({ version: 1, steps: [{ action: 'open-mouth', actors: ['look_body_male'] }] });
+  cast.setDetail('face');
+  cast.setTime(speaking, 0);
+  const faceMesh = cast.group.getObjectByName('look_body_male/face');
+  const geometryHash = () => {
+    const g = faceMesh.geometry;
+    return hash(g.attributes.position.array.subarray(0, 2 * g.drawRange.count));
+  };
+  const closed = geometryHash();
+  cast.setTime(speaking, 0.48 * speaking.duration);
+  assert.notEqual(geometryHash(), closed);
+  cast.setTime(speaking, speaking.duration);
+  assert.equal(geometryHash(), closed);
   cast.dispose();
 }
 three()

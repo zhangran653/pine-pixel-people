@@ -82,19 +82,19 @@ PineMotion.registerAction({
     { at: 0 }, { at: 0.32, ...greet }, { at: 0.65, ...greet }, { at: 1 }
   ])
 });</code></pre>
-        <p><code>right / left</code> 从各自肩关节起算，三个数依次指向前、向身体外侧、向上，单位为这只手臂的可达长度。<code>head / body</code> 依次为偏航、俯仰、侧倾的弧度。<code>shift</code> 以身高为单位移动骨盆，<code>blink</code> 从 0（睁眼）到 1（闭眼）。每一帧省略的通道取自然姿势。<a href="motion-gestures.js">手势定义与实例</a></p>
+        <p><code>right / left</code> 从各自肩关节起算，三个数依次指向前、向身体外侧、向上，单位为这只手臂的可达长度。<code>head / body</code> 依次为偏航、俯仰、侧倾的弧度。<code>shift</code> 以身高为单位移动骨盆，<code>blink</code> 从 0（睁眼）到 1（闭眼）。<code>jawOpen</code> 从 0（闭口）到 1（最大张口）。使用 <code>roles: [['mandible']]</code> 可筛选具有可动下颌的人物。每一帧省略的通道取自然姿势。<a href="motion-gestures.js">手势定义与实例</a></p>
         <p>带物品的动作可在 <code>pose.props</code> 中放入带 <code>kind / frame / scale</code> 的物品。先在道具坐标系声明握点、笔尖或壶嘴，再把它们换算到人物坐标。写字时，一手托住本子，另一手的笔尖沿纸页移动。浇花时，水流从壶嘴落到花土。<a href="daily-clips.js">人和道具的接触</a> · <a href="activity-props.js">物品画法</a></p>
       </section>
       <section id="contact">
         <h2>让两个人碰到同一点</h2>
         <p><code>roles</code> 有几个槽位，就按顺序传入几个人。每个槽位列出允许的标签，命中任意一个即可。击掌的两个槽位都接受 adult、child 或 toddler。托抱和躲猫猫使用 <code>[['adult'], ['baby']]</code>，任一成人形象都能扮演照护者。旧编排中的 <code>mother</code> 仍会选中原来的那位演员。</p>
-        <p>每个人物都有命名接触点 <code>mouth</code>、<code>rightEye</code>、<code>leftEye</code>、<code>seat</code>（臀侧）和 <code>upperBack</code>（上背）。换服装或体型后如果锚点有偏移，可在注册人物时传入 <code>sockets: { upperBack: { frame: 'torso', point: [-1.95, -1.18, 11.65] } }</code>。point 是相对于静止人物原点的坐标，frame 选 head 或 torso。<code>PineMotion.rig.socket(actor, pose, 'upperBack')</code> 会给出当前姿势下的人物局部坐标。</p>
+        <p>每个人物都有命名接触点 <code>mouth</code>、<code>rightEye</code>、<code>leftEye</code>、<code>seat</code>（臀侧）和 <code>upperBack</code>（上背）。换服装或体型后如果锚点有偏移，可在注册人物时传入 <code>sockets: { upperBack: { frame: 'torso', point: [-1.95, -1.18, 11.65] } }</code>。point 是相对于静止人物原点的坐标，frame 可选 head 或 torso，带下颌骨架的人物还支持 jaw。<code>PineMotion.rig.socket(actor, pose, 'upperBack')</code> 会给出当前姿势下的人物局部坐标。</p>
         <p>两个人物共享一个 u。击掌先选一个双方都能触到的场景坐标，再把它分别换算为两人的局部手掌目标。递接包裹时由一人绘制包裹，易手前后使用相同的场景坐标。牵手迈步时双方同步换脚。抱起时，宝宝臀侧和上背的接触点随躯干升降，妈妈的两只手分别追踪它们。可从每位演出者的 <code>contacts</code> 读取已求解的场景坐标检查间距。渲染器先把两人投到共同的像素切片，再根据相机角度绘制手臂、衣服和脸的遮挡。</p>
         <p>可用 <code>PineMotion.castFor(clip, actor, preferredPartner)</code> 按角色顺序获得匹配的一对演员。<code>PineMotion.findActions(actor, { group, query, eitherRole: true })</code> 同时查找可担当主角或搭档的动作。新增互动可在正侧面核对接触，再转到背面查看交错的手臂。想让相邻两段衔接平滑，可以为它们绘制相同的收尾和起始姿势。<a href="duet-clips.js">击掌、托抱和躲猫猫的实现</a></p>
       </section>
       <section id="score">
         <h2>编排、循环与交换文件</h2>
-        <p>动作库收录 110 个动作和 18 套循环编排。用「查找动作」搜索中文用途或英文 ID，也可以展开姿势卡片试演当前人物。示例「周末来访」携带园丁和田径少年两份完整形象，可在另一浏览器导入复演。<a href="packs/weekend-visit.json" download>下载周末来访</a> · <a href="studio.html?demo=outdoors">试演一起出门</a> · <a href="social-clips.js">双人和亲子动作实现</a></p>
+        <p>动作库收录 111 个动作和 18 套循环编排。用「查找动作」搜索中文用途或英文 ID，也可以展开姿势卡片试演当前人物。示例「周末来访」携带园丁和田径少年两份完整形象，可在另一浏览器导入复演。<a href="packs/weekend-visit.json" download>下载周末来访</a> · <a href="studio.html?demo=outdoors">试演一起出门</a> · <a href="social-clips.js">双人和亲子动作实现</a></p>
         <p>在工坊里选择人物和动作，调整「单次秒数」「重复次数」，再点「加入末尾」。点击时间线中的一段即可修改、替换、移动或删除。「单段试看」播放编辑中的一段，可以勾选循环反复观察。「三维预览」也会带入该段。点「返回编排」回到原播放位置和整套编排的循环设置。勾选「循环播放」会在整套编排结束后回到第一段。编排本随编辑保存在当前浏览器中，导出的 JSON 可以在其他浏览器导入。</p>
 <pre><code>{
   "version": 1,

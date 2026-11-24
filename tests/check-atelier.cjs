@@ -489,6 +489,11 @@ function checkEditor() {
     const anchor = byId('mirror').toDataURL();
     byId('jaw-points').click();
     expect(byId('mirror').toDataURL() !== anchor, 'landmark overlay rendered');
+    byId('jaw-demo').click();
+    expect(byId('action').value === 'open-mouth' && byId('jaw-points').checked &&
+      byId('play-look').getAttribute('aria-pressed') === 'true', 'ear-side jaw trial');
+    byId('play-look').click();
+    byId('jaw-points').click();
     byId('edit-jawNeck').value = '0.85';
     byId('edit-jawNeck').dispatchEvent(new Event('input', { bubbles: true }));
     byId('look-role').value = '星港向导';

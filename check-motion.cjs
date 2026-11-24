@@ -175,6 +175,7 @@ for (const id of added) {
     Math.cos(e.heading),
     Math.sin(e.heading),
     ...e.pose.head,
+    ...(e.pose.jaw || e.pose.head),
     ...e.pose.torso,
     ...e.pose.arms.flatMap((arm) => [...arm.hand, ...arm.elbow]),
     ...e.pose.feet.flat()
