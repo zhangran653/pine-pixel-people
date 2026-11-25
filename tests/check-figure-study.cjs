@@ -75,7 +75,8 @@ function check(studyBench) {
       choose('subject','draft');
       expect(JSON.parse(new URLSearchParams(location.hash.slice(1)).get('character')).id === source.id, 'returning to the draft lost its shareable recipe');
       document.querySelector('[data-mode="blind"]').click();
-      expect(!location.hash && !$('edit-a').hasAttribute('href'), 'a blind link should only contain its holdout sample');
+      expect(!location.hash && new URLSearchParams(location.search).get('mode') === 'blind' &&
+        (!$('edit-a').hasAttribute('href') || linkedRecipe('a').id !== source.id), 'a blind link should only contain its holdout sample');
       $('qa').textContent = 'Replayed an unsaved costumed baby, external hat, adult caregiver, action phase and fractional angle';
       return;
     }
