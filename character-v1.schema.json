@@ -40,7 +40,7 @@
       ]
     },
     "anatomyParts": {
-      "description": "pine-core 1.19.2 的可换人体部件。每个部位都可省略，省略时使用所选年龄与体型的标准形态。",
+      "description": "pine-core 1.19.2 起的可换人体部件。1.19.3 的立体动画脸优先使用 face.form。每个部位都可省略，省略时使用所选年龄与体型的标准形态。",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -92,7 +92,8 @@
             "1.18.0",
             "1.19.0",
             "1.19.1",
-            "1.19.2"
+            "1.19.2",
+            "1.19.3"
           ]
         }
       },
@@ -740,6 +741,8 @@
             "soft-smile"
           ]
         },
+        "formMix": { "description": "从均衡脸到所选基础脸的形变强度，默认 1", "type": "number", "minimum": 0, "maximum": 1 },
+        "form": { "description": "立体动画画风的美术基础脸", "enum": ["balanced", "long", "round", "angular"] },
         "style": { "enum": ["animation", "game", "manga", "natural"] },
         "outline": {
           "enum": [
@@ -859,25 +862,29 @@
   },
   "allOf": [
     {
-      "if": { "required": ["anatomyParts"] },
-      "then": { "properties": { "packs": { "properties": { "pine-core": { "const": "1.19.2" } } } } }
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "const": "1.19.3" } } } } } },
+      "then": { "properties": { "face": { "properties": { "form": false, "formMix": false } } } }
     },
     {
-      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2"] } } } } } },
+      "if": { "required": ["anatomyParts"] },
+      "then": { "properties": { "packs": { "properties": { "pine-core": { "enum": ["1.19.2", "1.19.3"] } } } } }
+    },
+    {
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3"] } } } } } },
       "then": { "properties": { "face": { "properties": { "style": { "not": { "const": "animation" } } } } } }
     },
     {
-      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2"] } } } } } },
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3"] } } } } } },
       "then": { "properties": { "face": { "properties": { "style": false } } } }
     },
     {
-      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2"] } } } } } },
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3"] } } } } } },
       "then": { "properties": { "shape": { "properties": {
         "lipProjection": { "const": 0 }, "jawDefinition": { "const": 0 }
       } } } }
     },
     {
-      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2"] } } } } } },
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3"] } } } } } },
       "then": { "properties": { "shape": { "properties": {
         "cheekHeight": { "const": 0 },
         "cheekWidth": { "const": 0 },
@@ -898,7 +905,7 @@
     {
       "if": {
         "properties": {
-          "packs": { "properties": { "pine-core": { "not": { "enum": ["1.11.0", "1.11.1", "1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2"] } } } }
+          "packs": { "properties": { "pine-core": { "not": { "enum": ["1.11.0", "1.11.1", "1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3"] } } } }
         }
       },
       "then": {
@@ -949,7 +956,8 @@
                   "1.18.0",
                   "1.19.0",
                   "1.19.1",
-            "1.19.2"
+            "1.19.2",
+            "1.19.3"
                 ]
               }
             }

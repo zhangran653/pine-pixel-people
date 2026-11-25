@@ -5,8 +5,8 @@
   const ages = { adult: '成人', child: '儿童', toddler: '幼儿', baby: '婴儿' };
   const rows = { adult: [0, 484], child: [489, 363], baby: [868, 218] };
   const originals = { hoodie: 'look_programmer', chef: 'look_chef' };
-  const stableRelease = '1.18.0', previousStudy = looks.proportionStudyRelease, currentStudy = looks.structureStudyRelease;
-  const key = 'pine.figureStudy.' + stableRelease + '-' + currentStudy + '.v1';
+  const stableRelease = '1.18.0', previousStudy = looks.structureStudyRelease, currentStudy = looks.gameFaceRelease;
+  const key = 'pine.figureStudy.' + previousStudy + '-' + currentStudy + '.v1';
   const holdout = 'pine/figure-holdout/' + currentStudy + '/';
   const search = new URLSearchParams(location.search);
   const stages = [$('canvas-a'), $('canvas-b')];
@@ -68,8 +68,8 @@
     const base = session.current.split('/')[0];
     const seed = hash(holdout + session.current);
     const options = { base, seed, portrait: 'animation', style: 'natural' };
-    const old = looks.randomCharacter({ ...options, release: stableRelease });
     const revised = looks.randomCharacter({ ...options, release: currentStudy });
+    const old = looks.withFigureStudy(revised);
     return flipped(session.current) ? [revised, old] : [old, revised];
   }
   // Reproduce the original consecutive 1.18 random-contact sheet. The eight recipes
@@ -97,7 +97,7 @@
     const doc = pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
     const baseline = structuredClone(doc);
     baseline.packs[looks.core] = $('before').value;
-    return [baseline, looks.withFigureStudy(doc)];
+    return [baseline, looks.withGameFace(doc)];
   }
 
   function stop() {
@@ -123,9 +123,9 @@
       $('guide-label').textContent = ages[subject] + '造型设定稿';
     }
     $('title-a').textContent = blind ? 'A' : $('before').selectedOptions[0].textContent;
-    $('title-b').textContent = blind ? 'B' : currentStudy + ' · 新试作';
+    $('title-b').textContent = blind ? 'B' : currentStudy + ' · 美术基础脸';
     $('prompt').textContent = blind
-      ? '本批比较 1.18 稳定版与 1.19.2 人体结构试作。两侧使用相同年龄和种子，评审进度独立保存。'
+      ? '本批比较 1.19.2 与 1.19.3。同一张随机配方使用相同的服装、颜色、动作和镜头。'
       : '同一人物配方、镜头与动作帧，分别用两版实时切片绘制。';
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     recipes = blind ? blindPair() : modelPair();
@@ -227,8 +227,8 @@
     $('saved').textContent = !storageOK ? '本次评审只保存在当前页面' : done ? '评审已完成' : vote ? '本组偏好已保存' : '进度自动保存在此浏览器';
     $('results').hidden = !done;
     if (done) {
-      $('title-a').textContent = flipped(session.current) ? 'A · ' + currentStudy : 'A · ' + stableRelease;
-      $('title-b').textContent = flipped(session.current) ? 'B · ' + stableRelease : 'B · ' + currentStudy;
+      $('title-a').textContent = flipped(session.current) ? 'A · ' + currentStudy : 'A · ' + previousStudy;
+      $('title-b').textContent = flipped(session.current) ? 'B · ' + previousStudy : 'B · ' + currentStudy;
       const counts = $('counts');
       counts.replaceChildren();
       for (const [base, label] of Object.entries(ages)) {
@@ -286,7 +286,7 @@
       const [base, ordinal] = id.split('/');
       const vote = session.votes[id], newOnLeft = flipped(id);
       return { base, number: Number(ordinal) + 1, seed: hash(holdout + id),
-        a: newOnLeft ? currentStudy : stableRelease, b: newOnLeft ? stableRelease : currentStudy, vote };
+        a: newOnLeft ? currentStudy : previousStudy, b: newOnLeft ? previousStudy : currentStudy, vote };
     });
     const file = new Blob([JSON.stringify({ study: 'pine-figure-holdout-' + currentStudy, pairs }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(file);
@@ -325,7 +325,7 @@
     cancelAnimationFrame(renderRequest);
     renderRequest = requestAnimationFrame(draw);
   });
-  $('before').value = [stableRelease, looks.tailoredRelease, previousStudy].includes(search.get('before')) ? search.get('before') : previousStudy;
+  $('before').value = [stableRelease, looks.tailoredRelease, looks.proportionStudyRelease, previousStudy].includes(search.get('before')) ? search.get('before') : previousStudy;
   const initialAngle = Number(search.get('bearing'));
   if (Number.isInteger(initialAngle) && initialAngle >= 0 && initialAngle < 360) $('bearing').value = initialAngle;
   if ([...$('subject').options].some(o => o.value === search.get('subject'))) $('subject').value = search.get('subject');

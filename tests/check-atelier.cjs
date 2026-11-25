@@ -802,7 +802,18 @@ function checkEditor() {
     byId('edit-undo').click();
     expect(!byId('try-figure').disabled, 'undo must restore the previous figure painter');
     byId('edit-redo').click();
-    const assembly = { skull: 'angular', torso: 'broad', arms: 'slender', legs: 'strong' };
+    expect(!byId('edit-anatomy-skull') && byId('portrait-style').value === 'animation', 'trial selects the painted animation face');
+    byId('tab-face').click();
+    const artForm = byId('edit-face-form');
+    expect(artForm.value === 'balanced', 'show the implicit default base face');
+    const beforeForm = byId('mirror').toDataURL();
+    artForm.value = 'angular'; artForm.dispatchEvent(new Event('change'));
+    expect(byId('mirror').toDataURL() !== beforeForm, 'the selected base face changes the live actor');
+    const formMix = byId('edit-formMix');
+    expect(!formMix.disabled, 'selected art base enables its blend control');
+    formMix.value = '0.65'; formMix.dispatchEvent(new Event('input'));
+    byId('tab-shape').click();
+    const assembly = { torso: 'broad', arms: 'slender', legs: 'strong' };
     for (const [slot, value] of Object.entries(assembly)) {
       const field = byId('edit-anatomy-' + slot);
       expect(field.value === 'balanced' && field.options.length === Object.keys(PineLooks.anatomyParts[slot]).length,
@@ -826,9 +837,9 @@ function checkEditor() {
     const assembled = PineWardrobe.saved.get(oldArt.id);
     const diskRecipe = JSON.parse(localStorage.getItem('pineCreek.look.v1.' + assembled.id));
     const reimported = PineWardrobe.importCharacter(diskRecipe).recipe;
-    expect(assembled.packs['pine-core'] === PineLooks.structureStudyRelease &&
-      reimported.id === assembled.id && JSON.stringify(reimported.anatomyParts) === JSON.stringify(assembly),
-      'portable trial character must keep the selected renderer and four individual body components');
+    expect(assembled.packs['pine-core'] === PineLooks.gameFaceRelease &&
+      reimported.id === assembled.id && reimported.face.form === 'angular' && reimported.face.formMix === 0.65 && JSON.stringify(reimported.anatomyParts) === JSON.stringify(assembly),
+      'portable trial character must keep the selected renderer and art face and three individual body components');
     const partialAssembly = { ...assembled, anatomyParts: { arms: 'strong' } };
     expect(JSON.stringify(PineLooks.prepare(partialAssembly).recipe.anatomyParts) === '{"arms":"strong"}',
       'a partial recipe should keep its implicit standard components');

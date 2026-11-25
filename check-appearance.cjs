@@ -31,7 +31,7 @@ const sources = [
   'portrait-styles',
   'hair-styles',
   'head-sections',
-  'skull-core', 'head-shape',
+  'skull-core', 'head-shape', 'game-face',
   'short-hair',
   'everyday-styles',
   'workshop-wear',

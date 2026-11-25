@@ -259,10 +259,10 @@
     previousEdit = readEdit();
     $('mirror-name').textContent = draft.label || '未命名形象';
     $('portrait-style').value = looks.portraitStyleOf(draft);
-    const trial = draft.packs[looks.core] === looks.structureStudyRelease;
+    const trial = draft.packs[looks.core] === looks.gameFaceRelease && looks.portraitStyleOf(draft) === 'animation';
     $('anatomy-link').href = 'anatomy-study.html#' + new URLSearchParams({character: JSON.stringify(draft)});
     $('try-figure').disabled = trial;
-    $('try-figure').textContent = trial ? '已启用新版人物造型' : '试用新版人物造型';
+    $('try-figure').textContent = trial ? '已启用美术基础脸' : '试用动画美术脸型';
     measurements();
     $('save-state').textContent = dirty ? '有未保存的修改' : saved ? '已保存' : '新形象';
     $('save-state').dataset.dirty = String(dirty);
@@ -311,14 +311,15 @@
     note('');
   }
   function slider(key) {
-    const [min, max, normal] = looks.shape[key],
+    const blend = key === 'formMix';
+    const [min, max, normal] = blend ? [0, 1, 1] : looks.shape[key],
       label = document.createElement('label'),
       output = document.createElement('output'),
       field = document.createElement('input');
     label.className = 'slider-label';
     label.htmlFor = 'edit-' + key;
     const caption = document.createElement('span');
-    caption.textContent = names[key];
+    caption.textContent = blend ? '脸型强度' : names[key];
     if ((key !== 'height' && tabKeys.shape.includes(key)) || looks.profileControls[key]) {
       const limits = document.createElement('small');
       limits.className = 'slider-limits';
@@ -334,7 +335,7 @@
     field.min = min;
     field.max = max;
     field.step = key === 'mouthHeight' || looks.jawControls.includes(key) ? 0.05 : 0.01;
-    field.value = draft.shape[key] ?? normal;
+    field.value = (blend ? draft.face : draft.shape)[key] ?? normal;
     output.htmlFor = field.id;
     function updateReadout() {
       const percentage = Math.round(field.valueAsNumber * 100) + '%';
@@ -363,7 +364,7 @@
     }
     updateReadout();
     field.oninput = () => {
-      draft.shape[key] = field.valueAsNumber;
+      (blend ? draft.face : draft.shape)[key] = field.valueAsNumber;
       updateReadout();
       if (key === 'height' && view !== 'body') setView('body');
       changed();
@@ -497,7 +498,7 @@
     return group;
   }
   function upgradeLabel() {
-    if ([looks.release, looks.tailoredRelease, looks.proportionStudyRelease, looks.structureStudyRelease].includes(draft.packs[looks.core])) return '';
+    if ([looks.release, looks.tailoredRelease, looks.proportionStudyRelease, looks.structureStudyRelease, looks.gameFaceRelease].includes(draft.packs[looks.core])) return '';
     if (draft.packs[looks.core] === looks.pixelRelease) return '试用全身像素画风';
     if (draft.packs[looks.core] === looks.facePlaneRelease) return '试用像素笔触';
     if ([looks.illustratedRelease, looks.silhouetteRelease].includes(draft.packs[looks.core]))
@@ -551,14 +552,25 @@
   }
   function faceFields(area, candidates) {
     figureUpgrade(area);
+    const gameFace = draft.packs[looks.core] === looks.gameFaceRelease && looks.portraitStyleOf(draft) === 'animation';
+    if (gameFace) {
+      const form = draft.face?.form ?? draft.anatomyParts?.skull ?? 'balanced';
+      const mix = slider('formMix');
+      const field = mix.querySelector('input');
+      field.disabled = form === 'balanced';
+      area.append(picker('美术基础脸', 'face-form', Object.entries(looks.gameFaceForms), form, value => {
+        draft.face.form = value;
+        field.disabled = value === 'balanced';
+      }), mix);
+    }
     area.append(candidates || faceAudition());
     const guide = $('turnaround-guide').content.firstElementChild.cloneNode(true);
     const babyGuide = draft.base === 'baby' || draft.base === 'toddler';
     guide.dataset.sitter = babyGuide ? 'baby' : 'adult';
-    if ([looks.pixelRelease, looks.release, looks.tailoredRelease, looks.proportionStudyRelease, looks.structureStudyRelease].includes(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
+    if ([looks.pixelRelease, looks.release, looks.tailoredRelease, looks.proportionStudyRelease, looks.structureStudyRelease, looks.gameFaceRelease].includes(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
       guide.dataset.art = 'pixel';
       const comparison = guide.querySelector('.guide-comparison');
-      comparison.href = 'pixel-face-before-after.webp';
+      comparison.href = gameFace ? 'studies/pixel-structure/game-faces.webp' : 'pixel-face-before-after.webp';
       comparison.textContent = '同一角色的两版实机对照';
     }
     guide.open = expandedFields.get('turnaround') === true;
@@ -1106,11 +1118,12 @@
     }
     if (tab === 'shape') {
       figureUpgrade(area);
-      if (draft.packs[looks.core] === looks.structureStudyRelease) {
+      if (pinePortraitStyles.hasStructureStudy(draft.packs[looks.core])) {
         const section = $('anatomy-fields').content.cloneNode(true);
         const grid = section.querySelector('.wardrobe-grid');
         const captions = { skull: '颅骨', torso: '躯干', arms: '手臂', legs: '腿部' };
         for (const [slot, options] of Object.entries(looks.anatomyParts)) {
+          if (slot === 'skull' && draft.packs[looks.core] === looks.gameFaceRelease && looks.portraitStyleOf(draft) === 'animation') continue;
           grid.append(picker(captions[slot], 'anatomy-' + slot, Object.entries(options),
             draft.anatomyParts?.[slot] ?? 'balanced', value => {
               (draft.anatomyParts ??= {})[slot] = value;
@@ -1393,8 +1406,8 @@
     heading();
   }
   function tryFigure() {
-    if (draft.packs[looks.core] === looks.structureStudyRelease) return;
-    draft = looks.withFigureStudy(draft);
+    if (draft.packs[looks.core] === looks.gameFaceRelease && looks.portraitStyleOf(draft) === 'animation') return;
+    draft = looks.withGameFace(draft);
     changed();
     fields();
   }

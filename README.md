@@ -21,19 +21,25 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 1.19.3 美术基础脸试作
+
+在创作室点「试用动画美术脸型」，再进「五官」选择均衡、秀长、柔圆或利落，用「脸型强度」调节与均衡脸之间的变化。成人、儿童、幼儿、婴儿各有一套原创切面。嘴角沿牙弓转向脸侧，眼睑沿同一曲面闭合。肤色、眼色、穿搭与动作仍由人物配方控制。婴儿有较短的下巴、坐地时的头颈位置和放在腿面附近的双手。[编辑成人](http://127.0.0.1:8000/atelier.html?model=adult&figure=study&tab=face&bearing=315) · [旋转坐姿婴儿](http://127.0.0.1:8000/figure-study.html?subject=baby&bearing=270) · [配方接口](appearance-standard.html#game-face)
+
+造型对照台默认用同一配方比较 1.19.2 和 1.19.3。分龄盲评每个年龄八对，固定衣服、颜色、动作和机位。新脸型通过试用入口启用，普通新建人物使用 1.18.0。[六个视角和动作实拍](studies/pixel-structure/game-faces.webp) · [八名连续随机人物](studies/pixel-structure/game-random.webp) · [分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind) · [开源游戏参考与实现依据](studies/pixel-structure/README.md)
+
 ### 1.19.2 人体建模台
 
 先选成人女性、成人男性、儿童或婴儿，也可选幼儿。转到侧面，拖动「下颌开合」，可以同时看头骨如何转动、人物的下唇和下巴如何跟随。切换到骨架、肌肉或无衣体表，再播放动作，两边会保持相同的镜头和进度。婴儿可从坐地待机开始查看。[打开人体建模台](http://127.0.0.1:8000/anatomy-study.html) · [五层实机截图](studies/pixel-structure/layers.webp) · [看婴儿侧面坐姿](http://127.0.0.1:8000/anatomy-study.html?base=baby&layer=form&bearing=270)
 
-在「部件组合」里可以独立选头骨、躯干、双臂和双腿。点「到创作室编辑」可继续换装、染色、套动作。已有形象可以在创作室点「试用新版人物造型」，到「体型 → 人体部件」更换，满意后保存。配方记录所用版本和各部件，同一组动作可以继续使用。普通新建人物默认采用 1.18.0。[试编辑一个人物](http://127.0.0.1:8000/atelier.html?model=adult&figure=study&tab=shape&bearing=315) · [部件值和 API 示例](appearance-standard.html#anatomy-parts)
+在「部件组合」里可以独立选头骨、躯干、双臂和双腿。点「到创作室编辑」可继续换装、染色、套动作。锁定 1.19.2 的形象可在创作室的「体型 → 人体部件」组合，满意后保存。配方记录所用版本和各部件，同一组动作可以继续使用。普通新建人物默认采用 1.18.0。[试编辑一个结构人物](http://127.0.0.1:8000/anatomy-study.html?base=adult&bearing=315) · [部件值和 API 示例](appearance-standard.html#anatomy-parts)
 
 ![1.19.1 和 1.19.2 的成人男、成人女、儿童、坐姿婴儿及黄帽随机人物，全身正面、45 度、侧面和同帧睁闭眼实拍](studies/pixel-structure/comparison.webp)
 
-图中前四行的人高按 128 像素定标，末行是先绘成 64 像素再放大两倍的黄帽人物。眼区和侧脸直接裁自全身画面。在这个尺寸，眼中亮点有时只占一个像素，侧身或帽檐遮挡会影响双眼的可读性。页面里可用同一配方对照 1.19.1、1.19.0 和 1.18.0。独立盲评则按年龄分为四组，每组八对，比较稳定版和本次试作各自生成的人物。[同配方实机对照](http://127.0.0.1:8000/figure-study.html) · [黄帽橙衫随机样本](http://127.0.0.1:8000/figure-study.html?subject=baseline-4&bearing=270) · [分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind) · [1.19.1 四向对照](figure-study-1.19.1-turnaround.webp)
+图中前四行的人高按 128 像素定标，末行是先绘成 64 像素再放大两倍的黄帽人物。眼区和侧脸直接裁自全身画面。在这个尺寸，眼中亮点有时只占一个像素，侧身或帽檐遮挡会影响双眼的可读性。对照台也可选择这些历史版本作为左侧基准。[同配方实机对照](http://127.0.0.1:8000/figure-study.html) · [黄帽橙衫随机样本](http://127.0.0.1:8000/figure-study.html?subject=baseline-4&bearing=270) · [分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind) · [1.19.1 四向对照](figure-study-1.19.1-turnaround.webp)
 
 ### 独立研究与历史版本
 
-原画转切片实验从两到三张设定图推算可旋转的静态像素体积。在实验室可与留出的 45° 视图对照、编辑水平切片、染色并导出体素 JSON。五组样本保留了脸颊投色接缝等失败现象。这个研究使用独立的文件格式，创作室人物则从骨架、部件和颜色配方生成。[打开原画实验室](http://127.0.0.1:8000/turnaround-lab.html) · [转换接口与评估结果](studies/turnaround/README.md)
+原画转切片实验从两到三张设定图推算可旋转的静态像素体积。在实验室可与留出的 45° 视图对照、编辑水平切片、染色并导出体素 JSON。五组样本保留了脸颊投色接缝等失败现象。这个研究使用独立的文件格式，创作室人物由可编辑的外形、部件和颜色配方生成。[打开原画实验室](http://127.0.0.1:8000/turnaround-lab.html) · [转换接口与评估结果](studies/turnaround/README.md)
 
 1.18.0 把像素画法延伸到整个人物。衣领和肩线有厚度，衣摆与裤腰分层，袖子和裤腿的褶线随关节运动。头发、皮革和金属有不同的亮面。肤色、发色和每件衣物的染色仍由人物配方决定。[全身美术规范](appearance-standard.html#figure-art) · [同一个人物的三种配色](pixel-figure-dyes.webp) · [版本对照](pixel-figure-comparison.webp)
 

@@ -32,6 +32,7 @@
     <script defer src="head-sections.js"></script>
     <script defer src="skull-core.js"></script>
     <script defer src="head-shape.js"></script>
+    <script defer src="game-face.js"></script>
     <script defer src="short-hair.js"></script>
     <script defer src="everyday-styles.js"></script>
     <script defer src="workshop-wear.js"></script>
@@ -57,7 +58,7 @@
           <option value="hoodie">深色连帽衫</option><option value="chef">浅色厨师服</option></optgroup>
           <optgroup id="baseline-subjects" label="上一轮连续随机"></optgroup>
         </select></label>
-        <label id="before-field">对照版本<select id="before"><option value="1.19.1">1.19.1 · 上一版</option><option value="1.19.0">1.19.0 · 首版试作</option><option value="1.18.0">1.18.0 · 稳定版</option></select></label>
+        <label id="before-field">对照版本<select id="before"><option value="1.19.2">1.19.2 · 人体结构</option><option value="1.19.1">1.19.1 · 身体比例</option><option value="1.19.0">1.19.0 · 首版试作</option><option value="1.18.0">1.18.0 · 稳定版</option></select></label>
         <label id="age-field" hidden>年龄<select id="age"><option value="adult">成人</option><option value="child">儿童</option><option value="toddler">幼儿</option><option value="baby">婴儿</option></select></label>
         <label>动作<select id="action"></select></label>
         <label title="以本组中较高人物的中性轮廓定标，保留两人身高差">人物像素高度<select id="sample-size"><option value="256">256 像素</option><option value="128">128 像素</option><option value="64">64 像素</option></select></label>
@@ -68,8 +69,8 @@
       </section>
       <p id="prompt">同一人物配方、镜头与动作帧，分别用两版实时切片绘制。</p>
       <div class="pair" id="pair">
-        <figure><figcaption><span id="title-a">1.19.0 · 首版试作</span><a id="edit-a" hidden>到创作室编辑</a></figcaption><canvas id="canvas-a" aria-labelledby="title-a"></canvas></figure>
-        <figure><figcaption><span id="title-b">1.19.2 · 人体结构</span><a id="edit-b" hidden>到创作室编辑</a></figcaption><canvas id="canvas-b" aria-labelledby="title-b"></canvas></figure>
+        <figure><figcaption><span id="title-a">1.19.2 · 人体结构</span><a id="edit-a" hidden>到创作室编辑</a></figcaption><canvas id="canvas-a" aria-labelledby="title-a"></canvas></figure>
+        <figure><figcaption><span id="title-b">1.19.3 · 美术基础脸</span><a id="edit-b" hidden>到创作室编辑</a></figcaption><canvas id="canvas-b" aria-labelledby="title-b"></canvas></figure>
       </div>
       <section class="transport" aria-label="回放">
         <label>视角 <output id="angle-value" for="bearing">0°</output><input id="bearing" type="range" min="0" max="359" value="0"></label>
@@ -84,7 +85,7 @@
         <div id="results" hidden><div class="review-head"><h2>分龄结果</h2><button id="export">下载评审记录</button></div><table><thead><tr><th>年龄</th><th>偏好原版</th><th>相当</th><th>偏好试作</th></tr></thead><tbody id="counts"></tbody></table></div>
       </section>
       <section class="guide" id="guide">
-        <div class="review-head"><h2 id="guide-label">造型设定稿</h2><div class="guide-links"><a href="figure-model-guide.webp">完整设定稿</a><a href="figure-study-1.19.1-turnaround.webp">1.19.1 四向对照</a><a href="figure-study-turnaround.webp">首版四向图</a></div></div>
+        <div class="review-head"><h2 id="guide-label">造型设定稿</h2><div class="guide-links"><a href="studies/pixel-structure/game-faces.webp">新旧脸型实拍</a><a href="figure-model-guide.webp">完整设定稿</a><a href="figure-study-1.19.1-turnaround.webp">1.19.1 四向对照</a><a href="figure-study-turnaround.webp">首版四向图</a></div></div>
         <div class="guide-strip"><img id="guide-img" src="figure-model-guide.webp" alt="同一人物的正面、斜面、侧面和背面像素设定"></div>
       </section>
       <noscript>启用 JavaScript 后可查看实时切片并参加盲评。</noscript>

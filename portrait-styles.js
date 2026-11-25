@@ -16,7 +16,9 @@ const pinePortraitStyles = (() => {
   const tailoredRelease = '1.19.0';
   const proportionStudyRelease = '1.19.1';
   const structureStudyRelease = '1.19.2';
-  const hasProportionStudy = pin => pin === proportionStudyRelease || pin === structureStudyRelease;
+  const gameFaceRelease = '1.19.3';
+  const hasStructureStudy = pin => pin === structureStudyRelease || pin === gameFaceRelease;
+  const hasProportionStudy = pin => pin === proportionStudyRelease || hasStructureStudy(pin);
   const hasTailoredFigure = pin => pin === tailoredRelease || hasProportionStudy(pin);
   const hasPixelFace = pin => pin === pixelRelease || pin === figureRelease || hasTailoredFigure(pin);
   const portraitStyles = { animation: '立体动画', game: '游戏立绘', manga: '漫画', natural: '自然' };
@@ -719,7 +721,7 @@ const pinePortraitStyles = (() => {
   }
   return {
     proportions,
-    illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, figureRelease, tailoredRelease, proportionStudyRelease, structureStudyRelease, hasProportionStudy, hasTailoredFigure, hasPixelFace, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
+    illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, figureRelease, tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, hasStructureStudy, hasProportionStudy, hasTailoredFigure, hasPixelFace, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
     illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors,
     morphs,
     profileControls,

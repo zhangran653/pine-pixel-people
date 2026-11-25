@@ -88,13 +88,14 @@ const studioRig = (() => {
       return {
         floorSeat: true,
         hipOffset: [seatX, 0, seatZ - r.pelvis[2]],
-        pitch: .16, headPitch: -.13,
+        pitch: r.infantLapRest ? .25 : .16, headPitch: r.infantLapRest ? -.225 : -.13,
         feet: [[seatX + .90 * length, -(r.hip[1] + .28 * length), r.ankle],
           [seatX + .48 * length, r.hip[1] + .46 * length, r.ankle]],
         kneePoles: [[.24, -.86, .92], [-.38, 1.08, .70]],
         // The palms rest over the two thighs, above the booties. The elbows
         // open to either side and stay below the shoulder girdle.
-        hands: [[seatX + .56 * length, -.91 * r.shoulder[1], seatZ + .48 * length],
+        hands: r.infantLapRest ? [[seatX+.69*length,-.78*r.shoulder[1],seatZ+.18*length],
+          [seatX+.52*length,.85*r.shoulder[1],seatZ+.12*length]] : [[seatX + .56 * length, -.91 * r.shoulder[1], seatZ + .48 * length],
           [seatX + .49 * length, 1.08 * r.shoulder[1], seatZ + .31 * length]],
         elbowPoles: [[-.45, -.80, -.67], [-.52, .90, -.52]]
       };
@@ -199,7 +200,7 @@ const studioRig = (() => {
       torso,
       frame(
         rig.headPivot || rig.neck,
-        origin,
+        rig.headOffset || origin,
         channels.headYaw || 0,
         channels.headPitch || 0,
         channels.headRoll || 0

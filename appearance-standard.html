@@ -61,7 +61,7 @@
           一个形象文件记录人体基型、体型与五官、穿搭、配色和依赖版本。动作通过共同的骨架和接触点驱动角色。创作室、动作工坊和
           Three.js 场景读取同一份形象。
         </p>
-        <p><a href="#anatomy-parts">1.19.2 人体结构与可换部件</a> · <a href="#figure-art">全身像素造型与配色样张</a> · <a href="#portrait-art">五官画风</a></p>
+        <p><a href="#game-face">1.19.3 美术基础脸</a> · <a href="#anatomy-parts">1.19.2 人体结构与可换部件</a> · <a href="#figure-art">全身像素造型与配色样张</a> · <a href="#portrait-art">五官画风</a></p>
         <h2>形象文件</h2>
         <p>
           用创作室的「导入角色」打开下面的任一示例。编辑后可以保持 ID 保存，也可以另存为独立形象。导入相同
@@ -100,7 +100,7 @@
             </tr>
             <tr>
               <td><code>anatomyParts</code></td>
-              <td>1.19.2 可选字段。可分别指定 <code>skull</code>、<code>torso</code>、<code>arms</code> 和 <code>legs</code>，省略的部位使用当前基型的标准形态。<a href="#anatomy-parts">部件枚举与调用示例</a></td>
+              <td>自 1.19.2 起的可选字段。可分别指定 <code>skull</code>、<code>torso</code>、<code>arms</code> 和 <code>legs</code>，省略的部位使用当前基型的标准形态。<a href="#anatomy-parts">部件枚举与调用示例</a></td>
             </tr>
             <tr>
               <td><code>gender</code></td>
@@ -219,6 +219,14 @@
         </p>
         <h2>从参数到 360° 像素</h2>
         <h2 id="figure-art">全身像素造型</h2>
+        <h3 id="game-face">1.19.3 美术基础脸</h3>
+        <p><code>PineLooks.withGameFace(doc)</code> 返回启用立体动画画风的配方副本。<code>face.form</code> 可选 <code>balanced</code>（均衡）、<code>long</code>（秀长）、<code>round</code>（柔圆）或 <code>angular</code>（利落）。省略时沿用已有的 <code>anatomyParts.skull</code> 选择，再回退到均衡。<code>face.formMix</code> 从 0 到 1 连续调节均衡脸到所选脸型的强度，默认为 1。相同参数在四个年龄的切面上有各自的有效行程，颜色独立。<a href="atelier.html?model=adult&amp;figure=study&amp;tab=face">编辑基础脸</a> · <a href="studies/pixel-structure/game-faces.webp">六向实拍</a></p>
+        <pre><code>const look = PineLooks.withGameFace(PineLooks.templateById.get('look_hazel'));
+look.face.form = 'long';
+look.face.formMix = 0.65;
+look.shape.chinProjection = 0.14;
+const actor = PineLooks.build(look);
+const baby = PineLooks.randomCharacter({ base: 'baby', seed: 42, release: PineLooks.gameFaceRelease });</code></pre>
         <h3 id="anatomy-parts">1.19.2 人体结构与可换部件</h3>
         <p>人体建模台把同一角色的结构和穿衣外观放在同一机位。选「独立头骨」可转动颅骨和下颌，观察眼窝、颧弓及耳前下方的下颌关节。换到「骨架」「肌肉」「无衣体表」可以检查肩、肘、髋、膝和踝在动作中的位置。成人女性、成人男性、儿童和婴儿有各自的基础比例，另提供幼儿。<a href="anatomy-study.html">打开人体建模台</a> · <a href="anatomy-study.html?base=baby&amp;layer=skeleton&amp;bearing=270">查看婴儿坐姿的骨架</a></p>
         <table>
@@ -247,7 +255,7 @@ const dressedFrame = actor.body.makePose(pose);</code></pre>
         <p>卷袖衬衫、儿童套头衫和婴儿棉套装由普通部件组成，设定稿记录正面、45°、侧面和背面。设计新部件时用相同姿态、角度和像素高度比对，在 64 和 128 像素检查剪影、亮暗分组、袖口与手、下巴到颈部的轮廓。用自然待机、抬手和坐下检验肩袖与裤腿，再转一圈查看遮挡。<a href="figure-model-guide.webp">分龄美术设定稿</a> · <a href="figure-study.html">同配方实机对照</a></p>
         <p>普通侧分与短碎发取自四向稿的发际、轮廓和发束色阶。<code>python tools/bake-model-short-hair.py</code> 用 Pillow 和 NumPy 重新生成截面数据。浏览器按头颅尺寸贴合发根，使用人物自己的发色着色；同一份体积可从任意方位查看。婴儿的卷发沿婴儿头部截面单独绘制。</p>
         <p><code>PineLooks.tailoredRelease</code> 和 <code>PineLooks.proportionStudyRelease</code> 分别指向 1.19.0 和 1.19.1。两版的设定稿与实机效果可独立回看。<a href="figure-study-turnaround.webp">1.19.0 四向实拍</a> · <a href="figure-study-1.19.1-turnaround.webp">1.19.1 四向实拍</a></p>
-        <p>同配方模式复用同一个人观察版本差异。盲评模式用相同年龄和种子分别生成 1.18.0 和 1.19.2 的人物，比较两个生成系统。成人、儿童、幼儿、婴儿各八对，每组随机排列左右次序。评审保存在本机，可以导出结果。<a href="figure-study.html?mode=blind">进入分龄盲评</a></p>
+        <p>同配方模式复用同一个人观察版本差异。盲评先按种子生成一份可编辑配方，在 1.19.2 和 1.19.3 各画一次。两边共享服装、颜色与动作帧。成人、儿童、幼儿、婴儿各八对，每组随机排列左右次序。评审保存在本机，可以导出结果。<a href="figure-study.html?mode=blind">进入分龄盲评</a></p>
         <p>原画转切片是独立研究。输入多视图设定后，可从轮廓与颜色重建静态像素体积，并对留出的视角进行评估。实验的体素 JSON 和本页的 <code>pine-character</code> 配方采用各自的格式。<a href="turnaround-lab.html">原画转切片实验室</a> · <a href="studies/turnaround/README.md">研究方法与失败样本</a></p>
         <p>从 <code>pine-core 1.18.0</code> 起，共用的人物画法覆盖头发、上衣、四肢、鞋和随身配件。下图来自实时人物切片。成人看手机、孩子跳步和婴儿坐着时，都使用各自年龄的骨架。</p>
         <img src="pixel-figure-cast.webp" alt="同一画法下，五个人物穿不同颜色的衣服，做各自的动作" width="1120" height="444" loading="lazy" style="max-width:100%;height:auto">
@@ -291,7 +299,7 @@ const actor = PineLooks.build(face);</code></pre>
         <p><code>PineLooks.applyFacePreset(recipe, preset)</code> 在指定配方上套用眼、眉、鼻、唇及其连续参数，颧颊、肤色和发型沿用当前选择。<code>PineLooks.randomCharacter()</code> 返回带新 ID 的草稿。<code>PineLooks.randomFace(recipe)</code> 返回同一 ID 的副本，保留穿搭、肤色、发色和妆饰。新人物的 ID 单独生成。<a href="atelier.html?tab=face&amp;random=1">试用随机人物</a></p>
         <p>两个随机接口都接受 <code>style</code>。「自然协调」<code>natural</code> 从配好的眉眼、鼻唇、颧颊出发小幅变化。「特征鲜明」<code>expressive</code> 的变化更大，整人生成时也会采用染发色。两档都会给眉眼和鼻唇留出间距，根据颧颊与脸型控制轮廓，肤色独立抽取。衣装、鞋帽、配饰和衣物配色取自一套现有穿搭。手工捏脸可以使用各滑杆的完整范围。</p>
         <p>随机生成会分别取颧骨高度与下颊饱满度，并通过绘制人物时使用的横截面宽度，估算嘴角外侧已有的体积。脸型与下颌在这里越宽，可以再叠加的丰满度越小。已有 1.12.0 人物可在「颧骨与脸颊」点「收顺面颊」。调用 <code>PineLooks.cheekAdjustment(recipe)</code> 可取得同一组局部修改，通过 <code>Object.assign(recipe.shape, changes)</code> 应用。有需要时只调整下颊丰满度及偏低颧骨的前凸程度。<a href="cheek-contour-preview.png">查看同一随机人物的正面和斜侧面</a></p>
-        <p>整人生成时可以提供当前配方 <code>source</code> 和要保留的 <code>locks</code>。<code>body</code> 保留年龄体型、性别、身高、肩宽和四肢长度，1.19.2 还保留人体部件选择。<code>skin</code> 保留肤色，<code>hair</code> 保留发型与发色，<code>wear</code> 保留穿搭、配饰及其颜色和素材包。复现实验时在选项中提供 <code>random</code>，或在最后一个参数直接传入返回 [0, 1) 数值的函数。</p>
+        <p>整人生成时可以提供当前配方 <code>source</code> 和要保留的 <code>locks</code>。<code>body</code> 保留年龄体型、性别、身高、肩宽和四肢长度，自 1.19.2 起还保留人体部件选择。<code>skin</code> 保留肤色，<code>hair</code> 保留发型与发色，<code>wear</code> 保留穿搭、配饰及其颜色和素材包。复现实验时在选项中提供 <code>random</code>，或在最后一个参数直接传入返回 [0, 1) 数值的函数。</p>
         <pre><code>const look = PineLooks.randomCharacter();
 const next = PineLooks.randomCharacter({ source: look, locks: ['skin', 'wear'] });
 const portrait = PineLooks.randomFace(next, { style: 'expressive' });

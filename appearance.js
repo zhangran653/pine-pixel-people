@@ -30,7 +30,8 @@ const PineLooks = (() => {
     release = pinePortraitStyles.figureRelease,
     tailoredRelease = pinePortraitStyles.tailoredRelease,
     proportionStudyRelease = pinePortraitStyles.proportionStudyRelease,
-    structureStudyRelease = pinePortraitStyles.structureStudyRelease;
+    structureStudyRelease = pinePortraitStyles.structureStudyRelease,
+    gameFaceRelease = pinePortraitStyles.gameFaceRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -59,7 +60,7 @@ const PineLooks = (() => {
     facePlaneRelease,
     pixelRelease,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease
   ];
   function figurePin(recipe) {
     const pin = recipe?.packs?.[core];
@@ -68,6 +69,17 @@ const PineLooks = (() => {
   function withFigureStudy(recipe) {
     const next = structuredClone(recipe);
     next.packs[core] = structureStudyRelease;
+    if (next.face?.form) {
+      next.anatomyParts = { ...next.anatomyParts, skull: next.face.form };
+      delete next.face.form;
+    }
+    if (next.face) delete next.face.formMix;
+    return next;
+  }
+  function withGameFace(recipe) {
+    const next = structuredClone(recipe);
+    next.packs[core] = gameFaceRelease;
+    next.face = { ...facePresets.classic.face, ...next.face, style: 'animation' };
     return next;
   }
   function hasRoundedHead(recipe) {
@@ -490,7 +502,8 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (recipe.anatomyParts !== undefined) needed = structureStudyRelease;
+    if (recipe.face?.form !== undefined || recipe.face?.formMix !== undefined) needed = gameFaceRelease;
+    else if (recipe.anatomyParts !== undefined) needed = structureStudyRelease;
     else if (recipe.face?.style === 'animation') needed = facePlaneRelease;
     else if (recipe.face?.style !== undefined) needed = illustratedRelease;
     else if (profileKeys.some((key) => (recipe.shape[key] ?? 0) !== 0)) needed = lipJawRelease;
@@ -763,7 +776,7 @@ SOFTWARE.`;
     let face;
     if (pin !== originalRelease) {
       const selected = raw.face === undefined ? facePresets.classic.face : raw.face;
-      fields(selected, Object.keys(features), [...Object.keys(faceDetails), 'style']);
+      fields(selected, Object.keys(features), [...Object.keys(faceDetails), 'style', 'form', 'formMix']);
       face = {};
       for (const [key, values] of Object.entries({ ...features, ...faceDetails })) {
         if (Object.hasOwn(faceDetails, key) && !Object.hasOwn(selected, key)) continue;
@@ -772,6 +785,15 @@ SOFTWARE.`;
           '未知五官款式 · ' + key
         );
         face[key] = selected[key];
+      }
+      if (selected.form !== undefined) {
+        requireThat(typeof selected.form === 'string' && Object.hasOwn(pineGameFace.forms, selected.form), '未知美术脸型');
+        face.form = selected.form;
+      }
+      if (selected.formMix !== undefined) {
+        requireThat(Number.isFinite(selected.formMix) && selected.formMix >= 0 && selected.formMix <= 1,
+          '基础脸形变强度应在 0 至 1 之间');
+        face.formMix = selected.formMix;
       }
       if (selected.style !== undefined) {
         requireThat(typeof selected.style === 'string' && Object.hasOwn(portraitStyles, selected.style), '未知人物画风');
@@ -1379,7 +1401,11 @@ SOFTWARE.`;
     const expressive = style === 'expressive';
     const doc = structuredClone(recipe);
     doc.packs[core] = pin;
-    if (pin !== structureStudyRelease) delete doc.anatomyParts;
+    if (!pinePortraitStyles.hasStructureStudy(pin)) delete doc.anatomyParts;
+    if (doc.face) {
+      delete doc.face.formMix;
+      if (pin !== gameFaceRelease || portrait !== 'animation') delete doc.face.form;
+    }
     const infant = doc.base === 'baby';
     const design = portrait !== 'natural' && portraitFamilies[family || pick(familyIds, random)];
     const young = infant || (design && doc.base === 'toddler');
@@ -1431,6 +1457,18 @@ SOFTWARE.`;
       doc.shape[key] = Math.round(100 * (center + (random() + random() - 1) * jitter)) / 100;
     }
     fitRandomProfile(doc, expressive);
+    if (pin === gameFaceRelease && portrait === 'animation') {
+      // Draw from the neighbourhood of the chosen face. Colour and wardrobe never select a form.
+      const options = infant ? ['balanced','round'] : ({
+        heart: ['balanced','long'], round: ['balanced','round'], square: ['balanced','angular'],
+        long: ['long','balanced'], diamond: ['angular','long'], pear: ['round','balanced']
+      }[outline] || ['balanced','long','round']);
+      doc.face.form = pick(options, random);
+      if (infant && ['crescent','level-eye','monolid'].includes(doc.face.eyes)) {
+        doc.shape.eyeOpening = Math.max(.16,doc.shape.eyeOpening);
+        if (doc.face.mouth === 'relaxed') doc.face.mouth = 'soft-smile';
+      }
+    }
     return doc;
   }
   function randomCharacter(input) {
@@ -1458,7 +1496,7 @@ SOFTWARE.`;
     for (const key of Object.keys(pinePortraitStyles.dyes)) delete doc.colors[key];
     if (keep.has('body')) {
       for (const key of bodySizes) doc.shape[key] = source.shape[key];
-      if (pin === structureStudyRelease && source.anatomyParts !== undefined) {
+      if (pinePortraitStyles.hasStructureStudy(pin) && source.anatomyParts !== undefined) {
         doc.anatomyParts = structuredClone(source.anatomyParts);
       } else delete doc.anatomyParts;
     } else if (tailored) fitBodyProportions(doc, random);
@@ -1466,12 +1504,12 @@ SOFTWARE.`;
       doc.shape.height = between(0.88, 1.12, random);
       doc.shape.shoulders = between(0.83, 1.17, random);
     }
-    if (pin === structureStudyRelease && !keep.has('body')) {
+    if (pinePortraitStyles.hasStructureStudy(pin) && !keep.has('body')) {
       const torso = doc.shape.shoulders > 1.045 ? 'broad' : doc.shape.shoulders < 0.965 ? 'slender' : 'balanced';
       const build = torso === 'broad' ? 'strong' : torso;
       const skulls = doc.base === 'baby' || doc.base === 'toddler'
         ? ['balanced', 'balanced', 'round', 'long'] : ['balanced', 'long', 'round', 'angular'];
-      doc.anatomyParts = { skull: pick(skulls, random), torso,
+      doc.anatomyParts = { ...(doc.face.form ? {} : {skull: pick(skulls, random)}), torso,
         arms: pick(['balanced', build], random), legs: pick(['balanced', build], random) };
     }
     doc.id = seed === undefined ? newId() : seededLookId(doc, seed);
@@ -1481,8 +1519,8 @@ SOFTWARE.`;
   return {
     core,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease,
-    withFigureStudy,
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease,
+    withFigureStudy, withGameFace,
     originalRelease,
     styleRelease,
     profileRelease,
@@ -1505,7 +1543,7 @@ SOFTWARE.`;
     infantNapeRelease,
     naturalProfileRelease,
     lipJawRelease, illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease,
-    portraitStyles, portraitStyleOf, setPortraitStyle, portraitFamilies,
+    portraitStyles, portraitStyleOf, setPortraitStyle, portraitFamilies, gameFaceForms:pineGameFace.forms,
     morphs: pinePortraitStyles.morphs,
     profileControls: pinePortraitStyles.profileControls,
     cheekPresets,
