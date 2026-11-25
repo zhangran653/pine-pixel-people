@@ -27,6 +27,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 每组左为 1.19.6，右为 1.19.7，穿搭、肤色、动作进度和机位都相同。实拍包含光头和戴帽婴儿、幼儿、儿童，以及全身只有 64 像素高的成人正侧面。随机盲评按四个年龄各取八人。[同人实拍](studies/pixel-structure/figure-ratios.webp) · [连续随机八人](studies/pixel-structure/ratio-random.webp) · [32 组分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=ratios&size=128)
 
+想直接看原来那套穿搭，可以选择「稳定版与完整试作 · 1.18.0 / 1.19.7」。黄帽橙衫、程序员、厨师和坐姿婴儿各有正面全身、侧面头肩和动作剪影。从创作室带入的 1.19.7 人物会保留手调比例。[稳定版到本次试作的四人实拍](studies/pixel-structure/whole-1.19.7.webp) · [旋转黄帽橙衫 04](http://127.0.0.1:8000/figure-study.html?before=whole-1.19.7&subject=baseline-4&size=128)
+
 ### 1.19.6 分龄五官与婴儿下颌试作
 
 在人物创作室的「五官 → 五官与比例」选「分龄像素笔触」。眼睑、虹膜、笑嘴和下巴按年龄画进人物切片，可以转身、眨眼、张嘴和染色。婴儿坐下、前伸和爬行时，颏下的皮肤从颈前随下巴一起动。衣物剪裁可以单独选择。普通新建人物仍使用 1.18.0。[试调婴儿的脸](http://127.0.0.1:8000/atelier.html?figure=features&model=baby&tab=face) · [四个年龄的五官及婴儿动作实拍](studies/pixel-structure/painted-features.webp) · [配方接口](appearance-standard.html#painted-features)

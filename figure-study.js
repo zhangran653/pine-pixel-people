@@ -6,6 +6,7 @@
   const rows = { adult: [0, 484], child: [489, 363], baby: [868, 218] };
   const originals = { hoodie: 'look_programmer', chef: 'look_chef' };
   const stableRelease = '1.18.0', previousStudy = looks.structureStudyRelease, currentStudy = looks.gameFaceRelease;
+  const wholeEditions = new Map([['whole-1.19.6',looks.featureStudyRelease], ['whole-1.19.7',looks.figureRatioRelease]]);
   const reviews = { face:[previousStudy,currentStudy], cast:[stableRelease,currentStudy], bases:[currentStudy,looks.baseFaceRelease],
     cut:[looks.baseFaceRelease,looks.clothingStudyRelease], features:[looks.clothingStudyRelease,looks.featureStudyRelease],
     ratios:[looks.featureStudyRelease,looks.figureRatioRelease] };
@@ -164,11 +165,12 @@
       return [looks.withoutFigureRatios(trial), trial];
     }
     const doc = source.packs[looks.core] === looks.figureRatioRelease && before !== 'current' ? looks.withoutFigureRatios(source) : source;
-    if (before === 'whole-1.19.6') {
+    if (wholeEditions.has(before)) {
       const baseline = looks.withFigureStudy(doc);
       baseline.packs[looks.core] = stableRelease;
       delete baseline.anatomyParts;
-      return [baseline, paintedFigure(doc)];
+      if (wholeEditions.get(before) === looks.featureStudyRelease) return [baseline, paintedFigure(doc)];
+      return [baseline, source.packs[looks.core] === looks.figureRatioRelease ? source : looks.withFigureRatios(paintedFigure(doc))];
     }
     if (before === 'features') {
       const next = subject === 'draft' ? { ...doc, packs:{ ...doc.packs, [looks.core]:looks.featureStudyRelease } } : paintedFigure(doc);
@@ -230,10 +232,10 @@
     recipes = blind ? blindPair() : modelPair();
     const before = $('before').value, finish = before === 'finish', whole = before === 'whole' || before === 'current';
     const bases = !blind && before === 'bases', clothing = !blind && before === 'cut', features = !blind && before === 'features';
-    const completeFigure = !blind && before === 'whole-1.19.6';
+    const completeFigure = !blind && wholeEditions.get(before);
     const ratios = !blind && before === 'ratios';
     $('face-gallery').hidden = blind;
-    $('face-gallery').href = 'studies/pixel-structure/' + (ratios ? 'figure-ratios.webp' : completeFigure ? 'whole-1.19.6.webp' : features ? 'painted-features.webp' : clothing ? 'garment-cuts.webp' : bases ? 'drawn-faces.webp' : 'game-faces.webp');
+    $('face-gallery').href = 'studies/pixel-structure/' + (ratios ? 'figure-ratios.webp' : completeFigure ? before + '.webp' : features ? 'painted-features.webp' : clothing ? 'garment-cuts.webp' : bases ? 'drawn-faces.webp' : 'game-faces.webp');
     $('face-gallery').textContent = ratios ? '头身与侧脸比例实拍' : completeFigure ? '稳定版与完整试作实拍' : features ? '五官与坐姿侧面实拍' : clothing ? '衣物与动作实拍' : bases ? '分龄基础脸三视图' : '新旧脸型实拍';
     $('form-field').hidden = !bases && !(features && looks.portraitStyleOf(recipes[1])==='animation');
     const names = looks.baseFaceForms(recipes[1].base);
@@ -241,7 +243,7 @@
     const baselineTitle = features ? recipes[0].packs[looks.core] + ' · 原有五官' : clothing ? looks.baseFaceRelease + ' · 原有衣物' : bases ? currentStudy + ' · 原有脸型' : before === 'whole' || completeFigure ? stableRelease + ' · 稳定版' :
       before === 'current' ? recipes[0].packs[looks.core] + ' · 草稿原版' : $('before').selectedOptions[0].textContent;
     $('title-a').textContent = blind ? 'A' : ratios ? looks.featureStudyRelease + ' · 原有比例' : baselineTitle;
-    $('title-b').textContent = blind ? 'B' : ratios ? looks.figureRatioRelease + ' · 分龄比例' : completeFigure ? looks.featureStudyRelease + ' · 完整试作' : features ? looks.featureStudyRelease + ' · 五官与下颌' : clothing ? looks.clothingStudyRelease + ' · 分龄衣物剪裁' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
+    $('title-b').textContent = blind ? 'B' : ratios ? looks.figureRatioRelease + ' · 分龄比例' : completeFigure ? completeFigure + ' · 完整试作' : features ? looks.featureStudyRelease + ' · 五官与下颌' : clothing ? looks.clothingStudyRelease + ' · 分龄衣物剪裁' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
       currentStudy + (whole ? ' · 全身试作' : finish ? ' · 四肢与衣边色块' : ' · 美术基础脸');
     $('prompt').textContent = blind
       ? reviewKind === 'cast'

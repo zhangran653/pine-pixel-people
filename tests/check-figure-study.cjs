@@ -9,6 +9,15 @@ const { pathToFileURL } = require('node:url');
 
 function loadDraft(pack) {
   const query = new URLSearchParams(location.search);
+  if (query.has('ratio-draft')) {
+    const doc=PineLooks.randomCharacter({base:'baby', seed:12, release:PineLooks.figureRatioRelease});
+    Object.assign(doc.shape,{headScale:.96, crownHeight:.76, trunkLength:1.24, noseLipSpacing:1.13});
+    doc.clothingCut='original';
+    const url=new URL(location.href);
+    url.hash=new URLSearchParams({character:JSON.stringify(doc)});
+    history.replaceState(null,'',url);
+    return;
+  }
   if (query.has('feature-seed')) {
     const release=query.has('ratio-test') || query.has('ratio-profile') ? PineLooks.figureRatioRelease : PineLooks.featureStudyRelease;
     const base=query.get('sample-age') || 'baby';
@@ -138,6 +147,20 @@ function check(studyBench) {
   const linkedRecipe = side => JSON.parse(new URLSearchParams(new URL($('edit-' + side).href).hash.slice(1)).get('character'));
   try {
     const query = new URLSearchParams(location.search);
+    if (query.has('ratio-draft')) {
+      const source=JSON.parse(new URLSearchParams(location.hash.slice(1)).get('character'));
+      const left=linkedRecipe('a'), right=linkedRecipe('b');
+      expect($('subject').value==='draft' && left.packs[PineLooks.core]===PineLooks.release && right.packs[PineLooks.core]===PineLooks.figureRatioRelease,
+        'wrong editions in the complete draft comparison');
+      for (const k of Object.keys(PineLooks.figureRatioRanges)) {
+        expect(right.shape[k]===source.shape[k] && !(k in left.shape), 'lost a manually edited trial proportion');
+      }
+      expect(right.clothingCut==='original' && JSON.stringify(left.parts)===JSON.stringify(right.parts) &&
+        JSON.stringify(left.colors)===JSON.stringify(right.colors), 'changed the saved outfit during the comparison');
+      expect($('action').value==='baby-reach' && $('bearing').value==='270', 'lost the draft pose or its camera');
+      $('qa').textContent='Stable figure paired with the saved proportions, clothes and action of the trial draft';
+      return;
+    }
     if (query.has('ratio-profile')) {
       const actors = [linkedRecipe('a'),linkedRecipe('b')].map(doc=>PineLooks.build(doc));
       const marks = actors.map(a=>{
@@ -240,6 +263,13 @@ function check(studyBench) {
       expect(!$('face-gallery').hidden && $('face-gallery').href.endsWith('/whole-1.19.6.webp') &&
         JSON.stringify(linkedRecipe('b')) === JSON.stringify(ratios ? pair[0] : pair[1]) &&
         linkedRecipe('a').packs[PineLooks.core] === PineLooks.release, 'full trial changed the random infant');
+      if (ratios) {
+        choose('before','whole-1.19.7');
+        const stable=linkedRecipe('a');
+        expect(JSON.stringify(linkedRecipe('b'))===JSON.stringify(pair[1]) && stable.packs[PineLooks.core]===PineLooks.release &&
+          JSON.stringify(stable.parts)===JSON.stringify(pair[1].parts) && JSON.stringify(stable.colors)===JSON.stringify(pair[1].colors) &&
+          $('face-gallery').href.endsWith('/whole-1.19.7.webp'), 'lost the person in the cumulative proportion study');
+      }
       document.querySelector('[data-mode="blind"]').click(); choose('review-kind',ratios ? 'ratios' : 'features');
       expect($('progress').textContent.includes('0 / 32') && !$('edit-b').hasAttribute('href') && $('face-gallery').hidden,'the feature holdout leaked an answer');
       for(let i=0;i<32;i++) document.querySelector('[data-vote="tie"]').click();
@@ -603,7 +633,8 @@ try {
     '?base-test=1&subject=baby&before=bases&form=round&phase=36.25&action=baby-reach&bearing=270.5', '?mode=blind&review=bases&case=baby%2F0&resume=bases',
     '?clothing-test=1&subject=baseline-4&before=cut&action=walk&phase=43', '?mode=blind&review=cut&case=baby%2F0&resume=cut',
     featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
-    ratioCase, '?mode=blind&review=ratios&case=baby%2F0&resume=ratios', profileCase+'chef'];
+    ratioCase, '?mode=blind&review=ratios&case=baby%2F0&resume=ratios', profileCase+'chef',
+    '?ratio-draft=1&before=whole-1.19.7&action=baby-reach&bearing=270&phase=43&size=128'];
   for (const query of cases) {
     const args = [...flags.slice(0,-1), flags.at(-1) + query];
     const r = spawnSync(chrome, args, { encoding:'utf8', maxBuffer:4000000, timeout:120000 });
