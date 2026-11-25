@@ -200,6 +200,9 @@
           <code>pine-core 1.14.0</code> 将成人、学童和幼儿的眼窝、鼻根、嘴角和颏唇沟放在同一个头部表面上。移动嘴部高度时，嘴周轮廓、上下唇接点和饮水接点一起移动。唇色与唇形仍可独立选择。新建和随机人物默认使用这次调整，1.12、1.13 系列的成人和儿童可以在「五官」中点「试用自然侧脸」并保存。婴儿使用 1.13.1 的专用头型。<a href="atelier.html?preset=look_ridge&amp;tab=face&amp;bearing=90">旋转查看侧脸</a> · <a href="natural-profile-preview.png">四个角度对照</a>
         </p>
         <p>
+          <code>pine-core 1.15.0</code> 支持 <code>shape.lipProjection</code> 和 <code>shape.jawDefinition</code>，范围均为 −1 到 1。0 表示该年龄的自然形态，导出时省略。前者从内收到前伸移动唇部及嘴角，唇厚仍由 <code>upperLipFullness</code> 和 <code>lowerLipFullness</code> 调节。后者从柔和到清晰改变下巴至耳下的软组织厚度与明暗过渡，下颌关节和颏尖维持原位。嘴部接点跟随新表面，喝水和张口动作可直接复用。婴儿以自己的头型为基准，使用较小的变化幅度。<a href="atelier.html?preset=look_body_female&amp;tab=face&amp;hair=side-part&amp;bearing=90&amp;lipProjection=-0.30&amp;jawDefinition=0.45">试调嘴唇和下颌线</a> · <a href="lip-jaw-profile-preview.png">查看同一镜头的参数对照</a>
+        </p>
+        <p>
           用 Python 3 在项目根目录执行下面的命令即可重新生成截面表。两个参数分别指向上述固定版本的网格及其形变目录。<a href="tools/sample-head.py">采样脚本</a> · <a href="head-sections.js">生成的截面数据</a>
         </p>
         <pre><code>python3 tools/sample-head.py path/to/base.obj path/to/macrodetails &gt; head-sections.js</code></pre>

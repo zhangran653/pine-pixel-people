@@ -184,7 +184,7 @@ const pineHeadShape = (() => {
           }
         }
       }
-      if (planes && h > -0.92 && h < 0.44) {
+      if (planes?.strength && h > -0.92 && h < 0.44) {
         // The source sections have their original nose and lips removed for the editable features.
         // Restore the bed of the orbit and wrap the dental arch back around the mouth corners.
         const orbit = lobe(h, planes.eye + 0.012, 0.24);
@@ -234,7 +234,7 @@ const pineHeadShape = (() => {
       const face = Float32Array.from(meridians, ({ interval, angle }) =>
         sample(outline, tangent, interval, 1, angle)
       );
-      if (planes && Math.abs(h - planes.eye) < 0.15) {
+      if (planes?.strength && Math.abs(h - planes.eye) < 0.15) {
         // The iris sits on the round front of the eye. Its inner corner turns back
         // into the nose and the outer lid follows the temple as the camera turns.
         const center = planes.eyeCenter;
@@ -242,6 +242,28 @@ const pineHeadShape = (() => {
         for (let j = 0; j <= lateralSteps; j++) {
           const y = width * j / lateralSteps;
           face[j] += eye * (0.068 * lobe(y, center, 0.20) - 0.066 * lobe(y, center - 0.20, 0.17));
+        }
+      }
+      // Shift the whole dental arch at the lip seam, including the corners.
+      // The transition ends above the chin pad and below the nose tip.
+      const bed = planes?.lipBed;
+      if (bed && (planes.strength || bed.depth) && h > bed.center - bed.below && h < bed.center + bed.above) {
+        const height = Math.abs(h - bed.center) / (h > bed.center ? bed.above : bed.below);
+        const envelope = lobe(height, 0, 1);
+        // A recessed arch carries the surrounding tissue inward. Keep a broad
+        // landing for the existing upper and lower lip volumes and their seam.
+        const shoulder = clamp((height - 0.40) / 0.60, 0, 1);
+        const shift = bed.depth * (bed.depth < 0 ? 1 - shoulder * shoulder * (3 - 2 * shoulder) : envelope);
+        const start = bed.depth < 0 ? 0.54 : 0.31, end = bed.depth < 0 ? 0.96 : 0.85;
+        const midline = face[0];
+        const cornerInset = (planes.strength || 0) * 0.035 + Math.max(0, -bed.depth) * 0.46;
+        for (let j = 0; j <= lateralSteps; j++) {
+          const v = j / lateralSteps, t = clamp((v - start) / (end - start), 0, 1);
+          const arch = shift * (1 - t * t * (3 - 2 * t));
+          // A rounded central pad and a swept-back commissure remain readable
+          // from either side, including when the whole arch is drawn inward.
+          const pad = (midline - face[j]) * lobe(v, 0, 0.14) * (planes.strength || Math.abs(bed.depth));
+          face[j] += arch + envelope * (pad - cornerInset * lobe(v, 0.39, 0.34));
         }
       }
       const templeDelta = refitNape && h > -0.18 && h < 0.26
@@ -406,7 +428,8 @@ const pineHeadShape = (() => {
       eyeDepth: shape.eyeDepth || 0, eyeSpacing: shape.eyeSpacing ?? 1
     };
     const key = [base, relief, refitNape, ...Object.values(settings), ...(facial ? Object.values(facial) : []),
-      ...(planes ? [planes.eye, planes.eyeCenter, planes.mouth, planes.strength] : [])].join('|');
+      ...(planes?.strength ? [planes.eye, planes.eyeCenter, planes.mouth, planes.strength] : []),
+      ...(planes?.lipBed ? ['lip', planes.lipBed.center, planes.lipBed.above, planes.lipBed.below, planes.lipBed.depth] : [])].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);
       adjustable.set(key, profile(base, true, settings, relief, facial, refitNape, planes));

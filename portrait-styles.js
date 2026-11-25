@@ -17,6 +17,10 @@ const pinePortraitStyles = (() => {
     noseWidth: ['鼻翼宽度', '窄', '宽'], mouthWidth: ['唇宽', '窄', '宽'],
     upperLipFullness: ['上唇厚度', '薄', '厚'], lowerLipFullness: ['下唇厚度', '薄', '厚']
   };
+  const profileControls = {
+    lipProjection: ['嘴唇前后', '内收', '前伸'],
+    jawDefinition: ['下颌线清晰度', '柔和', '清晰']
+  };
   const basicNoses = {
     classic: ['', 0.172, 0.197, 0.32, 0.10, 0.48, 0.099],
     button: ['', 0.158, 0.155, 0.26, 0.085, 0.59, 0.122],
@@ -377,6 +381,7 @@ const pinePortraitStyles = (() => {
   return {
     proportions,
     morphs,
+    profileControls,
     basicNoses,
     features,
     details,

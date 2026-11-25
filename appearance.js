@@ -21,7 +21,9 @@ const PineLooks = (() => {
     morphRelease = '1.12.0',
     infantRelease = '1.13.0',
     infantNapeRelease = '1.13.1',
-    release = '1.14.0';
+    naturalProfileRelease = '1.14.0',
+    lipJawRelease = '1.15.0',
+    release = lipJawRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -43,6 +45,7 @@ const PineLooks = (() => {
     morphRelease,
     infantRelease,
     infantNapeRelease,
+    naturalProfileRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -62,8 +65,9 @@ const PineLooks = (() => {
   }
   const shape = pineDesignerBody.shapeRanges;
   const morphKeys = Object.keys(pinePortraitStyles.morphs);
+  const profileKeys = Object.keys(pinePortraitStyles.profileControls);
   const featureShapeKeys = morphKeys.filter((key) => !key.startsWith('cheek'));
-  const optionalShape = ['occiput', 'headDepth', 'faceRelief', ...pineHeadShape.controls, ...morphKeys];
+  const optionalShape = ['occiput', 'headDepth', 'faceRelief', ...pineHeadShape.controls, ...morphKeys, ...profileKeys];
   const cheekPresets = {
     balanced: { label: '柔和平衡', shape: {} },
     low: { label: '低颧饱颊', shape: { cheekHeight: -0.75, cheekProjection: -0.35, cheekFullness: 0.72 } },
@@ -449,7 +453,8 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (morphKeys.some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 0))
+    if (profileKeys.some((key) => (recipe.shape[key] ?? 0) !== 0)) needed = lipJawRelease;
+    else if (morphKeys.some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 0))
       needed = morphRelease;
     else if (['headDepth', 'faceRelief'].some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 1))
       needed = sagittalRelease;
@@ -1187,6 +1192,10 @@ SOFTWARE.`;
     doc.shape.mouthHeight = between(-0.25, 0.25, random);
     fitRandomFace(doc);
     Object.assign(doc.shape, cheekAdjustment(doc, expressive ? 'expressive' : 'natural'));
+    const spread = expressive ? 0.70 : 0.36;
+    for (const key of profileKeys) {
+      doc.shape[key] = Math.round(100 * (random() + random() - 1) * spread) / 100;
+    }
     return doc;
   }
   function randomCharacter(input) {
@@ -1238,7 +1247,9 @@ SOFTWARE.`;
     morphRelease,
     infantRelease,
     infantNapeRelease,
+    naturalProfileRelease,
     morphs: pinePortraitStyles.morphs,
+    profileControls: pinePortraitStyles.profileControls,
     cheekPresets,
     cheekAdjustment,
     randomFace,

@@ -829,6 +829,10 @@ for (const id of ['look_body_female', 'look_fern', 'look_workshop_toddler']) {
   const old = { ...doc, packs: { 'pine-core': a.l.infantNapeRelease } };
   const prior = lipColumns(old), revised = lipColumns(doc);
   revised.forEach((n, i) => assert.ok(n >= 3 && n > prior[i], id + ' lips need to read from either profile'));
+  for (const value of [-1, 1]) {
+    const counts = lipColumns({ ...doc, shape: { ...doc.shape, lipProjection: value } });
+    assert.ok(counts.every(n => n >= 2), id + ' a closed mouth must remain visible from both sides at ' + value);
+  }
   const before = a.l.build(old), after = a.l.build(doc);
   assert.deepEqual(after.rig.jawPivot, before.rig.jawPivot);
   assert.deepEqual(after.rig.headPivot, before.rig.headPivot);

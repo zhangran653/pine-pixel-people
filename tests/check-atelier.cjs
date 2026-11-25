@@ -671,6 +671,35 @@ function checkEditor() {
     const savedSide = PineWardrobe.saved.get(priorSideRecipe.id);
     expect(savedSide.packs['pine-core'] === PineLooks.release && ['face', 'shape', 'parts', 'colors'].every(
       key => JSON.stringify(savedSide[key]) === JSON.stringify(priorSideRecipe[key])), 'save the upgraded recipe in place');
+    const original = PineWardrobe.importCharacter({
+      ...PineLooks.templateById.get('look_body_female'), id: 'look_archived_lips',
+      packs: { 'pine-core': PineLooks.naturalProfileRelease }
+    }).recipe;
+    byId('look-query').value = original.id;
+    byId('look-query').dispatchEvent(new Event('input'));
+    document.querySelector('[data-key="saved:' + original.id + '"]').click();
+    byId('tab-face').click();
+    expect(byId('update-head')?.textContent === '试用嘴唇与下颌线', 'offer the two controls on a 1.14 save');
+    for (const angle of [60, 270, 90]) {
+      const button = document.querySelector('[data-profile-angle="' + angle + '"]');
+      button.click();
+      expect(+byId('bearing').value === angle && button.getAttribute('aria-pressed') === 'true' &&
+        byId('mirror').dataset.framing === 'face', 'frame the face at ' + angle);
+    }
+    byId('update-head').click();
+    const natural = byId('mirror').toDataURL();
+    const lips = byId('edit-lipProjection'), jaw = byId('edit-jawDefinition');
+    lips.value = '-0.45'; lips.dispatchEvent(new Event('input'));
+    const tucked = byId('mirror').toDataURL();
+    expect(tucked !== natural && jaw.value === '0' && lips.getAttribute('aria-valuetext') === '内收 45%', 'independent lip adjustment');
+    jaw.value = '0.65'; jaw.dispatchEvent(new Event('input'));
+    expect(byId('mirror').toDataURL() !== tucked && lips.value === '-0.45' &&
+      jaw.getAttribute('aria-valuetext') === '清晰 65%', 'independent jaw definition');
+    expect(PineWardrobe.saved.get(original.id).packs['pine-core'] === PineLooks.naturalProfileRelease, 'preserve the original during preview');
+    byId('save-look').click();
+    const sculpted = PineWardrobe.saved.get(original.id);
+    expect(sculpted.packs['pine-core'] === PineLooks.release && sculpted.shape.lipProjection === -0.45 &&
+      sculpted.shape.jawDefinition === 0.65, 'persist both profile settings on the character');
     target.dataset.state = 'pass';
     target.textContent =
       'Body profiles, legacy saves, head upgrades, facial morphs, guided random portraits, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';

@@ -381,7 +381,7 @@ const skull = vm.runInContext('pineHeadShape', context);
     assert.deepEqual(digests(looks.build(doc)), digests(looks.build({ ...doc, packs: archived.packs })), base);
   }
   assert.deepEqual(digests(infant), digests(looks.build({ ...recipe, packs: { 'pine-core': looks.infantNapeRelease } })),
-    '1.14 uses the separate infant portrait at both sampling densities');
+    'neutral infant controls preserve the separate infant portrait at both sampling densities');
   const adult = { ...archived, base: 'adult', face: { ...recipe.face, facialHair: 'beard', complexion: 'fine-lines' } };
   const converted = looks.withBodyProfile(adult, 'baby');
   assert.equal(converted.packs['pine-core'], looks.release);
@@ -481,6 +481,9 @@ const skull = vm.runInContext('pineHeadShape', context);
     assert.ok(wardrobes.has(JSON.stringify([doc.base, clothing(doc)])), 'whole authored outfit with its own dyes');
     const expressive = looks.prepare(looks.randomCharacter({ style: 'expressive', random })).recipe;
     checkSpacing(expressive);
+    for (const key of Object.keys(looks.profileControls)) {
+      assert.ok(Math.abs(doc.shape[key] || 0) <= 0.36 && Math.abs(expressive.shape[key] || 0) <= 0.70);
+    }
     expressHair.add(expressive.colors.hair);
     pairings.add(doc.face.eyes + '/' + doc.face.nose);
     colors.add(doc.colors.skin); ages.add(looks.bodyProfileOf(doc)); ids.add(doc.id); outlines.add(doc.face.outline);
@@ -626,6 +629,53 @@ function sideProfile(actor) {
   const [rear, brow] = edges(0, eye[2] + 0.5 * (eye[2] - mouth[2]));
   const cheek = edges(0.49 * ear[1], 0.53 * eye[2] + 0.47 * mouth[2])[1];
   return { rear, brow, depth: brow - rear, cheek, chin: chin[0], lip: mouth[0] };
+}
+{
+  const excursions = [];
+  for (const id of ['look_body_female', 'look_fern', 'look_workshop_toddler', 'look_workshop_baby']) {
+    const recipe = looks.templateById.get(id);
+    const variant = (lipProjection, jawDefinition) => ({
+      ...recipe, shape: { ...recipe.shape, lipProjection, jawDefinition }
+    });
+    const lips = [-1, 0, 1].map(v => looks.build(variant(v, 0)));
+    const [low, neutral, high] = lips;
+    for (const name of ['upperLip', 'mouth', 'lowerLip']) {
+      const [a, b, c] = lips.map(actor => actor.sockets[name].point[0]);
+      assert.ok(a < b && b < c, id + ' moves the ' + name + ' contact with the lip surface');
+    }
+    excursions.push(high.rig.mouth[0] - low.rig.mouth[0]);
+    for (const actor of [low, high]) {
+      for (const name of ['leftEye', 'chinTip', 'leftEarCanal', 'leftJawJoint', 'leftJawAngle', 'throat'])
+        assert.deepEqual(actor.sockets[name], neutral.sockets[name], id + ' lip projection moved ' + name);
+      const sip = motion.actions.get('drink').sample(0.50, actor)[0].pose;
+      assert.ok(distance(sip.bottle.lip, motion.rig.socket(actor, sip, 'mouth')) < 1e-7);
+    }
+    // Compare occupied cells under the mandible, independently of their pigment.
+    const volumes = [-1, 0, 1].map(v => {
+      const actor = looks.build(variant(0, v)), angle = actor.sockets.leftJawAngle.point, chin = actor.sockets.chinTip.point;
+      assert.deepEqual(actor.sockets, neutral.sockets, id + ' definition moved a contact');
+      const band = portraitBand(actor), { nx, ny, density } = band.body;
+      const from = Math.ceil((angle[0] - band.x) * density + nx / 2 - 0.5);
+      const to = Math.floor((chin[0] - band.x) * density + nx / 2 - 0.5);
+      const top = Math.floor((Math.max(angle[2], chin[2]) - band.z) * density - 0.5);
+      let count = 0;
+      for (let z = 0; z <= top; z++) for (let y = 0; y < ny; y++) {
+        const start = (z * ny + y) * nx;
+        for (let x = from; x <= to; x++) if (band.model.colors[start + x]) count++;
+      }
+      return count;
+    });
+    assert.ok(volumes[0] > volumes[1] && volumes[1] > volumes[2], id + ' must taper the underside of the jaw');
+    const old = { ...variant(0, 0), packs: { 'pine-core': looks.naturalProfileRelease } };
+    assert.equal(looks.prepare(old).recipe.packs['pine-core'], looks.naturalProfileRelease);
+    for (const key of Object.keys(looks.profileControls))
+      assert.throws(() => looks.prepare({ ...old, shape: { ...old.shape, [key]: 0.4 } }));
+  }
+  assert.ok(excursions.slice(1).every((delta, i) => delta < excursions[i]), 'younger heads use gentler projection');
+  const old = looks.build({ ...looks.templateById.get('look_fern'), packs: { 'pine-core': looks.naturalProfileRelease } });
+  const pose = motion.rig.pose(old.rig), coarse = old.body.makePose(pose);
+  assert.equal(hash(coarse.colors), 'accdfe709baa9a2c138400b4119aa03a8e77bd3c962b2791749563948f08bd55');
+  assert.equal(hash(motion.faceLayers(old, pose, coarse)[1].model.colors), '8fc5b2bb8c1d591dd384eb2bbe5ce64ce49ecf7c5e9848cab88a3a9a63ad470f');
 }
 {
   const baby = looks.templateById.get('look_workshop_baby');

@@ -8,8 +8,9 @@
     actors = new WeakMap(),
     clone = structuredClone;
   const cheekKeys = Object.keys(looks.morphs).filter((key) => key.startsWith('cheek'));
+  const faceControls = { ...looks.morphs, ...looks.profileControls };
   const names = {
-    ...Object.fromEntries(Object.entries(looks.morphs).map(([key, row]) => [key, row[0]])),
+    ...Object.fromEntries(Object.entries(faceControls).map(([key, row]) => [key, row[0]])),
     height: '身高',
     shoulders: '肩宽',
     arms: '臂长',
@@ -199,8 +200,9 @@
     const dirs = ['正面', '正面偏侧', '侧面', '背面偏侧', '背面', '背面偏侧', '侧面', '正面偏侧'];
     $('angle-tag').textContent = dirs[Math.round(bearing / 45) % 8] + ' · ' + Math.round(bearing) + '°';
     $('bearing').value = Math.round(bearing);
-    for (const b of document.querySelectorAll('[data-hair-angle]')) {
-      const difference = Math.abs(((bearing - Number(b.dataset.hairAngle) + 540) % 360) - 180);
+    for (const b of document.querySelectorAll('[data-hair-angle], [data-profile-angle]')) {
+      const angle = Number(b.dataset.profileAngle ?? b.dataset.hairAngle);
+      const difference = Math.abs(((bearing - angle + 540) % 360) - 180);
       b.setAttribute('aria-pressed', String(difference < 8));
     }
   }
@@ -295,11 +297,13 @@
     label.htmlFor = 'edit-' + key;
     const caption = document.createElement('span');
     caption.textContent = names[key];
-    if (key !== 'height' && tabKeys.shape.includes(key)) {
+    if ((key !== 'height' && tabKeys.shape.includes(key)) || looks.profileControls[key]) {
       const limits = document.createElement('small');
       limits.className = 'slider-limits';
       limits.setAttribute('aria-hidden', 'true');
-      limits.textContent = Math.round(min * 100) + '%–' + Math.round(max * 100) + '%';
+      limits.textContent = looks.profileControls[key]
+        ? looks.profileControls[key].slice(1).join(' ↔ ')
+        : Math.round(min * 100) + '%–' + Math.round(max * 100) + '%';
       caption.append(limits);
     }
     label.append(caption, output, field);
@@ -324,11 +328,11 @@
         jawAngle: ['低', '高'],
         jawNeck: ['靠后', '靠前']
       };
-      const directions = looks.morphs[key]?.slice(1) || endpoints[key];
+      const directions = faceControls[key]?.slice(1) || endpoints[key];
       if (directions) {
         const n = field.valueAsNumber;
-        output.value =
-          n === 0 ? '居中' : directions[Number(n > 0)] + ' ' + Math.round(Math.abs(n) * 100) + '%';
+        const neutral = looks.profileControls[key] ? '自然' : '居中';
+        output.value = n === 0 ? neutral : directions[Number(n > 0)] + ' ' + Math.round(Math.abs(n) * 100) + '%';
         field.setAttribute('aria-valuetext', output.value);
         return;
       }
@@ -472,8 +476,9 @@
   }
   function upgradeLabel() {
     if (draft.packs[looks.core] === looks.release) return '';
+    if (draft.packs[looks.core] === looks.naturalProfileRelease) return '试用嘴唇与下颌线';
     if (looks.hasInfantHead(draft))
-      return draft.packs[looks.core] === looks.infantRelease ? '试用婴儿后脑曲线' : '';
+      return draft.packs[looks.core] === looks.infantRelease ? '试用婴儿后脑曲线' : '试用嘴唇与下颌线';
     if (draft.base === 'baby') return '试用婴儿头型';
     if (looks.hasFacialMorphs(draft)) return '试用自然侧脸';
     if (draft.packs[looks.core] === looks.occipitalRelease) return '试用独立颧颊与五官';
@@ -519,6 +524,22 @@
   }
   function faceFields(area) {
     figureUpgrade(area);
+    const contours = document.createElement('fieldset'), title = document.createElement('legend');
+    contours.className = 'jaw-controls';
+    title.textContent = '嘴唇与下颌线';
+    const views = document.createElement('div');
+    views.className = 'category-buttons';
+    for (const [angle, label] of [[60, '斜侧 60°'], [90, '正侧 90°'], [270, '另一侧 270°']]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.dataset.profileAngle = String(angle);
+      button.onclick = () => { setView('face'); orbit(angle); };
+      views.append(button);
+    }
+    contours.append(title, views, ...Object.keys(looks.profileControls).map(slider));
+    area.append(contours);
+    orientation();
     if (looks.hasInfantHead(draft))
       area.append(presetGroup('婴儿五官', looks.infantFacePresets, 'facePreset', (p) => looks.applyFacePreset(draft, p)));
     area.append(
@@ -1635,7 +1656,7 @@
       collect('outfit', id, outfit.label, 'wear', '成套穿搭');
     for (const [id, p] of Object.entries(looks.facePresets))
       collect('facePreset', id, p.label, 'face', '五官组合');
-    for (const [key, [label, low, high]] of Object.entries(looks.morphs))
+    for (const [key, [label, low, high]] of Object.entries(faceControls))
       collect('morph', key, label, 'face', '五官微调', low + ' ' + high);
     for (const [id, preset] of Object.entries(looks.cheekPresets))
       collect('cheekPreset', id, preset.label, 'face', '颧骨与脸颊');
@@ -1774,6 +1795,19 @@
     looks.applyFacePreset(draft, featureChoices[featureExample]);
     changed();
     fields();
+  }
+  const contourOverrides = {};
+  for (const key of Object.keys(looks.profileControls)) {
+    const raw = query.get(key);
+    if (!raw?.trim()) continue;
+    const value = Number(raw), [min, max] = looks.shape[key];
+    if (Number.isFinite(value) && value >= min && value <= max)
+      contourOverrides[key] = Math.round(value * 100) / 100;
+  }
+  if (Object.keys(contourOverrides).length) {
+    Object.assign(draft.shape, contourOverrides);
+    changed();
+    if (tab === 'face') fields();
   }
   const requestedHair = query.get('hair');
   const changeHair = Object.hasOwn(looks.slots.hair, requestedHair) && requestedHair !== draft.parts.hair;
