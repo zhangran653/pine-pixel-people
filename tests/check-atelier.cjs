@@ -741,6 +741,13 @@ function checkEditor() {
       JSON.stringify(selected[key]) === JSON.stringify(oldArt[key])) &&
       ['height', 'shoulders', 'arms', 'legs'].every(key => selected.shape[key] === oldArt.shape[key]),
       'save a reusable face with the same body, wardrobe and colors');
+    const opening = byId('edit-eyeOpening');
+    opening.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    opening.value = '0.22'; opening.dispatchEvent(new Event('input'));
+    const movingFace = byId('mirror').toDataURL();
+    window.dispatchEvent(new PointerEvent('pointerup'));
+    expect(byId('mirror').toDataURL() !== movingFace && opening.value === '0.22',
+      'restore the detailed portrait at the selected value on pointer release');
     target.dataset.state = 'pass';
     target.textContent =
       'Body profiles, legacy saves, head upgrades, facial morphs, portrait styles, face auditions, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';

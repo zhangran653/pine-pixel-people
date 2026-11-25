@@ -75,6 +75,7 @@
     phase = 0.19,
     bearing = 24,
     playing = false,
+    sculpting = false,
     frame = 0,
     stamp = null,
     lastSample = -1,
@@ -182,10 +183,19 @@
       bearing,
       view,
       detail: $('fine-face').checked,
-      still: !playing,
+      still: !playing && !sculpting,
       landmarks: showJawPoints && tab === 'face'
     });
   }
+  $('editor-fields').addEventListener('pointerdown', (event) => {
+    if (tab === 'face' && view === 'face' && event.target.matches('input[type="range"]')) sculpting = true;
+  });
+  function finishSculpting() {
+    if (!sculpting) return;
+    sculpting = false;
+    show();
+  }
+  for (const event of ['pointerup', 'pointercancel', 'blur']) window.addEventListener(event, finishSculpting);
   function centimeters(doc, scale = doc.shape.height) {
     return Math.round(
       pineDesignerBody.standingHeight(doc.base, scale, looks.hasSculptedHead(doc)) *
