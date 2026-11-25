@@ -7,6 +7,25 @@ const { tmpdir } = require('node:os');
 const { resolve, join, sep } = require('node:path');
 const { pathToFileURL } = require('node:url');
 
+function loadDraft(pack) {
+  if (!new URLSearchParams(location.search).has('draft-test')) return;
+  const doc = PineLooks.withGameFace(pineFigureModels.baby);
+  doc.id = 'look_unsaved_sitter';
+  doc.label = '未入库的小芽';
+  doc.face.style = 'manga';
+  doc.face.form = 'round';
+  doc.face.formMix = .63;
+  doc.bodyFinish = 'painted';
+  doc.colors.top = '#925f78';
+  doc.parts.hat = pack.id + '/' + pack.parts[0].id;
+  doc.packs[pack.id] = pack.release;
+  doc.embeddedPacks = [pack];
+  const partner = { ...pineFigureModels.adult, label: '搭档小安' };
+  const url = new URL(location.href);
+  url.hash = new URLSearchParams({ character: JSON.stringify(doc), partner: JSON.stringify(partner) });
+  history.replaceState(null, '', url);
+}
+
 function check(studyBench) {
   const $ = id => document.getElementById(id);
   const expect = (v, m) => { if (!v) throw Error(m); };
@@ -19,7 +38,48 @@ function check(studyBench) {
   const picture = () => canvas.toDataURL();
   const linkedRecipe = side => JSON.parse(new URLSearchParams(new URL($('edit-' + side).href).hash.slice(1)).get('character'));
   try {
-    const resume = new URLSearchParams(location.search).get('resume');
+    const query = new URLSearchParams(location.search);
+    if (query.has('bad-test')) {
+      expect(!$('source-status').hidden && $('subject').value !== 'draft' && linkedRecipe('b').id, 'invalid fragment must recover with a usable standard figure');
+      $('qa').textContent = 'Recovered from an invalid draft';
+      return;
+    }
+    if (query.has('draft-test')) {
+      const packet = new URLSearchParams(location.hash.slice(1));
+      const source = PineLooks.prepare(JSON.parse(packet.get('character'))).recipe;
+      const original = linkedRecipe('a'), revised = linkedRecipe('b');
+      expect($('subject').value === 'draft' && $('before').value === 'current' && $('source-status').hidden &&
+        JSON.stringify(original) === JSON.stringify(source), 'draft comparison changed the submitted original');
+      expect(original.face.style === 'manga' && revised.face.style === 'animation' && revised.bodyFinish === 'painted' &&
+        revised.face.formMix === .63 && $('prompt').textContent.includes('左侧保留原画风'), 'full candidate must actually enable the art face');
+      expect($('action').value === 'follow-rattle' && !$('pose-note').hidden &&
+        +$('phase').value === 36.25 && +$('bearing').value === 270.5, 'duet role, phase or camera changed');
+      const link = new URL($('edit-b').href);
+      expect(link.searchParams.get('action') === 'follow-rattle' && link.searchParams.get('tab') === 'face' &&
+        Number(link.searchParams.get('phase')) === 36.25 && Number(link.searchParams.get('bearing')) === 270.5 &&
+        JSON.parse(new URLSearchParams(link.hash.slice(1)).get('partner')).label === '搭档小安', 'editor return lost companion, camera or frame');
+      choose('before','whole');
+      const old = linkedRecipe('a');
+      for (const field of ['id','label','base','gender','shape','parts','colors','embeddedPacks']) {
+        expect(JSON.stringify(old[field]) === JSON.stringify(source[field]) && JSON.stringify(revised[field]) === JSON.stringify(source[field]),
+          'look identity or portable part changed: ' + field);
+      }
+      expect(old.packs['pine-core'] === PineLooks.release && old.face.style === 'manga' && !old.bodyFinish &&
+        !old.face.form && revised.face.form === 'round' && old.face.mouth === revised.face.mouth, 'stable projection is inaccurate');
+      choose('before','finish');
+      expect(!linkedRecipe('a').bodyFinish && linkedRecipe('b').bodyFinish === 'painted', 'already-painted draft masked the paint comparison');
+      choose('before','current');
+      choose('subject','child');
+      expect($('before').value === 'whole' && $('before').querySelector('[value="current"]').disabled &&
+        !location.hash && new URLSearchParams(location.search).get('action') !== 'follow-rattle', 'left the draft with stale controls or URL');
+      choose('subject','draft');
+      expect(JSON.parse(new URLSearchParams(location.hash.slice(1)).get('character')).id === source.id, 'returning to the draft lost its shareable recipe');
+      document.querySelector('[data-mode="blind"]').click();
+      expect(!location.hash && !$('edit-a').hasAttribute('href'), 'a blind link should only contain its holdout sample');
+      $('qa').textContent = 'Replayed an unsaved costumed baby, external hat, adult caregiver, action phase and fractional angle';
+      return;
+    }
+    const resume = query.get('resume');
     if (resume === 'cast') {
       expect($('review-kind').value === 'cast' && $('progress').textContent.includes('1 / 32') &&
         $('results').hidden && !$('edit-a').hasAttribute('href'), 'separate whole-cast session did not restore');
@@ -102,6 +162,52 @@ function check(studyBench) {
     expect(!left.bodyFinish && right.bodyFinish === 'painted' && JSON.stringify({ ...left, bodyFinish: 'painted' }) === JSON.stringify(right),
       'body paint comparison must keep the exact same character');
     expect($('canvas-a').toDataURL() !== picture(), 'body paint has no visible effect');
+    choose('before','whole');
+    choose('sample-size','world');
+    choose('ink','color');
+    turn(270);
+    let nativeDimensions;
+    const heights = [];
+    for (const subject of ['adult','child','toddler-1','baby']) {
+      choose('subject',subject);
+      const w = canvas.width, h = canvas.height, floor = Math.round(h * .94);
+      const raster = canvas.getContext('2d').getImageData(0,0,w,h).data;
+      if (!nativeDimensions) nativeDimensions = [w,h];
+      expect(nativeDimensions[0] === w && nativeDimensions[1] === h, 'centimeter camera moved between age groups');
+      for (const cm of [0,50,100,150,200]) {
+        const i = 4 * ((floor-cm)*w+3);
+        expect(raster[i] === 112 && raster[i+1] === 121 && raster[i+3] === 255, 'centimeter tick missing at ' + cm);
+      }
+      let top = floor;
+      for (let y = 0; y < top; y++) for (let x = Math.floor(w/4); x < 3*w/4; x++) {
+        if (raster[4*(y*w+x)+3] > 127) { top = y; break; }
+      }
+      heights.push(floor-top);
+    }
+    expect(heights.every((h,i) => h > 20 && (!i || heights[i-1] > h)), 'age scale or sitting height lost: ' + heights);
+    choose('sample-size','64');
+    const panes = [$('canvas-a'), canvas];
+    function nativeRaster(panel) {
+      const { width:w, height:h } = panel;
+      return { w,h,data:new Uint32Array(panel.getContext('2d').getImageData(0,0,w,h).data.buffer) };
+    }
+    function isCrop(full, crop, x, y) {
+      for (let j=0; j<crop.h; j++) for (let i=0; i<crop.w; i++)
+        if (full.data[(y+j)*full.w+x+i] !== crop.data[j*crop.w+i]) return false;
+      return true;
+    }
+    for (const subject of ['adult-female','baby']) {
+      choose('subject',subject);
+      const full = panes.map(nativeRaster);
+      choose('framing','head');
+      const crops = panes.map(nativeRaster);
+      expect(crops.every((c,i) => c.w < full[i].w && c.h < full[i].h && c.data.filter(v => v >>> 24 > 127).length > 60), 'empty head crop');
+      let match = false;
+      for (let y=0; !match && y<=full[0].h-crops[0].h; y++) for (let x=0; !match && x<=full[0].w-crops[0].w; x++)
+        match = panes.every((_, i) => isCrop(full[i],crops[i],x,y));
+      expect(match, 'head framing must use the identical source pixels and crop window on both sides for ' + subject);
+      choose('framing','body');
+    }
     choose('before','1.19.2');
     for (const s of ['chef','hoodie','child','baby']) {
       choose('subject',s);
@@ -175,7 +281,10 @@ function check(studyBench) {
 const dir = mkdtempSync(join(tmpdir(), 'pine-figure-qa-')), root = resolve(__dirname, '..');
 try {
   const file = join(dir, 'page.html');
+  const setup = join(dir, 'draft-fixture.js');
+  writeFileSync(setup, '(' + loadDraft.toString() + ')(' + readFileSync(join(root,'packs/creek-hats.json'),'utf8') + ');');
   const page = readFileSync(join(root, 'figure-study.html'), 'utf8')
+    .replace('<script defer src="figure-study.js">', '<script defer src="' + pathToFileURL(setup).href + '"></script><script defer src="figure-study.js">')
     .replace('<head>', '<head><base href="' + pathToFileURL(root+sep).href + '"><script>localStorage.setItem("pine.figureStudy.1.18.0-1.19.0.v1",JSON.stringify({salt:77,votes:{"adult/0":"b"}}))</script>')
     .replace('</body>', '<output id="qa"></output><script>window.addEventListener("load",()=>(' +
       check.toString() + ')(' + JSON.stringify(process.argv.includes('--bench-body') ? 'body' : process.argv.includes('--bench')) + '));</script></body>');
@@ -185,7 +294,8 @@ try {
   const flags = ['--headless','--disable-gpu','--no-first-run','--force-device-scale-factor=1','--window-size=1100,850',
     '--user-data-dir=' + join(dir,'profile'),'--dump-dom',pathToFileURL(file).href];
   if (process.env.CI === 'true' && process.platform === 'linux') flags.unshift('--no-sandbox');
-  for (const query of ['?subject=baby&bearing=270&before=1.19.0', '?mode=blind&resume=1', '?mode=blind&review=cast&case=child%2F5&resume=cast']) {
+  for (const query of ['?subject=baby&bearing=270&before=1.19.0', '?mode=blind&resume=1', '?mode=blind&review=cast&case=child%2F5&resume=cast',
+    '?draft-test=1&before=current&action=follow-rattle&phase=36.25&bearing=270.5&framing=head', '?bad-test=1#character=%7B']) {
     const args = [...flags.slice(0,-1), flags.at(-1) + query];
     const r = spawnSync(chrome, args, { encoding:'utf8', maxBuffer:4000000, timeout:120000 });
     const msg = r.stdout?.match(/<output id="qa">([^<]*)<\/output>/)?.[1];

@@ -29,6 +29,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 试作人物还可在「体型 → 身体着色」选「四肢与衣边色块」。手臂、膝盖和手掌的明暗随人物转动，短袖、短裤与七分裤在实际穿到的位置收边。造型对照台提供同配方开关，以及单独的整体人物盲评。后者让稳定版和试作各自按相同种子抽取人物，比较脸、身材和穿搭。[儿童 06 着色对照](http://127.0.0.1:8000/figure-study.html?subject=child-6&before=finish&size=128) · [整体人物盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=cast&size=128) · [两套生成器的八组实拍](studies/pixel-structure/random-cast.webp)
 
+在创作室随机或编辑人物后，点「对照当前人物」。两侧带入当前草稿、穿搭、视角和动作帧。用「统一厘米尺」看不同年龄的身高与坐姿，用「头肩」放大全身帧里的原始像素。任一侧都可以带回创作室继续编辑。[成人到坐姿婴儿的同尺实拍](studies/pixel-structure/whole-figure.webp) · [看婴儿的侧脸与颈部](http://127.0.0.1:8000/figure-study.html?subject=baby&before=whole&framing=head&bearing=270&size=128) · [打开全身厘米尺](http://127.0.0.1:8000/figure-study.html?subject=toddler-1&before=whole&bearing=315&size=world)
+
 ### 1.19.2 人体建模台
 
 先选成人女性、成人男性、儿童或婴儿，也可选幼儿。转到侧面，拖动「下颌开合」，可以同时看头骨如何转动、人物的下唇和下巴如何跟随。切换到骨架、肌肉或无衣体表，再播放动作，两边会保持相同的镜头和进度。婴儿可从坐地待机开始查看。[打开人体建模台](http://127.0.0.1:8000/anatomy-study.html) · [五层实机截图](studies/pixel-structure/layers.webp) · [看婴儿侧面坐姿](http://127.0.0.1:8000/anatomy-study.html?base=baby&layer=form&bearing=270)

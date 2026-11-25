@@ -88,6 +88,7 @@
     swatchKey = '',
     swatchFrame = 0;
   const draftKey = 'pinePixel.atelier.draft.v1';
+  let transferredPartner;
   const readEdit = () => ({ doc: clone(draft), key: cardKey, dirty, saved });
   let previousEdit;
   const edits = PineWorkspace.editHistory(readEdit, state => {
@@ -162,6 +163,22 @@
   }
   function compareDoc() {
     return entries.get($('compare').value);
+  }
+  function studyLens() {
+    if (!draft) return;
+    const paintedFace = draft.bodyFinish === 'painted' && looks.portraitStyleOf(draft) === 'animation';
+    const before = draft.packs[looks.core] === looks.release || paintedFace ? 'whole' : 'current';
+    $('figure-link').search = new URLSearchParams({ before, subject: 'draft', action, phase: String(phase * 100),
+      bearing: String(((bearing % 360) + 360) % 360), framing: view === 'body' ? 'body' : 'head', size: '128' });
+  }
+  function studyLink() {
+    if (!draft) return;
+    const portable = looks.prepare({ ...draft, label: draft.label.trim() || '未命名形象' }).recipe;
+    const packet = new URLSearchParams({ character: JSON.stringify(portable) });
+    const other = compareDoc();
+    if (other) packet.set('partner', JSON.stringify(looks.prepare(other).recipe));
+    $('figure-link').hash = packet.toString();
+    studyLens();
   }
   function show() {
     const other = compareDoc(),
@@ -246,6 +263,7 @@
   }
   function setView(next) {
     view = next;
+    studyLens();
     $('mirror').dataset.framing = view;
     for (const b of document.querySelectorAll('[data-view]'))
       b.setAttribute('aria-pressed', String(b.dataset.view === view));
@@ -261,6 +279,7 @@
     $('portrait-style').value = looks.portraitStyleOf(draft);
     const trial = draft.packs[looks.core] === looks.gameFaceRelease && looks.portraitStyleOf(draft) === 'animation';
     $('anatomy-link').href = 'anatomy-study.html#' + new URLSearchParams({character: JSON.stringify(draft)});
+    studyLink();
     $('try-figure').disabled = trial;
     $('try-figure').textContent = trial ? '已启用美术基础脸' : '试用动画美术脸型';
     measurements();
@@ -1446,6 +1465,10 @@
       ['预置', looks.templates.map((d) => ['preset:' + d.id, d])]
     ];
     compare.replaceChildren(new Option('无对照', ''));
+    if (transferredPartner) {
+      entries.set('review:partner', transferredPartner);
+      compare.add(new Option('随配方带入 · ' + transferredPartner.label, 'review:partner'));
+    }
     const era = $('shelf-era').value,
       terms = $('look-query').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
     let matchCount = 0;
@@ -1633,15 +1656,18 @@
     action = $('action').value;
     phase = action === 'drink' ? 0.51 : PineMotion.actions.get(action).roles.length === 2 ? 0.48 : 0.37;
     stamp = null;
+    studyLens();
     show();
   };
   $('compare').onchange = () => {
     measurements();
+    studyLink();
     show();
   };
   $('play-look').onclick = togglePlay;
   function orbit(angle) {
     bearing = angle;
+    studyLens();
     orientation();
     show();
   }
@@ -1745,6 +1771,8 @@
   }
   $('studio-link').onclick = (e) => transfer(e, true);
   $('three-link').onclick = (e) => transfer(e, false);
+  for (const event of ['focus','pointerdown','click','auxclick','contextmenu'])
+    $('figure-link').addEventListener(event, studyLink);
   document.addEventListener('visibilitychange', () => {
     stamp = null;
     schedule();
@@ -1931,8 +1959,12 @@
   const stored = wardrobe.saved.get(query.get('saved'));
   let transferredLook;
   try {
-    const portable = new URLSearchParams(location.hash.slice(1)).get('character');
-    if (portable) transferredLook = looks.prepare(JSON.parse(portable)).recipe;
+    const packet = new URLSearchParams(location.hash.slice(1));
+    if (packet.has('character')) {
+      transferredLook = looks.prepare(JSON.parse(packet.get('character'))).recipe;
+      for (const pack of transferredLook.embeddedPacks || []) wardrobe.installPack(pack, false);
+      if (packet.has('partner')) transferredPartner = looks.prepare(JSON.parse(packet.get('partner'))).recipe;
+    }
   } catch (e) {
     note(e.message, true);
   }
@@ -1942,11 +1974,15 @@
     (Object.hasOwn(pineFigureModels, query.get('model')) && pineFigureModels[query.get('model')]) ||
     looks.templates.find((doc) => doc.id === query.get('preset')) ||
     looks.templates[0];
-  activate(first, (stored ? 'saved:' : 'preset:') + first.id, !!stored);
+  if (transferredLook) {
+    const availableId = !wardrobe.saved.has(first.id) && !looks.templateById.has(first.id);
+    activate(first, '', false, availableId);
+  } else activate(first, (stored ? 'saved:' : 'preset:') + first.id, !!stored);
   if (query.get('figure') === 'study') tryFigure();
   const partner = looks.templates.find((doc) => doc.id !== first.id && doc.id === query.get('compare'));
-  if (partner) {
-    $('compare').value = 'preset:' + partner.id;
+  if (partner || transferredPartner) {
+    $('compare').value = transferredPartner ? 'review:partner' : 'preset:' + partner.id;
+    studyLink();
     measurements();
     show();
   }
@@ -2011,8 +2047,15 @@
     $('action').value = requestedAction;
     $('action').dispatchEvent(new Event('change'));
   }
+  const percent = query.get('phase');
+  if (requestedAction === action && percent !== null && percent.trim() &&
+      Number.isFinite(Number(percent)) && Number(percent) >= 0 && Number(percent) <= 100) {
+    phase = Number(percent) / 100;
+    studyLens();
+    show();
+  }
   const openingAngle = Number(query.get('bearing') || NaN);
-  if (Number.isInteger(openingAngle) && openingAngle >= 0 && openingAngle <= 360) orbit(openingAngle);
+  if (Number.isFinite(openingAngle) && openingAngle >= 0 && openingAngle <= 360) orbit(openingAngle);
   else orientation();
   if (query.get('play') === '1' && requestedAction === action) togglePlay();
   try {

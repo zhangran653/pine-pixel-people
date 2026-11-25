@@ -812,10 +812,22 @@ function checkEditor() {
     const formMix = byId('edit-formMix');
     expect(!formMix.disabled, 'selected art base enables its blend control');
     formMix.value = '0.65'; formMix.dispatchEvent(new Event('input'));
+    const reviewLink = byId('figure-link');
+    reviewLink.dispatchEvent(new Event('focus'));
+    let reviewUrl = new URL(reviewLink.href);
+    const submitted = JSON.parse(new URLSearchParams(reviewUrl.hash.slice(1)).get('character'));
+    expect(reviewUrl.searchParams.get('subject') === 'draft' && reviewUrl.searchParams.get('before') === 'current' &&
+      reviewUrl.searchParams.get('framing') === 'head' && submitted.id === oldArt.id && submitted.face.form === 'angular' &&
+      submitted.face.formMix === .65 && PineWardrobe.saved.get(oldArt.id).face.formMix !== .65,
+      'the comparison opens the current unsaved sculpture without updating the wardrobe');
     byId('tab-shape').click();
     const bodyFinish = byId('edit-body-finish');
     expect(bodyFinish.value === '', 'existing recipes keep their original body paint');
     bodyFinish.value = 'painted'; bodyFinish.dispatchEvent(new Event('change'));
+    reviewUrl = new URL(reviewLink.href);
+    expect(reviewUrl.searchParams.get('before') === 'whole' &&
+      JSON.parse(new URLSearchParams(reviewUrl.hash.slice(1)).get('character')).bodyFinish === 'painted',
+      'a finished trial opens against the stable renderer');
     const assembly = { torso: 'broad', arms: 'slender', legs: 'strong' };
     for (const [slot, value] of Object.entries(assembly)) {
       const field = byId('edit-anatomy-' + slot);
