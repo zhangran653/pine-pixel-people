@@ -5,7 +5,9 @@
   const ages = { adult: '成人', child: '儿童', toddler: '幼儿', baby: '婴儿' };
   const rows = { adult: [0, 484], child: [489, 363], baby: [868, 218] };
   const originals = { hoodie: 'look_programmer', chef: 'look_chef' };
-  const key = 'pine.figureStudy.1.18.0-1.19.0.v1';
+  const stableRelease = '1.18.0', firstStudy = looks.tailoredRelease, currentStudy = looks.proportionStudyRelease;
+  const key = 'pine.figureStudy.' + stableRelease + '-' + currentStudy + '.v1';
+  const holdout = 'pine/figure-holdout/' + currentStudy + '/';
   const search = new URLSearchParams(location.search);
   const stages = [$('canvas-a'), $('canvas-b')];
   let mode = search.get('mode') === 'blind' ? 'blind' : 'model';
@@ -43,10 +45,12 @@
       url.searchParams.set('mode','blind');
       url.searchParams.set('case',session.current);
       url.searchParams.delete('subject');
+      url.searchParams.delete('before');
     } else {
       url.searchParams.delete('mode');
       url.searchParams.delete('case');
       url.searchParams.set('subject',$('subject').value);
+      url.searchParams.set('before',$('before').value);
     }
     url.searchParams.set('bearing',$('bearing').value);
     history.replaceState(null,'',url);
@@ -62,10 +66,10 @@
   }
   function blindPair() {
     const base = session.current.split('/')[0];
-    const seed = hash('pine/figure-holdout/v1/' + session.current);
+    const seed = hash(holdout + session.current);
     const options = { base, seed, portrait: 'animation', style: 'natural' };
-    const old = looks.randomCharacter({ ...options, release: '1.18.0' });
-    const revised = looks.randomCharacter({ ...options, release: looks.tailoredRelease });
+    const old = looks.randomCharacter({ ...options, release: stableRelease });
+    const revised = looks.randomCharacter({ ...options, release: currentStudy });
     return flipped(session.current) ? [revised, old] : [old, revised];
   }
   // Reproduce the original consecutive 1.18 random-contact sheet. The eight recipes
@@ -79,7 +83,7 @@
       return state / 4294967296;
     };
     for (const [n, label] of labels.entries()) {
-      const doc = looks.randomCharacter({ random, release: '1.18.0', source: looks.templateById.get('look_hazel'),
+      const doc = looks.randomCharacter({ random, release: stableRelease, source: looks.templateById.get('look_hazel'),
         locks: [], style: 'natural', portrait: 'animation' });
       const id = 'baseline-' + (n + 1);
       doc.id = 'look_baseline_' + (n + 1);
@@ -91,7 +95,9 @@
   function modelPair() {
     const subject = $('subject').value;
     const doc = pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
-    return [doc, looks.withFigureStudy(doc)];
+    const baseline = structuredClone(doc);
+    baseline.packs[looks.core] = $('before').value;
+    return [baseline, looks.withFigureStudy(doc)];
   }
 
   function stop() {
@@ -104,6 +110,7 @@
     stop();
     const blind = mode === 'blind';
     $('model-field').hidden = blind;
+    $('before-field').hidden = blind;
     $('age-field').hidden = !blind;
     $('review').hidden = !blind;
     $('age').value = session.current.split('/')[0];
@@ -115,10 +122,10 @@
       $('guide-img').style.transform = 'translateY(' + (-100 * y / 1086) + '%)';
       $('guide-label').textContent = ages[subject] + '造型设定稿';
     }
-    $('title-a').textContent = blind ? 'A' : '1.18 · 原版';
-    $('title-b').textContent = blind ? 'B' : '1.19 · 试作';
+    $('title-a').textContent = blind ? 'A' : $('before').selectedOptions[0].textContent;
+    $('title-b').textContent = blind ? 'B' : currentStudy + ' · 新试作';
     $('prompt').textContent = blind
-      ? '同年龄、同一种子，分别由两套随机器生成人物。可切换视角与动作来比较。'
+      ? '本批比较 1.18 稳定版与 1.19.1 新试作。两侧使用相同年龄和种子，评审进度独立保存。'
       : '同一人物配方、镜头与动作帧，分别用两版实时切片绘制。';
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     recipes = blind ? blindPair() : modelPair();
@@ -220,8 +227,8 @@
     $('saved').textContent = !storageOK ? '本次评审只保存在当前页面' : done ? '评审已完成' : vote ? '本组偏好已保存' : '进度自动保存在此浏览器';
     $('results').hidden = !done;
     if (done) {
-      $('title-a').textContent = flipped(session.current) ? 'A · 1.19 试作' : 'A · 1.18 原版';
-      $('title-b').textContent = flipped(session.current) ? 'B · 1.18 原版' : 'B · 1.19 试作';
+      $('title-a').textContent = flipped(session.current) ? 'A · ' + currentStudy : 'A · ' + stableRelease;
+      $('title-b').textContent = flipped(session.current) ? 'B · ' + stableRelease : 'B · ' + currentStudy;
       const counts = $('counts');
       counts.replaceChildren();
       for (const [base, label] of Object.entries(ages)) {
@@ -278,18 +285,18 @@
     const pairs = ids.map(id => {
       const [base, ordinal] = id.split('/');
       const vote = session.votes[id], newOnLeft = flipped(id);
-      return { base, number: Number(ordinal) + 1, seed: hash('pine/figure-holdout/v1/' + id),
-        a: newOnLeft ? '1.19.0' : '1.18.0', b: newOnLeft ? '1.18.0' : '1.19.0', vote };
+      return { base, number: Number(ordinal) + 1, seed: hash(holdout + id),
+        a: newOnLeft ? currentStudy : stableRelease, b: newOnLeft ? stableRelease : currentStudy, vote };
     });
-    const file = new Blob([JSON.stringify({ study: 'pine-figure-holdout-v1', pairs }, null, 2)], { type: 'application/json' });
+    const file = new Blob([JSON.stringify({ study: 'pine-figure-holdout-' + currentStudy, pairs }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(file);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'pine-figure-review.json';
+    link.download = 'pine-figure-review-' + currentStudy + '.json';
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  $('subject').onchange = () => { syncAddress(); setSample(); };
+  $('before').onchange = $('subject').onchange = () => { syncAddress(); setSample(); };
   $('action').onchange = () => { startClip(); refreshLinks(); };
   $('phase').oninput = () => { stop(); rebuildFrame(); };
   $('bearing').oninput = () => { draw(); refreshLinks(); };
@@ -318,6 +325,7 @@
     cancelAnimationFrame(renderRequest);
     renderRequest = requestAnimationFrame(draw);
   });
+  $('before').value = search.get('before') === stableRelease ? stableRelease : firstStudy;
   const initialAngle = Number(search.get('bearing'));
   if (Number.isInteger(initialAngle) && initialAngle >= 0 && initialAngle < 360) $('bearing').value = initialAngle;
   if ([...$('subject').options].some(o => o.value === search.get('subject'))) $('subject').value = search.get('subject');

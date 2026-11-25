@@ -233,6 +233,31 @@ const pinePixelPortrait = (() => {
     if (v > 0.72 && Math.abs(irisX) < 0.77) return k.eyes;
     return Math.abs(irisX) < 0.58 ? k.pupil : k.irisShadow;
   }
+  // One convex iris per eye, clipped by both lids. The iris has a fixed vertical
+  // radius across the whole globe, including when the eyelid closes or turns away.
+  function orbitEye(shape, off, h, blink, side, k, pitch) {
+    const q = off / shape.width;
+    if (Math.abs(q) >= 1) return 0;
+    const arch = (1 - q * q) ** (shape.infant ? 0.59 : 0.70);
+    const up = 1.17 * shape.up, down = 1.32 * shape.down;
+    const cant = shape.tilt * q + (shape.curve - 0.65) * 0.035 * arch;
+    const y = h - cant;
+    const top = up * arch, bottom = -down * arch;
+    const shut = 0.78 * bottom + 0.22 * top;
+    const lid = top + (shut - top) * blink, floor = bottom + (shut - bottom) * blink;
+    const stroke = Math.max(0.013, Math.min(0.034, 0.58 * pitch)) * (0.68 + 0.32 * arch);
+    if (y < floor - stroke * 0.24 || y > lid + stroke) return 0;
+    if (y > lid - stroke || blink > 0.94) return k.lash;
+    const ix = (q - 0.085) / (shape.infant ? 0.74 : 0.68);
+    const iz = (y - 0.05 * up) / (0.53 * (up + down));
+    const radius = ix * ix + iz * iz;
+    if (radius > 1) return y > 0.58 * top || q > 0.83 ? k.scleraShade : k.sclera;
+    const glint = clamp(pitch / (up + down) * 0.94, 0.16, 0.32);
+    if (blink < 0.52 && ((ix * side + 0.27) / glint) ** 2 + ((iz - 0.29) / glint) ** 2 < 1) return k.glint;
+    if (radius > 0.82) return k.irisRim;
+    if ((ix / 0.53) ** 2 + ((iz - 0.09) / 0.72) ** 2 < 1) return k.pupil;
+    return iz > 0.18 ? k.irisShadow : iz < -0.38 ? k.irisLight : k.eyes;
+  }
   function modelMouth(name, row, lateral, h, infant, k, pitch) {
     if (infant && (name === 'smile' || name === 'soft-smile'))
       return mouth(name, row, lateral, h, infant, k);
@@ -541,5 +566,5 @@ const pinePixelPortrait = (() => {
     ...Array.from({ length: 8 }, (_, i) => 'weave' + (i + 1)),
     ...Array.from({ length: 8 }, (_, i) => 'lock' + (i + 1)),
   ];
-  return { eye, modelEye, modelMouth, brow, mouth, ear, dye, complexion, sweptBun, templeLocks, painted };
+  return { eye, modelEye, orbitEye, modelMouth, brow, mouth, ear, dye, complexion, sweptBun, templeLocks, painted };
 })();

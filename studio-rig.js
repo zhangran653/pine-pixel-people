@@ -218,6 +218,7 @@ const studioRig = (() => {
       return { side, shoulder, elbow, wrist, hand };
     });
     const result = { torso, head, feet, legs, arms, blink: channels.blink || 0, props: [], bottle: null, bob: 0 };
+    if (channels.floorSeat) result.floorSeat = true;
     if (rig.jawPivot) {
       const open = clamp(channels.jawOpen || 0);
       result.jawOpen = open;

@@ -223,10 +223,12 @@ const pineFigurePaint = (() => {
   }
   const tucked = new Set(['oxford', 'knit-vest', 'polo', 'blazer', 'tee', 'rugby', 'breton']);
   const longCoats = new Set(['trench', 'cross-robe', 'brocade', 'lab-coat', 'apron', 'mantle', 'kimono', 'tunic']);
-  function hem(style, base) {
+  const highWaists = new Set(['oxford', 'polo', 'blazer', 'knit-vest']);
+  function hem(style, base, proportionStudy = false) {
     if (longCoats.has(style)) return 0;
     const lift = tucked.has(style) ? 0.24 : knitwear.has(style) ? 0.17 : 0.115;
-    return lift * { adult: 1, child: 0.87, toddler: 0.58, baby: 0.43 }[base];
+    const highWaist = proportionStudy && base === 'adult' && highWaists.has(style);
+    return lift * { adult: 1, child: 0.87, toddler: 0.58, baby: 0.43 }[base] + (highWaist ? .07 : 0);
   }
   function drape(style, t, hemline) {
     const h = (t - hemline) / (1 - hemline);
@@ -461,7 +463,7 @@ const pineFigurePaint = (() => {
   };
   const widePants = new Set(['wide-leg', 'cuffed-denim', 'cargo', 'bib-overalls']);
   function cutLink(brush, torso, paint, a, b, r0, r1, width, pigment) {
-    const { k, region, side, style, garment, bend } = paint;
+    const { k, region, side, style, garment, bend, seated = 0 } = paint;
     const { types, set, bias } = inks(k);
     const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
     const length = Math.hypot(dx, dy, dz);
@@ -533,10 +535,14 @@ const pineFigurePaint = (() => {
         const jointFold = (1 - smooth(Math.abs(crease), .025, .15)) * smooth(outer, -.88, .22);
         const pressing = !sleeve && !upper ? smooth(outer, -.67, .36) * hemBreak : 0;
         const rim = smooth(Math.abs(across), .78, .99) * (key < 0 ? .88 : .48);
+        // Where a soft trouser leg folds up against the bodice, a curved
+        // contact shadow separates the thigh even in a one-colour playsuit.
+        const lapFold = seated ? seated * smooth(nz, .46, .84) * smooth(outer, -.43, .48) *
+          (1 - smooth(t, .62, .96)) : 0;
         const cuff = !upper && !skin && (rolled || gathered || style === 'cuffed-denim');
         const edge = cuff ? 1 - smooth(Math.abs(t - (rolled ? .35 : .91) + .025 * outer), .014, .045) : 0;
         return swatch(set[group], 3.9 + key - occlusion + .78 * bias[material] -
-          garment.fold * ((1.25 + 1.35 * bend) * jointFold + 1.58 * pressing) - rim + (cuff ? .46 * band - 1.37 * edge : 0));
+          garment.fold * ((1.25 + 1.35 * bend) * jointFold + 1.58 * pressing) - rim - 1.88 * lapFold + (cuff ? .46 * band - 1.37 * edge : 0));
       });
   }
 
@@ -660,6 +666,56 @@ const pineFigurePaint = (() => {
       }
     };
   }
+  // The heel and the buttocks support a floor sitter. Rotate the last about the
+  // anatomical ankle. Leave links (boot shafts) on the lower leg so their cuffs
+  // continue to meet the shin when the baby flexes a foot.
+  function seatedFoot(brush, foot, forward, weight) {
+    const flex = studioRig.frame(foot, [0, 0, 0], 0, -.82 * forward * weight, 0);
+    function rolled(method, args) {
+      brush.frame(flex);
+      method(...args);
+      brush.frame(null);
+    }
+    return {
+      ...brush,
+      stamp(...args) { rolled(brush.stamp, args); },
+      blob(...args) { rolled(brush.blob, args); }
+    };
+  }
+
+  // A padded seat resting on the floor has a low, broad contact patch. Sample
+  // in a horizontal frame even as the torso rolls with the baby's breathing.
+  const seatSections = cutRings([[0, .56, .55, .08], [.09, .81, .80, .06],
+    [.28, 1.0, 1.0, .035], [.49, 1.06, .99, .01],
+    [.73, .94, .91, 0], [.90, .74, .71, 0], [1, .41, .46, 0]]);
+  function infantLap(k, u, v, h) {
+    // Knit pants meet the belly in a soft fold, with the dye continuous over the hip.
+    const shadow = (1 - smooth(h, .04, .49)) * .45;
+    return swatch(inks(k).set.trouser, 3.72 + .78 * u - 1.25 * v + .26 * h - shadow);
+  }
+  function infantSeat(brush, k, pose, rig, depth, width, hipHeight, load) {
+    const hip = studioRig.point(pose.torso, rig.pelvis);
+    const fx = pose.torso[0], fy = pose.torso[4], horizontal = Math.hypot(fx, fy) || 1;
+    const co = fx / horizontal, si = fy / horizontal;
+    const floor = Math.min(pose.feet[0][2], pose.feet[1][2]) - rig.ankle;
+    const bottom = mix(hip[2] - .79 * hipHeight, floor, load);
+    const top = hip[2] + .86 * hipHeight;
+    if (top <= bottom) return;
+    const center = .25 * depth * load, reach = 1.37 * Math.max(depth, width);
+    const ramp = inks(k).set.trouser;
+    brush.frame(null);
+    brush.stamp(hip[0] - reach, hip[0] + reach, hip[1] - reach, hip[1] + reach, bottom, top,
+      (x, y, z) => {
+        const h = (z - bottom) / (top - bottom);
+        const row = seatSections[clamp(Math.round(96*h), 0, 96)];
+        const dx = x - hip[0], dy = y - hip[1];
+        const front = (dx*co + dy*si - center - row[2]*depth) / (depth * row[0]);
+        const side = (-dx*si + dy*co) / (width * row[1]);
+        if (front*front + side*side > 1) return 0;
+        const contact = (1 - smooth(h, .04, .28)) * 1.15;
+        return swatch(ramp, 3.85 + .72 * front - 1.19 * side + .65 * h - contact);
+      });
+  }
   function shoeBrush(brush, k, foot, length, width, ankle, direction, side, style, tailored = false) {
     const { set, types, bias } = inks(k);
     const floor = foot[2] - ankle;
@@ -750,6 +806,9 @@ const pineFigurePaint = (() => {
     neckline,
     hand,
     shoeBrush,
+    infantSeat,
+    infantLap,
+    seatedFoot,
     luggageBrush
   };
 })();

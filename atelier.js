@@ -259,7 +259,7 @@
     previousEdit = readEdit();
     $('mirror-name').textContent = draft.label || '未命名形象';
     $('portrait-style').value = looks.portraitStyleOf(draft);
-    const trial = draft.packs[looks.core] === looks.tailoredRelease;
+    const trial = draft.packs[looks.core] === looks.proportionStudyRelease;
     $('try-figure').disabled = trial;
     $('try-figure').textContent = trial ? '已启用新版人物造型' : '试用新版人物造型';
     measurements();
@@ -496,7 +496,7 @@
     return group;
   }
   function upgradeLabel() {
-    if ([looks.release, looks.tailoredRelease].includes(draft.packs[looks.core])) return '';
+    if ([looks.release, looks.tailoredRelease, looks.proportionStudyRelease].includes(draft.packs[looks.core])) return '';
     if (draft.packs[looks.core] === looks.pixelRelease) return '试用全身像素画风';
     if (draft.packs[looks.core] === looks.facePlaneRelease) return '试用像素笔触';
     if ([looks.illustratedRelease, looks.silhouetteRelease].includes(draft.packs[looks.core]))
@@ -554,7 +554,7 @@
     const guide = $('turnaround-guide').content.firstElementChild.cloneNode(true);
     const babyGuide = draft.base === 'baby' || draft.base === 'toddler';
     guide.dataset.sitter = babyGuide ? 'baby' : 'adult';
-    if ([looks.pixelRelease, looks.release, looks.tailoredRelease].includes(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
+    if ([looks.pixelRelease, looks.release, looks.tailoredRelease, looks.proportionStudyRelease].includes(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
       guide.dataset.art = 'pixel';
       const comparison = guide.querySelector('.guide-comparison');
       comparison.href = 'pixel-face-before-after.webp';
@@ -1380,7 +1380,7 @@
     heading();
   }
   function tryFigure() {
-    if (draft.packs[looks.core] === looks.tailoredRelease) return;
+    if (draft.packs[looks.core] === looks.proportionStudyRelease) return;
     draft = looks.withFigureStudy(draft);
     changed();
     fields();

@@ -14,7 +14,9 @@ const pinePortraitStyles = (() => {
   const pixelRelease = '1.17.0';
   const figureRelease = '1.18.0';
   const tailoredRelease = '1.19.0';
-  const hasPixelFace = pin => pin === pixelRelease || pin === figureRelease || pin === tailoredRelease;
+  const proportionStudyRelease = '1.19.1';
+  const hasTailoredFigure = pin => pin === tailoredRelease || pin === proportionStudyRelease;
+  const hasPixelFace = pin => pin === pixelRelease || pin === figureRelease || hasTailoredFigure(pin);
   const portraitStyles = { animation: '立体动画', game: '游戏立绘', manga: '漫画', natural: '自然' };
   function portraitStyle(recipe) {
     const pin = recipe.packs?.['pine-core'];
@@ -26,16 +28,19 @@ const pinePortraitStyles = (() => {
     let p = proportions[infant ? 'baby' : 'standard'];
     if (infant && (pin === facePlaneRelease || hasPixelFace(pin))) p = { ...p, eyeCenter: 0.478, eyeWidth: 1.08, eyeOpen: 1.14,
       browWidth: 0.77, browHeight: 0.91, noseLength: 0.72, noseReach: 0.72, lipWidth: 0.92, lipHeight: 0.97 };
-    if (pin === tailoredRelease && style === 'animation') {
+    if (hasTailoredFigure(pin) && style === 'animation') {
       const young = base === 'child' || base === 'toddler';
       // The turnaround gives the iris more vertical room while leaving clean skin
       // between lid and brow. The rim and nose share a smaller plane on young faces.
-      return { ...p, headWidth: infant ? 1.015 : young ? 0.975 : 0.935,
+      const study = pin === proportionStudyRelease;
+      const headWidth = study ? { baby: 1.03, toddler: 1.045, child: 1.055, adult: 0.993 }[base]
+        : infant ? 1.015 : young ? 0.975 : 0.935;
+      return { ...p, headWidth,
         eyeCenter: infant ? 0.485 : 0.498, eyeWidth: p.eyeWidth * (young ? 1.08 : 1.03),
         eyeOpen: p.eyeOpen * (infant ? 1.17 : young ? 1.27 : 1.22),
         browWidth: p.browWidth * 0.89, browHeight: p.browHeight * 1.06,
         noseWidth: p.noseWidth * (infant ? 1.15 : 0.94), noseLength: p.noseLength * (infant ? 0.85 : 0.92),
-        noseReach: p.noseReach * (infant ? 0.83 : 0.91), lipWidth: p.lipWidth * (infant ? 1.2 : 1.01) };
+        noseReach: p.noseReach * (study ? (infant ? 1.17 : 1.06) : (infant ? 0.83 : 0.91)), lipWidth: p.lipWidth * (infant ? 1.2 : 1.01) };
     }
     if (style === 'animation') return { ...p, headWidth: { baby: 0.916, toddler: 0.934, child: 0.95, adult: 0.938 }[base],
       eyeWidth: p.eyeWidth * 1.09, eyeOpen: p.eyeOpen * 1.09,
@@ -712,7 +717,7 @@ const pinePortraitStyles = (() => {
   }
   return {
     proportions,
-    illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, figureRelease, tailoredRelease, hasPixelFace, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
+    illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, figureRelease, tailoredRelease, proportionStudyRelease, hasTailoredFigure, hasPixelFace, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
     illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors,
     morphs,
     profileControls,

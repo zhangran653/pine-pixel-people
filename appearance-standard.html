@@ -218,7 +218,7 @@
         <h3>1.19 人物造型试作</h3>
         <p>卷袖衬衫、儿童套头衫和婴儿棉套装由普通部件组成，设定稿记录正面、45°、侧面和背面。设计新部件时用相同姿态、角度和像素高度比对，在 64 和 128 像素检查剪影、亮暗分组、袖口与手、下巴到颈部的轮廓。用自然待机、抬手和坐下检验肩袖与裤腿，再转一圈查看遮挡。<a href="figure-model-guide.webp">分龄美术设定稿</a> · <a href="figure-study.html">同配方实机对照</a></p>
         <p>普通侧分与短碎发取自四向稿的发际、轮廓和发束色阶。<code>python tools/bake-model-short-hair.py</code> 用 Pillow 和 NumPy 重新生成截面数据。浏览器按头颅尺寸贴合发根，使用人物自己的发色着色；同一份体积可从任意方位查看。婴儿的卷发沿婴儿头部截面单独绘制。</p>
-        <p><code>PineLooks.withFigureStudy(recipe)</code> 复制整个人物配方并将 <code>pine-core</code> 锁定在 <code>1.19.0</code>。使用 <code>PineLooks.randomCharacter({ release: PineLooks.tailoredRelease, base: 'child', seed: 42 })</code> 可复现同一个随机儿童。种子为 0 至 4294967295 的整数。保存或跨版本分享角色时应携带完整 JSON。旧版人物按照配方中登记的版本绘制。</p>
+        <p><code>PineLooks.withFigureStudy(recipe)</code> 复制整个人物配方并将 <code>pine-core</code> 锁定在 <code>1.19.1</code>。使用 <code>PineLooks.randomCharacter({ release: PineLooks.proportionStudyRelease, base: 'child', seed: 42 })</code> 可复现同一个随机儿童。种子为 0 至 4294967295 的整数。<code>PineLooks.tailoredRelease</code> 指向首版试作 1.19.0。保存或跨版本分享角色时应携带完整 JSON。旧版人物按照配方中登记的版本绘制。</p>
         <p>同配方模式单独检验画法。盲评模式以相同年龄和种子分别运行两个版本的随机器，比较生成系统的整体效果。成人、儿童、幼儿、婴儿各有八对，每组随机排列左右次序。建议各年龄组至少有六对获评新版更协调，再考虑升级默认；继续保留动作、接触点及运行耗时检查。<a href="figure-study.html?mode=blind">进入分龄盲评</a></p>
         <p>从 <code>pine-core 1.18.0</code> 起，共用的人物画法覆盖头发、上衣、四肢、鞋和随身配件。下图来自实时人物切片。成人看手机、孩子跳步和婴儿坐着时，都使用各自年龄的骨架。</p>
         <img src="pixel-figure-cast.webp" alt="同一画法下，五个人物穿不同颜色的衣服，做各自的动作" width="1120" height="444" loading="lazy" style="max-width:100%;height:auto">

@@ -804,7 +804,7 @@ function checkEditor() {
     expect(byId('try-figure').disabled, 'random creation must follow the selected figure painter');
     byId('undo-random').click();
     byId('save-look').click();
-    expect(PineWardrobe.saved.get(oldArt.id).packs['pine-core'] === PineLooks.tailoredRelease,
+    expect(PineWardrobe.saved.get(oldArt.id).packs['pine-core'] === PineLooks.proportionStudyRelease,
       'reloaded trial character must keep the selected renderer');
     target.dataset.state = 'pass';
     target.textContent =

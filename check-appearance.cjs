@@ -109,16 +109,15 @@ for (const doc of [first, second]) {
 assert.notEqual(digest(a.m.characters.get(first.id), a.m), digest(a.m.characters.get(second.id), a.m));
 const baseline = digest(a.l.build(first), a.m);
 const current = { ...first, packs: { 'pine-core': a.l.release } };
-// These idle-frame pigments and band placements come from the actual 1.18.0
-// painter at 5d94b2d. Both the full-body Canvas and Three adapters use these bands.
-for (const [id, archived] of [
-  ['look_programmer', 'faa4e55d7ebca677a69d81e91bd290f0ba0da038e7486497aeb75fbe9a67a30b'],
-  ['look_relay', '655bd4c05553b79c747adc8a131e7c696822eec31128adb95369ff17dadd008d'],
-  ['look_workshop_toddler', 'a2a16b89122b878de4c5d0df6cfd5a695396381f09ac32eb332bf40fcf3ca41a'],
-  ['look_chestnut', '95e2aa1b079db4efd6050d40954af773a04118865678d488a47fe91332035916']
-]) {
+// Sampled from published 5d94b2d and a15c8a5, respectively.
+for (const [id, stable, firstStudy] of [
+  ['look_programmer', 'faa4e55d7ebca677a69d81e91bd290f0ba0da038e7486497aeb75fbe9a67a30b', '939d90c3e88ea0811d33c292a3e77fb42d9c072e799497572cb394d39249669a'],
+  ['look_relay', '655bd4c05553b79c747adc8a131e7c696822eec31128adb95369ff17dadd008d', '74c874ad77b9eb0ecc7bc7bfb4cb463f2859c114c9b52660bf1535d6393afed3'],
+  ['look_workshop_toddler', 'a2a16b89122b878de4c5d0df6cfd5a695396381f09ac32eb332bf40fcf3ca41a', '576630d19431a3a6680c987320cfdb34bc7cc1ff7d588e7234c66bc352e69fb3'],
+  ['look_chestnut', '95e2aa1b079db4efd6050d40954af773a04118865678d488a47fe91332035916', '121e0128f400a2bc17dbc47706f6866788b53221919551dd0a771c35f5dfb6b9']
+]) for (const [pin, archived] of [['1.18.0', stable], ['1.19.0', firstStudy]]) {
   const recipe = clone(a.l.templateById.get(id));
-  recipe.packs[a.l.core] = '1.18.0';
+  recipe.packs[a.l.core] = pin;
   const actor = a.l.build(recipe);
   const pose = a.m.actions.get('idle').sample(0.31, actor)[0].pose;
   const hash = createHash('sha256');
@@ -127,10 +126,10 @@ for (const [id, archived] of [
     hash.update(JSON.stringify([x, y, z, body.nx, body.ny, body.nz, body.density, model.bounds]));
     hash.update(Buffer.from(model.colors.buffer, model.colors.byteOffset, model.colors.byteLength));
   }
-  assert.equal(hash.digest('hex'), archived, 'archived 1.18 full-body pigments/placement: ' + id);
+  assert.equal(hash.digest('hex'), archived, pin + ' full-body pigments/placement: ' + id);
 }
 {
-  const looks = a.l, preview = looks.tailoredRelease, core = looks.core;
+  const looks = a.l, preview = looks.proportionStudyRelease, core = looks.core;
   const external = looks.withFigureStudy(second);
   assert.deepEqual(clone(external), { ...second, packs: { ...second.packs, [core]: preview } });
   assert.notEqual(external.parts, second.parts);
@@ -176,6 +175,16 @@ for (const [id, archived] of [
       skins.add(generated.colors.skin);
     }
     assert.ok(cuts.size >= 7 && spans.size >= 20 && skins.size >= 10, base + ' wardrobe, limbs and dyes vary independently');
+  }
+  const infant = looks.build(looks.withFigureStudy(looks.templateById.get('look_chestnut')));
+  for (const action of ['idle', 'sway', 'sit']) {
+    const seated = a.m.actions.get(action).sample(0.31, infant)[0].pose;
+    assert.ok(seated.floorSeat, action);
+    seated.legs.forEach(({ hip, knee }, i) => {
+      const ankle = seated.feet[i];
+      assert.ok(ankle[0] > hip[0] + 0.73 * (infant.rig.thigh + infant.rig.shin));
+      assert.ok(Math.abs(Math.hypot(...knee.map((v, j) => v - hip[j])) - infant.rig.thigh) < 1e-4);
+    });
   }
   assert.throws(() => looks.randomCharacter({ seed: -1 }));
   assert.throws(() => looks.randomCharacter({ seed: 1, random: () => 0 }));

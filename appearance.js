@@ -28,7 +28,8 @@ const PineLooks = (() => {
     facePlaneRelease = pinePortraitStyles.facePlaneRelease,
     pixelRelease = pinePortraitStyles.pixelRelease,
     release = pinePortraitStyles.figureRelease,
-    tailoredRelease = pinePortraitStyles.tailoredRelease;
+    tailoredRelease = pinePortraitStyles.tailoredRelease,
+    proportionStudyRelease = pinePortraitStyles.proportionStudyRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -57,14 +58,15 @@ const PineLooks = (() => {
     facePlaneRelease,
     pixelRelease,
     release,
-    tailoredRelease
+    tailoredRelease, proportionStudyRelease
   ];
   function figurePin(recipe) {
-    return recipe?.packs?.[core] === tailoredRelease ? tailoredRelease : release;
+    const pin = recipe?.packs?.[core];
+    return pinePortraitStyles.hasTailoredFigure(pin) ? pin : release;
   }
   function withFigureStudy(recipe) {
     const next = structuredClone(recipe);
-    next.packs[core] = tailoredRelease;
+    next.packs[core] = proportionStudyRelease;
     return next;
   }
   function hasRoundedHead(recipe) {
@@ -1351,7 +1353,7 @@ SOFTWARE.`;
   function randomFace(recipe, input) {
     const { random = Math.random, style = 'natural', portrait = recipe.face?.style || 'animation',
       family, release: pin = figurePin(recipe) } = generationOptions(input);
-    requireThat(pin === release || pin === tailoredRelease, '未知随机人物版本');
+    requireThat(pin === release || pinePortraitStyles.hasTailoredFigure(pin), '未知随机人物版本');
     requireThat(typeof portrait === 'string' && Object.hasOwn(portraitStyles, portrait), '未知人物画风');
     requireThat(family === undefined || (typeof family === 'string' && Object.hasOwn(portraitFamilies, family)), '未知五官组合');
     const expressive = style === 'expressive';
@@ -1414,7 +1416,7 @@ SOFTWARE.`;
     const { random = Math.random, style, portrait, family, source, seed, base,
       release: pin = figurePin(source), locks = [] } = generationOptions(input);
     const keep = new Set(source ? locks : []);
-    const tailored = pin === tailoredRelease;
+    const tailored = pinePortraitStyles.hasTailoredFigure(pin);
     requireThat(base === undefined || Object.values(bodyProfiles).some(profile => profile.base === base), '未知年龄基型');
     requireThat(base === undefined || !keep.has('body') || base === source.base, '指定年龄与锁定的体型不一致');
     let profiles = base === undefined && keep.has('hair') && !babyHair.includes(source.parts.hair)
@@ -1447,7 +1449,7 @@ SOFTWARE.`;
   return {
     core,
     release,
-    tailoredRelease,
+    tailoredRelease, proportionStudyRelease,
     withFigureStudy,
     originalRelease,
     styleRelease,

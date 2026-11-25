@@ -456,11 +456,38 @@ const pineHeadShape = (() => {
         ring.fore = ring.face[0] - ring.axis;
       }
     }
+    if (planes?.form?.anatomy) {
+      // The guide turns inward under the brow and lower lip. Run these landmarks
+      // down the sagittal plane and fade into the cheek; jaw controls still move
+      // their own rings, including the angle underneath the ear.
+      const { eye, mouth, chin } = planes.form;
+      const heights = [
+        [-1, -0.09], [chin - 0.095, infant ? -0.13 : -0.055],
+        [chin - 0.036, infant ? -0.10 : -0.064], [chin + 0.019, infant ? -0.065 : -0.04],
+        [chin + 0.57 * (mouth - chin), infant ? -0.095 : -0.082], [mouth, infant ? -0.039 : -0.021],
+        [mouth + 0.31 * (eye - mouth), -0.062], [eye - 0.27 * (eye - mouth), -0.031],
+        [eye, infant ? -0.047 : -0.072], [eye + 0.16, 0.008], [eye + 0.27, 0.024],
+        [0.87, 0], [1, 0]
+      ];
+      const gradient = slopes(heights, 1);
+      let section = 0;
+      for (let i = 0; i <= count; i++) {
+        const h = 2 * i / count - 1;
+        while (section < heights.length - 2 && h > heights[section + 1][0]) section++;
+        const change = sample(heights, gradient, section, 1, h);
+        const ring = rows[i];
+        for (let j = 0; j <= lateralSteps; j++) {
+          const t = j / lateralSteps;
+          ring.face[j] += change * lobe(t, 0, 0.90);
+        }
+        ring.fore = ring.face[0] - ring.axis;
+      }
+    }
     if (planes?.orbit) {
       // Embed the front cap of the eyeball beneath the two lids, before taking
       // lighting normals. Its iris and rim foreshorten on the same physical surface.
       const { center, width, height } = planes.orbit, eye = planes.form.eye;
-      const pixel = planes.form.pixelPortrait;
+      const pixel = planes.form.pixelPortrait, study = planes.form.anatomy;
       const equator = row(eye), apex = frontAt(equator, center / equator.width) + (pixel ? .108 : infant ? 0.068 : 0.070);
       for (let i = 0; i <= count; i++) {
         const z = (2 * i / count - 1 - eye) / height;
@@ -470,9 +497,9 @@ const pineHeadShape = (() => {
           const across = ring.width * j / lateralSteps - center;
           const radius = (across / width) ** 2 + z * z;
           if (radius >= 1) continue;
-          const cap = apex - (pixel ? .39 : .12) * across + (pixel ? .33 : .270) * (Math.sqrt(1 - radius) - 1);
+          const cap = apex - (study ? .94 : pixel ? .39 : .12) * across + (study ? .42 : pixel ? .33 : .270) * (Math.sqrt(1 - radius) - 1);
           const weight = clamp((1 - radius) / 0.47, 0, 1);
-          ring.face[j] += Math.max(pixel ? -.073 : -.026, cap - ring.face[j]) * weight * weight * (3 - 2 * weight);
+          ring.face[j] += Math.max(study ? -.19 : pixel ? -.073 : -.026, cap - ring.face[j]) * weight * weight * (3 - 2 * weight);
         }
       }
     }
@@ -647,7 +674,7 @@ const pineHeadShape = (() => {
       ...(planes?.strength ? [planes.eye, planes.eyeCenter, planes.mouth, planes.strength] : []),
       ...(planes?.lipBed ? ['lip', planes.lipBed.center, planes.lipBed.above, planes.lipBed.below, planes.lipBed.depth] : []),
       ...(planes?.contour ? ['contour', planes.contour.chin, planes.contour.tip] : []),
-      ...(planes?.form ? ['form', !!planes.form.model, planes.form.eye, planes.form.mouth, planes.form.chin, planes.form.strength] : []),
+      ...(planes?.form ? ['form', !!planes.form.model, !!planes.form.anatomy, planes.form.eye, planes.form.mouth, planes.form.chin, planes.form.strength] : []),
       ...(planes?.orbit ? ['orbit', !!planes.form?.pixelPortrait, planes.orbit.center, planes.orbit.width, planes.orbit.height] : [])].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);

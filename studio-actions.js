@@ -17,7 +17,10 @@ const soloClips = (() => {
   }
   const seated = studioRig.seated;
   function waist(r, person) {
-    return person.tags.includes('baby') ? seated(r, true) : {};
+    if (!person.tags.includes('baby')) return {};
+    const ch = seated(r, true);
+    if (person.figureRelease === '1.19.1') supportedSeat(r, ch);
+    return ch;
   }
   function infantFloorPose(r, ch) {
     ch.pitch = 0.22;
@@ -27,6 +30,21 @@ const soloClips = (() => {
     ch.kneePoles = sides.map(side => [0.38, side * 1.25, 0.56]);
     ch.hands = sides.map(side => [ch.hipOffset[0] + 0.145 * r.height, side * r.height * 0.064,
       r.height * 0.10 + r.ankle * 0.24]);
+  }
+  function supportedSeat(r, ch) {
+    ch.floorSeat = true;
+    ch.hipOffset[0] = -0.055 * r.height;
+    ch.hipOffset[2] -= 0.014 * r.height;
+    ch.pitch = 0.31;
+    ch.headPitch = -0.295;
+    // Open knees frame the lower belly; the heels plant ahead of the hips.
+    const reach = r.thigh + r.shin;
+    ch.feet = sides.map(side => [ch.hipOffset[0] + 0.85 * reach,
+      side * (r.hip[1] + 0.40 * reach), r.ankle]);
+    ch.kneePoles = sides.map(side => [0.09, side * 1.35, 0.82]);
+    ch.hands = sides.map(side => [ch.hipOffset[0] + 0.245 * r.height,
+      side * r.height * 0.105, r.height * 0.133]);
+    ch.elbowPoles = sides.map(side => [-0.48, side * 0.82, -0.46]);
   }
   function idle(u, a) {
     const r = a.rig,
@@ -39,9 +57,9 @@ const soloClips = (() => {
       off[2] - breath * (1 - Math.cos(tau * u))
     ];
     ch.headYaw = 0.13 * Math.sin(u * tau) ** 3;
-    if (a.figureRelease === '1.19.0') {
+    if ((a.figureRelease === '1.19.0' || a.figureRelease === '1.19.1')) {
       if (a.tags.includes('baby')) {
-        infantFloorPose(r, ch);
+        if (!ch.floorSeat) infantFloorPose(r, ch);
       } else {
         // One planted leg takes the weight. The free foot is slightly forward
         // and its sleeve opens away from the body at a different elbow angle.
@@ -90,7 +108,8 @@ const soloClips = (() => {
       p[2] += r.height * 0.047;
       return p;
     });
-    if (floor && a.figureRelease === '1.19.0') infantFloorPose(r, base);
+    if (floor && a.figureRelease === '1.19.1') supportedSeat(r, base);
+    else if (floor && a.figureRelease === '1.19.0') infantFloorPose(r, base);
     const p = pose(r, base);
     if (!floor)
       p.props = [
