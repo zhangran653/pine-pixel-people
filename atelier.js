@@ -494,6 +494,7 @@
   }
   function upgradeLabel() {
     if (draft.packs[looks.core] === looks.release) return '';
+    if (draft.packs[looks.core] === looks.facePlaneRelease) return '试用像素笔触';
     if ([looks.illustratedRelease, looks.silhouetteRelease].includes(draft.packs[looks.core]))
       return draft.base === 'baby' ? '试用新版婴儿脸' : '试用新版侧脸';
     if (draft.packs[looks.core] === looks.lipJawRelease) return '试用游戏立绘';
@@ -549,6 +550,12 @@
     const guide = $('turnaround-guide').content.firstElementChild.cloneNode(true);
     const babyGuide = draft.base === 'baby' || draft.base === 'toddler';
     guide.dataset.sitter = babyGuide ? 'baby' : 'adult';
+    if (draft.packs[looks.core] === looks.release && looks.portraitStyleOf(draft) === 'animation') {
+      guide.dataset.art = 'pixel';
+      const comparison = guide.querySelector('.guide-comparison');
+      comparison.href = 'pixel-face-before-after.webp';
+      comparison.textContent = '同一角色的两版实机对照';
+    }
     guide.open = expandedFields.get('turnaround') === true;
     guide.ontoggle = () => { if (guide.isConnected) expandedFields.set('turnaround', guide.open); };
     for (const button of guide.querySelectorAll('[data-art-angle]')) {

@@ -21,11 +21,11 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
-从 1.16.2 起，新人物默认使用「立体动画」。在「五官 → 动画美术参考」展开原创转面稿，点击正面、斜侧或正侧缩略图，当前人物会转到相同角度。小栗（婴儿）和阿榛（成人）是两套普通配方，可以改五官、换装、随机和套用动作。[编辑小栗](http://127.0.0.1:8000/atelier.html?preset=look_chestnut&tab=face&bearing=315&reference=1) · [编辑阿榛](http://127.0.0.1:8000/atelier.html?preset=look_hazel&tab=face&bearing=315&reference=1) · [360° 转面与眨眼](animation-rotation.webp)
+1.17.0 为「立体动画」重画了实时像素脸。小栗有婴儿专用的眼睑和笑嘴，阿榛的眼神、银色发束和下唇到前颈的曲线可以在正侧面查看。两位都从普通配方生成，可以换装、染发、捏脸和套用动作。在「五官 → 动画美术参考」点任一幅像素稿，人物就会转到相应角度。[编辑小栗](http://127.0.0.1:8000/atelier.html?preset=look_chestnut&tab=face&bearing=315&reference=1) · [编辑阿榛的正侧面](http://127.0.0.1:8000/atelier.html?preset=look_hazel&tab=face&bearing=270&reference=1) · [侧面下巴的局部对照](pixel-chin-profile.webp)
 
-![婴儿和成人的原创美术参考与创作室实时切片，每人三个角度](animation-face-comparison.webp)
+![小栗和阿榛的两版实时像素，每组左为 1.16.2，右为 1.17.0](pixel-face-before-after.webp)
 
-近景沿眼球表面绘制眼睑、瞳孔、高光和唇色。远景把唇形归纳成几块像素，保留嘴角和闭合线。原始美术稿只在参考面板中显示。「画风」还可选择游戏立绘、漫画和自然。1.16.0 和 1.16.1 的配方沿用保存时的绘法。[实际游戏尺寸的 32 和 64 像素头像](animation-game-sizes.png) · [原创转面稿](animation-turnaround.webp) · [人物画风接口](appearance-standard.html#portrait-art)
+像素笔触贴合可转动的眼球、耳廓与唇面。高发髻用前、斜、侧三幅像素稿重建为可拆换、可染色的体积。游戏立绘、漫画、自然三种画风仍可选。锁定 1.16.2 的人物可在五官面板点「试用像素笔触」比较效果。[实际游戏尺寸的 32 和 64 像素头像](pixel-game-sizes.png) · [360° 转面与眨眼](pixel-face-turn.webp) · [连续随机的十二张脸](pixel-random-cast.webp) · [像素美术与接口](appearance-standard.html#pixel-ink) · [1.16.2 的原画与实机对照](animation-face-comparison.webp)
 
 从 1.16.1 起，「挑一组脸」可以让同一组四张候选脸一起转到正面、斜侧面或正侧面。随机时，鼻尖长度、嘴唇前后和颏尖位置会一起配合。已保存的 1.16.0 成人、学童和幼儿可在「五官」点「试用新版侧脸」，转到侧面比较后再保存。[从正侧面挑脸](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&portrait=manga&hair=bun&bearing=270&candidates=1) · [白色发髻角色前后对照、连续随机五官与整人样本](random-profile-preview.png)
 

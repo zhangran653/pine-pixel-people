@@ -724,6 +724,45 @@ function portraitEdges(band) {
   }
   assert.ok(Number.isFinite(front) && front > eye[2] + (eye[2] - lip[2]) && back < eye[2]);
 }
+// Raycast each profile from the outside. A pupil can be present in a front view
+// and still disappear behind the outer corner of the eye when the actor turns.
+for (const id of ['look_chestnut', 'look_hazel']) {
+  const spec = vm.runInContext('pineDesignerBody', context).build(looks.templateById.get(id));
+  for (const key of ['eyes', 'pupil', 'irisLight', 'irisRim', 'irisShadow', 'irisHoney'])
+    spec.art.materials[key] = '14e6a0';
+  const actor = motion.createCharacter({ id, label: id, ...spec });
+  for (const blink of [0, 1]) {
+    const pose = motion.rig.pose(actor.rig, { blink });
+    const band = motion.closePortraitLayers(actor, pose, actor.body.makePose(pose))[1];
+    const { nx, ny, density } = band.body;
+    const eyeZ = motion.rig.socket(actor, pose, 'leftEye')[2];
+    const start = Math.floor((eyeZ - 1.2 - band.z) * density);
+    const end = Math.ceil((eyeZ + 1.2 - band.z) * density);
+    for (const side of [-1, 1]) {
+      let iris = 0;
+      for (let z = start; z <= end; z++) for (let x = 0; x < nx; x++) {
+        for (let i = 0; i < ny; i++) {
+          const y = side < 0 ? i : ny - 1 - i;
+          const color = band.model.colors[(z * ny + y) * nx + x];
+          if (!color) continue;
+          if ((color & 0xffffff) === 0xa0e614) iris++;
+          break;
+        }
+      }
+      assert.ok(blink ? iris === 0 : iris >= 3, id + ' profile iris and blink on side ' + side);
+    }
+  }
+}
+{
+  const actor = looks.build(looks.templateById.get('look_hazel'));
+  const pose = motion.rig.pose(actor.rig);
+  const edge = portraitEdges(motion.closePortraitLayers(actor, pose, actor.body.makePose(pose))[1]);
+  const lip = actor.sockets.mouth.point[2], chin = actor.sockets.chinTip.point[2];
+  const front = t => edge(0, lip + t * (chin - lip))[1];
+  const lowerLip = front(0.15), fold = front(0.45), pad = front(0.8);
+  assert.ok(lowerLip > pad && pad > fold, 'lower lip, shallow fold and chin pad read in profile');
+  assert.ok(front(1.15) < pad, 'chin rounds back toward the throat');
+}
 // Read the centreline from the occupied pixels, including the separate nose volume.
 // Compare the same actors and lens pitch on either side of the profile upgrade.
 {

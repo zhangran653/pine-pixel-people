@@ -257,7 +257,12 @@ const pineHeadShape = (() => {
         // Loft the side of the muzzle from the same forehead-to-chin profile.
         // The original scans switch to a separate jaw section just below the
         // mouth. A continuous cheek arc bridges that seam in three-quarter view.
-        if (infant) width += 0.14 * lobe(h, -0.70, 0.19);
+        if (infant) width += (planes.form.pixelPortrait ? 0.075 : 0.14) * lobe(h, -0.70, 0.19);
+        if (planes.form.pixelPortrait) {
+          // Keep the corners of the jaw behind the soft front pad. On an adult
+          // the jaw turns progressively below the mouth before reaching the chin.
+          width *= infant ? 1-.060*lobe(h,-.48,.50) : 1+.106*lobe(h,-.66,.32);
+        }
         const cheek = clamp((h + 0.95) / 0.18, 0, 1) * clamp((planes.form.eye + 0.13 - h) / 0.26, 0, 1);
         for (let j = 1; j < front.length; j++) {
           const v = lateral[j];
@@ -393,11 +398,57 @@ const pineHeadShape = (() => {
         i = Math.min(lateralSteps - 1, Math.floor(sample));
       return r.face[i] + (r.face[i + 1] - r.face[i]) * (sample - i);
     }
+    if (planes?.form?.pixelPortrait && !infant) {
+      // Trace one continuous sagittal contour from throat to lower lip. The
+      // forward chin pad and the fold above it have independent depths.
+      const { chin, mouth } = planes.form;
+      const gap = mouth - chin;
+      const top = mouth - 0.10 * gap;
+      const throat = -1;
+      const pad = row(chin).face[0] + 0.009;
+      const lip = row(top).face[0];
+      const round = settings.chinRoundness;
+      const points = [
+        [throat, 0.16 + 0.04 * settings.jawNeck],
+        [chin - 0.147, 0.29 + 0.06 * settings.jawNeck],
+        [chin - 0.094, 0.515 + 0.07 * settings.jawNeck],
+        [chin - 0.060, 0.60 + 0.07 * settings.jawNeck],
+        [chin - 0.044, pad - 0.29],
+        [chin - 0.026, pad - 0.128],
+        [chin, pad - 0.032],
+        [chin + 0.11 * gap, pad - 0.006 - 0.006 * round],
+        [chin + 0.24 * gap, pad],
+        [chin + 0.40 * gap, pad - 0.012],
+        [chin + 0.58 * gap, 0.54 * pad + 0.46 * lip - 0.049],
+        [chin + 0.74 * gap, 0.25 * pad + 0.75 * lip - 0.027],
+        [top, lip]
+      ];
+      const tangents = slopes(points, 1);
+      tangents[tangents.length - 1] = (row(top + 0.014).face[0] - lip) / 0.014;
+      let interval = 0;
+      for (let i = 0; i <= count; i++) {
+        const h = 2 * i / count - 1;
+        if (h >= top) continue;
+        while (h > points[interval + 1][0]) interval++;
+        const ring = rows[i];
+        const front = sample(points, tangents, interval, 1, h);
+        const offset = front - ring.face[0];
+        const underside = clamp((chin + 0.22 * gap - h) / 0.13, 0, 1);
+        for (let j = 0; j <= lateralSteps; j++) {
+          const v = j / lateralSteps;
+          const side = ring.face[j] + offset * lobe(v, 0, 1);
+          const rounded = ring.axis + (front - ring.axis) * Math.sqrt(1 - v * v);
+          ring.face[j] = side + (rounded - side) * underside;
+        }
+        ring.fore = ring.face[0] - ring.axis;
+      }
+    }
     if (planes?.orbit) {
       // Embed the front cap of the eyeball beneath the two lids, before taking
       // lighting normals. Its iris and rim foreshorten on the same physical surface.
       const { center, width, height } = planes.orbit, eye = planes.form.eye;
-      const equator = row(eye), apex = frontAt(equator, center / equator.width) + (infant ? 0.068 : 0.070);
+      const pixel = planes.form.pixelPortrait;
+      const equator = row(eye), apex = frontAt(equator, center / equator.width) + (pixel ? .108 : infant ? 0.068 : 0.070);
       for (let i = 0; i <= count; i++) {
         const z = (2 * i / count - 1 - eye) / height;
         if (Math.abs(z) >= 1) continue;
@@ -406,9 +457,9 @@ const pineHeadShape = (() => {
           const across = ring.width * j / lateralSteps - center;
           const radius = (across / width) ** 2 + z * z;
           if (radius >= 1) continue;
-          const cap = apex - 0.12 * across + 0.270 * (Math.sqrt(1 - radius) - 1);
+          const cap = apex - (pixel ? .39 : .12) * across + (pixel ? .33 : .270) * (Math.sqrt(1 - radius) - 1);
           const weight = clamp((1 - radius) / 0.47, 0, 1);
-          ring.face[j] += Math.max(-0.026, cap - ring.face[j]) * weight * weight * (3 - 2 * weight);
+          ring.face[j] += Math.max(pixel ? -.073 : -.026, cap - ring.face[j]) * weight * weight * (3 - 2 * weight);
         }
       }
     }
@@ -584,7 +635,7 @@ const pineHeadShape = (() => {
       ...(planes?.lipBed ? ['lip', planes.lipBed.center, planes.lipBed.above, planes.lipBed.below, planes.lipBed.depth] : []),
       ...(planes?.contour ? ['contour', planes.contour.chin, planes.contour.tip] : []),
       ...(planes?.form ? ['form', planes.form.eye, planes.form.mouth, planes.form.chin, planes.form.strength] : []),
-      ...(planes?.orbit ? ['orbit', planes.orbit.center, planes.orbit.width, planes.orbit.height] : [])].join('|');
+      ...(planes?.orbit ? ['orbit', !!planes.form?.pixelPortrait, planes.orbit.center, planes.orbit.width, planes.orbit.height] : [])].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);
       adjustable.set(key, profile(base, true, settings, relief, facial, refitNape, planes));

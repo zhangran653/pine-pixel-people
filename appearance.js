@@ -25,7 +25,8 @@ const PineLooks = (() => {
     lipJawRelease = '1.15.0',
     illustratedRelease = pinePortraitStyles.illustratedRelease,
     silhouetteRelease = pinePortraitStyles.silhouetteRelease,
-    release = pinePortraitStyles.facePlaneRelease;
+    facePlaneRelease = pinePortraitStyles.facePlaneRelease,
+    release = pinePortraitStyles.pixelRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -51,6 +52,7 @@ const PineLooks = (() => {
     lipJawRelease,
     illustratedRelease,
     silhouetteRelease,
+    facePlaneRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -467,7 +469,7 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (recipe.face?.style === 'animation') needed = release;
+    if (recipe.face?.style === 'animation') needed = facePlaneRelease;
     else if (recipe.face?.style !== undefined) needed = illustratedRelease;
     else if (profileKeys.some((key) => (recipe.shape[key] ?? 0) !== 0)) needed = lipJawRelease;
     else if (morphKeys.some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 0))
@@ -1363,7 +1365,7 @@ SOFTWARE.`;
     infantRelease,
     infantNapeRelease,
     naturalProfileRelease,
-    lipJawRelease, illustratedRelease, silhouetteRelease,
+    lipJawRelease, illustratedRelease, silhouetteRelease, facePlaneRelease,
     portraitStyles, portraitStyleOf, setPortraitStyle, portraitFamilies,
     morphs: pinePortraitStyles.morphs,
     profileControls: pinePortraitStyles.profileControls,

@@ -24,6 +24,8 @@ const builtins = [
   'social-clips',
   'work-clips',
   'studio-library',
+  'pixel-headwear',
+  'pixel-portrait',
   'portrait-styles',
   'hair-styles',
   'head-sections',

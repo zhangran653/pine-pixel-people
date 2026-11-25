@@ -11,16 +11,17 @@ const pinePortraitStyles = (() => {
   const illustratedRelease = '1.16.0';
   const silhouetteRelease = '1.16.1';
   const facePlaneRelease = '1.16.2';
+  const pixelRelease = '1.17.0';
   const portraitStyles = { animation: '立体动画', game: '游戏立绘', manga: '漫画', natural: '自然' };
   function portraitStyle(recipe) {
     const pin = recipe.packs?.['pine-core'];
-    if (pin === facePlaneRelease) return recipe.face?.style || 'animation';
+    if (pin === facePlaneRelease || pin === pixelRelease) return recipe.face?.style || 'animation';
     return pin === illustratedRelease || pin === silhouetteRelease ? recipe.face?.style || 'game' : 'natural';
   }
   function proportionsFor(base, style, pin) {
     const infant = base === 'baby';
     let p = proportions[infant ? 'baby' : 'standard'];
-    if (infant && pin === facePlaneRelease) p = { ...p, eyeCenter: 0.478, eyeWidth: 1.08, eyeOpen: 1.14,
+    if (infant && (pin === facePlaneRelease || pin === pixelRelease)) p = { ...p, eyeCenter: 0.478, eyeWidth: 1.08, eyeOpen: 1.14,
       browWidth: 0.77, browHeight: 0.91, noseLength: 0.72, noseReach: 0.72, lipWidth: 0.92, lipHeight: 0.97 };
     if (style === 'animation') return { ...p, headWidth: { baby: 0.916, toddler: 0.934, child: 0.95, adult: 0.938 }[base],
       eyeWidth: p.eyeWidth * 1.09, eyeOpen: p.eyeOpen * 1.09,
@@ -502,7 +503,7 @@ const pinePortraitStyles = (() => {
       return relief[lo] + (relief[lo + 1] - relief[lo]) * (i - lo);
     } };
   }
-  function nose(row, b, k, fit, eyeZ, front, widthScale = 1, bridgeScale = 1, reachScale = 1, shapedTip = false, style = 'natural', contour = null) {
+  function nose(row, b, k, fit, eyeZ, front, widthScale = 1, bridgeScale = 1, reachScale = 1, shapedTip = false, style = 'natural', contour = null, pixelPortrait = false) {
     const [, baseWidth, baseReach, length, start, wingStrength, tipHeight] = row,
       { x: cx, rx, ry, rz } = fit;
     const reach = baseReach * reachScale * (shapedTip ? 0.92 : 1);
@@ -532,6 +533,16 @@ const pinePortraitStyles = (() => {
       }
       const surface = front(y, z);
       if (offset < 0.045 || x < surface - 0.12 * rx || x > surface + reach * rx * offset) return 0;
+      if (pixelPortrait) {
+        const nostril = ((Math.abs(q) - 0.54) / 0.18) ** 2 + ((h + 0.055) / 0.026) ** 2;
+        const glint = ((q + 0.13) / 0.25) ** 2 + ((h - 0.033) / 0.052) ** 2;
+        if (nostril < 1 && wing > 0.2) return k.nostril;
+        if (glint < 0.26 && bulb > 0.40) return k.noseGlow;
+        if (glint < 1 && bulb > 0.31) return k.noseLight;
+        if (h < -0.084 && Math.abs(q) < 0.77) return Math.abs(q) > 0.47 ? k.noseShade : k.wingSkin;
+        if (h < 0.013 && (bulb > 0.11 || wing > 0.28)) return k.wingSkin;
+        return q > 0.44 ? k.skinPlane7 : k.skinPlane9;
+      }
       if (style === 'animation') {
         const nostril = ((Math.abs(q) - 0.62) / 0.18) ** 2 + ((h + 0.047) / 0.031) ** 2;
         if (nostril < 1 && wing > 0.30) return k.nostril;
@@ -554,6 +565,7 @@ const pinePortraitStyles = (() => {
     });
   }
   function iris(style, pigment, v, h, side, twoEyes, k) {
+    if (twoEyes && side > 0 && k.irisHoney && pigment === k.irisHoney) return k.leftEyeSoft;
     if (twoEyes && side > 0 && (pigment === k.irisShadow || pigment === k.irisRim)) return k.leftEyeDeep;
     if (pigment !== k.eyes && pigment !== k.irisLight && pigment !== k.pupil && pigment !== k.eyeRim)
       return pigment;
@@ -686,7 +698,7 @@ const pinePortraitStyles = (() => {
   }
   return {
     proportions,
-    illustratedRelease, silhouetteRelease, facePlaneRelease, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
+    illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
     illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors,
     morphs,
     profileControls,

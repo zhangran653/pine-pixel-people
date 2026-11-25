@@ -975,6 +975,7 @@ dialog p {
 .turnaround-angles button { min-width: 0; padding: 2px 2px 4px; }
 .turnaround-angles span { display: block; aspect-ratio: 512 / 580; background: url(animation-turnaround.webp) left bottom / 300% auto no-repeat; }
 .turnaround-guide[data-sitter="baby"] span { aspect-ratio: 512 / 440; background-position-y: top; }
+.turnaround-guide[data-art="pixel"] span { aspect-ratio: 1; background-image: url(pixel-face-guide.webp); }
 .turnaround-angles [data-art-angle="315"] span { background-position-x: center; }
 .turnaround-angles [data-art-angle="270"] span { background-position-x: right; }
 .turnaround-content a { display: inline-block; margin-top: 6px; font-size: .82rem; color: #365747; }
