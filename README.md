@@ -27,6 +27,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 在造型对照台选择「分龄基础脸 · 1.19.3 / 1.19.4」，两侧共用脸型选择、强度、穿搭和动作。分龄盲评每个年龄八组，固定种子。实拍图逐龄取前两组，保留帽檐和长发对五官的遮挡。[同一婴儿的侧脸](http://127.0.0.1:8000/figure-study.html?subject=baby&before=bases&form=round&framing=head&bearing=270&size=128) · [八组随机实拍](studies/pixel-structure/drawn-random.webp) · [分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=bases&size=128)
 
+坐姿婴儿的动图每 10° 取一帧，在正面、侧面和背面各停留片刻。上排看颏下到领口的距离，下排看双脚和躯干在同一姿势里的位置。[坐姿婴儿的 360° 同帧对照](studies/pixel-structure/seated-baby-turn.webp)
+
 ### 1.19.3 美术基础脸试作
 
 在创作室点「试用动画美术脸型」，再进「五官」选择均衡、秀长、柔圆或利落，用「脸型强度」调节与均衡脸之间的变化。成人、儿童、幼儿、婴儿各有一套原创切面。嘴角沿牙弓转向脸侧，眼睑沿同一曲面闭合。肤色、眼色、穿搭与动作仍由人物配方控制。婴儿有较短的下巴、坐地时的头颈位置和放在腿面附近的双手。[编辑成人](http://127.0.0.1:8000/atelier.html?model=adult&figure=study&tab=face&bearing=315) · [旋转坐姿婴儿](http://127.0.0.1:8000/figure-study.html?subject=baby&bearing=270) · [配方接口](appearance-standard.html#game-face)
