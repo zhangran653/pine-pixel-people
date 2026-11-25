@@ -84,7 +84,7 @@ const pineHairStyles = (() => {
           : k.hairMid;
     return grain > 0.48 ? k.hairSheen : grain < -0.41 ? k.hairDepth : k.hair;
   }
-  function draw(p, b, k, f, hat, worldPoint) {
+  function draw(p, b, k, f, hat, worldPoint, animated = false) {
     const { x, z, rx, ry, rz, posterior } = f,
       at = (u, v, h) => [
         x + (posterior ? posterior.fit(u, h) : u) * rx,
@@ -153,7 +153,36 @@ const pineHairStyles = (() => {
       }
     }
     if (p.bun) {
-      if (p.bun === 'crown') {
+      if (animated && p.bun === 'high' && !hat) {
+        const center = at(-0.46, 0.035, 1.00);
+        b.blob(...center, 0.54 * rx, 0.69 * ry, 0.44 * rz, (px, py, pz) => {
+          const u = (px - center[0]) / (0.54 * rx), v = (py - center[1]) / (0.69 * ry), h = (pz - center[2]) / (0.44 * rz);
+          const turn = Math.atan2(v, u), strand = Math.cos(12 * turn + 2.4 * h + Math.sin(3 * turn));
+          const light = 0.41 * u - 0.34 * v + 0.54 * h + 0.17 * strand;
+          if (light < -0.33) return k.hairMid;
+          if (light > 0.46 && strand > -0.58) return light > 0.74 ? k.hairHighlight : k.hairSheen;
+          return strand < -0.84 ? k.hairMid : k.hair;
+        });
+        // Each parted lock leaves the forehead, sweeps past the temple and
+        // narrows toward its free end. Its depth is visible in a profile view.
+        for (const sign of [-1, 1]) {
+          const controls = [[0.83, 0.10, 0.79], [0.99, 0.45, 0.92], [0.75, 0.91, 0.51], [0.63, 0.93, 0.06],
+            [0.53, 1.02, -0.20], [0.80, 0.97, -0.39], [0.64, 0.91, sign < 0 ? -0.69 : -0.53]];
+          const [u, v, h] = controls[0];
+          let prev = at(u, sign * v, h);
+          let r0 = 0.114 * ry;
+          for (let i = 1; i <= 14; i++) {
+            const j = i <= 7 ? 0 : 3, t = (i <= 7 ? i : i - 7) / 7, s = 1 - t;
+            const point = controls[j].map((a, axis) => s ** 3 * a + 3 * s * s * t * controls[j + 1][axis]
+              + 3 * s * t * t * controls[j + 2][axis] + t ** 3 * controls[j + 3][axis]);
+            const next = at(point[0], sign * point[1], point[2]);
+            const r = (0.012 + 0.108 * (1 - (i / 14) ** 1.4)) * ry;
+            b.link(prev, next, r0, r, 0.92, (_t, dx, dy) =>
+              dx > 0.32 * r && sign * dy < 0.28 * r ? k.hairSheen : sign * dy > 0.62 * r ? k.hairMid : k.hair);
+            prev = next; r0 = r;
+          }
+        }
+      } else if (p.bun === 'crown') {
         for (let i = 0; i < 24; i++) {
           const angle = (2 * Math.PI * i) / 24,
             r = hat ? 0.97 : 0.89;

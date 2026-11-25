@@ -35,7 +35,7 @@ const pineHeadShape = (() => {
   // The reference mesh was cut at the jaw to remove its neck. The pixel rig has a shorter
   // neck, so carry the underside of the chin back to the throat in the same cross-section.
   // Height, half-width, back of the throat, widest lateral point, front of the chin.
-  function jawSections(reference, base, settings) {
+  function jawSections(reference, base, settings, animatedInfant = false) {
     const infant = base === 'baby', child = base === 'child';
     // The infant's menton sits close to the lower lip. Join its measured cheek
     // with a shallow chin pad and a broad curve back into the short neck.
@@ -66,6 +66,11 @@ const pineHeadShape = (() => {
     const chinArc = [1, 0.978, 0.892, 0.739, 0.546, 0.357];
     const rings = lower.map(([h, width, back, side, front]) => {
       const t = clamp((h + 1) / 0.41, 0, 1);
+      if (animatedInfant) {
+        // The baby cheek turns into a short chin above the throat. Lift the
+        // middle rings, while both ends still meet the neck and upper cheek.
+        h += 0.066 * Math.sin(Math.PI * t);
+      }
       // A child's chin pad is shallower and the underside turns into the neck a little sooner.
       if (child) {
         front -= 0.055 * Math.sin(Math.PI * t) + 0.018 * (1 - t);
@@ -129,7 +134,7 @@ const pineHeadShape = (() => {
     const lower = lip - chin, upper = tip - lip;
     const points = [
       [chin - 0.18, 0], [chin - 0.095, -0.043], [chin - 0.013, 0], [chin + 0.013, 0],
-      [chin + 0.26 * lower, 0.014], [chin + 0.50 * lower, 0.078],
+      [chin + 0.26 * lower, planes.orbit ? -0.015 : 0.014], [chin + 0.50 * lower, 0.078],
       [chin + 0.72 * lower, 0.081], [lip - 0.16 * lower, 0.072], [lip, 0.047],
       [lip + 0.15 * upper, 0.075], [lip + 0.49 * upper, 0.121],
       [lip + 0.76 * upper, 0.077], [tip, 0.008], [tip + 0.13, 0]
@@ -142,10 +147,48 @@ const pineHeadShape = (() => {
       return planes.strength * sample(points, tangents, i, 1, h);
     };
   }
+  // Sagittal offsets traced against the right-facing animation turnaround.
+  // The landmarks move with the authored mouth and chin. The infant's chin
+  // pad sits beneath the brow, with a much shallower fold below the lip.
+  function animationProfile(form, infant) {
+    const { eye, mouth, chin } = form;
+    const low = mouth - chin;
+    const points = [
+      [-1, 0], [chin - 0.12, infant ? 0.10 : 0.012], [chin - 0.035, infant ? 0.172 : 0.042],
+      [chin + 0.32 * low, infant ? 0.123 : 0.041], [mouth - 0.28 * low, infant ? 0.078 : 0.004],
+      [mouth, infant ? 0.064 : 0], [mouth + 0.16 * (eye - mouth), infant ? 0.044 : 0],
+      [mouth + 0.45 * (eye - mouth), 0], [eye, -0.025], [eye + 0.19, -0.019], [0.60, 0]
+    ];
+    const tangents = slopes(points, 1);
+    return h => {
+      if (h <= -1 || h >= 0.60) return 0;
+      let i = 0;
+      while (h > points[i + 1][0]) i++;
+      return sample(points, tangents, i, 1, h);
+    };
+  }
+  // Broad light groups sampled from bare skin in the original turnaround.
+  // Columns run from the midline to the temple. Rows use the pupil-to-mouth
+  // distance, so the artist's broad orbital shadow follows changes to the face.
+  const guideLight = {
+    baby: [134,133,129,122,112,96, 121,117,109,111,107,105, 114,108,100,101,106,112,
+      119,114,99,91,106,115, 136,132,135,134,129,131, 133,129,127,133,132,138,
+      130,123,104,106,106,112, 121,122,114,100,97,103, 110,102,85,80,86,96],
+    adult: [133,130,116,90,77,75, 136,135,125,101,82,82, 125,115,100,101,93,90,
+      125,118,103,96,88,95, 126,122,128,129,115,110, 113,116,120,117,110,110,
+      100,110,106,102,108,117, 108,111,108,105,110,118, 120,113,100,101,109,114]
+  };
+  function guideTone(grid, x, z) {
+    const col = clamp(x / 0.18, 0, 5), row = clamp((z + 1.10) / 0.34, 0, 8);
+    const a = Math.min(4, Math.floor(col)), b = Math.min(7, Math.floor(row)), at = b * 6 + a;
+    const top = grid[at] + (col - a) * (grid[at + 1] - grid[at]);
+    const low = grid[at + 6] + (col - a) * (grid[at + 7] - grid[at + 6]);
+    return top + (row - b) * (low - top);
+  }
   function profile(base, fittedJaw = false, settings, relief = 0, facial, refitNape = false, planes) {
     const child = base !== 'adult', infant = base === 'baby';
     const reference = pineHeadSections[base];
-    const faceRings = fittedJaw ? jawSections(reference, base, settings) : reference;
+    const faceRings = fittedJaw ? jawSections(reference, base, settings, infant && !!planes?.orbit) : reference;
     const sections = refitNape ? fitInfantNape(faceRings) : faceRings;
     // Across the upper ear the face table switches from a cheek to a temple
     // measurement. Bridge that short interval on the sides and rear only.
@@ -156,6 +199,7 @@ const pineHeadShape = (() => {
     const angles = lateral.map(Math.asin);
     const cheekCenter = facial ? (infant ? -0.34 : -0.205) + (infant ? 0.12 : 0.20) * facial.cheekHeight : -0.14;
     const oralDepth = planes?.contour && oralProfile(planes);
+    const animationDepth = planes?.orbit && animationProfile(planes.form, infant);
     const meridians = Array.from({ length: lateralSteps + 1 }, (_, j) => {
       const angle = Math.asin(j / lateralSteps);
       let interval = 0;
@@ -177,6 +221,49 @@ const pineHeadShape = (() => {
         const inset = 0.082 * lobe(h, -0.51, 0.315);
         front.forEach((v, j) => { front[j] = v - inset * (1 - 0.42 * lateral[j] ** 2); });
         side -= 0.14 * inset;
+      }
+      if (planes?.form) {
+        const form = planes.form;
+        if (infant) {
+          // Keep the cranial vault full. The brow turns into a shallow orbit, and
+          // the widest part of a baby's cheek sits above its small chin.
+          width *= 1 + 0.026 * lobe(h, form.mouth + 0.15, 0.22) - (animationDepth ? 0.044 : 0.145) * lobe(h, form.chin, 0.27);
+          const forehead = 0.02 * lobe(h, 0.22, 0.40) - 0.062 * lobe(h, form.eye + 0.075, 0.31);
+          const chin = 0.062 * lobe(h, form.chin - 0.055, 0.23);
+          const lips = 0.050 * lobe(h, form.mouth + 0.042, 0.083) + 0.039 * lobe(h, form.mouth - 0.058, 0.071);
+          for (let j = 0; j < front.length; j++) {
+            const v = lateral[j];
+            front[j] += forehead * (1 - 0.62 * v * v) - chin * (1 - 0.29 * v) +
+              lips * lobe(v, 0, 0.41) - 0.072 * lobe(h, form.mouth, 0.19) * lobe(v, 0.40, 0.32) +
+              0.065 * lobe(h, form.mouth + 0.18, 0.23) * lobe(v, 0.61, 0.31) -
+              0.043 * lobe(h, form.eye, 0.22) * lobe(v, 0.65, 0.36);
+            if (planes.orbit) front[j] += 0.037 * lobe(h, form.mouth + 0.139, 0.125) * lobe(v, 0, 0.55);
+          }
+        } else {
+          // Sculpt across the front of each ring. Keep the temple and ear seat,
+          // turn the outer cheek back, then taper the two sides of the mandible.
+          const lower = 0.095 * lobe(h, -0.45, 0.39) + 0.145 * lobe(h, form.chin + 0.045, 0.26);
+          width *= 1 - form.strength * (lower + 0.035 * lobe(h, -0.11, 0.30));
+          if (planes.orbit) width *= 1 - 0.045 * form.strength * lobe(h, -0.05, 0.55);
+          const turn = form.strength * (0.096 * lobe(h, -0.12, 0.59) + 0.117 * lobe(h, -0.52, 0.34));
+          const pad = form.strength * 0.066 * lobe(h, form.chin - 0.115, 0.105);
+          for (let j = 0; j < front.length; j++) {
+            const v = lateral[j];
+            front[j] -= turn * lobe(v, 0.76, 0.43) + pad * lobe(v, 0, 0.81);
+          }
+        }
+      }
+      if (animationDepth && h < planes.form.eye + 0.13) {
+        // Loft the side of the muzzle from the same forehead-to-chin profile.
+        // The original scans switch to a separate jaw section just below the
+        // mouth. A continuous cheek arc bridges that seam in three-quarter view.
+        if (infant) width += 0.14 * lobe(h, -0.70, 0.19);
+        const cheek = clamp((h + 0.95) / 0.18, 0, 1) * clamp((planes.form.eye + 0.13 - h) / 0.26, 0, 1);
+        for (let j = 1; j < front.length; j++) {
+          const v = lateral[j];
+          const arc = side + (front[0] - side) * Math.sqrt(1 - v * v);
+          front[j] += (arc - front[j]) * cheek * (infant ? 0.94 : 0.67) * Math.min(1, 1.9 * v);
+        }
       }
       if ((relief || facial) && h > -0.94 && h < (facial ? 0.48 : 0.29)) {
         // Low, overlapping facial planes read in three-quarter view. The dental arch
@@ -292,6 +379,10 @@ const pineHeadShape = (() => {
       if (support) {
         for (let j = 0; j <= lateralSteps; j++) face[j] += support * lobe(j / lateralSteps, 0, 0.64);
       }
+      if (animationDepth) {
+        const turn = animationDepth(h);
+        for (let j = 0; j <= lateralSteps; j++) face[j] += turn * lobe(j / lateralSteps, 0, 0.96);
+      }
       const templeDelta = refitNape && h > -0.18 && h < 0.26
         ? sample(temples, templeSlopes, 1, 1, h) - value(1) : 0;
       return { axis, rear, fore: face[0] - axis, width, templeDelta, face };
@@ -302,11 +393,31 @@ const pineHeadShape = (() => {
         i = Math.min(lateralSteps - 1, Math.floor(sample));
       return r.face[i] + (r.face[i + 1] - r.face[i]) * (sample - i);
     }
+    if (planes?.orbit) {
+      // Embed the front cap of the eyeball beneath the two lids, before taking
+      // lighting normals. Its iris and rim foreshorten on the same physical surface.
+      const { center, width, height } = planes.orbit, eye = planes.form.eye;
+      const equator = row(eye), apex = frontAt(equator, center / equator.width) + (infant ? 0.068 : 0.070);
+      for (let i = 0; i <= count; i++) {
+        const z = (2 * i / count - 1 - eye) / height;
+        if (Math.abs(z) >= 1) continue;
+        const ring = rows[i];
+        for (let j = 0; j <= lateralSteps; j++) {
+          const across = ring.width * j / lateralSteps - center;
+          const radius = (across / width) ** 2 + z * z;
+          if (radius >= 1) continue;
+          const cap = apex - 0.12 * across + 0.270 * (Math.sqrt(1 - radius) - 1);
+          const weight = clamp((1 - radius) / 0.47, 0, 1);
+          ring.face[j] += Math.max(-0.026, cap - ring.face[j]) * weight * weight * (3 - 2 * weight);
+        }
+      }
+    }
     // Two components of the normalized surface normal, with a soft light above and in front.
     // Per-height lookup avoids evaluating normals for every voxel in every animation frame.
     for (const [i, r] of rows.entries()) {
-      const lo = Math.max(0, i - 10),
-        hi = Math.min(count, i + 10),
+      const heightSpan = planes?.orbit ? 48 : 10;
+      const lo = Math.max(0, i - heightSpan),
+        hi = Math.min(count, i + heightSpan),
         below = rows[lo],
         above = rows[hi];
       r.frontLight = new Float32Array(lateralSteps + 1);
@@ -314,8 +425,9 @@ const pineHeadShape = (() => {
       for (let j = 0; j <= lateralSteps; j++) {
         const v = j / lateralSteps,
           y = v * r.width;
-        const left = Math.max(0, j - 3),
-          right = Math.min(lateralSteps, j + 3);
+        const sideSpan = planes?.orbit ? 14 : 3;
+        const left = Math.max(0, j - sideSpan),
+          right = Math.min(lateralSteps, j + sideSpan);
         const dxdy =
           ((r.face[right] - r.face[left]) * lateralSteps) / ((right - left) * Math.max(0.01, r.width));
         const dxdh =
@@ -327,6 +439,20 @@ const pineHeadShape = (() => {
         const ambient = 0.53 + 0.18 * Math.sqrt(1 - v * v) + 0.075 * ((2 * i) / count - 1);
         r.frontLight[j] = 0.58 * (0.74 - 0.53 * dxdh) * normal + 0.42 * ambient;
         r.sideLight[j] = 0.085 * dxdy * normal;
+        if (planes?.orbit) {
+          // A broad light source reads the turning cheek and forehead without
+          // turning each small lip or orbital crease into a dark stripe.
+          const h = 2 * i / count - 1;
+          const broad = 0.32 + 0.43 * Math.sqrt(1 - v * v) + 0.095 * h;
+          r.frontLight[j] = 0.52 * (0.28 + 0.64 * (0.78 - 0.60 * dxdh) * normal) + 0.48 * broad;
+          const rel = (planes.form.eye - h) / (planes.form.eye - planes.form.mouth);
+          const mask = clamp((1 - v) / 0.17, 0, 1) * clamp((rel + 1.65) / 0.55, 0, 1)
+            * clamp((2.15 - rel) / 0.53, 0, 1);
+          const tone = guideTone(infant ? guideLight.baby : guideLight.adult,
+            y * (infant ? 0.478 : 0.485) / planes.orbit.center, rel);
+          r.frontLight[j] += mask * (tone - 113) * 0.0053;
+          r.sideLight[j] = 0.19 * dxdy * normal - 0.055 * v;
+        }
       }
     }
     function insideSkin(r, x, y) {
@@ -456,7 +582,9 @@ const pineHeadShape = (() => {
     const key = [base, relief, refitNape, ...Object.values(settings), ...(facial ? Object.values(facial) : []),
       ...(planes?.strength ? [planes.eye, planes.eyeCenter, planes.mouth, planes.strength] : []),
       ...(planes?.lipBed ? ['lip', planes.lipBed.center, planes.lipBed.above, planes.lipBed.below, planes.lipBed.depth] : []),
-      ...(planes?.contour ? ['contour', planes.contour.chin, planes.contour.tip] : [])].join('|');
+      ...(planes?.contour ? ['contour', planes.contour.chin, planes.contour.tip] : []),
+      ...(planes?.form ? ['form', planes.form.eye, planes.form.mouth, planes.form.chin, planes.form.strength] : []),
+      ...(planes?.orbit ? ['orbit', planes.orbit.center, planes.orbit.width, planes.orbit.height] : [])].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);
       adjustable.set(key, profile(base, true, settings, relief, facial, refitNape, planes));

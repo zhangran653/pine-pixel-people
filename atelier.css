@@ -969,6 +969,14 @@ dialog p {
 .face-candidates .candidate-angles { grid-column: 1 / -1; margin: 0; }
 .face-candidates > button { min-width: 0; padding: 2px 2px 5px; font-size: .76rem; }
 .face-candidates canvas { display: block; width: 100%; aspect-ratio: 1; height: auto; image-rendering: pixelated; }
+.turnaround-content { padding: 6px 10px 10px; }
+.turnaround-angles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.turnaround-angles button { min-width: 0; padding: 2px 2px 4px; }
+.turnaround-angles span { display: block; aspect-ratio: 512 / 580; background: url(animation-turnaround.webp) left bottom / 300% auto no-repeat; }
+.turnaround-guide[data-sitter="baby"] span { aspect-ratio: 512 / 440; background-position-y: top; }
+.turnaround-angles [data-art-angle="315"] span { background-position-x: center; }
+.turnaround-angles [data-art-angle="270"] span { background-position-x: right; }
+.turnaround-content a { display: inline-block; margin-top: 6px; font-size: .82rem; color: #365747; }
 @media (max-width: 600px) {
   .face-candidates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

@@ -730,6 +730,16 @@ function checkEditor() {
     byId('tab-face').click();
     const styleSelect = byId('portrait-style'), legacyFrame = byId('mirror').toDataURL();
     expect(styleSelect.value === 'natural' && byId('update-head')?.textContent === '试用游戏立绘', 'original drawing style of a 1.15 save');
+    const guide = document.querySelector('.turnaround-guide'), originalAngle = Number(byId('bearing').value);
+    guide.open = true;
+    for (const b of guide.querySelectorAll('[data-art-angle]')) {
+      b.click();
+      expect(Number(byId('bearing').value) === Number(b.dataset.artAngle) &&
+        byId('portrait-style').value === 'natural', 'reference thumbnails rotate the existing character');
+    }
+    byId('bearing').value = originalAngle;
+    byId('bearing').dispatchEvent(new Event('input'));
+    guide.open = false;
     styleSelect.value = 'manga'; styleSelect.dispatchEvent(new Event('change'));
     const mangaFrame = byId('mirror').toDataURL();
     expect(mangaFrame !== legacyFrame && byId('edit-eyes').value === oldArt.face.eyes, 'redraw the same eye style');

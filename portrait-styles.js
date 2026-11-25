@@ -10,13 +10,23 @@ const pinePortraitStyles = (() => {
   };
   const illustratedRelease = '1.16.0';
   const silhouetteRelease = '1.16.1';
-  const portraitStyles = { game: '游戏立绘', manga: '漫画', natural: '自然' };
+  const facePlaneRelease = '1.16.2';
+  const portraitStyles = { animation: '立体动画', game: '游戏立绘', manga: '漫画', natural: '自然' };
   function portraitStyle(recipe) {
     const pin = recipe.packs?.['pine-core'];
+    if (pin === facePlaneRelease) return recipe.face?.style || 'animation';
     return pin === illustratedRelease || pin === silhouetteRelease ? recipe.face?.style || 'game' : 'natural';
   }
-  function proportionsFor(base, style) {
-    const infant = base === 'baby', p = proportions[infant ? 'baby' : 'standard'];
+  function proportionsFor(base, style, pin) {
+    const infant = base === 'baby';
+    let p = proportions[infant ? 'baby' : 'standard'];
+    if (infant && pin === facePlaneRelease) p = { ...p, eyeCenter: 0.478, eyeWidth: 1.08, eyeOpen: 1.14,
+      browWidth: 0.77, browHeight: 0.91, noseLength: 0.72, noseReach: 0.72, lipWidth: 0.92, lipHeight: 0.97 };
+    if (style === 'animation') return { ...p, headWidth: { baby: 0.916, toddler: 0.934, child: 0.95, adult: 0.938 }[base],
+      eyeWidth: p.eyeWidth * 1.09, eyeOpen: p.eyeOpen * 1.09,
+      browWidth: p.browWidth * 0.94, noseWidth: p.noseWidth * (infant ? 1.32 : 1.17),
+      noseLength: p.noseLength * (infant ? 0.90 : 0.98), noseReach: p.noseReach * (infant ? 1 : 0.96),
+      lipWidth: p.lipWidth * (infant ? 1.34 : 1.23) };
     if (style === 'natural') return p;
     const manga = style === 'manga', young = base !== 'adult';
     return { ...p, eyeWidth: p.eyeWidth * (manga ? 1.17 : 1.07), eyeOpen: p.eyeOpen * (manga ? 1.25 : 1.12),
@@ -116,14 +126,64 @@ const pinePortraitStyles = (() => {
     thick: ['', 0.30, 0.215, 0.049, 0.034, 0.069, 0.17, 'plain']
   };
   // The aperture, lid weight and brow clearance are shared with the character generator.
-  function illustratedEyeShape(name, style) {
+  function illustratedEyeShape(name, style, infant = false) {
     const [, width, up, down, tilt, curve, crease] = eyes[name] || basicEyes[name];
+    if (style === 'animation') return { width, up: 0.081 + 0.75 * up, down: 0.031 + 0.56 * down,
+      tilt: tilt * 0.45, curve: 0.52 + 0.14 * curve, crease: 0, lidRise: 0.039, lash: infant ? 0.021 : 0.028, infant };
     const manga = style === 'manga';
     return { width, up: (manga ? 0.069 : 0.050) + up * 0.72, down: 0.022 + down * 0.75,
       tilt: tilt * (manga ? 0.64 : 0.73), curve: 0.35 + curve * 0.45,
-      crease: !manga && crease > 0.068 ? 0.041 : 0, lash: manga ? 0.032 : 0.023 };
+      crease: !infant && !manga && crease > 0.068 ? 0.041 : 0,
+      lash: infant ? 0.018 : manga ? 0.032 : 0.023, infant };
   }
-  function illustratedEye(shape, v, h, blink, side, k, pixel, style) {
+  // Inner to outer canthus. Nine pairs trace the upper and lower lids of the
+  // two drawing guides, with the small folds simplified into connected pixel groups.
+  const lidArcs = {
+    baby: [[-0.53, -0.53], [0.45, -0.94], [0.78, -1], [0.96, -1], [1, -0.99],
+      [0.95, -0.94], [0.75, -0.84], [0.43, -0.60], [-0.14, -0.14]],
+    adult: [[-0.72, -0.72], [0.35, -0.97], [0.75, -0.96], [0.95, -0.88], [1, -0.74],
+      [0.96, -0.60], [0.78, -0.38], [0.53, -0.12], [0.14, 0.14]]
+  };
+  function animationEye(shape, v, h, blink, side, k, pixel, figure) {
+    const q = v / shape.width;
+    if (Math.abs(q) >= 1) return 0;
+    const arcs = shape.infant ? lidArcs.baby : lidArcs.adult;
+    const at = (q + 1) * 4, i = Math.min(7, Math.floor(at)), t = at - i;
+    const upper = arcs[i][0] + t * (arcs[i + 1][0] - arcs[i][0]);
+    const lower = arcs[i][1] + t * (arcs[i + 1][1] - arcs[i][1]);
+    const cant = shape.tilt * q, up = shape.up * (upper > 0 ? upper ** shape.curve : upper);
+    const down = (lower > 0 ? shape.up : shape.down) * lower;
+    const closed = cant + 0.78 * down + 0.22 * up;
+    const top = cant + up + blink * (closed - cant - up);
+    const bottom = cant + down + blink * (closed - cant - down);
+    const arch = 1 - q * q, weight = (shape.lash + 0.40 * pixel) * (0.63 + 0.29 * arch + 0.21 * q);
+    if (blink > 0.89) return Math.abs(h - closed) < weight ? k.lash : 0;
+    if (h > top + 0.34 * weight) return h < top + shape.lidRise * arch ? k.lidSkin : 0;
+    if (h < bottom) return h > bottom - 0.023 * arch && q > -0.66 ? k.lidRim : 0;
+    // The directed gaze leaves a larger wedge of sclera at the outer canthus.
+    // Keep one shared light direction across both rounded corneas.
+    const ix = (q + (shape.infant ? 0.22 : 0.18)) / (shape.infant ? 0.66 : 0.59);
+    const irisHeight = shape.up * 0.73 + shape.down * 0.27;
+    const iz = (h - 0.019) / irisHeight;
+    const radius = ix * ix + iz * iz;
+    if (figure && blink < 0.45 && radius < 1) {
+      // At two or three samples across a pupil, reserve one warm light pixel
+      // underneath the upper lid. The full-size corneal glint may miss the grid.
+      const lightPixel = Math.min(0.53, Math.max(0.22, 1.25 * pixel / irisHeight));
+      if (Math.abs(side * ix - 0.25) < lightPixel && Math.abs(iz - 0.25) < lightPixel) return k.glint;
+    }
+    if (h > top - weight) return k.lash;
+    if (radius > 1) return h > top - 2.2 * weight || Math.abs(q) > 0.85 ? k.scleraShade : k.sclera;
+    const gleam = Math.min(0.25, 0.168 + pixel * 0.62);
+    if (((side * ix - 0.28) / gleam) ** 2 + ((iz - 0.33) / gleam) ** 2 < 1) return k.glint;
+    if (radius > 0.89) return k.irisRim;
+    if (radius < 0.265) return k.pupil;
+    if (iz > 0.40) return k.irisShadow;
+    if (iz < -0.22 && ix * side > -0.57) return k.irisLight;
+    return k.eyes;
+  }
+  function illustratedEye(shape, v, h, blink, side, k, pixel, style, figure = false) {
+    if (style === 'animation') return animationEye(shape, v, h, blink, side, k, pixel, figure);
     const q = v / shape.width, a = Math.abs(q);
     if (a >= 1.055) return 0;
     const curve = Math.max(0, 1 - q * q) ** shape.curve;
@@ -147,11 +207,22 @@ const pinePortraitStyles = (() => {
     if (radius < (manga ? 0.25 : 0.26) || iz > 0.47 || radius > 0.90) return k.pupil;
     return iz < -0.15 ? k.irisLight : k.eyes;
   }
-  function illustratedBrow(name) {
+  function illustratedBrow(name, style, infant = false) {
     const row = [...(brows[name] || basicBrows[name])];
     row[4] *= 0.76;
     row[5] *= 0.76;
+    if (style === 'animation') {
+      row[2] += infant ? 0.066 : 0.045;
+      row[3] = 0.042 + 0.91 * row[3];
+      row[4] *= 0.49;
+      row[5] *= infant ? 0.92 : 1.14;
+    }
     return row;
+  }
+  function pigment(hex, red, green, blue) {
+    return [red, green, blue].map((gain, i) =>
+      Math.min(255, Math.round(parseInt(hex.slice(2 * i, 2 * i + 2), 16) * gain)).toString(16).padStart(2, '0')
+    ).join('');
   }
   function illustratedColors(m, colors, tint, style, infant) {
     const manga = style === 'manga', skin = colors.skin.slice(1), iris = colors.eyes.slice(1);
@@ -177,6 +248,53 @@ const pinePortraitStyles = (() => {
     m.upperLip = tint(m.faceMid, lip, 0.73);
     m.lowerLip = tint(m.faceLight, lip, manga ? 0.24 : 0.44);
     m.lips = m.lipLine;
+    if (style === 'animation') {
+      m.faceEdge = tint(skin, '553f40', 0.18);
+      m.templeSkin = tint(skin, '70504b', 0.10);
+      m.faceMid = skin;
+      m.foreheadSkin = tint(skin, 'f5d4b6', 0.10);
+      m.faceLight = tint(skin, 'ffe1c3', 0.145);
+      m.cheekLight = tint(skin, 'ffe9cd', 0.20);
+      m.cheekWarm = tint(m.foreheadSkin, tint(skin, 'ce7870', 0.31), 0.53);
+      m.cheekVeil = tint(m.faceLight, m.cheekWarm, 0.53);
+      m.bridgeSkin = tint(m.foreheadSkin, m.faceLight, 0.63);
+      m.wingSkin = tint(m.faceMid, m.templeSkin, 0.35);
+      m.noseLight = m.cheekLight;
+      m.noseShade = tint(skin, '795057', 0.28);
+      m.lash = tint(tint(iris, '30232a', 0.69), skin, infant ? 0.24 : 0.12);
+      m.browDeep = tint(tint(hair, '4c373a', 0.45), skin, infant ? 0.57 : 0.33);
+      if (!colors.brow) m.browDeep = tint(tint(skin, '382b30', infant ? 0.40 : 0.53), tint(hair, '382b30', 0.70), 0.32);
+      m.browSoft = tint(m.browDeep, skin, 0.42);
+      m.browVeil = tint(m.browDeep, skin, 0.64);
+      m.lidSkin = tint(skin, '85594e', 0.24);
+      m.lidRim = tint(skin, 'b47164', 0.34);
+      m.sclera = tint(m.faceLight, 'fce6cf', infant ? 0.70 : 0.77);
+      m.scleraShade = tint(m.sclera, m.templeSkin, 0.31);
+      m.pupil = tint(iris, '170e12', 0.88);
+      m.eyes = tint(iris, 'ac7852', 0.16);
+      m.irisRim = tint(iris, '241619', 0.68);
+      m.irisShadow = tint(iris, '432c2c', 0.50);
+      m.irisLight = tint(iris, 'dfaa70', 0.52);
+      const lipDye = colors.lip?.slice(1) || tint(pigment(skin, 1.02, 0.74, 0.80), 'b55e58', infant ? 0.21 : 0.32);
+      m.lipLine = tint(pigment(lipDye, 0.64, 0.55, 0.54), '582921', 0.18);
+      m.upperLip = pigment(lipDye, 0.94, 0.86, 0.81);
+      m.lowerLip = tint(lipDye, 'e59a88', infant ? 0.20 : 0.26);
+      m.lipGlow = tint(m.lowerLip, 'f4bd9e', infant ? 0.16 : 0.24);
+      m.lips = m.lipLine;
+      m.nostril = tint(skin, '492e32', 0.60);
+      m.noseLight = tint(skin, 'ffce9b', 0.35);
+      m.wingSkin = tint(skin, 'b8675b', 0.25);
+      m.noseShade = tint(m.wingSkin, '5c3738', 0.33);
+      // Four levels of local cheek colour share the same twelve diffuse values
+      // as the forehead, so the cheek turns in light without a painted-on disc.
+      for (let warmth = 0; warmth < 4; warmth++) {
+        const base = tint(skin, 'da6c53', warmth * 0.074);
+        const shadow = tint(pigment(base, 0.71, 0.62, 0.58), '482a30', 0.12);
+        const light = tint(pigment(base, 1.22, 1.13, 1.08), 'ffddba', 0.12);
+        for (let i = 0; i < 12; i++)
+          m['skinPlane' + (12 * warmth + i)] = i < 5 ? tint(shadow, base, i / 5) : tint(base, light, (i - 5) / 6);
+      }
+    }
   }
   const labels = (profiles) => Object.fromEntries(Object.entries(profiles).map(([id, row]) => [id, row[0]]));
   const features = { eyes: labels(eyes), brows: labels(brows), nose: labels(noses), mouth: labels(mouths) };
@@ -283,7 +401,7 @@ const pinePortraitStyles = (() => {
     if (q * side > -0.28 && q * side < -0.085 && pos > 0.014 && pos < 0.06) return k.glint;
     return iris < 0.22 ? k.pupil : pos < -0.015 ? k.irisLight : k.eyes;
   }
-  function brow(row, v, h, k) {
+  function brow(row, v, h, k, pixel = 0) {
     const [, span, base, arch, tilt, thick, peak, cut] = row,
       q = v / span;
     if (Math.abs(q) >= 1 || (cut === 'slit' && q > 0.24 && q < 0.53)) return 0;
@@ -291,6 +409,12 @@ const pinePortraitStyles = (() => {
     const line = base + arch * arc + tilt * q,
       width = thick * (1 - 0.32 * Math.abs(q) - (cut === 'taper' ? 0.5 : 0.23) * Math.max(0, q));
     const d = h - line;
+    if (pixel) {
+      const coverage = (width + pixel - Math.abs(d)) / (2 * pixel);
+      if (coverage < 0.21) return 0;
+      if (coverage < 0.47) return k.browVeil;
+      if (coverage < 0.80) return k.browSoft;
+    }
     if (Math.abs(d) > width) return 0;
     if (cut === 'feather' && d > 0 && Math.cos(29 * q - 18 * d) < -0.25) return k.browSoft;
     return d > width * 0.31 ? k.browSoft : k.lash;
@@ -307,6 +431,43 @@ const pinePortraitStyles = (() => {
     if (Math.abs(h - mid) < (gap || 0.014) * taper + 0.006) return k.lipLine;
     return h > mid ? k.upperLip : k.lowerLip;
   }
+  function animationMouth(row, v, h, k, pixel, infant) {
+    const [, width, up, down, lift, bow, gap] = row, q = Math.abs(v) / width;
+    if (q >= 1.06) return 0;
+    const unit = Math.min(q, 1), arch = 1 - unit * unit, seam = lift * unit ** 2.45 - 0.006;
+    const dy = h - seam;
+    const line = Math.max(0.012 + 0.24 * gap, pixel * 0.72) * (1 - 0.31 * unit);
+    if (Math.abs(dy) < line) return k.lipLine;
+    if (q >= 1) return 0;
+    // Trace the shallow central notch, paired peaks and convex lower lip.
+    // A single small light group under the closure survives the pixel grid.
+    const notch = Math.max(0, 1 - q / 0.32);
+    const upper = up * arch * (1 - bow * 0.55 * notch) + pixel * 0.24 * arch;
+    const lower = down * arch * (1 - 0.28 * unit) + pixel * 0.27 * arch;
+    if (dy > 0 && dy < upper) return k.upperLip;
+    if (dy >= 0 || -dy >= lower) return 0;
+    return !infant && q < 0.40 && -dy > 0.35 * lower && -dy < 0.68 * lower ? k.lipGlow : k.lowerLip;
+  }
+  // A whole-figure head may have only five pixels across its mouth. Design
+  // those clusters at their own scale. Each row describes one half, from the
+  // centre to the corner, painted in the moving mouth's local coordinates.
+  const figureLips = {
+    classic: ['....', '---.', 'll..'], small: ['....', '--..', 'l...'],
+    full: ['uu..', '----', 'lll.'], smile: ['...-', '---.', '.l..'],
+    bow: ['.u..', '-u-.', 'll..'], thin: ['....', 'u---', '....'],
+    'lower-full': ['....','---.', 'hll.'], 'upper-full': ['uuu.', 'u--.', 'l...'],
+    wide: ['....','----','lll.'], relaxed: ['....', 'uu--', 'hl..'],
+    pursed: ['.u..','-u..','ll..'], 'soft-smile': ['...u','uu-.','hll.']
+  };
+  function figureMouth(name, v, h, width, pixel, k) {
+    const y = 1 - Math.round(h / (2 * pixel)), x = Math.floor(4 * Math.abs(v) / (1.08 * width));
+    if (y < 0 || y > 2 || x > 3) return 0;
+    const mark = figureLips[name][y][x];
+    if (mark === '-') return k.lipLine;
+    if (mark === 'u') return k.upperLip;
+    if (mark === 'l') return k.lowerLip;
+    return mark === 'h' ? k.lipGlow : 0;
+  }
   function noseUnderside(row, fittedProfile) {
     return fittedProfile ? 0.107 + 0.52 * row[6] : Math.max(0.105, Math.min(0.11, row[6]));
   }
@@ -316,7 +477,7 @@ const pinePortraitStyles = (() => {
   }
   // One dorsal line from the nasal root, around the tip and back to the philtrum.
   // Store the extra depth over this particular face, ready for any pose or camera.
-  function noseContour(row, fit, eyeZ, mouthZ, front, bridgeScale, reachScale) {
+  function noseContour(row, fit, eyeZ, mouthZ, front, bridgeScale, reachScale, animated = false) {
     const tip = eyeZ - row[3] * fit.rz, root = eyeZ + row[4] * fit.rz;
     const underside = Math.max(0.055, Math.min(noseUnderside(row, true), 0.79 * (tip - mouthZ) / fit.rz));
     const base = tip - underside * fit.rz, baseX = front(0, base), rootX = front(0, root);
@@ -328,7 +489,7 @@ const pinePortraitStyles = (() => {
       let ridge;
       if (z < tip) ridge = tipX + (baseX - tipX) * smooth((tip - z) / (tip - base));
       else {
-        const t = (root - z) / (root - tip), rise = smooth(t) ** 1.16;
+        const t = (root - z) / (root - tip), rise = smooth(t) ** (animated ? 2.24 : 1.16);
         const rootTurn = Math.max(0, 1 - ((t - 0.25) / 0.25) ** 2) ** 2;
         ridge = rootX + (tipX - rootX) * rise +
           reach * ((bridgeScale - 1) * 3.0 * rise * (1 - rise) - 0.115 * rootTurn);
@@ -359,8 +520,9 @@ const pinePortraitStyles = (() => {
       const wing = Math.max(0, 1 - ((Math.abs(q) - 0.63) / 0.38) ** 2 - ((h + 0.032) / 0.073) ** 2);
       let offset;
       if (contour) {
-        const span = 0.43 + 0.31 * Math.max(0, 1 - (h / 0.22) ** 2);
-        const dorsum = contour.at(z) * Math.max(0, 1 - (q / span) ** 2);
+        const span = 0.43 + (style === 'animation' ? 0.39 : 0.31) * Math.max(0, 1 - (h / 0.22) ** 2);
+        const curve = Math.max(0, 1 - (q / span) ** 2);
+        const dorsum = contour.at(z) * (style === 'animation' ? Math.sqrt(curve) : curve);
         offset = Math.max(dorsum, 0.72 * wing * wingStrength);
       } else {
         const bridgeWidth = shapedTip ? 0.49 + 0.20 * t : 0.39 + 0.19 * t;
@@ -370,6 +532,14 @@ const pinePortraitStyles = (() => {
       }
       const surface = front(y, z);
       if (offset < 0.045 || x < surface - 0.12 * rx || x > surface + reach * rx * offset) return 0;
+      if (style === 'animation') {
+        const nostril = ((Math.abs(q) - 0.62) / 0.18) ** 2 + ((h + 0.047) / 0.031) ** 2;
+        if (nostril < 1 && wing > 0.30) return k.nostril;
+        if (h < -0.040) return Math.abs(q) > 0.36 && wing > 0.22 ? k.noseShade : k.wingSkin;
+        if (bulb > 0.41 && h > 0.003 && q > -0.53 && q < 0.32) return k.noseLight;
+        if (wing > 0.32 || (bulb > 0.34 && h < 0.01)) return k.wingSkin;
+        return q > 0.39 ? k.foreheadSkin : k.bridgeSkin;
+      }
       if (style !== 'natural') {
         if (h < -0.033 && wing > 0.38 && Math.abs(q) > 0.45 && Math.abs(q) < 0.78) return k.noseShade;
         if (h < -0.028) return k.wingSkin;
@@ -384,6 +554,7 @@ const pinePortraitStyles = (() => {
     });
   }
   function iris(style, pigment, v, h, side, twoEyes, k) {
+    if (twoEyes && side > 0 && (pigment === k.irisShadow || pigment === k.irisRim)) return k.leftEyeDeep;
     if (pigment !== k.eyes && pigment !== k.irisLight && pigment !== k.pupil && pigment !== k.eyeRim)
       return pigment;
     const dyed = twoEyes && side > 0,
@@ -515,7 +686,7 @@ const pinePortraitStyles = (() => {
   }
   return {
     proportions,
-    illustratedRelease, silhouetteRelease, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
+    illustratedRelease, silhouetteRelease, facePlaneRelease, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
     illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors,
     morphs,
     profileControls,
@@ -534,7 +705,7 @@ const pinePortraitStyles = (() => {
     jawBreadth,
     eye,
     brow,
-    mouth,
+    mouth, animationMouth, figureMouth,
     nose,
     noseUnderside,
     iris,

@@ -24,7 +24,8 @@ const PineLooks = (() => {
     naturalProfileRelease = '1.14.0',
     lipJawRelease = '1.15.0',
     illustratedRelease = pinePortraitStyles.illustratedRelease,
-    release = pinePortraitStyles.silhouetteRelease;
+    silhouetteRelease = pinePortraitStyles.silhouetteRelease,
+    release = pinePortraitStyles.facePlaneRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -49,6 +50,7 @@ const PineLooks = (() => {
     naturalProfileRelease,
     lipJawRelease,
     illustratedRelease,
+    silhouetteRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -465,7 +467,8 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (recipe.face?.style !== undefined) needed = illustratedRelease;
+    if (recipe.face?.style === 'animation') needed = release;
+    else if (recipe.face?.style !== undefined) needed = illustratedRelease;
     else if (profileKeys.some((key) => (recipe.shape[key] ?? 0) !== 0)) needed = lipJawRelease;
     else if (morphKeys.some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 0))
       needed = morphRelease;
@@ -979,6 +982,30 @@ SOFTWARE.`;
     Object.assign(model.colors, { skin: '#' + skin, hair: '#' + hairDye, eyes: '#' + eye });
     templates.push(applyOutfit(model, outfit));
   }
+  // The two turnaround sitters are ordinary editable recipes. Their colours,
+  // clothes and individual features may also be used by any other character.
+  for (const [id, label, profile, parts, face, shape, dyes] of [
+    ['chestnut', '小栗 · 针织帽宝宝', 'baby',
+      { hair: 'curly', hat: 'pine-core/cotton-cap', top: 'pullover', bottom: 'knee-pants', shoes: 'soft-booties' },
+      { eyes: 'round', brows: 'fine', nose: 'rounded', mouth: 'soft-smile', outline: 'round' },
+      { eyeSpacing: 0.94, eyeOpening: 0.09, browHeight: 0.53, noseWidth: 0.23, chinProjection: 0.06, jawDefinition: -0.32 },
+      { skin: '#a66b48', hair: '#3b2924', eyes: '#523527', hat: '#dfcbaa' }],
+    ['hazel', '阿榛 · 银发画师', 'female',
+      { hair: 'top-knot', hat: 'none', top: 'tee', bottom: 'trousers', shoes: 'flats' },
+      { eyes: 'almond', brows: 'arched', nose: 'rounded', mouth: 'soft-smile', outline: 'oval' },
+      { faceWidth: 1.01, jaw: 0.98, eyeSpacing: 0.94, eyeOpening: 0.15, browHeight: 0.36, noseWidth: 0.13, lowerLipFullness: 0.14 },
+      { skin: '#af7450', hair: '#aea097', eyes: '#493328', brow: '#533a31' }]
+  ]) {
+    const model = withBodyProfile(templates[0], profile);
+    model.id = 'look_' + id;
+    model.label = label;
+    model.face = { ...face, style: 'animation' };
+    model.shape = { ...model.shape, height: 1, shoulders: 1, jaw: 1, faceWidth: 1, ...shape };
+    Object.assign(model.parts, parts, { neck: 'none' });
+    Object.assign(model.colors, dyes, { top: '#527875', bottom: '#565b66', accent: '#87a8a0' });
+    model.packs[core] = release;
+    templates.push(model);
+  }
   for (const [id, label, body, hair, faceId, outfit, details, gear, dyes] of [
     [
       'reader',
@@ -1178,11 +1205,11 @@ SOFTWARE.`;
   function fitRandomFace(doc) {
     const { eyes, brows, nose, mouth, outline } = doc.face, s = doc.shape;
     const style = portraitStyleOf(doc), illustrated = style !== 'natural';
-    const fit = pinePortraitStyles.proportionsFor(doc.base, style);
-    const drawn = illustrated && pinePortraitStyles.illustratedEyeShape(eyes, style);
-    const eye = pinePortraitStyles.eyes[eyes], brow = illustrated ? pinePortraitStyles.illustratedBrow(brows) : pinePortraitStyles.brows[brows];
+    const fit = pinePortraitStyles.proportionsFor(doc.base, style, doc.packs[core]);
+    const drawn = illustrated && pinePortraitStyles.illustratedEyeShape(eyes, style, doc.base === 'baby');
+    const eye = pinePortraitStyles.eyes[eyes], brow = illustrated ? pinePortraitStyles.illustratedBrow(brows, style, doc.base === 'baby') : pinePortraitStyles.brows[brows];
     const eyeHalf = drawn ? drawn.width : eye?.[1] ?? ({ round: 0.24, almond: 0.272 }[eyes] || 0.251);
-    const upperLid = drawn ? drawn.up + Math.max(drawn.lash * 0.52, drawn.crease && drawn.crease + 0.011)
+    const upperLid = drawn ? drawn.up + Math.max(drawn.lash * 0.52, drawn.lidRise || 0, drawn.crease && drawn.crease + 0.011)
       : eye ? eye[2] + Math.max(0.021, eye[6] + 0.014)
       : ({ round: 0.135, narrow: 0.061 }[eyes] || 0.101) + 0.025;
     const browBase = brow
@@ -1196,15 +1223,15 @@ SOFTWARE.`;
       s.eyeOpening = Math.min(s.eyeOpening, Math.max(-1, Math.floor(100 * (maxOpen - 1) / 0.42) / 100));
     }
     const lidTop = upperLid * fit.eyeOpen * (1 + 0.42 * s.eyeOpening);
-    const minBrow = Math.ceil(100 * (lidTop + 0.035 - browBase * fit.browHeight) / 0.092) / 100;
+    const minBrow = Math.ceil(100 * (lidTop + (style === 'animation' ? 0.040 : 0.035) - browBase * fit.browHeight) / 0.092) / 100;
     const maxBrow = Math.floor(100 * (lidTop + 0.14 - browBase * fit.browHeight) / 0.092) / 100;
     s.browHeight = Math.max(-1, Math.min(1, Math.max(minBrow, Math.min(maxBrow, s.browHeight))));
     s.eyeSpacing = Math.max(s.eyeSpacing, Math.ceil(100 * (0.145 + eyeHalf * fit.eyeWidth * (1 + 0.23 * s.eyeWidth)) / fit.eyeCenter) / 100);
 
     const noseRow = pinePortraitStyles.noses[nose] || pinePortraitStyles.basicNoses[nose];
-    const upperLip = pinePortraitStyles.mouths[mouth]?.[2] ?? (mouth === 'full' ? 0.092 : 0.061);
+    const upperLip = pinePortraitStyles.mouths[mouth]?.[2] ?? (mouth === 'full' ? (style === 'animation' ? 0.122 : 0.092) : 0.061);
     // Include the wing below the tip and the extra lip peak painted by the bow style.
-    const clearance = (noseRow[3] + pinePortraitStyles.noseUnderside(noseRow, doc.base !== 'baby')) * fit.noseLength
+    const clearance = (noseRow[3] + pinePortraitStyles.noseUnderside(noseRow, doc.base !== 'baby' || style === 'animation')) * fit.noseLength
       + Math.max(upperLip, mouth === 'bow' ? 0.105 : 0) * fit.lipHeight * (1 + 0.54 * s.upperLipFullness) + 0.04;
     s.mouthHeight = Math.min(s.mouthHeight, pineDesignerBody.maxMouthHeight(doc.base, clearance));
     if (outline === 'diamond') s.cheekWidth = Math.min(0.3, s.cheekWidth);
@@ -1226,7 +1253,7 @@ SOFTWARE.`;
     s.chinProjection = fit(chin, lip * 0.36 - (expressive ? 0.53 : 0.29), lip * 0.46 + (expressive ? 0.36 : 0.20));
   }
   function randomFace(recipe, input) {
-    const { random = Math.random, style = 'natural', portrait = recipe.face?.style || 'game', family } = generationOptions(input);
+    const { random = Math.random, style = 'natural', portrait = recipe.face?.style || 'animation', family } = generationOptions(input);
     requireThat(typeof portrait === 'string' && Object.hasOwn(portraitStyles, portrait), '未知人物画风');
     requireThat(family === undefined || (typeof family === 'string' && Object.hasOwn(portraitFamilies, family)), '未知五官组合');
     const expressive = style === 'expressive';
@@ -1269,6 +1296,11 @@ SOFTWARE.`;
       doc.shape.headDepth = between(0.97, 1.04, random);
       doc.shape.faceRelief = between(0.87, 1.07, random);
     }
+    if (!infant) {
+      const widthAtJaw = pinePortraitStyles.jawBreadth(pinePortraitStyles.outlines[outline], doc.shape.jaw ?? 1, -0.56);
+      const widthLimit = (expressive ? 1.085 : 1.035) * (doc.shape.headDepth ?? 1) ** 0.45 / widthAtJaw;
+      doc.shape.faceWidth = Math.min(doc.shape.faceWidth, Math.max(0.94, Math.floor(100 * widthLimit) / 100));
+    }
     fitRandomFace(doc);
     Object.assign(doc.shape, cheekAdjustment(doc, expressive ? 'expressive' : 'natural'));
     const spread = expressive ? 0.70 : 0.36;
@@ -1289,7 +1321,7 @@ SOFTWARE.`;
     const donor = pick(templates.filter((doc) => doc.base === profile.base), random);
     const outfit = keep.has('wear') ? source : donor;
     const doc = randomFace({ ...outfit, base: profile.base, shape: donor.shape, face: {} },
-      { random, style, portrait: portrait || source?.face?.style || 'game', family });
+      { random, style, portrait: portrait || source?.face?.style || 'animation', family });
     doc.id = newId();
     doc.label = '新人物 ' + doc.id.slice(-5).toUpperCase();
     doc.gender = profile.gender || 'unspecified';
@@ -1331,7 +1363,7 @@ SOFTWARE.`;
     infantRelease,
     infantNapeRelease,
     naturalProfileRelease,
-    lipJawRelease, illustratedRelease,
+    lipJawRelease, illustratedRelease, silhouetteRelease,
     portraitStyles, portraitStyleOf, setPortraitStyle, portraitFamilies,
     morphs: pinePortraitStyles.morphs,
     profileControls: pinePortraitStyles.profileControls,

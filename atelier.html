@@ -134,7 +134,7 @@
           </div>
           <div class="category-buttons random-actions">
             <label class="portrait-style">画风
-              <select id="portrait-style"><option value="game">游戏立绘</option><option value="manga">漫画</option><option value="natural">自然</option></select>
+              <select id="portrait-style"><option value="animation">立体动画</option><option value="game">游戏立绘</option><option value="manga">漫画</option><option value="natural">自然</option></select>
             </label>
             <button type="button" id="random-character">随机人物</button><button type="button" id="undo-random" hidden>撤销随机</button>
           </div>
@@ -227,6 +227,19 @@
         </div>
       </div>
       <input id="pack-file" type="file" accept=".json,application/json" hidden />
+      <template id="turnaround-guide">
+        <details class="field-fold turnaround-guide">
+          <summary>动画美术参考</summary>
+          <div class="turnaround-content">
+            <div class="turnaround-angles" role="group" aria-label="按参考图转动当前人物">
+              <button type="button" data-art-angle="0"><span></span>正面</button>
+              <button type="button" data-art-angle="315"><span></span>斜侧 45°</button>
+              <button type="button" data-art-angle="270"><span></span>正侧 90°</button>
+            </div>
+            <a href="animation-face-comparison.webp" target="_blank" rel="noopener">查看参考图与实时像素对照</a>
+          </div>
+        </details>
+      </template>
       <dialog id="switch-dialog" aria-labelledby="switch-title">
         <form method="dialog">
           <h2 id="switch-title">当前形象有未保存的修改</h2>

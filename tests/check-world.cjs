@@ -381,8 +381,10 @@ const skull = vm.runInContext('pineHeadShape', context);
     assert.deepEqual(digests(looks.build(doc)), digests(looks.build({ ...doc, packs: archived.packs })), base);
   }
   const naturalBaby = looks.build({ ...recipe, face: { ...recipe.face, style: 'natural' } });
-  assert.deepEqual(digests(naturalBaby), digests(looks.build({ ...recipe, packs: { 'pine-core': looks.infantNapeRelease } })),
-    'natural ink preserves the separate infant portrait at both sampling densities');
+  const storedBaby = looks.build({ ...recipe, packs: { 'pine-core': looks.silhouetteRelease }, face: { ...recipe.face, style: 'natural' } });
+  assert.deepEqual(digests(storedBaby), digests(looks.build({ ...recipe, packs: { 'pine-core': looks.infantNapeRelease } })),
+    'archived natural ink preserves the separate infant portrait at both sampling densities');
+  assert.notDeepEqual(digests(naturalBaby), digests(storedBaby), 'the new infant eye seat and chin change its silhouette');
   assert.notDeepEqual(digests(infant), digests(naturalBaby));
   const adult = { ...archived, base: 'adult', face: { ...recipe.face, facialHair: 'beard', complexion: 'fine-lines' } };
   const converted = looks.withBodyProfile(adult, 'baby');
@@ -432,8 +434,10 @@ const skull = vm.runInContext('pineHeadShape', context);
   const pairings = new Set(), expressHair = new Set(), naturalHair = new Set();
   function checkSpacing(doc) {
     const s = doc.shape, eyes = styles.eyes[doc.face.eyes], brows = styles.brows[doc.face.brows];
-    const portrait = looks.portraitStyleOf(doc), drawn = portrait !== 'natural' && styles.illustratedEyeShape(doc.face.eyes, portrait);
-    const brow = drawn ? styles.illustratedBrow(doc.face.brows) : brows, fit = styles.proportionsFor(doc.base, portrait);
+    const portrait = looks.portraitStyleOf(doc), baby = doc.base === 'baby';
+    const drawn = portrait !== 'natural' && styles.illustratedEyeShape(doc.face.eyes, portrait, baby);
+    const brow = drawn ? styles.illustratedBrow(doc.face.brows, portrait, baby) : brows;
+    const fit = styles.proportionsFor(doc.base, portrait, doc.packs[looks.core]);
     if (drawn || eyes) assert.ok(fit.eyeCenter * s.eyeSpacing - (drawn ? drawn.width : eyes[1]) * fit.eyeWidth * (1 + 0.23 * (s.eyeWidth || 0)) >= 0.145 - 1e-8);
     if ((drawn || eyes) && brow) {
       // Sample the real pigment brushes at the pupil axis with the eye open.
@@ -466,7 +470,9 @@ const skull = vm.runInContext('pineHeadShape', context);
   const babySeed = looks.templateById.get('look_workshop_baby');
   const archive = { ...seed, packs: { 'pine-core': looks.lipJawRelease } };
   assert.equal(looks.portraitStyleOf(archive), 'natural');
-  assert.equal(looks.portraitStyleOf(seed), 'game');
+  assert.equal(looks.portraitStyleOf(seed), 'animation');
+  assert.equal(looks.portraitStyleOf({ ...seed, packs: { 'pine-core': looks.silhouetteRelease } }), 'game');
+  assert.throws(() => looks.prepare({ ...seed, packs: { 'pine-core': looks.silhouetteRelease }, face: { ...seed.face, style: 'animation' } }));
   assert.throws(() => looks.prepare({ ...archive, face: { ...seed.face, style: 'manga' } }));
   assert.throws(() => looks.randomFace(seed, { portrait: 'unknown' }));
   assert.throws(() => looks.randomFace(seed, { family: 'unknown' }));
@@ -488,7 +494,7 @@ const skull = vm.runInContext('pineHeadShape', context);
   const archivedCharacter = looks.build(archive);
   const archivedNatural = looks.build({ ...archive, packs: { 'pine-core': looks.illustratedRelease },
     face: { ...(archive.face || looks.facePresets.classic.face), style: 'natural' } });
-  for (const portrait of ['natural', 'game', 'manga']) {
+  for (const portrait of Object.keys(looks.portraitStyles)) {
     const doc = looks.setPortraitStyle(clone(seed), portrait);
     const character = looks.build(doc), pose = motion.rig.pose(character.rig), model = character.body.makePose(pose);
     const normal = motion.faceLayers(character, pose, model)[1];
@@ -499,14 +505,26 @@ const skull = vm.runInContext('pineHeadShape', context);
       assert.equal(previous, hash(archivedCharacter.body.makePose(pose).colors), '1.16.0 replays natural ink from 1.15.0');
       assert.notEqual(hash(model.colors), previous, 'move the oral profile on a newly drawn natural face');
     } else assert.ok(close.body.density > normal.body.density, portrait + ' acquires more detail in the still editor');
-    for (const key of ['headPivot', 'leftEarCanal', 'leftJawJoint', 'rightJawJoint', 'chinTip'])
-      assert.deepEqual(character.sockets[key], archivedCharacter.sockets[key], portrait + ' ' + key);
+    assert.deepEqual(character.rig.headPivot, archivedCharacter.rig.headPivot);
+    assert.deepEqual(character.rig.jawPivot, archivedCharacter.rig.jawPivot);
+    for (const key of ['leftEarCanal', 'leftJawJoint', 'rightJawJoint']) {
+      const now = character.sockets[key], old = archivedCharacter.sockets[key];
+      const span = styles.proportionsFor(doc.base, portrait, looks.release).headWidth ?? 1;
+      assert.equal(now.frame, old.frame);
+      assert.ok(distance(now.point, [old.point[0], old.point[1] * span, old.point[2]]) < 1e-8, portrait + ' ' + key);
+    }
+    const chin = character.sockets.chinTip, previousChin = archivedCharacter.sockets.chinTip;
+    if (portrait === 'animation') {
+      assert.equal(chin.frame, 'jaw');
+      assert.deepEqual(chin.point.slice(1), previousChin.point.slice(1));
+      assert.ok(chin.point[0] > previousChin.point[0], 'the little chin pad projects beneath the lip');
+    } else assert.deepEqual(chin, previousChin, portrait + ' chinTip');
     drawings.add(hash(close.model.colors));
     const restored = looks.prepare(JSON.parse(JSON.stringify(doc))).recipe;
     assert.equal(looks.portraitStyleOf(restored), portrait);
     assert.deepEqual(restored.colors, looks.prepare(seed).recipe.colors);
   }
-  assert.equal(drawings.size, 3, 'all art directions visibly redraw the same authored features');
+  assert.equal(drawings.size, 4, 'all art directions visibly redraw the same authored features');
   for (const style of ['natural', 'expressive']) {
     const babyRandom = seeded(17603), combinations = new Set();
     for (let i = 0; i < 64; i++) {
@@ -557,7 +575,7 @@ const skull = vm.runInContext('pineHeadShape', context);
       const vertical = (actor.sockets.leftEye.point[2] - actor.sockets.mouth.point[2]) / radius;
       const nose = styles.noses[expressive.face.nose] || styles.basicNoses[expressive.face.nose];
       const lip = styles.mouths[expressive.face.mouth]?.[2] ?? (expressive.face.mouth === 'full' ? 0.092 : 0.061);
-      const fit = styles.proportionsFor(expressive.base, looks.portraitStyleOf(expressive));
+      const fit = styles.proportionsFor(expressive.base, looks.portraitStyleOf(expressive), expressive.packs[looks.core]);
       const underside = styles.noseUnderside(nose, expressive.base !== 'baby');
       assert.ok(vertical - (nose[3] + underside) * fit.noseLength - lip * fit.lipHeight * (1 + 0.54 * (expressive.shape.upperLipFullness || 0)) >= 0.0399,
         'nose and upper lip need space on the ' + expressive.base + ' rig');
@@ -668,6 +686,44 @@ function portraitEdges(band) {
     return [first, last].map((i) => band.x + (i + 0.5 - body.nx / 2) / d);
   };
 }
+// Read the 45-degree outline from occupied voxels. A sudden drop just below
+// the mouth makes the far cheek look like another nose as the infant turns.
+{
+  const doc = looks.templateById.get('look_chestnut'), actor = looks.build(doc);
+  const pose = motion.rig.pose(actor.rig), point = name => motion.rig.socket(actor, pose, name);
+  const eye = point('leftEye'), lip = point('mouth'), chin = point('chinTip');
+  const band = actor.body.faceLayers(pose, actor.body.makePose(pose), chin[2] - 1, 6)[1];
+  const { nx, ny, density } = band.body, pitch = 1 / density;
+  const zAt = z => Math.floor((z - band.z) * density);
+  const angle = Math.SQRT1_2;
+  let last;
+  for (let z = zAt(lip[2] - 0.25 * (lip[2] - chin[2])); z <= zAt(lip[2] + 0.46 * (eye[2] - lip[2])); z++) {
+    let edge = -Infinity;
+    for (let y = 0; y < ny; y++) {
+      const start = (z * ny + y) * nx;
+      const x = band.model.colors.subarray(start, start + nx).findLastIndex(Boolean);
+      if (x >= 0) edge = Math.max(edge, pitch * angle * (x + y));
+    }
+    assert.ok(Number.isFinite(edge));
+    if (last !== undefined) assert.ok(Math.abs(last - edge) <= 1.6 * pitch, 'continuous infant cheek at the lip commissure');
+    last = edge;
+  }
+  // The fitted knit rises above the forehead and covers the back below eye
+  // level. Measure the dyed fabric on the visible front and rear centreline.
+  const greenCap = looks.build({ ...doc, colors: { ...doc.colors, hat: '#00ff00' } });
+  const cap = portraitBand(greenCap, 6), y = Math.floor(cap.body.ny / 2 - cap.y * 6);
+  let front = Infinity, back = Infinity;
+  const isWool = col => (col >>> 8 & 255) > 1.6 * (col & 255) && (col >>> 8 & 255) > 1.6 * (col >>> 16 & 255);
+  for (let z = 0; z < cap.body.nz; z++) {
+    const i = (z * cap.body.ny + y) * cap.body.nx;
+    const row = cap.model.colors.subarray(i, i + cap.body.nx), first = row.findIndex(Boolean);
+    if (first < 0) continue;
+    const height = cap.z + (z + 0.5) / 6;
+    if (isWool(row[first])) back = Math.min(back, height);
+    if (isWool(row[row.findLastIndex(Boolean)])) front = Math.min(front, height);
+  }
+  assert.ok(Number.isFinite(front) && front > eye[2] + (eye[2] - lip[2]) && back < eye[2]);
+}
 // Read the centreline from the occupied pixels, including the separate nose volume.
 // Compare the same actors and lens pitch on either side of the profile upgrade.
 {
@@ -759,7 +815,7 @@ function sideProfile(actor) {
   const baby = looks.templateById.get('look_workshop_baby');
   const oldDoc = { ...baby, packs: { 'pine-core': looks.infantRelease } };
   assert.ok(looks.hasInfantHead(oldDoc) && looks.hasInfantHead(baby));
-  const old = looks.build(oldDoc), current = looks.build(baby);
+  const old = looks.build(oldDoc), current = looks.build({ ...baby, face: { ...baby.face, style: 'natural' } });
   const rest = motion.rig.pose(old.rig), model = old.body.makePose(rest);
   assert.equal(hash(model.colors), '5919f9c4ce2b25550a1540b2fa62dc117c20f14a649cbcc82b614fa968b97e5d');
   assert.equal(hash(motion.faceLayers(old, rest, model)[1].model.colors),
@@ -799,7 +855,10 @@ function sideProfile(actor) {
     const proportions = { ...baby.shape, ...shape };
     const a = looks.build({ ...oldDoc, shape: proportions });
     const b = looks.build({ ...baby, face: { ...baby.face, style: 'natural' }, shape: proportions });
-    assert.deepEqual(b.sockets, a.sockets, 'face and motion anchors at both ends of the depth sliders');
+    const archive = looks.build({ ...baby, packs: { 'pine-core': looks.silhouetteRelease }, face: { ...baby.face, style: 'natural' }, shape: proportions });
+    assert.deepEqual(archive.sockets, a.sockets, 'archived face and motion anchors at both ends of the depth sliders');
+    for (const name of ['headPivot', 'leftJawJoint', 'rightJawJoint', 'leftEarCanal', 'collar'])
+      assert.deepEqual(b.sockets[name], a.sockets[name], 'new infant geometry preserves the ' + name);
   }
   const before = skull.reshape('baby', baby.shape, 1, true), after = skull.reshape('baby', baby.shape, 1, true, true);
   for (const h of [-0.85, -0.54, -0.27, 0, 0.26, 0.55, 0.88]) {

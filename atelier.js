@@ -494,7 +494,8 @@
   }
   function upgradeLabel() {
     if (draft.packs[looks.core] === looks.release) return '';
-    if (draft.packs[looks.core] === looks.illustratedRelease) return draft.base === 'baby' ? '' : '试用新版侧脸';
+    if ([looks.illustratedRelease, looks.silhouetteRelease].includes(draft.packs[looks.core]))
+      return draft.base === 'baby' ? '试用新版婴儿脸' : '试用新版侧脸';
     if (draft.packs[looks.core] === looks.lipJawRelease) return '试用游戏立绘';
     if (draft.packs[looks.core] === looks.naturalProfileRelease) return '试用嘴唇与下颌线';
     if (looks.hasInfantHead(draft))
@@ -545,6 +546,16 @@
   function faceFields(area, candidates) {
     figureUpgrade(area);
     area.append(candidates || faceAudition());
+    const guide = $('turnaround-guide').content.firstElementChild.cloneNode(true);
+    const babyGuide = draft.base === 'baby' || draft.base === 'toddler';
+    guide.dataset.sitter = babyGuide ? 'baby' : 'adult';
+    guide.open = expandedFields.get('turnaround') === true;
+    guide.ontoggle = () => { if (guide.isConnected) expandedFields.set('turnaround', guide.open); };
+    for (const button of guide.querySelectorAll('[data-art-angle]')) {
+      button.setAttribute('aria-label', (babyGuide ? '婴儿参考' : '成人参考') + '，转到' + button.textContent);
+      button.onclick = () => { setView('face'); orbit(Number(button.dataset.artAngle)); };
+    }
+    area.append(guide);
     const contours = document.createElement('fieldset'), title = document.createElement('legend');
     contours.className = 'jaw-controls';
     title.textContent = '嘴唇与下颌线';
@@ -1921,6 +1932,8 @@
     if (tab === 'face') fields();
   }
   const requestedHair = query.get('hair');
+  const requestedSkin = query.get('skin');
+  const changeSkin = /^[0-9a-f]{6}$/i.test(requestedSkin || '') && '#' + requestedSkin.toLowerCase() !== draft.colors.skin;
   const changeHair = Object.hasOwn(looks.slots.hair, requestedHair) && requestedHair !== draft.parts.hair;
   const removeHat = query.get('hat') === 'none' && draft.parts.hat !== 'none';
   if (changeHair) {
@@ -1928,9 +1941,10 @@
     hairGroup = looks.hairGroups[requestedHair];
   }
   if (removeHat) selectHat('none');
-  if (changeHair || removeHat) {
+  if (changeSkin) draft.colors.skin = '#' + requestedSkin.toLowerCase();
+  if (changeHair || removeHat || changeSkin) {
     changed();
-    if (tab === 'hair' || tab === 'wear') fields();
+    if (tab === 'hair' || tab === 'wear' || changeSkin) fields();
   }
   const requestedAction = query.get('action');
   if (requestedAction && [...$('action').options].some((o) => o.value === requestedAction)) {
@@ -1960,6 +1974,7 @@
     }
   } catch {}
   if (query.get('candidates') === '1' && tab === 'face') $('choose-faces').click();
+  if (query.get('reference') === '1' && tab === 'face') document.querySelector('.turnaround-guide').open = true;
   if (skipped) note('有 ' + skipped + ' 个无效的本地存档，其他形象已载入。', true);
   if (location.protocol !== 'file:')
     fetch('packs/creek-hats.json')
