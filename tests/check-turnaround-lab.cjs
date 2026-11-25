@@ -179,7 +179,8 @@ async function exercise() {
       else proc.once('exit', r);
     });
     server.close();
-    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+    // Chrome's helpers can finish writing the temporary profile after the browser exits.
+    await fs.promises.rm(dir, { recursive: true, force: true, maxRetries: 12, retryDelay: 150 });
   }
 })().catch((err) => {
   console.error(err);
