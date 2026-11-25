@@ -9,6 +9,11 @@ const { pathToFileURL } = require('node:url');
 
 function loadDraft(pack) {
   const query = new URLSearchParams(location.search);
+  if (query.has('recipe-pair')) {
+    const url = new URL(location.href);
+    url.hash = new URLSearchParams({character:JSON.stringify(pineFigureModels['baby02-profile']),partner:JSON.stringify(pineFigureModels['baby02-source'])});
+    history.replaceState(null,'',url);return;
+  }
   if (query.has('garment-hem')) {
     const doc=PineLooks.withGarmentStudy(pineFigureModels.adult), top=query.get('garment-hem');
     Object.assign(doc.parts,{top:'oxford',bottom:'trousers',shoes:'loafers',neck:'none',hat:'none'});
@@ -166,6 +171,22 @@ function check(studyBench) {
   const linkedRecipe = side => JSON.parse(new URLSearchParams(new URL($('edit-' + side).href).hash.slice(1)).get('character'));
   try {
     const query = new URLSearchParams(location.search);
+    if (query.has('recipe-pair')) {
+      const source=linkedRecipe('a'), edited=linkedRecipe('b');
+      expect($('before').value==='recipes' && source.face.nose==='rounded' && edited.face.nose==='button' &&
+        JSON.stringify(source.parts)===JSON.stringify(edited.parts),'recipe-pair pane identity');
+      expect($('title-a').textContent===source.label && $('title-b').textContent===edited.label,'pair labels');
+      for(const [side,other] of [['a',edited],['b',source]]) {
+        const url=new URL($('edit-'+side).href);
+        expect(url.searchParams.get('study')==='recipes' &&
+          JSON.parse(new URLSearchParams(url.hash.slice(1)).get('partner')).id===other.id,'opposite reference was lost');
+      }
+      const standing=picture();choose('action','baby-reach');
+      expect(picture()!==standing && ![...$('action').options].some(o=>o.value==='follow-rattle'),'independently posed recipe samples');
+      choose('subject','adult');
+      expect($('before').value!=='recipes' && $('before').querySelector('[value="recipes"]').disabled,'archive subject retained a draft-only pair');
+      $('qa').textContent='Two portable recipes, native profile comparison, movement and reversible editor handoffs passed';return;
+    }
     if (query.has('garment-hem')) {
       const doc=linkedRecipe('b');
       expect(doc.garmentFit.top===query.get('garment-hem') && $('sample-size').value==='64','incorrect native garment sample');
@@ -715,7 +736,8 @@ try {
   const ratioCase = '?ratio-test=1&subject=baby-face-1&before=ratios&size=128&bearing=270';
   const profileCase = '?ratio-profile=1&before=ratios&phase=17&bearing=270&subject=';
   const actingCases = ['?acting-draft=1&before=acting&action=follow-rattle&bearing=270&phase=23&size=128','?mode=blind&review=acting&case=baby%2F0&resume=acting','?acting-profile=1&before=acting&subject=baby-face-1&measure=1'];
-  const garmentCases = ['?garment-draft=1&before=garments&subject=draft&action=walk&phase=43&size=64','?mode=blind&review=garments&case=child%2F0&resume=garments'];
+  const garmentCases = ['?garment-draft=1&before=garments&subject=draft&action=walk&phase=43&size=64','?mode=blind&review=garments&case=child%2F0&resume=garments',
+    '?recipe-pair=1&subject=draft&before=recipes&bearing=270&size=64'];
   for (const top of ['tucked','bloused','straight'])
     garmentCases.push('?subject=draft&before=garments&size=64&garment-hem='+top);
   const actingProfile = '?acting-profile=1&before=acting&size=128&bearing=270&measure=1&subject=';

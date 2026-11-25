@@ -8,7 +8,24 @@ const pineFigureModels = (() => {
       parts: { ...doc.parts, hat: 'none', neck: 'none', ...parts },
       face: { style: 'animation', ...face }, colors: { ...doc.colors, ...colors } };
   }
+  // Second unfiltered baby in the 1.19.9 review. Both portraits are ordinary
+  // editable recipes; the low-resolution profile study has no custom painter.
+  function infantProfile(edited) {
+    const doc = PineLooks.randomCharacter({base:'baby',seed:0x10185c31,release:PineLooks.garmentRelease,bodyFinish:'painted'});
+    doc.label = edited ? '婴儿 02 · 鼻唇与颏尖试调' : '婴儿 02 · 随机原样';
+    if (edited) {
+      doc.id = 'look_baby02_profile';
+      doc.face.nose = 'button';
+      Object.assign(doc.shape, {
+        noseWidth:.48, noseBridge:-.18, mouthHeight:-.10, lipProjection:.43,
+        lowerLipFullness:.20, chinProjection:.40, chinRoundness:.55, jawDefinition:-.23
+      });
+    }
+    return doc;
+  }
   return {
+    get 'baby02-source'() { return infantProfile(false); },
+    get 'baby02-profile'() { return infantProfile(true); },
     adult: sitter('male', '卷袖衬衫', { hair: 'side-part', top: 'oxford', bottom: 'trousers', shoes: 'canvas-shoes' },
       { eyes: 'soft-oval', brows: 'straight', nose: 'short', mouth: 'soft-smile', outline: 'oval' },
       { skin: '#ac744c', hair: '#3c2c2a', eyes: '#473026', top: '#818465', bottom: '#50494b', shoes: '#80604c', accent: '#dcc8a0' }),

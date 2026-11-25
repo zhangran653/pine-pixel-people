@@ -1,0 +1,81 @@
+{
+  "format": "pine-character",
+  "version": 1,
+  "id": "look_baby02_profile",
+  "label": "婴儿 02 · 鼻唇与颏尖试调",
+  "base": "baby",
+  "gender": "unspecified",
+  "packs": {
+    "pine-core": "1.19.9"
+  },
+  "bodyFinish": "painted",
+  "anatomyParts": {
+    "torso": "balanced",
+    "arms": "balanced",
+    "legs": "balanced"
+  },
+  "shape": {
+    "height": 0.97,
+    "shoulders": 0.97,
+    "arms": 1.01,
+    "legs": 1.01,
+    "faceWidth": 1.01,
+    "eyeSpacing": 1.05,
+    "jaw": 1.02,
+    "mouthHeight": -0.1,
+    "headDepth": 0.99,
+    "faceRelief": 0.95,
+    "headScale": 0.93,
+    "crownHeight": 0.78,
+    "trunkLength": 1.17,
+    "noseLipSpacing": 1.04,
+    "chinHeight": 0.1,
+    "chinProjection": 0.4,
+    "chinRoundness": 0.55,
+    "jawPosition": -0.01,
+    "jawNeck": -0.02,
+    "cheekHeight": -0.13,
+    "cheekWidth": 0.01,
+    "cheekProjection": -0.01,
+    "cheekFullness": 0.09,
+    "eyeDepth": -0.04,
+    "eyeWidth": 0.07,
+    "eyeOpening": 0.13,
+    "eyeTilt": 0.05,
+    "browHeight": -0.03,
+    "noseBridge": -0.18,
+    "noseWidth": 0.48,
+    "upperLipFullness": 0.07,
+    "lowerLipFullness": 0.2,
+    "lipProjection": 0.43,
+    "jawDefinition": -0.23
+  },
+  "parts": {
+    "hair": "crop",
+    "top": "cardigan",
+    "bottom": "capris",
+    "shoes": "soft-booties",
+    "neck": "none",
+    "hat": "none"
+  },
+  "face": {
+    "eyes": "soft-oval",
+    "brows": "fine",
+    "nose": "button",
+    "mouth": "bow",
+    "outline": "oval",
+    "form": "round",
+    "formMix": 0.87,
+    "style": "animation"
+  },
+  "colors": {
+    "skin": "#5b4039",
+    "hair": "#e0ddd4",
+    "eyes": "#705139",
+    "top": "#ad7365",
+    "bottom": "#506768",
+    "shoes": "#d8c7a9",
+    "accent": "#e6c89a"
+  },
+  "baseNotice": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+}

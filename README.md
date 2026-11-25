@@ -27,6 +27,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 四个年龄各有八组同配方盲评。完成后可揭晓两边的版本并编辑其中任一人。[八个实拍样本](studies/pixel-structure/garment-fit-random.webp) · [32 组盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=garments&size=64) · [稳定版到本次试作](studies/pixel-structure/whole-1.19.9.webp)
 
+婴儿 02 另有一份手调的普通人物配方。它沿用随机原样的眼睛、肤色与坐姿，把侧面的鼻尖收短，再调整唇部和下颏。可在创作室把两人并排旋转，修改试调人物。[三视图实拍](studies/pixel-structure/baby02-profile.webp) · [打开两人对照](http://127.0.0.1:8000/atelier.html?model=baby02-profile&compare=baby02-source&tab=face&bearing=270&action=idle&phase=17) · [可导入的 JSON](studies/pixel-structure/baby02-profile.json)
+
 ### 1.19.8 眼神与坐姿试作
 
 打开创作室的「五官 → 五官与比例 → 动作眼神与神情」。同一张脸可以选安静、好奇或含笑。让婴儿够球、追看摇铃，或让成人读书、看手机，眼睛会随手里的目标移动。坐着的婴儿把颏尖收回肩前，向下够球时上身跟过去，双脚仍支在地面。默认人物继续使用 1.18.0。[创作室试用](http://127.0.0.1:8000/atelier.html?figure=acting&model=baby&tab=face) · [双人追视动图](studies/pixel-structure/rattle-gaze.webp) · [同一婴儿的三视图](studies/pixel-structure/acting-faces.webp)

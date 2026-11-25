@@ -171,7 +171,9 @@
   function studyLens() {
     if (!draft) return;
     const paintedFace = draft.bodyFinish === 'painted' && looks.portraitStyleOf(draft) === 'animation';
-    const before = draft.packs[looks.core] === looks.garmentRelease ? 'garments' :
+    const namedPair = (query.get('study') === 'recipes' || Object.hasOwn(pineFigureModels,query.get('compare'))) &&
+      $('compare').value === 'review:partner';
+    const before = namedPair ? 'recipes' : draft.packs[looks.core] === looks.garmentRelease ? 'garments' :
       draft.packs[looks.core] === looks.expressionRelease ? 'acting' :
       draft.packs[looks.core] === looks.figureRatioRelease ? 'ratios' :
       draft.packs[looks.core] === looks.featureStudyRelease ? 'features' :
@@ -2062,6 +2064,11 @@
     (Object.hasOwn(pineFigureModels, query.get('model')) && pineFigureModels[query.get('model')]) ||
     looks.templates.find((doc) => doc.id === query.get('preset')) ||
     looks.templates[0];
+  const comparisonKey = query.get('compare');
+  if (!transferredPartner && Object.hasOwn(pineFigureModels,comparisonKey)) {
+    const example = pineFigureModels[comparisonKey];
+    if (example.id !== first.id) transferredPartner = example;
+  }
   if (transferredLook) {
     const availableId = !wardrobe.saved.has(first.id) && !looks.templateById.has(first.id);
     activate(first, '', false, availableId);
@@ -2088,7 +2095,7 @@
     const form = query.get('form');
     tryBaseFace(Object.hasOwn(looks.gameFaceForms, form) ? form : undefined);
   }
-  const partner = looks.templates.find((doc) => doc.id !== first.id && doc.id === query.get('compare'));
+  const partner = looks.templates.find((doc) => doc.id !== first.id && doc.id === comparisonKey);
   if (partner || transferredPartner) {
     $('compare').value = transferredPartner ? 'review:partner' : 'preset:' + partner.id;
     studyLink();

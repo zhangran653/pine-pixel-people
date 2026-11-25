@@ -36,6 +36,7 @@
       if (packet.has('partner')) {
         companion = readRecipe('partner');
         companionActor = looks.build(companion);
+        $('whole-comparisons').append(new Option('草稿与对照人物的配方', 'recipes'));
       }
     } catch (e) {
       $('source-status').hidden = false;
@@ -161,6 +162,7 @@
           bodyFinish:sample[0] === looks.featureStudyRelease ? 'painted' : undefined })
       : pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
     const before = $('before').value;
+    if (before === 'recipes') return [companion,submitted];
     const wasActing = pinePortraitStyles.hasFacialActing(source.packs[looks.core]);
     if (before === 'garments') {
       const trial = looks.withGarmentStudy(subject === 'draft' ? source : paintedFigure(source));
@@ -233,9 +235,8 @@
     $('review').hidden = !blind;
     $('age').value = session.current.split('/')[0];
     const subject = $('subject').value;
-    const currentOption = $('before').querySelector('[value="current"]');
-    if (currentOption) currentOption.disabled = subject !== 'draft';
-    if (!blind && subject !== 'draft' && $('before').value === 'current') $('before').value = 'whole';
+    for (const opt of $('before').querySelectorAll('[value="current"],[value="recipes"]')) opt.disabled = subject !== 'draft';
+    if (!blind && subject !== 'draft' && ['current','recipes'].includes($('before').value)) $('before').value = 'whole';
     $('guide').hidden = blind || !(subject in rows);
     if (!$('guide').hidden) {
       const [y, height] = rows[subject];
@@ -249,7 +250,8 @@
     const completeFigure = !blind && wholeEditions.get(before);
     const ratios = !blind && before === 'ratios', acting = !blind && before === 'acting';
     const garments = !blind && before === 'garments';
-    $('face-gallery').hidden = blind;
+    const paired = !blind && before === 'recipes';
+    $('face-gallery').hidden = blind || paired;
     $('face-gallery').href = 'studies/pixel-structure/' + (garments ? 'garment-fits.webp' : acting ? 'acting-faces.webp' : ratios ? 'figure-ratios.webp' : completeFigure ? before + '.webp' : features ? 'painted-features.webp' : clothing ? 'garment-cuts.webp' : bases ? 'drawn-faces.webp' : 'game-faces.webp');
     $('face-gallery').textContent = garments ? '同人换装与动作实拍' : acting ? '眼神与坐姿实拍' : ratios ? '头身与侧脸比例实拍' : completeFigure ? '稳定版与完整试作实拍' : features ? '五官与坐姿侧面实拍' : clothing ? '衣物与动作实拍' : bases ? '分龄基础脸三视图' : '新旧脸型实拍';
     $('form-field').hidden = !bases && !(features && looks.portraitStyleOf(recipes[1])==='animation');
@@ -257,13 +259,14 @@
     if (!$('form-field').hidden) for (const opt of $('drawn-form').options) if (opt.value) opt.textContent = names[opt.value];
     const baselineTitle = features ? recipes[0].packs[looks.core] + ' · 原有五官' : clothing ? looks.baseFaceRelease + ' · 原有衣物' : bases ? currentStudy + ' · 原有脸型' : before === 'whole' || completeFigure ? stableRelease + ' · 稳定版' :
       before === 'current' ? recipes[0].packs[looks.core] + ' · 草稿原版' : $('before').selectedOptions[0].textContent;
-    $('title-a').textContent = blind ? 'A' : garments ? looks.expressionRelease + ' · 分龄剪裁' : acting ? looks.figureRatioRelease + ' · 原有神情' : ratios ? looks.featureStudyRelease + ' · 原有比例' : baselineTitle;
-    $('title-b').textContent = blind ? 'B' : garments ? looks.garmentRelease + ' · 分款剪裁' : acting ? looks.expressionRelease + ' · 动作神情' : ratios ? looks.figureRatioRelease + ' · 分龄比例' : completeFigure ? completeFigure + ' · 完整试作' : features ? looks.featureStudyRelease + ' · 五官与下颌' : clothing ? looks.clothingStudyRelease + ' · 分龄衣物剪裁' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
+    $('title-a').textContent = blind ? 'A' : paired ? recipes[0].label : garments ? looks.expressionRelease + ' · 分龄剪裁' : acting ? looks.figureRatioRelease + ' · 原有神情' : ratios ? looks.featureStudyRelease + ' · 原有比例' : baselineTitle;
+    $('title-b').textContent = blind ? 'B' : paired ? recipes[1].label : garments ? looks.garmentRelease + ' · 分款剪裁' : acting ? looks.expressionRelease + ' · 动作神情' : ratios ? looks.figureRatioRelease + ' · 分龄比例' : completeFigure ? completeFigure + ' · 完整试作' : features ? looks.featureStudyRelease + ' · 五官与下颌' : clothing ? looks.clothingStudyRelease + ' · 分龄衣物剪裁' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
       currentStudy + (whole ? ' · 全身试作' : finish ? ' · 四肢与衣边色块' : ' · 美术基础脸');
     $('prompt').textContent = blind
       ? reviewKind === 'cast'
         ? '稳定版与试作各自随机生成一人。年龄、种子、镜头与动作帧相同，比较整体搭配和造型。'
         : '本批比较 ' + reviews[reviewKind].join(' 与 ') + '。两侧共用同一张随机配方、同一动作和机位。'
+      : paired ? '左侧是对照人物，右侧是当前草稿。两份配方共用机位和动作进度，可分别回到创作室编辑。'
       : garments ? '两侧用同一配方。正面看衣摆、袖口和裤腿之间的空隙，走几步看裤脚落在鞋面的形状。'
       : acting ? '两侧共用五官和穿搭。拖动动作进度，看眼睛是否朝向玩具或书页，再转到侧面看下巴与衣领。'
       : ratios ? '两侧共用人物、服饰和机位。比较眉上到头顶的弧线、鼻底到上唇的留白，以及肩膀和骨盆之间的长度。'
@@ -291,7 +294,7 @@
     if (acting || garments || pinePortraitStyles.hasFacialActing(completeFigure) || (blind && ['acting','garments'].includes(reviewKind)))
       for (const id of ['look-around','follow-rattle','rattle','read','write','phone','type','open-mouth']) clipIds.add(id);
     const clips = [...clipIds].map(id => motion.actions.get(id))
-      .filter(clip => clip && actors.every(actor => motion.castFor(clip, actor, partner())));
+      .filter(clip => clip && (!paired || clip.roles.length === 1) && actors.every(actor => motion.castFor(clip, actor, partner())));
     $('action').replaceChildren(...clips.map(c => new Option(c.label, c.id)));
     const accepted = clips.some(c => c.id === choice);
     $('action').value = accepted ? choice : 'idle';
@@ -300,7 +303,7 @@
     refreshLinks();
   }
   function partner() {
-    return mode === 'model' && $('subject').value === 'draft' ? companionActor : null;
+    return mode === 'model' && $('subject').value === 'draft' && $('before').value !== 'recipes' ? companionActor : null;
   }
   function startClip(phase = 17) {
     stop();
@@ -452,7 +455,10 @@
         else if ((mode === 'model' && ['cut','garments'].includes($('before').value)) ||
                  (mode === 'blind' && reviewKind === 'garments')) options.set('tab', 'shape');
         const data = new URLSearchParams({ character: JSON.stringify(recipes[i]) });
-        if (partner()) data.set('partner', JSON.stringify(companion));
+        if (mode === 'model' && $('before').value === 'recipes') {
+          options.set('study','recipes');
+          data.set('partner',JSON.stringify(recipes[1-i]));
+        } else if (partner()) data.set('partner', JSON.stringify(companion));
         link.href = 'atelier.html?' + options + '#' + data;
       } else link.removeAttribute('href');
     }

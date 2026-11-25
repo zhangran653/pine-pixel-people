@@ -212,6 +212,16 @@ function checkGarmentFits(cast) {
     assert.ok(cast.group.getObjectByName(current.id).geometry.drawRange.count>0);
   }
   assert.ok(families.size>=3,'everyday outfits have repeatable sewn variants');
+  const original = examples['baby02-source'], edited = examples['baby02-profile'];
+  assert.deepEqual(toPlain(looks.prepare(edited).recipe),JSON.parse(read('studies/pixel-structure/baby02-profile.json')));
+  assert.deepEqual(edited.colors,original.colors);
+  assert.deepEqual(edited.parts,original.parts);
+  assert.deepEqual({...edited.face,nose:original.face.nose},{...original.face});
+  const sitters=[original,edited].map(d=>looks.build(d));
+  const sits=sitters.map(actor=>motion.actions.get('idle').sample(.17,actor)[0].pose);
+  assert.deepEqual(sits[0].feet,sits[1].feet);
+  assert.deepEqual(sits[0].torso,sits[1].torso);
+  assert.notEqual(mask(sitters[0].body.makePose(sits[0]).colors),mask(sitters[1].body.makePose(sits[1]).colors));
 }
 
 function checkFigureRatios(cast) {

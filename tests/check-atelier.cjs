@@ -912,6 +912,26 @@ function checkEditor() {
   }
 }
 
+function checkInfantProfilePair() {
+  const $=id=>document.getElementById(id), result=$('qa-result');
+  try {
+    const pair=new URLSearchParams(new URL($('figure-link').href).hash.slice(1));
+    const source=JSON.parse(pair.get('partner')), trial=JSON.parse(pair.get('character'));
+    if (new URL($('figure-link').href).searchParams.get('before')!=='recipes' || $('compare').value!=='review:partner' ||
+        $('bearing').value!=='270' || $('tab-face').getAttribute('aria-selected')!=='true' ||
+        trial.face.nose!=='button' || source.face.nose!=='rounded' || trial.id===source.id ||
+        JSON.stringify(trial.colors)!==JSON.stringify(source.colors) || JSON.stringify(trial.parts)!==JSON.stringify(source.parts))
+      throw Error('editable baby profile and its original must open side by side at 90 degrees');
+    const slider=$('edit-chinProjection');slider.value=.15;slider.dispatchEvent(new Event('input'));
+    const edited=new URLSearchParams(new URL($('figure-link').href).hash.slice(1));
+    if (JSON.parse(edited.get('character')).shape.chinProjection!==.15 || JSON.stringify(source)!==edited.get('partner'))
+      throw Error('editing the chin should only affect its own recipe');
+    result.dataset.state='pass';result.textContent='Editable baby profile, original pose partner and isolated chin edit passed';
+  } catch (err) {
+    result.dataset.state='fail';result.textContent=err.stack || err.message;
+  }
+}
+
 function checkRatioEditor() {
   const byId = id => document.getElementById(id), target=byId('qa-result');
   const draft = () => JSON.parse(new URLSearchParams(new URL(byId('figure-link').href).hash.slice(1)).get('character'));
@@ -1224,6 +1244,7 @@ try {
   for (const [name, check, query] of [
     ['atelier', checkEditor, '?bearing=90'],
     ['atelier', checkRatioEditor, '?figure=features&model=baby&tab=face'],
+    ['atelier', checkInfantProfilePair, '?model=baby02-profile&compare=baby02-source&tab=face&bearing=270&action=idle&phase=17'],
     ['studio', checkStudioMotions, '?demo=custom'],
     ['studio', checkCharacterTransfer, '?board=character&person=look_guide#score=' + encodeURIComponent(JSON.stringify({
       version: 1, steps: [{ action: 'drink', actors: ['look_guide'] }]
