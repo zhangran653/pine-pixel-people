@@ -167,7 +167,8 @@
   function studyLens() {
     if (!draft) return;
     const paintedFace = draft.bodyFinish === 'painted' && looks.portraitStyleOf(draft) === 'animation';
-    const before = draft.packs[looks.core] === looks.baseFaceRelease && looks.portraitStyleOf(draft) === 'animation' ? 'bases' :
+    const before = draft.packs[looks.core] === looks.clothingStudyRelease ? 'cut' :
+      draft.packs[looks.core] === looks.baseFaceRelease && looks.portraitStyleOf(draft) === 'animation' ? 'bases' :
       draft.packs[looks.core] === looks.release || paintedFace ? 'whole' : 'current';
     $('figure-link').search = new URLSearchParams({ before, subject: 'draft', action, phase: String(phase * 100),
       bearing: String(((bearing % 360) + 360) % 360), framing: view === 'body' ? 'body' : 'head', size: '128' });
@@ -282,7 +283,7 @@
     $('anatomy-link').href = 'anatomy-study.html#' + new URLSearchParams({character: JSON.stringify(draft)});
     studyLink();
     $('try-figure').disabled = trial;
-    $('try-figure').textContent = trial ? (draft.packs[looks.core] === looks.baseFaceRelease ? '已启用分龄基础脸' : '已启用美术基础脸') : '试用动画美术脸型';
+    $('try-figure').textContent = trial ? (pinePortraitStyles.hasBaseFace(draft.packs[looks.core]) ? '已启用分龄基础脸' : '已启用美术基础脸') : '试用动画美术脸型';
     measurements();
     $('save-state').textContent = dirty ? '有未保存的修改' : saved ? '已保存' : '新形象';
     $('save-state').dataset.dirty = String(dirty);
@@ -422,7 +423,7 @@
       const pin = draft.packs[looks.core];
       apply(field.value);
       changed();
-      if (tab === 'wear' && pin !== draft.packs[looks.core]) {
+      if ((tab === 'wear' || tab === 'shape') && pin !== draft.packs[looks.core]) {
         fields();
         $('edit-' + id)?.focus({ preventScroll: true });
       }
@@ -573,7 +574,7 @@
   function faceFields(area, candidates) {
     figureUpgrade(area);
     const gameFace = pinePortraitStyles.hasGameFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation';
-    const drawn = gameFace && draft.packs[looks.core] === looks.baseFaceRelease;
+    const drawn = gameFace && pinePortraitStyles.hasBaseFace(draft.packs[looks.core]);
     if (!drawn) {
       const button = document.createElement('button');
       button.type = 'button';
@@ -1148,6 +1149,12 @@
     }
     if (tab === 'shape') {
       figureUpgrade(area);
+      const clothing = draft.packs[looks.core] === looks.clothingStudyRelease;
+      area.append(picker('衣物轮廓', 'clothing-cut', [['original', '原有剪裁'], ['cut', '分龄剪裁 · 1.19.5']],
+        clothing ? 'cut' : 'original', value => {
+          if (value === 'cut') draft = looks.withClothingStudy(draft);
+          else draft.packs[looks.core] = looks.baseFaceRelease;
+        }));
       if (pinePortraitStyles.hasStructureStudy(draft.packs[looks.core])) {
         const section = $('anatomy-fields').content.cloneNode(true);
         const grid = section.querySelector('.wardrobe-grid');
@@ -1444,13 +1451,17 @@
     heading();
   }
   function tryFigure() {
-    if (pinePortraitStyles.hasGameFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') return;
-    draft = looks.withGameFace(draft);
+    if (pinePortraitStyles.hasGameFace(draft.packs[looks.core])) {
+      if (looks.portraitStyleOf(draft) === 'animation') return;
+      looks.setPortraitStyle(draft,'animation');
+    } else draft = looks.withGameFace(draft);
     changed();
     fields();
   }
   function tryBaseFace(form) {
+    const clothing = draft.packs[looks.core] === looks.clothingStudyRelease;
     draft = looks.withBaseFace(draft, form);
+    if (clothing) draft = looks.withClothingStudy(draft);
     changed();
     fields();
   }
@@ -1995,6 +2006,11 @@
     activate(first, '', false, availableId);
   } else activate(first, (stored ? 'saved:' : 'preset:') + first.id, !!stored);
   if (query.get('figure') === 'study') tryFigure();
+  if (query.get('figure') === 'cut' && draft.packs[looks.core] !== looks.clothingStudyRelease) {
+    draft = looks.withClothingStudy(draft);
+    changed();
+    fields();
+  }
   if (query.get('figure') === 'bases') {
     const form = query.get('form');
     tryBaseFace(Object.hasOwn(looks.gameFaceForms, form) ? form : undefined);

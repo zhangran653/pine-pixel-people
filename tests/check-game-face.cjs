@@ -106,6 +106,61 @@ function checkDrawn(base, ref, cast) {
   }
 }
 
+function checkClothing(cast) {
+  for (const age of ['adult','child','toddler','baby']) {
+    const before = looks.withBaseFace(examples[age], 'round');
+    before.bodyFinish = 'painted';
+    const draft = looks.withClothingStudy(before);
+    assert.equal(draft.packs[looks.core],looks.clothingStudyRelease);
+    assert.deepEqual(toPlain({...draft,packs:before.packs}),toPlain(before));
+    assert.deepEqual(toPlain(looks.prepare(toPlain(draft)).recipe.face),toPlain(draft.face));
+    for (let seed=0; seed<8; seed++) {
+      const options = {base:age, seed, bodyFinish:'painted'};
+      const prior = looks.randomCharacter({...options,release:looks.baseFaceRelease});
+      const next = looks.randomCharacter({...options,release:looks.clothingStudyRelease});
+      for (const key of ['face','shape','gender']) assert.deepEqual(next[key],prior[key]);
+      for (const key of ['skin','eyes','hair']) assert.equal(next.colors[key],prior.colors[key]);
+      assert.deepEqual(next,looks.randomCharacter({...options,release:looks.clothingStudyRelease}));
+      if (age==='adult' || age==='child') assert.deepEqual(next.parts,prior.parts);
+      if (age==='baby') assert.equal(next.parts.shoes,'soft-booties');
+    }
+    const [old, current, dye] = [before,draft,{...draft,colors:{...draft.colors,top:'#7f4053',bottom:'#46686b'}}].map(d=>looks.build(d));
+    assert.deepEqual(old.rig,current.rig);
+    assert.deepEqual(old.sockets,current.sockets);
+    const clip = motion.actions.get(age==='baby'?'baby-reach':'walk');
+    const pose = clip.sample(.43,current)[0].pose;
+    const cells = [old,current,dye].map(a=>a.body.makePose(pose).colors);
+    assert.notEqual(mask(cells[0]),mask(cells[1]),age+' clothing changes the silhouette during movement');
+    assert.equal(mask(cells[1]),mask(cells[2]),age+' same cut under a different dye');
+    assert.notEqual(digest(cells[1]),digest(cells[2]));
+    // Sample exactly the same face above the jaw. The cloth may meet the chin below it.
+    const idle = motion.actions.get('idle').sample(.17,current)[0].pose;
+    const faceStart = motion.rig.socket(current,idle,'mouth')[2]+.5;
+    const at = Math.ceil(faceStart*old.body.density)*old.body.nx*old.body.ny;
+    const heads=[old,current].map(a=>a.body.makePose(idle).colors.subarray(at));
+    assert.ok(heads[0].some(Boolean));
+    assert.equal(digest(heads[0]),digest(heads[1]),age+' keeps the same face and hair');
+    motion.characters.set(current.id,current);
+    cast.setFrame(clip.sample(.43,current));
+    assert.ok(cast.group.getObjectByName(current.id).geometry.drawRange.count>0);
+  }
+  const babyTops = new Set(), toddlerHats = new Set();
+  for (let seed=0; seed<128; seed++) {
+    for (const base of ['toddler','baby']) {
+      const options = {base, seed, release:looks.clothingStudyRelease};
+      const doc = looks.randomCharacter(options);
+      if (base==='baby') {
+        babyTops.add(doc.parts.top);
+        assert.equal(doc.parts.shoes,'soft-booties');
+      } else toddlerHats.add(doc.parts.hat);
+      const locked = looks.randomCharacter({...options,seed:seed+128,source:doc,locks:['wear','hair']});
+      assert.deepEqual(locked.parts,doc.parts);
+    }
+  }
+  for (const piece of ['tee','cardigan','breton','snap-knit']) assert.ok(babyTops.has(piece));
+  for (const hat of ['none','pine-core/cotton-cap','pine-core/sunhat']) assert.ok(toddlerHats.has(hat));
+}
+
 async function check() {
   const cast = (await import('../pine-three.mjs')).createPineCast(
     await import('../vendor/three-r187/three.module.js'),
@@ -227,8 +282,10 @@ async function check() {
     cast.setFrame(motion.actions.get('wave').sample(.37, revised));
     assert.ok(cast.group.getObjectByName(revised.id).geometry.drawRange.count > 0);
   }
+  checkClothing(cast);
   cast.dispose();
   assert.equal(distinct.size, 4);
+  console.log('Matched garments, joint contacts, faces, planted feet, dyes, 32 full-character seeds and Three.js passed for the four 1.19.5 ages');
   console.log(
     'Four ages, 12 new drawn bases, both generations of 128 seeded recipes, archived cells, morph endpoints, blinks, dyes, grounded infant rest, sockets and Three.js meshes passed'
   );

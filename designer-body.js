@@ -3,7 +3,7 @@ const pineDesignerBody = (() => {
   // The first three sculpt releases added the scalp, layered short hair and fitted jaw in order.
   const sculptedReleases = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1',
     '1.12.0', '1.13.0', '1.13.1', '1.14.0', '1.15.0', pinePortraitStyles.illustratedRelease,
-    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease];
+    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease, pinePortraitStyles.clothingStudyRelease];
   // Relative to the selected body. The editor, recipe validator and painter share these limits.
   const shapeRanges = {
     height: [0.75, 1.3, 1],
@@ -582,12 +582,13 @@ const pineDesignerBody = (() => {
     const modelAnatomy = pinePortraitStyles.hasProportionStudy(pin);
     const pixelStructure = pinePortraitStyles.hasStructureStudy(pin);
     const gameFace = pinePortraitStyles.hasGameFace(pin) && style === 'animation';
-    const drawnFace = gameFace && pin === pinePortraitStyles.baseFaceRelease;
+    const drawnFace = gameFace && pinePortraitStyles.hasBaseFace(pin);
+    const clothingStudy = pin === pinePortraitStyles.clothingStudyRelease;
     const faceForm = recipe.face?.form ?? recipe.anatomyParts?.skull ?? 'balanced';
     const drawnMix = drawnFace && faceForm !== 'balanced' ? recipe.face?.formMix ?? 1 : 0;
     const paintedBody = recipe.bodyFinish === 'painted';
     const wholeFigure = pin === pinePortraitStyles.figureRelease || tailored;
-    const garment = tailored && pineFigurePaint.garmentCut(parts.top, recipe.base);
+    const garment = tailored && pineFigurePaint.garmentCut(parts.top, recipe.base, clothingStudy);
     const pixelPortrait = pinePortraitStyles.hasPixelFace(pin) && style === 'animation';
     const fittedFace = pin === pinePortraitStyles.facePlaneRelease || pinePortraitStyles.hasPixelFace(pin);
     const infantFace = fittedFace && recipe.base === 'baby';
@@ -938,6 +939,12 @@ const pineDesignerBody = (() => {
     const anatomy = pixelStructure ? pineAnatomy.bind(recipe, rig, sockets, {
       hipHalf, hipThickness, hipHeight, chestDepth, measures, scale: s
     }) : null;
+    const panels = clothingStudy && pineFigurePaint.bodyPanels(garment, anatomy, rig.shoulder[1], chestDepth, hipThickness);
+    const panelBounds = panels && {
+      width: Math.max(...panels.map(r => r.width+r.lapWidth)),
+      front: Math.max(...panels.map(r => r.axis+Math.max(0,r.lapAxis)+r.front+r.lapFront)),
+      back: Math.min(...panels.map(r => r.axis+Math.min(0,r.lapAxis)-r.back-r.lapBack))
+    };
     let skull = skullDriver && pineSkull.bind({ fit, sockets, driver: skullDriver, form: skullForm });
     const definition = shape.jawDefinition || 0;
     // The lateral edge runs from the fitted gonion to the underside of the chin.
@@ -1523,6 +1530,13 @@ const pineDesignerBody = (() => {
       // Cloth bunches at the hip when seated; leave the lap visible in front,
       // including on a matching set. Long coats still hang below the hips.
       const waistline = pixelStructure && standingHem > 0 ? standingHem + .16 * seated : standingHem;
+      // A fitted accessory sits on the same rounded cross section as its cloth.
+      const mount = panels && ((h, v, lift = 0) => {
+        const t = waistline + (1-waistline)*h, row = panels[clamp(Math.round(t*96),0,96)];
+        const u = Math.sqrt((1-v*v)/(1-.21*v*v));
+        return [row.axis + seated*row.lapAxis + u*(row.front + seated*row.lapFront) + lift,
+          v*(row.width + seated*row.lapWidth), low + tall*t];
+      });
       function clothAt(u, v, t) {
         const a = Math.abs(v);
         if (parts.bag || parts.attachment) {
@@ -1532,6 +1546,10 @@ const pineDesignerBody = (() => {
         if (parts.bottom === 'bib-overalls') {
           const bib = pineWorkshopWear.bib(u, v, t, k);
           if (bib) return bib;
+        }
+        if (panels) {
+          const detail = paint.panelDetail(k, parts.top, u, v, t);
+          if (detail) return detail;
         }
         if (tailored && parts.top === 'oxford') return paint.shirt(k, u, v, t);
         if (tailored && parts.top === 'pullover') {
@@ -1608,9 +1626,44 @@ const pineDesignerBody = (() => {
               : k.bottom,
         2.7
       );
-      b.stamp(back * (tailored ? 1.15 : 1), front * (tailored ? 1.15 : 1) + seated * chestDepth * .55, -maxW, maxW, low, high, (x, y, z) => {
-        const t = (z - low) / tall,
-          w = hipHalf * (1 - t) + broad * t;
+      function paintedPanel(u, v, t, hemRise) {
+        if (wholeFigure && t < waistline + hemRise) {
+          const h = t / (waistline + hemRise);
+          return seated ? paint.infantLap(k, u, v, h, pixelStructure) : paint.waist(k, u, v, h);
+        }
+        const garmentHeight = wholeFigure ? (t - waistline - hemRise) / (1 - waistline - hemRise) : t;
+        const value = clothAt(u, v, garmentHeight);
+        if (tailored) return paint.cutTorso(k, value, garment, u, v, garmentHeight);
+        return wholeFigure ? paint.torso(k, value, parts.top, u, v, garmentHeight) : value;
+      }
+      const belt = panels && parts.belt, beltEase = belt ? 1.04 : 1;
+      const beltHalf = belt === 'sash' ? .065 : .040;
+      const buckle = belt === 'leather' || belt === 'utility' ? k.brass : k.beltLight;
+      const halfWidth = panels ? panelBounds.width*beltEase : maxW;
+      b.stamp(panels ? panelBounds.back*beltEase : back * (tailored ? 1.15 : 1),
+        panels ? panelBounds.front*beltEase : front * (tailored ? 1.15 : 1) + seated * chestDepth * .55,
+        -halfWidth, halfWidth, low, high, (x, y, z) => {
+        const t = (z - low) / tall;
+        if (panels) {
+          if (t < 0 || t > 1) return 0;
+          const row = panels[Math.round(t*96)];
+          const dx = x - row.axis - seated*row.lapAxis;
+          const v = y / (row.width + seated*row.lapWidth);
+          const u = dx / (dx < 0 ? row.back + seated*row.lapBack : row.front + seated*row.lapFront);
+          const u2 = u*u, v2 = v*v;
+          if (belt) {
+            const level = (t-waistline)/(1-waistline)-.21;
+            if (Math.abs(level) < beltHalf && u2 < 1.082 && v2 < 1.082 && u2+v2-.21*u2*v2 < 1.075) {
+              if (u > .75 && Math.abs(v) < .14) return buckle;
+              if (belt === 'woven' && Math.cos(30*v+level*55) > .45) return k.beltLight;
+              return level < -.48*beltHalf || v > .72 ? k.beltShade : k.beltMain;
+            }
+          }
+          if (u2 > 1 || v2 > 1 || u2+v2-.21*u2*v2 > 1) return 0;
+          const rise = waistline*(.11*u+.09*v2) + seated*(.054*v2-.025*u);
+          return paintedPanel(u, v, t, rise);
+        }
+        const w = hipHalf * (1 - t) + broad * t;
         const waistWeight = Math.max(0, 1 - Math.abs(t - cut.waistAt) / 0.34);
         const waist = w * (1 - cut.waistInset * waistWeight);
         const easeOverHips = clamp((0.34 - t) / 0.13, 0, 1);
@@ -1652,21 +1705,14 @@ const pineDesignerBody = (() => {
           u2 * u2 + v2 * v2 + corner * (u2 * (1 - u2) + v2 * (1 - v2));
         const hemRise = waistline * (0.13 * u + 0.085 * v2) + seated * (.068 * v2 - .022 * u);
         if (t < 0 || t > (core ? 1 : 1 - cut.shoulderSlope * v2 - shoulderDrop) || section > 1) return 0;
-        if (wholeFigure && t < waistline + hemRise) {
-          const h = t / (waistline + hemRise);
-          return seated ? paint.infantLap(k, u, v, h, pixelStructure) : paint.waist(k, u, v, h);
-        }
-        const garmentHeight = wholeFigure ? (t - waistline - hemRise) / (1 - waistline - hemRise) : t;
-        const value = clothAt(u, v, garmentHeight);
-        if (tailored) return paint.cutTorso(k, value, garment, u, v, garmentHeight);
-        return wholeFigure ? paint.torso(k, value, parts.top, u, v, garmentHeight) : value;
+        return paintedPanel(u, v, t, hemRise);
       });
       const hemZ = low + tall * waistline, clothHeight = high - hemZ;
-      if (wholeFigure && !(tailored && parts.top === 'oxford')) paint.neckline(b, k, parts.top, chestDepth, broad, hemZ, clothHeight);
+      if (wholeFigure && !panels && !(tailored && parts.top === 'oxford')) paint.neckline(b, k, parts.top, chestDepth, broad, hemZ, clothHeight);
       if (workshopTop) {
         if (!pixelStructure || parts.top !== 'snap-knit')
           pineWorkshopWear.torsoDetails(parts.top, b, k, chestDepth, broad, hemZ, clothHeight);
-      } else if (tee) {
+      } else if (tee && !panels) {
         // A small stitched chest pocket also gives the tee an asymmetric side view.
         const px = 0.89 * chestDepth,
           py = 0.4 * broad,
@@ -1827,7 +1873,7 @@ const pineDesignerBody = (() => {
       if (!adjustableJaw)
         b.blob(rig.neck[0], 0, rig.neck[2], fit.rx * 0.397, fit.ry * 0.41, fit.rz * 0.235, k.skin, 2.3);
       if (parts.belt || parts.brooch || Object.hasOwn(pineEverydayStyles.clothes.neck, parts.neck))
-        pineEverydayStyles.torso(parts, b, k, chestDepth, broad, hemZ, clothHeight);
+        pineEverydayStyles.torso(parts, b, k, chestDepth, broad, hemZ, clothHeight, mount);
       if (parts.neck === 'bow') {
         const mid = high - 0.07 * tall,
           wing = 0.48 * broad;

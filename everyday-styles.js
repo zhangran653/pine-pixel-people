@@ -512,12 +512,12 @@ const pineEverydayStyles = (() => {
       style === 'fingerless' ? k.skinLight : k.glovesMain
     );
   }
-  function torso(parts, b, k, d, w, low, tall) {
+  function torso(parts, b, k, d, w, low, tall, mount) {
     const z = (t) => low + t * tall;
     if (parts.belt) {
       const style = parts.belt,
         h = style === 'sash' ? 0.092 : 0.063;
-      b.blob(
+      if (!mount) b.blob(
         0.055 * d,
         0,
         z(0.21),
@@ -534,13 +534,13 @@ const pineEverydayStyles = (() => {
         3.7
       );
       if (style === 'utility')
-        for (const side of [-1, 1])
-          b.blob(0.71 * d, side * 0.76 * w, z(0.19), 0.3 * d, 0.23 * w, 0.085 * tall, k.beltShade, 3.7);
+        for (const side of [-1, 1]) {
+          const at = mount ? mount(.19,side*.77) : [0.71*d,side*.76*w,z(.19)];
+          b.blob(...at, 0.3 * d, 0.23 * w, 0.085 * tall, k.beltShade, 3.7);
+        }
     }
     if (parts.brooch) {
-      const bx = 0.97 * d,
-        by = 0.5 * w,
-        bz = z(0.72),
+      const [bx,by,bz] = mount ? mount(.72,.5) : [.97*d,.5*w,z(.72)],
         r = 0.12 * w,
         style = parts.brooch;
       if (style === 'nameplate') b.blob(bx, by, bz, 0.17 * d, 0.24 * w, 0.038 * tall, k.broochLight, 4);
@@ -584,24 +584,33 @@ const pineEverydayStyles = (() => {
       return;
     }
     if (style === 'tie') {
-      b.blob(1.0 * d, 0, z(0.87), 0.16 * d, 0.145 * w, 0.07 * tall, k.trimShade);
-      b.link([1.04 * d, 0, z(0.83)], [1.065 * d, 0, z(0.4)], 0.115 * w, 0.143 * w, 0.92, (t, u) =>
+      const knot = mount ? mount(.87,0,.035*d) : [d,0,z(.87)];
+      b.blob(...knot, 0.16 * d, 0.145 * w, 0.07 * tall, k.trimShade);
+      if (mount) {
+        const middle = mount(.65,0,.045*d);
+        b.link(mount(.83,0,.035*d),middle,.115*w,.132*w,.92,() => k.accent);
+        b.link(middle,mount(.40,0,.04*d),.132*w,.143*w,.92,(t,u) => t>.85 || u<0 ? k.trimShade : k.accent);
+      } else b.link([1.04 * d, 0, z(0.83)], [1.065 * d, 0, z(0.4)], 0.115 * w, 0.143 * w, 0.92, (t, u) =>
         t > 0.91 || u < 0 ? k.trimShade : k.accent
       );
       return;
     }
     let last;
     for (let i = 0; i <= 14; i++) {
-      const q = i / 7 - 1,
-        p = [(1.07 - 0.53 * q * q) * d, 0.63 * w * q, z(0.72 + 0.22 * q * q)];
+      const q = i / 7 - 1, level = .72 + .22*q*q;
+      const p = mount ? mount(level,.63*q,.035*d) : [(1.07 - 0.53 * q * q) * d, 0.63 * w * q, z(level)];
       if (last) b.link(last, p, 0.042 * w, 0.042 * w, 1, () => k.accent);
       if (style === 'pearls' && i % 2 === 0) b.blob(...p, 0.068 * w, 0.069 * w, 0.066 * w, k.trimLight);
       last = p;
     }
-    if (style === 'pendant') b.blob(1.1 * d, 0, z(0.67), 0.13 * d, 0.1 * w, 0.076 * tall, k.accent);
+    if (style === 'pendant') {
+      const charm = mount ? mount(.67,0,.07*d) : [1.1*d,0,z(.67)];
+      b.blob(...charm, 0.13 * d, 0.1 * w, 0.076 * tall, k.accent);
+    }
     if (style === 'bolo')
       for (const side of [-1, 1])
-        b.link([1.07 * d, 0, z(0.73)], [1.1 * d, side * 0.13 * w, z(0.51)], 0.045 * w, 0.049 * w, 1, (t) =>
+        b.link(mount ? mount(.73,0,.045*d) : [1.07*d,0,z(.73)],
+          mount ? mount(.51,side*.13,.055*d) : [1.1*d,side*.13*w,z(.51)], 0.045 * w, 0.049 * w, 1, (t) =>
           t > 0.82 ? k.brass : k.trimShade
         );
   }

@@ -840,6 +840,14 @@ function checkEditor() {
     expect(reviewUrl.searchParams.get('before') === 'whole' &&
       JSON.parse(new URLSearchParams(reviewUrl.hash.slice(1)).get('character')).bodyFinish === 'painted',
       'a finished trial opens against the stable renderer');
+    const seam=byId('edit-clothing-cut'), uncutRecipe=JSON.parse(new URLSearchParams(reviewUrl.hash.slice(1)).get('character'));
+    seam.value='cut';seam.dispatchEvent(new Event('change'));
+    const sewnUrl=new URL(reviewLink.href), sewn=JSON.parse(new URLSearchParams(sewnUrl.hash.slice(1)).get('character'));
+    expect(sewnUrl.searchParams.get('before')==='cut' && sewn.packs['pine-core']===PineLooks.clothingStudyRelease &&
+      JSON.stringify(sewn.face)===JSON.stringify(uncutRecipe.face) && JSON.stringify(sewn.parts)===JSON.stringify(uncutRecipe.parts),
+      'selecting clothing must preserve the actor and open the matching comparison');
+    byId('edit-undo').click();
+    expect(byId('edit-clothing-cut').value==='original' && new URL(reviewLink.href).searchParams.get('before')==='whole', 'clothing undo must restore the actual previous version');
     const assembly = { torso: 'broad', arms: 'slender', legs: 'strong' };
     for (const [slot, value] of Object.entries(assembly)) {
       const field = byId('edit-anatomy-' + slot);

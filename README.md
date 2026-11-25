@@ -21,6 +21,12 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 1.19.5 分龄衣物剪裁试作
+
+在人物创作室的「体型 → 衣物轮廓」选「分龄剪裁」。衣服按成人、儿童、幼儿和婴儿各自的正面宽度与前后深度成形。短袖的领边和胸袋沿布面转到侧面，腰带随腰围收拢。走路时裤管跨过膝部，坐姿婴儿的裤腿在大腿上铺开。这项试作可以保存、撤销，普通新建人物使用 1.18.0。[编辑幼儿的剪裁](http://127.0.0.1:8000/atelier.html?model=toddler&figure=cut&tab=shape) · [黄帽橙衫、厨师服与儿童短袖的实拍](studies/pixel-structure/garment-cuts.webp) · [旋转儿童短袖](http://127.0.0.1:8000/figure-study.html?subject=child-6&before=cut&bearing=270&size=128)
+
+新的婴儿随机穿搭包含居家棉衣、背带装和外出针织衫，鞋子采用软底款。幼儿可抽到便装、遮阳帽和针织帽。盲评逐龄取八份真实配方，让两版穿上同一身衣服、做同一动作。[八组随机实拍](studies/pixel-structure/garment-random.webp) · [分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=cut&size=128) · [配方接口](appearance-standard.html#clothing-cut)
+
 ### 1.19.4 分龄基础脸试作
 
 在人物创作室的「五官」点「试用分龄基础脸」。成人可以选窄颏长脸、短圆脸和宽颌脸。儿童、幼儿、婴儿各有自己的一套小椭圆脸、短圆脸和柔方脸。转到侧面比较鼻底、嘴唇和下巴，拖「脸型强度」可以回到原有的均衡脸。试作使用原有衣物、配色和动作，普通新建人物使用 1.18.0。[编辑坐姿婴儿](http://127.0.0.1:8000/atelier.html?model=baby&figure=bases&form=round&tab=face&bearing=270) · [四个年龄的三视图](studies/pixel-structure/drawn-faces.webp) · [配方接口](appearance-standard.html#base-faces)

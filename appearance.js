@@ -32,7 +32,8 @@ const PineLooks = (() => {
     proportionStudyRelease = pinePortraitStyles.proportionStudyRelease,
     structureStudyRelease = pinePortraitStyles.structureStudyRelease,
     gameFaceRelease = pinePortraitStyles.gameFaceRelease,
-    baseFaceRelease = pinePortraitStyles.baseFaceRelease;
+    baseFaceRelease = pinePortraitStyles.baseFaceRelease,
+    clothingStudyRelease = pinePortraitStyles.clothingStudyRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -61,7 +62,7 @@ const PineLooks = (() => {
     facePlaneRelease,
     pixelRelease,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease
   ];
   function figurePin(recipe) {
     const pin = recipe?.packs?.[core];
@@ -93,6 +94,11 @@ const PineLooks = (() => {
     const next = withGameFace(recipe);
     next.packs[core] = baseFaceRelease;
     next.face.form = form;
+    return next;
+  }
+  function withClothingStudy(recipe) {
+    const next = structuredClone(recipe);
+    next.packs[core] = clothingStudyRelease;
     return next;
   }
   function hasRoundedHead(recipe) {
@@ -1292,6 +1298,19 @@ SOFTWARE.`;
     adult: ['shirt', 'field', 'knits', 'active'], child: ['shirt', 'play', 'knits', 'active', 'field'],
     toddler: ['play', 'knits', 'active'], baby: ['nursery']
   };
+  // A complete outfit determines how much room the clothes need at the lap and
+  // which hats can accompany it. All entries are ordinary editable catalog parts.
+  const youngWardrobes = {
+    baby: [
+      { pieces:[['snap-knit','pullover','breton'],['knee-pants','joggers'],['soft-booties']], capChance:.08 },
+      { pieces:[['tee','snap-knit','sailor-knit'],['bib-overalls','shorts'],['soft-booties']], capChance:.12 },
+      { pieces:[['cardigan','breton','sailor-knit'],['capris','knee-pants','trousers'],['soft-booties']], capChance:.35 }
+    ],
+    toddler: [
+      { pieces:clothingCuts.play }, { pieces:clothingCuts.knits }, { pieces:clothingCuts.active },
+      { pieces:clothingCuts.play, hat:'sunhat' }, { pieces:clothingCuts.knits, hat:'cotton-cap' }
+    ]
+  };
   const outfitPalettes = [
     ['#698d85', '#55485a', '#8e624c', '#d6b877'], ['#967253', '#455766', '#584b49', '#b5c5a9'],
     ['#d6c4a0', '#6e5563', '#85624f', '#698b87'], ['#56758e', '#827366', '#43525a', '#d2a76a'],
@@ -1303,15 +1322,18 @@ SOFTWARE.`;
   // Leave headroom for crowns and brims; low braids and long side lengths still fit.
   const brimHair = new Set(['crop', 'crew', 'fade', 'buzz', 'bald', 'pixie', 'bob', 'side-part', 'curly',
     'braid', 'twin-braids', 'low-bun', 'shoulder-length', 'lob', 'box-braids', 'locs', 'french-bob']);
-  function tailoredOutfit(donor, lockedHair, random) {
+  function tailoredOutfit(donor, lockedHair, random, sewn) {
     // Retain complete specialist outfits (and their matching equipment) among everyday looks.
     const keepDonor = random() < (donor.base === 'adult' ? 0.42 : 0.22);
     if (keepDonor && (donor.parts.hat === 'none' || !lockedHair || brimHair.has(lockedHair))) return donor;
-    const cut = clothingCuts[pick(cutsByAge[donor.base], random)];
+    const choices = sewn && youngWardrobes[donor.base];
+    const wardrobe = choices && pick(choices,random);
+    const cut = wardrobe ? wardrobe.pieces : clothingCuts[pick(cutsByAge[donor.base], random)];
     const [top, bottom, shoes] = cut.map(options => pick(options, random));
     const [shirt, pants, shoe, accent] = pick(outfitPalettes, random);
-    const hat = donor.base === 'baby' && random() < 0.28 && (!lockedHair || brimHair.has(lockedHair))
-      ? core + '/cotton-cap' : 'none';
+    const cotton = donor.base === 'baby' && random() < (wardrobe?.capChance ?? .28);
+    const accessory = cotton ? 'cotton-cap' : wardrobe?.hat;
+    const hat = accessory && (!lockedHair || brimHair.has(lockedHair)) ? core+'/'+accessory : 'none';
     const casual = { ...donor, packs: { [core]: tailoredRelease }, parts: { hair: donor.parts.hair, top, bottom, shoes, neck: 'none', hat },
       colors: { skin: donor.colors.skin, hair: donor.colors.hair, eyes: donor.colors.eyes,
         top: shirt, bottom: pants, shoes: shoe, accent, ...(hat !== 'none' && { hat: accent }) } };
@@ -1423,7 +1445,7 @@ SOFTWARE.`;
       if (!pinePortraitStyles.hasGameFace(pin) || portrait !== 'animation') delete doc.face.form;
     }
     const infant = doc.base === 'baby';
-    const drawnForm = pin === baseFaceRelease && portrait === 'animation'
+    const drawnForm = pinePortraitStyles.hasBaseFace(pin) && portrait === 'animation'
       ? pick(infant ? ['round','long','round','angular'] : ['round','long','angular'], random) : null;
     const design = portrait !== 'natural' && portraitFamilies[family || pick(familyIds, random)];
     const young = infant || (design && doc.base === 'toddler');
@@ -1496,7 +1518,7 @@ SOFTWARE.`;
     const { random = Math.random, style, portrait, family, source, seed, base,
       release: pin = figurePin(source), bodyFinish = pinePortraitStyles.hasGameFace(pin) ? source?.bodyFinish : undefined,
       locks = [] } = generationOptions(input);
-    requireThat(bodyFinish === undefined || (bodyFinish === 'painted' && pinePortraitStyles.hasGameFace(pin)), '身体着色试作需要 pine-core 1.19.3 或 1.19.4');
+    requireThat(bodyFinish === undefined || (bodyFinish === 'painted' && pinePortraitStyles.hasGameFace(pin)), '所选基础部件版本不支持身体着色试作');
     const keep = new Set(source ? locks : []);
     const tailored = pinePortraitStyles.hasTailoredFigure(pin);
     requireThat(base === undefined || Object.values(bodyProfiles).some(profile => profile.base === base), '未知年龄基型');
@@ -1507,7 +1529,7 @@ SOFTWARE.`;
     const profile = keep.has('body') ? source : bodyProfiles[pick(profiles, random)];
     const donor = pick(templates.filter((doc) => doc.base === profile.base), random);
     const outfit = keep.has('wear') ? source : tailored
-      ? tailoredOutfit(donor, keep.has('hair') && source.parts.hair, random) : donor;
+      ? tailoredOutfit(donor, keep.has('hair') && source.parts.hair, random, pin === clothingStudyRelease) : donor;
     const doc = randomFace({ ...outfit, base: profile.base, shape: donor.shape, face: {} },
       { random, style, portrait: portrait || source?.face?.style || 'animation', family, release: pin });
     doc.gender = profile.gender || 'unspecified';
@@ -1543,8 +1565,8 @@ SOFTWARE.`;
   return {
     core,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease,
-    withFigureStudy, withGameFace, withBaseFace,
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease,
+    withFigureStudy, withGameFace, withBaseFace, withClothingStudy,
     originalRelease,
     styleRelease,
     profileRelease,
