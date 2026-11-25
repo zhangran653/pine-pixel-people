@@ -61,7 +61,7 @@
           一个形象文件记录人体基型、体型与五官、穿搭、配色和依赖版本。动作通过共同的骨架和接触点驱动角色。创作室、动作工坊和
           Three.js 场景读取同一份形象。
         </p>
-        <p><a href="#clothing-cut">1.19.5 分龄衣物剪裁</a> · <a href="#base-faces">1.19.4 分龄基础脸</a> · <a href="#game-face">1.19.3 美术基础脸</a> · <a href="#anatomy-parts">1.19.2 人体结构与可换部件</a> · <a href="#figure-art">全身像素造型与配色样张</a> · <a href="#portrait-art">五官画风</a></p>
+        <p><a href="#painted-features">1.19.6 分龄五官笔触</a> · <a href="#clothing-cut">1.19.5 分龄衣物剪裁</a> · <a href="#base-faces">1.19.4 分龄基础脸</a> · <a href="#game-face">1.19.3 美术基础脸</a> · <a href="#anatomy-parts">1.19.2 人体结构与可换部件</a> · <a href="#figure-art">全身像素造型与配色样张</a> · <a href="#portrait-art">五官画风</a></p>
         <h2>形象文件</h2>
         <p>
           用创作室的「导入角色」打开下面的任一示例。编辑后可以保持 ID 保存，也可以另存为独立形象。导入相同
@@ -219,6 +219,14 @@
         </p>
         <h2>从参数到 360° 像素</h2>
         <h2 id="figure-art">全身像素造型</h2>
+        <h3 id="painted-features">1.19.6 分龄五官笔触</h3>
+        <p><code>PineLooks.withFeatureStudy(doc)</code> 复制人物配方，选择 <code>face.style = 'animation'</code> 并将 <code>pine-core</code> 锁定为 1.19.6。已有的脸型、强度、五官款式、配色与穿搭随副本保存。成人、儿童、幼儿和婴儿分别使用各自的眼睑和唇部形状，婴儿还使用随动作变化的颏下和颈前轮廓。动作工坊、世界编辑器和 Three.js 从同一份切片构建人物。<a href="studies/pixel-structure/painted-features.webp">查看四龄和动作实拍</a></p>
+        <p>在这个版本里，省略 <code>clothingCut</code> 会使用 1.19.5 的分龄剪裁，写入 <code>clothingCut: 'original'</code> 则使用此前的衣物轮廓。从已有形象开启笔触时，接口会保留人物穿着的剪裁。<code>PineLooks.withoutFeatureStudy(doc)</code> 返回使用原五官笔触的副本，按当前衣物剪裁选择 1.19.5 或 1.19.4。可在编辑器分别切换五官笔触和衣物轮廓，再保存一份可移植的 JSON。<a href="atelier.html?figure=features&amp;model=baby&amp;tab=face">打开婴儿五官编辑</a></p>
+        <pre><code>const look = PineLooks.withFeatureStudy(PineLooks.templateById.get('look_chef'));
+const baby = PineLooks.randomCharacter({
+  base: 'baby', seed: 42, release: PineLooks.featureStudyRelease, bodyFinish: 'painted'
+});
+const actor = PineLooks.build(baby);</code></pre>
         <h3 id="clothing-cut">1.19.5 分龄衣物剪裁</h3>
         <p><code>PineLooks.withClothingStudy(doc)</code> 复制配方并将 <code>packs['pine-core']</code> 设为 1.19.5。衣片按 <code>base</code>、体型和所选上衣、下装的款式绘制。体型和五官字段、配色、外部部件包随副本保存。<code>bodyFinish</code> 仍控制四肢着色。腰带、胸针、领带与挂坠可以使用同一件衣服的表面来定位，角色动作从原有接触点取样。<a href="studies/pixel-structure/garment-cuts.webp">同配方衣物实拍</a></p>
         <pre><code>const source = PineLooks.templateById.get('look_chef');
@@ -246,7 +254,7 @@ look.shape.chinProjection = 0.14;
 const actor = PineLooks.build(look);
 const baby = PineLooks.randomCharacter({ base: 'baby', seed: 42, release: PineLooks.gameFaceRelease });</code></pre>
         <h3 id="body-finish">身体着色与衣边</h3>
-        <p>在 1.19.3 至 1.19.5 配方中写入 <code>bodyFinish: 'painted'</code>，手臂、手掌和小腿会使用分区像素笔触。短袖、短裤和七分裤的衣边按覆盖的肢体长度取截面，转身时仍包在皮肤外面。删除这个可选字段即可恢复原有画法。<code>randomCharacter</code> 接受同名参数，也会沿用来源人物的身体着色。导出的配方可在动作工坊、世界与 Three.js 中使用。<a href="figure-study.html?subject=child-6&amp;before=finish&amp;size=128">旋转同配方的儿童对照</a> · <a href="studies/pixel-structure/painted-figure.webp">四向与动作实拍</a></p>
+        <p>在 1.19.3 至 1.19.6 配方中写入 <code>bodyFinish: 'painted'</code>，手臂、手掌和小腿会使用分区像素笔触。短袖、短裤和七分裤的衣边按覆盖的肢体长度取截面，转身时仍包在皮肤外面。删除这个可选字段即可恢复原有画法。<code>randomCharacter</code> 接受同名参数，也会沿用来源人物的身体着色。导出的配方可在动作工坊、世界与 Three.js 中使用。<a href="figure-study.html?subject=child-6&amp;before=finish&amp;size=128">旋转同配方的儿童对照</a> · <a href="studies/pixel-structure/painted-figure.webp">四向与动作实拍</a></p>
         <h3 id="anatomy-parts">1.19.2 人体结构与可换部件</h3>
         <p>人体建模台把同一角色的结构和穿衣外观放在同一机位。选「独立头骨」可转动颅骨和下颌，观察眼窝、颧弓及耳前下方的下颌关节。换到「骨架」「肌肉」「无衣体表」可以检查肩、肘、髋、膝和踝在动作中的位置。成人女性、成人男性、儿童和婴儿有各自的基础比例，另提供幼儿。<a href="anatomy-study.html">打开人体建模台</a> · <a href="anatomy-study.html?base=baby&amp;layer=skeleton&amp;bearing=270">查看婴儿坐姿的骨架</a></p>
         <table>

@@ -167,7 +167,8 @@
   function studyLens() {
     if (!draft) return;
     const paintedFace = draft.bodyFinish === 'painted' && looks.portraitStyleOf(draft) === 'animation';
-    const before = draft.packs[looks.core] === looks.clothingStudyRelease ? 'cut' :
+    const before = draft.packs[looks.core] === looks.featureStudyRelease ? 'features' :
+      draft.packs[looks.core] === looks.clothingStudyRelease ? 'cut' :
       draft.packs[looks.core] === looks.baseFaceRelease && looks.portraitStyleOf(draft) === 'animation' ? 'bases' :
       draft.packs[looks.core] === looks.release || paintedFace ? 'whole' : 'current';
     $('figure-link').search = new URLSearchParams({ before, subject: 'draft', action, phase: String(phase * 100),
@@ -423,7 +424,7 @@
       const pin = draft.packs[looks.core];
       apply(field.value);
       changed();
-      if ((tab === 'wear' || tab === 'shape') && pin !== draft.packs[looks.core]) {
+      if (id === 'feature-paint' || ((tab === 'wear' || tab === 'shape') && pin !== draft.packs[looks.core])) {
         fields();
         $('edit-' + id)?.focus({ preventScroll: true });
       }
@@ -575,6 +576,11 @@
     figureUpgrade(area);
     const gameFace = pinePortraitStyles.hasGameFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation';
     const drawn = gameFace && pinePortraitStyles.hasBaseFace(draft.packs[looks.core]);
+    const painted = gameFace && draft.packs[looks.core] === looks.featureStudyRelease;
+    area.append(picker('五官笔触', 'feature-paint', [['original','原有笔触'], ['painted','分龄像素笔触 · 1.19.6']],
+      painted ? 'painted' : 'original', value => {
+        draft = value === 'painted' ? looks.withFeatureStudy(draft) : looks.withoutFeatureStudy(draft);
+      }));
     if (!drawn) {
       const button = document.createElement('button');
       button.type = 'button';
@@ -601,7 +607,7 @@
     if (pinePortraitStyles.hasPixelFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
       guide.dataset.art = 'pixel';
       const comparison = guide.querySelector('.guide-comparison');
-      comparison.href = drawn ? 'studies/pixel-structure/drawn-faces.webp' : gameFace ? 'studies/pixel-structure/game-faces.webp' : 'pixel-face-before-after.webp';
+      comparison.href = painted ? 'studies/pixel-structure/painted-features.webp' : drawn ? 'studies/pixel-structure/drawn-faces.webp' : gameFace ? 'studies/pixel-structure/game-faces.webp' : 'pixel-face-before-after.webp';
       comparison.textContent = '同一角色的两版实机对照';
     }
     guide.open = expandedFields.get('turnaround') === true;
@@ -1149,10 +1155,13 @@
     }
     if (tab === 'shape') {
       figureUpgrade(area);
-      const clothing = draft.packs[looks.core] === looks.clothingStudyRelease;
+      const clothing = looks.usesClothingCut(draft);
       area.append(picker('衣物轮廓', 'clothing-cut', [['original', '原有剪裁'], ['cut', '分龄剪裁 · 1.19.5']],
         clothing ? 'cut' : 'original', value => {
-          if (value === 'cut') draft = looks.withClothingStudy(draft);
+          if (draft.packs[looks.core] === looks.featureStudyRelease) {
+            if (value === 'cut') delete draft.clothingCut;
+            else draft.clothingCut = 'original';
+          } else if (value === 'cut') draft = looks.withClothingStudy(draft);
           else draft.packs[looks.core] = looks.baseFaceRelease;
         }));
       if (pinePortraitStyles.hasStructureStudy(draft.packs[looks.core])) {
@@ -1459,9 +1468,10 @@
     fields();
   }
   function tryBaseFace(form) {
-    const clothing = draft.packs[looks.core] === looks.clothingStudyRelease;
+    const pin = draft.packs[looks.core], cut = draft.clothingCut;
     draft = looks.withBaseFace(draft, form);
-    if (clothing) draft = looks.withClothingStudy(draft);
+    if (pinePortraitStyles.hasClothingStudy(pin)) draft.packs[looks.core] = pin;
+    if (cut) draft.clothingCut = cut;
     changed();
     fields();
   }
@@ -2006,8 +2016,14 @@
     activate(first, '', false, availableId);
   } else activate(first, (stored ? 'saved:' : 'preset:') + first.id, !!stored);
   if (query.get('figure') === 'study') tryFigure();
-  if (query.get('figure') === 'cut' && draft.packs[looks.core] !== looks.clothingStudyRelease) {
-    draft = looks.withClothingStudy(draft);
+  if (query.get('figure') === 'cut' && !looks.usesClothingCut(draft)) {
+    if (draft.packs[looks.core] === looks.featureStudyRelease) delete draft.clothingCut;
+    else draft = looks.withClothingStudy(draft);
+    changed();
+    fields();
+  }
+  if (query.get('figure') === 'features') {
+    draft = looks.withFeatureStudy(draft);
     changed();
     fields();
   }

@@ -33,7 +33,8 @@ const PineLooks = (() => {
     structureStudyRelease = pinePortraitStyles.structureStudyRelease,
     gameFaceRelease = pinePortraitStyles.gameFaceRelease,
     baseFaceRelease = pinePortraitStyles.baseFaceRelease,
-    clothingStudyRelease = pinePortraitStyles.clothingStudyRelease;
+    clothingStudyRelease = pinePortraitStyles.clothingStudyRelease,
+    featureStudyRelease = pinePortraitStyles.featureStudyRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -62,7 +63,7 @@ const PineLooks = (() => {
     facePlaneRelease,
     pixelRelease,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease
   ];
   function figurePin(recipe) {
     const pin = recipe?.packs?.[core];
@@ -72,6 +73,7 @@ const PineLooks = (() => {
     const next = structuredClone(recipe);
     next.packs[core] = structureStudyRelease;
     delete next.bodyFinish;
+    delete next.clothingCut;
     if (next.face?.form) {
       next.anatomyParts = { ...next.anatomyParts, skull: next.face.form };
       delete next.face.form;
@@ -82,6 +84,7 @@ const PineLooks = (() => {
   function withGameFace(recipe) {
     const next = structuredClone(recipe);
     next.packs[core] = gameFaceRelease;
+    delete next.clothingCut;
     next.face = { ...facePresets.classic.face, ...next.face, style: 'animation' };
     return next;
   }
@@ -99,6 +102,21 @@ const PineLooks = (() => {
   function withClothingStudy(recipe) {
     const next = structuredClone(recipe);
     next.packs[core] = clothingStudyRelease;
+    delete next.clothingCut;
+    return next;
+  }
+  function usesClothingCut(recipe) {
+    return pinePortraitStyles.hasClothingStudy(recipe.packs[core]) && recipe.clothingCut !== 'original';
+  }
+  function withFeatureStudy(recipe) {
+    const next = withGameFace(recipe);
+    next.packs[core] = featureStudyRelease;
+    if (!usesClothingCut(recipe)) next.clothingCut = 'original';
+    return next;
+  }
+  function withoutFeatureStudy(recipe) {
+    const next = withClothingStudy(recipe);
+    if (!usesClothingCut(recipe)) next.packs[core] = baseFaceRelease;
     return next;
   }
   function hasRoundedHead(recipe) {
@@ -521,7 +539,8 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (recipe.bodyFinish !== undefined || recipe.face?.form !== undefined || recipe.face?.formMix !== undefined) needed = gameFaceRelease;
+    if (recipe.clothingCut !== undefined) needed = featureStudyRelease;
+    else if (recipe.bodyFinish !== undefined || recipe.face?.form !== undefined || recipe.face?.formMix !== undefined) needed = gameFaceRelease;
     else if (recipe.anatomyParts !== undefined) needed = structureStudyRelease;
     else if (recipe.face?.style === 'animation') needed = facePlaneRelease;
     else if (recipe.face?.style !== undefined) needed = illustratedRelease;
@@ -698,7 +717,7 @@ SOFTWARE.`;
     fields(
       raw,
       ['format', 'version', 'id', 'label', 'base', 'packs', 'parts', 'shape', 'colors'],
-      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity', 'anatomyParts', 'bodyFinish']
+      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity', 'anatomyParts', 'bodyFinish', 'clothingCut']
     );
     requireThat(raw.baseNotice === undefined || raw.baseNotice === baseNotice, '基础素材许可声明与版本不符');
     requireThat(
@@ -775,6 +794,8 @@ SOFTWARE.`;
     const pin = raw.packs[core];
     requireThat(releases.includes(pin), '不支持的基础部件版本');
     requireThat(raw.bodyFinish === undefined || raw.bodyFinish === 'painted', '未知身体着色方式');
+    requireThat(raw.clothingCut === undefined || (pin === featureStudyRelease && raw.clothingCut === 'original'),
+      '所选基础部件版本不支持这项衣物剪裁');
     const required = editingRelease(raw);
     requireThat(pin === required, '所选形象需要 pine-core ' + required);
     let anatomy;
@@ -853,6 +874,7 @@ SOFTWARE.`;
       ...(hasProfiles ? { gender } : {}),
       packs: pins,
       ...(raw.bodyFinish ? { bodyFinish: raw.bodyFinish } : {}),
+      ...(raw.clothingCut ? { clothingCut: raw.clothingCut } : {}),
       ...(anatomy ? { anatomyParts: anatomy } : {}),
       shape: sizes,
       parts,
@@ -1439,6 +1461,7 @@ SOFTWARE.`;
     const doc = structuredClone(recipe);
     doc.packs[core] = pin;
     if (!pinePortraitStyles.hasGameFace(pin)) delete doc.bodyFinish;
+    if (pin !== featureStudyRelease) delete doc.clothingCut;
     if (!pinePortraitStyles.hasStructureStudy(pin)) delete doc.anatomyParts;
     if (doc.face) {
       delete doc.face.formMix;
@@ -1529,7 +1552,7 @@ SOFTWARE.`;
     const profile = keep.has('body') ? source : bodyProfiles[pick(profiles, random)];
     const donor = pick(templates.filter((doc) => doc.base === profile.base), random);
     const outfit = keep.has('wear') ? source : tailored
-      ? tailoredOutfit(donor, keep.has('hair') && source.parts.hair, random, pin === clothingStudyRelease) : donor;
+      ? tailoredOutfit(donor, keep.has('hair') && source.parts.hair, random, pinePortraitStyles.hasClothingStudy(pin)) : donor;
     const doc = randomFace({ ...outfit, base: profile.base, shape: donor.shape, face: {} },
       { random, style, portrait: portrait || source?.face?.style || 'animation', family, release: pin });
     doc.gender = profile.gender || 'unspecified';
@@ -1558,6 +1581,7 @@ SOFTWARE.`;
         arms: pick(['balanced', build], random), legs: pick(['balanced', build], random) };
     }
     if (bodyFinish) doc.bodyFinish = bodyFinish;
+    if (pin === featureStudyRelease && source?.clothingCut === 'original') doc.clothingCut = 'original';
     doc.id = seed === undefined ? newId() : seededLookId(doc, seed);
     doc.label = '新人物 ' + doc.id.slice(-5).toUpperCase();
     return doc;
@@ -1565,8 +1589,8 @@ SOFTWARE.`;
   return {
     core,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease,
-    withFigureStudy, withGameFace, withBaseFace, withClothingStudy,
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease,
+    withFigureStudy, withGameFace, withBaseFace, withClothingStudy, withFeatureStudy, withoutFeatureStudy, usesClothingCut,
     originalRelease,
     styleRelease,
     profileRelease,

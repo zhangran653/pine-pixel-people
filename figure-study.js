@@ -7,12 +7,12 @@
   const originals = { hoodie: 'look_programmer', chef: 'look_chef' };
   const stableRelease = '1.18.0', previousStudy = looks.structureStudyRelease, currentStudy = looks.gameFaceRelease;
   const reviews = { face:[previousStudy,currentStudy], cast:[stableRelease,currentStudy], bases:[currentStudy,looks.baseFaceRelease],
-    cut:[looks.baseFaceRelease,looks.clothingStudyRelease] };
-  const holdout = 'pine/figure-holdout/' + currentStudy + '/';
+    cut:[looks.baseFaceRelease,looks.clothingStudyRelease], features:[looks.clothingStudyRelease,looks.featureStudyRelease] };
+  const seedFor = (release, id) => hash('pine/figure-holdout/' + release + '/' + id);
   const search = new URLSearchParams(location.search);
   let reviewKind = Object.hasOwn(reviews, search.get('review')) ? search.get('review') : 'face';
   function storageKey() {
-    const versions = reviews[reviewKind].join('-') + ({face:'', cast:'.painted.cast', bases:'.bases', cut:'.clothing'}[reviewKind]);
+    const versions = reviews[reviewKind].join('-') + ({face:'', cast:'.painted.cast', bases:'.bases', cut:'.clothing', features:'.features'}[reviewKind]);
     return 'pine.figureStudy.' + versions + '.v1';
   }
   const stages = [$('canvas-a'), $('canvas-b')];
@@ -83,7 +83,7 @@
       url.searchParams.set('subject',$('subject').value);
       url.searchParams.set('before',$('before').value);
     }
-    if (mode === 'model' && $('before').value === 'bases' && $('drawn-form').value)
+    if (mode === 'model' && !$('form-field').hidden && $('drawn-form').value)
       url.searchParams.set('form',$('drawn-form').value);
     else url.searchParams.delete('form');
     url.searchParams.set('bearing',$('bearing').value);
@@ -106,16 +106,18 @@
     return group.indexOf(id) < 4;
   }
   function beforeClothing(recipe) {
-    return { ...recipe, packs: { ...recipe.packs, [looks.core]: looks.baseFaceRelease } };
+    const old = looks.withClothingStudy(recipe);
+    old.packs[looks.core] = looks.baseFaceRelease;
+    return old;
   }
   function blindPair() {
     const base = session.current.split('/')[0];
     const [, release] = reviews[reviewKind];
-    const seed = hash('pine/figure-holdout/' + release + '/' + session.current);
+    const seed = seedFor(release, session.current);
     const options = { base, seed, portrait: 'animation', style: 'natural', release };
     const cast = reviewKind === 'cast';
     const revised = looks.randomCharacter({ ...options, bodyFinish: reviewKind === 'face' ? undefined : 'painted' });
-    const old = reviewKind === 'cut' ? beforeClothing(revised) : cast ? looks.randomCharacter({ ...options, release:stableRelease }) :
+    const old = reviewKind === 'features' ? looks.withoutFeatureStudy(revised) : reviewKind === 'cut' ? beforeClothing(revised) : cast ? looks.randomCharacter({ ...options, release:stableRelease }) :
       reviewKind === 'bases' ? looks.withGameFace(revised) : looks.withFigureStudy(revised);
     return flipped(session.current) ? [revised, old] : [old, revised];
   }
@@ -139,14 +141,26 @@
       $('baseline-subjects').append(new Option(doc.label, id));
     }
   }
-  const randomSubjects = { 'child-6': 'child/5', 'adult-female': 'adult/0', 'toddler-1': 'toddler/0' };
+  const randomSubjects = {
+    'child-6': [currentStudy,'child/5'], 'adult-female': [currentStudy,'adult/0'],
+    'toddler-1': [currentStudy,'toddler/0'], 'baby-face-1': [looks.featureStudyRelease,'baby/0']
+  };
   function modelPair() {
     const subject = $('subject').value;
     const sample = randomSubjects[subject];
     const doc = subject === 'draft' ? submitted : sample
-      ? looks.randomCharacter({ base: sample.split('/')[0], seed: hash(holdout + sample), release: currentStudy })
+      ? looks.randomCharacter({ base: sample[1].split('/')[0], seed: seedFor(...sample), release:sample[0],
+          bodyFinish:sample[0] === looks.featureStudyRelease ? 'painted' : undefined })
       : pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
     const before = $('before').value;
+    if (before === 'features') {
+      const next = subject === 'draft' ? { ...doc, packs:{ ...doc.packs, [looks.core]:looks.featureStudyRelease } } :
+        { ...looks.withFeatureStudy(looks.withClothingStudy(looks.withBaseFace(doc))), bodyFinish:'painted' };
+      if (subject === 'draft' && !looks.usesClothingCut(doc)) next.clothingCut = 'original';
+      const form = $('drawn-form').value;
+      if (form && looks.portraitStyleOf(next)==='animation') next.face = {...next.face, form};
+      return [looks.withoutFeatureStudy(next), next];
+    }
     if (before === 'cut') {
       const source = subject === 'draft' ? doc : { ...looks.withBaseFace(doc), bodyFinish:'painted' };
       const old = beforeClothing(source);
@@ -199,21 +213,22 @@
     }
     recipes = blind ? blindPair() : modelPair();
     const before = $('before').value, finish = before === 'finish', whole = before === 'whole' || before === 'current';
-    const bases = !blind && before === 'bases', clothing = !blind && before === 'cut';
-    $('face-gallery').href = 'studies/pixel-structure/' + (clothing ? 'garment-cuts.webp' : bases ? 'drawn-faces.webp' : 'game-faces.webp');
-    $('face-gallery').textContent = clothing ? '衣物与动作实拍' : bases ? '分龄基础脸三视图' : '新旧脸型实拍';
-    $('form-field').hidden = !bases;
+    const bases = !blind && before === 'bases', clothing = !blind && before === 'cut', features = !blind && before === 'features';
+    $('face-gallery').href = 'studies/pixel-structure/' + (features ? 'painted-features.webp' : clothing ? 'garment-cuts.webp' : bases ? 'drawn-faces.webp' : 'game-faces.webp');
+    $('face-gallery').textContent = features ? '五官与坐姿侧面实拍' : clothing ? '衣物与动作实拍' : bases ? '分龄基础脸三视图' : '新旧脸型实拍';
+    $('form-field').hidden = !bases && !(features && looks.portraitStyleOf(recipes[1])==='animation');
     const names = looks.baseFaceForms(recipes[1].base);
-    if (bases) for (const opt of $('drawn-form').options) if (opt.value) opt.textContent = names[opt.value];
-    const baselineTitle = clothing ? looks.baseFaceRelease + ' · 原有衣物' : bases ? currentStudy + ' · 原有脸型' : before === 'whole' ? stableRelease + ' · 稳定版' :
+    if (!$('form-field').hidden) for (const opt of $('drawn-form').options) if (opt.value) opt.textContent = names[opt.value];
+    const baselineTitle = features ? recipes[0].packs[looks.core] + ' · 原有五官' : clothing ? looks.baseFaceRelease + ' · 原有衣物' : bases ? currentStudy + ' · 原有脸型' : before === 'whole' ? stableRelease + ' · 稳定版' :
       before === 'current' ? recipes[0].packs[looks.core] + ' · 草稿原版' : $('before').selectedOptions[0].textContent;
     $('title-a').textContent = blind ? 'A' : baselineTitle;
-    $('title-b').textContent = blind ? 'B' : clothing ? looks.clothingStudyRelease + ' · 分龄衣物剪裁' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
+    $('title-b').textContent = blind ? 'B' : features ? looks.featureStudyRelease + ' · 五官与下颌' : clothing ? looks.clothingStudyRelease + ' · 分龄衣物剪裁' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
       currentStudy + (whole ? ' · 全身试作' : finish ? ' · 四肢与衣边色块' : ' · 美术基础脸');
     $('prompt').textContent = blind
       ? reviewKind === 'cast'
         ? '稳定版与试作各自随机生成一人。年龄、种子、镜头与动作帧相同，比较整体搭配和造型。'
         : '本批比较 ' + reviews[reviewKind].join(' 与 ') + '。两侧共用同一张随机配方、同一动作和机位。'
+      : features ? (looks.portraitStyleOf(recipes[1]) === 'animation' ? '同一配方和动作帧。看笑嘴在正面是否连贯，转到侧面比较下唇、颏尖和衣领。' : '当前草稿采用其他五官画风。两边保留草稿画风，五官笔触试作使用立体动画。')
       : clothing ? '同一人物、穿搭和动作帧。转动观察肩线、领口和裤管，切到走路或伸手看弯曲处的衣料。'
       : bases ? (recipes[1].face.form === 'balanced' || recipes[1].face.formMix === 0
         ? '均衡底脸为两版共用。选择其他脸型或在创作室调高强度，可以比较分龄轮廓。'
@@ -390,7 +405,7 @@
       link.hidden = !visible;
       if (visible) {
         const options = new URLSearchParams({ action: $('action').value, bearing: $('bearing').value, phase: $('phase').value });
-        if ($('framing').value === 'head') options.set('tab', 'face');
+        if ($('framing').value === 'head' || (mode === 'model' && $('before').value === 'features')) options.set('tab', 'face');
         else if (mode === 'model' && $('before').value === 'cut') options.set('tab', 'shape');
         const data = new URLSearchParams({ character: JSON.stringify(recipes[i]) });
         if (partner()) data.set('partner', JSON.stringify(companion));
@@ -430,7 +445,7 @@
     const pairs = ids.map(id => {
       const [base, ordinal] = id.split('/');
       const vote = session.votes[id], newOnLeft = flipped(id);
-      return { base, number: Number(ordinal) + 1, seed: hash('pine/figure-holdout/' + after + '/' + id),
+      return { base, number: Number(ordinal) + 1, seed: seedFor(after,id),
         a: newOnLeft ? after : before, b: newOnLeft ? before : after, vote };
     });
     const report = { study: 'pine-figure-holdout-' + after, review: reviewKind,

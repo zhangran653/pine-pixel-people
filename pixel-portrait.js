@@ -294,14 +294,14 @@ const pinePixelPortrait = (() => {
     if (offset < 0 && -offset < down * 0.82 * mass) return k.lowerLip;
     return 0;
   }
-  function brow(row, v, h, k, infant, pitch) {
+  function brow(row, v, h, k, infant, pitch, weight = 1) {
     const [, span, base, arch, tilt, thick, peak, cut] = row,
       q = v / span;
     if (Math.abs(q) >= 1 || (cut === 'slit' && q > 0.23 && q < 0.52)) return 0;
     const bow = cut === 'peak' ? 1 - Math.abs(q - peak) * 0.92 : 1 - (q - peak) ** 2 * 0.72;
     const mid = base - 0.037 + 0.7 * arch * bow + (0.62 * tilt - (infant ? 0.024 : 0.035)) * q;
     const width =
-      thick *
+      thick * weight *
       (infant ? 1.65 : 1.31) *
       (1 - 0.39 * q - 0.31 * q * q) *
       (cut === 'taper' && q > 0 ? 1 - 0.38 * q : 1);

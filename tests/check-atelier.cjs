@@ -846,6 +846,22 @@ function checkEditor() {
     expect(sewnUrl.searchParams.get('before')==='cut' && sewn.packs['pine-core']===PineLooks.clothingStudyRelease &&
       JSON.stringify(sewn.face)===JSON.stringify(uncutRecipe.face) && JSON.stringify(sewn.parts)===JSON.stringify(uncutRecipe.parts),
       'selecting clothing must preserve the actor and open the matching comparison');
+    const changeField = (id,value) => {
+      const field=byId('edit-'+id);
+      field.value=value; field.dispatchEvent(new Event('change'));
+    };
+    const portableDraft = () => JSON.parse(new URLSearchParams(new URL(reviewLink.href).hash.slice(1)).get('character'));
+    byId('tab-face').click(); changeField('feature-paint','painted');
+    const paintedDoc=portableDraft();
+    expect(paintedDoc.packs['pine-core']===PineLooks.featureStudyRelease && new URL(reviewLink.href).searchParams.get('before')==='features' &&
+      JSON.stringify(paintedDoc.face)===JSON.stringify(sewn.face), 'applying feature ink changed the edited face');
+    byId('tab-shape').click(); changeField('clothing-cut','original');
+    expect(portableDraft().clothingCut==='original' && portableDraft().packs['pine-core']===PineLooks.featureStudyRelease,
+      'choosing the old shirt must keep the painted eyes and mouth');
+    byId('tab-face').click(); changeField('feature-paint','original');
+    expect(portableDraft().packs['pine-core']===PineLooks.baseFaceRelease && !portableDraft().clothingCut,'original clothes and face must both be selectable');
+    byId('edit-undo').click(); byId('edit-undo').click(); byId('edit-undo').click();
+    byId('tab-shape').click();
     byId('edit-undo').click();
     expect(byId('edit-clothing-cut').value==='original' && new URL(reviewLink.href).searchParams.get('before')==='whole', 'clothing undo must restore the actual previous version');
     const assembly = { torso: 'broad', arms: 'slender', legs: 'strong' };

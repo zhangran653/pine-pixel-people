@@ -161,6 +161,54 @@ function checkClothing(cast) {
   for (const hat of ['none','pine-core/cotton-cap','pine-core/sunhat']) assert.ok(toddlerHats.has(hat));
 }
 
+function checkFeatureStudy(cast) {
+  const release=looks.featureStudyRelease;
+  for (const base of ['adult','child','toddler','baby']) {
+    const ref=looks.withBaseFace(examples[base],'round');
+    const uncut=looks.withFeatureStudy(ref), cut=looks.withClothingStudy(ref), trial=looks.withFeatureStudy(cut);
+    assert.equal(uncut.clothingCut,'original');
+    assert.equal(looks.prepare(uncut).recipe.clothingCut,'original');
+    assert.deepEqual(toPlain(looks.withoutFeatureStudy(uncut)),toPlain(ref));
+    assert.deepEqual(toPlain(looks.withoutFeatureStudy(trial)),toPlain(cut));
+    assert.throws(()=>looks.prepare({...uncut,packs:cut.packs}));
+    assert.throws(()=>looks.prepare({...trial,clothingCut:'wide'}));
+    for(let seed=0;seed<24;seed++) {
+      const old=looks.randomCharacter({base,seed,release:looks.clothingStudyRelease});
+      const next=looks.randomCharacter({base,seed,release});
+      assert.deepEqual(next,looks.randomCharacter({base,seed,release}));
+      for(const key of ['parts','face','shape','colors']) assert.deepEqual(next[key],old[key]);
+    }
+    const locked=looks.randomCharacter({source:uncut,base,seed:41,locks:['wear','hair']});
+    assert.equal(locked.clothingCut,'original'); assert.deepEqual(toPlain(locked.parts),toPlain(uncut.parts));
+    const [old,actor]=[cut,trial].map(d=>looks.build(d));
+    const clip=motion.actions.get(base==='baby'?'baby-reach':'wave'),pose=clip.sample(.43,actor)[0].pose;
+    assert.deepEqual(old.sockets.leftJawJoint,actor.sockets.leftJawJoint);
+    assert.deepEqual(clip.sample(.43,old)[0].pose.feet,pose.feet);
+    const previous=old.body.makePose(pose), current=actor.body.makePose(pose);
+    const limit=Math.floor((pose.arms[0].shoulder[2]-.10*actor.rig.height)*actor.body.density)*actor.body.nx*actor.body.ny;
+    assert.equal(digest(previous.colors.subarray(0,limit)),digest(current.colors.subarray(0,limit)));
+    const fine=(a,at)=>motion.figureLayers(a,at,a.body.makePose(at)).at(-1).model.colors;
+    const face=fine(actor,pose), shut=fine(actor,{...pose,blink:1});
+    assert.notEqual(digest(face),digest(shut),base+' blink in the painted face');
+    for(const change of [{eyes:'#3781a1',leftEye:'#9b563f'}, {lip:'#923748'}, {skin:'#84593e'}]) {
+      const tinted=looks.build({...trial,colors:{...trial.colors,...change}});
+      const dyed=fine(tinted,pose);
+      assert.equal(mask(dyed),mask(face));
+      assert.notEqual(digest(dyed),digest(face));
+    }
+    const previousStyle={...cut,face:{...cut.face,style:'manga'}};
+    assert.equal(digest(looks.build(previousStyle).body.makePose(pose).colors),
+      digest(looks.build({...previousStyle,packs:trial.packs}).body.makePose(pose).colors));
+    if(base!=='baby'){
+      const sip=motion.actions.get('drink').sample(.5,actor)[0].pose, lip=motion.rig.socket(actor,sip,'mouth');
+      assert.ok(Math.hypot(...lip.map((v,i)=>v-sip.bottle.lip[i]))<1e-7);
+    }
+    motion.characters.set(actor.id,actor);
+    cast.setFrame(clip.sample(.43,actor));
+    assert.ok(cast.group.getObjectByName(actor.id+'/face').geometry.drawRange.count>0);
+  }
+}
+
 async function check() {
   const cast = (await import('../pine-three.mjs')).createPineCast(
     await import('../vendor/three-r187/three.module.js'),
@@ -283,6 +331,8 @@ async function check() {
     assert.ok(cast.group.getObjectByName(revised.id).geometry.drawRange.count > 0);
   }
   checkClothing(cast);
+  checkFeatureStudy(cast);
+  console.log('Four painted ages, both clothing cuts, archived styles, 96 seeded pairs, blinks, lip/eye/skin dyes, drinking contacts and Three.js passed');
   cast.dispose();
   assert.equal(distinct.size, 4);
   console.log('Matched garments, joint contacts, faces, planted feet, dyes, 32 full-character seeds and Three.js passed for the four 1.19.5 ages');

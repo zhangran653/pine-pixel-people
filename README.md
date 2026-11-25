@@ -21,6 +21,12 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 1.19.6 分龄五官与婴儿下颌试作
+
+在人物创作室的「五官 → 五官笔触」选「分龄像素笔触」。眼睑、虹膜、笑嘴和下巴按年龄画进人物切片，可以转身、眨眼、张嘴和染色。婴儿坐下、前伸和爬行时，颏下的皮肤从颈前随下巴一起动。衣物剪裁可以单独选择。普通新建人物仍使用 1.18.0。[试调婴儿的脸](http://127.0.0.1:8000/atelier.html?figure=features&model=baby&tab=face) · [四个年龄的五官及婴儿动作实拍](studies/pixel-structure/painted-features.webp) · [配方接口](appearance-standard.html#painted-features)
+
+对照台两边使用同一份人物配方和同一动作帧。样本「婴儿随机 01」曾在正侧面露出颏下缺口，可以直接旋转并切换坐姿、伸手和爬行。盲评的四个年龄各有八人，每组的发型、肤色、帽子和衣服都随原始随机结果保留。[重看婴儿随机 01](http://127.0.0.1:8000/figure-study.html?subject=baby-face-1&before=features&bearing=270&size=128) · [连续随机的八人实拍](studies/pixel-structure/feature-random.webp) · [32 组分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=features&size=128)
+
 ### 1.19.5 分龄衣物剪裁试作
 
 在人物创作室的「体型 → 衣物轮廓」选「分龄剪裁」。衣服按成人、儿童、幼儿和婴儿各自的正面宽度与前后深度成形。短袖的领边和胸袋沿布面转到侧面，腰带随腰围收拢。走路时裤管跨过膝部，坐姿婴儿的裤腿在大腿上铺开。这项试作可以保存、撤销，普通新建人物使用 1.18.0。[编辑幼儿的剪裁](http://127.0.0.1:8000/atelier.html?model=toddler&figure=cut&tab=shape) · [黄帽橙衫、厨师服与儿童短袖的实拍](studies/pixel-structure/garment-cuts.webp) · [旋转儿童短袖](http://127.0.0.1:8000/figure-study.html?subject=child-6&before=cut&bearing=270&size=128)

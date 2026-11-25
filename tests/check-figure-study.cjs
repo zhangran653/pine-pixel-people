@@ -8,7 +8,18 @@ const { resolve, join, sep } = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 function loadDraft(pack) {
-  if (!new URLSearchParams(location.search).has('draft-test')) return;
+  const query = new URLSearchParams(location.search);
+  if (query.has('feature-seed')) {
+    let h = 2166136261;
+    for (const c of 'pine/figure-holdout/1.19.6/baby/'+query.get('feature-seed')) h=Math.imul(h^c.charCodeAt(0),16777619);
+    const doc=PineLooks.randomCharacter({base:'baby',seed:Math.imul(h^(h>>>16),2246822507)>>>0,
+      release:PineLooks.featureStudyRelease,bodyFinish:'painted'});
+    const url=new URL(location.href);
+    url.hash = new URLSearchParams({character:JSON.stringify(doc)});
+    history.replaceState(null,'',url);
+    return;
+  }
+  if (!query.has('draft-test')) return;
   const doc = PineLooks.withGameFace(pineFigureModels.baby);
   doc.id = 'look_unsaved_sitter';
   doc.label = '未入库的小芽';
@@ -125,6 +136,61 @@ function check(studyBench) {
   const linkedRecipe = side => JSON.parse(new URLSearchParams(new URL($('edit-' + side).href).hash.slice(1)).get('character'));
   try {
     const query = new URLSearchParams(location.search);
+    if (query.has('feature-test')) {
+      const pair = [linkedRecipe('a'),linkedRecipe('b')], newer = PineLooks.featureStudyRelease;
+      const reference = !query.has('feature-seed');
+      expect($('subject').value === (reference?'baby-face-1':'draft') && pair[1].packs['pine-core'] === newer &&
+        JSON.stringify(PineLooks.withoutFeatureStudy(pair[1])) === JSON.stringify(pair[0]), 'the seated holdout must use matching recipes');
+      const actors = pair.map(doc=>PineLooks.build(doc));
+      const rests = actors.map(a=>PineMotion.actions.get('idle').sample(.17,a)[0].pose);
+      const heights = actors.map((actor,i)=>{
+        const model=actor.body.makePose(rests[i]), bands=PineMotion.figureLayers(actor,rests[i],model);
+        return Math.max(...bands.map(p=>p.z+p.model.bounds[5]/p.body.density)) - Math.min(...bands.map(p=>p.z+p.model.bounds[2]/p.body.density));
+      });
+      // Scan between the actual moving collar and chin in a side view. Count only
+      // background bounded by two opaque runs on the same row inside those joints.
+      function scan(canvas, actor, pose, size, bearing) {
+        const alpha=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+        const scale=size/Math.max(...heights), sign=bearing===270 ? 1 : -1;
+        const pts=['collar','chinTip'].map(name=>PineMotion.rig.socket(actor,pose,name));
+        const xs=pts.map(p=>canvas.width/2+scale*sign*p[0]), ys=pts.map(p=>canvas.height*.94-scale*p[2]);
+        let rows=0, pixels=0;
+        for(let y=Math.max(0,Math.ceil(Math.min(...ys)));y<Math.min(canvas.height,Math.max(...ys));y++) {
+          let seen=false, blank=0, inside=0;
+          for(let x=Math.max(0,Math.floor(Math.min(...xs)));x<=Math.min(canvas.width-1,Math.ceil(Math.max(...xs)));x++) {
+            if(alpha[(y*canvas.width+x)*4+3]>=128) { if(seen) inside+=blank; seen=true; blank=0; }
+            else if(seen) blank++;
+          }
+          if(inside) rows++;
+          pixels+=inside;
+        }
+        return {rows,pixels};
+      }
+      const results=[];
+      for(const [action,phase] of [['idle',17],['baby-reach',43],['crawl',61]]) {
+        choose('action',action);
+        $('phase').value=phase; $('phase').dispatchEvent(new Event('input'));
+        const poses=actors.map(a=>PineMotion.actions.get(action).sample(phase/100,a)[0].pose);
+        for(const size of [64,128]) for(const bearing of [270,90]) {
+          choose('sample-size',String(size)); $('bearing').value=bearing; $('bearing').dispatchEvent(new Event('input'));
+          const gaps=actors.map((a,i)=>scan($(i?'canvas-b':'canvas-a'),a,poses[i],size,bearing));
+          if(reference) expect(gaps[1].pixels===0, 'open throat pixels at '+[action,size,bearing,JSON.stringify(gaps)]);
+          if(reference && size===128 && bearing===270 && action==='idle')
+            expect(gaps[0].rows>=2 && gaps[1].pixels===0, 'the infant profile still has a notch under the chin: '+JSON.stringify(gaps));
+          results.push([action,size,bearing,gaps.map(g=>g.pixels)]);
+        }
+      }
+      expect(new URL($('edit-b').href).searchParams.get('tab')==='face', 'feature comparison did not return to the face editor');
+      if (query.has('measure')) {
+        $('qa').textContent=JSON.stringify({baby:Number(query.get('feature-seed') || 0)+1,frames:results}); return;
+      }
+      document.querySelector('[data-mode="blind"]').click(); choose('review-kind','features');
+      expect($('progress').textContent.includes('0 / 32') && !$('edit-b').hasAttribute('href'),'the feature holdout leaked an answer');
+      for(let i=0;i<32;i++) document.querySelector('[data-vote="tie"]').click();
+      expect(!$('results').hidden && [...$('counts').rows].every(row=>row.cells[2].textContent==='8'), 'unreviewed age');
+      $('qa').textContent='Checked 32 reversible feature pairs and seated throat pixels '+JSON.stringify(results);
+      return;
+    }
     if (query.has('clothing-test')) {
       expect($('before').value==='cut' && $('action').value==='walk' && $('phase').value==='43', 'clothing study lost the requested walk');
       const left=linkedRecipe('a'), right=linkedRecipe('b');
@@ -202,10 +268,13 @@ function check(studyBench) {
       return;
     }
     const resume = query.get('resume');
-    if (resume === 'bases' || resume === 'cut') {
-      const cut = resume==='cut', target = cut ? PineLooks.clothingStudyRelease : PineLooks.baseFaceRelease;
+    if (resume === 'bases' || resume === 'cut' || resume === 'features') {
+      const cut = resume==='cut', features = resume==='features';
+      const target = features ? PineLooks.featureStudyRelease : cut ? PineLooks.clothingStudyRelease : PineLooks.baseFaceRelease;
+      const previous = features ? PineLooks.clothingStudyRelease : cut ? PineLooks.baseFaceRelease : PineLooks.gameFaceRelease;
       const sides = [linkedRecipe('a'),linkedRecipe('b')].sort((a,b)=>a.packs['pine-core'].localeCompare(b.packs['pine-core']));
-      const matched = cut ? JSON.stringify(PineLooks.withClothingStudy(sides[0]))===JSON.stringify(sides[1]) : JSON.stringify(sides[0])===JSON.stringify(PineLooks.withGameFace(sides[1]));
+      const matched = features ? JSON.stringify(PineLooks.withoutFeatureStudy(sides[1]))===JSON.stringify(sides[0]) :
+        cut ? JSON.stringify(PineLooks.withClothingStudy(sides[0]))===JSON.stringify(sides[1]) : JSON.stringify(sides[0])===JSON.stringify(PineLooks.withGameFace(sides[1]));
       expect($('review-kind').value===resume && !$('results').hidden && matched,
         'resumed base review lost the actual control');
       let report;
@@ -219,7 +288,7 @@ function check(studyBench) {
       const [age,index]=new URLSearchParams(location.search).get('case').split('/');
       const pair=report.pairs.find(p=>p.base===age && p.number===+index+1);
       const actual=PineLooks.randomCharacter({base:age,seed:pair.seed,release:target,bodyFinish:'painted'});
-      expect(JSON.stringify(actual)===JSON.stringify(sides[1]) && [pair.a,pair.b].sort().join('/')===[cut?PineLooks.baseFaceRelease:PineLooks.gameFaceRelease,target].join('/'),
+      expect(JSON.stringify(actual)===JSON.stringify(sides[1]) && [pair.a,pair.b].sort().join('/')===[previous,target].join('/'),
         'base review seed, versions or actual clothing did not replay');
       $('qa').textContent='Restored and independently replayed the ' + target + ' age review and its hidden-side export';
       return;
@@ -380,16 +449,10 @@ function check(studyBench) {
     choose('review-kind','face');
     expect($('progress').textContent.includes('32 / 32') && !$('results').hidden, 'switching reviews lost face votes');
     const result = { views: headings.size, reviewPairs: 32 };
-    if (studyBench) {
-      const doc = structuredClone(pineFigureModels.adult);
-      doc.packs[PineLooks.core] = PineLooks.structureStudyRelease;
-      const base = studyBench === 'cut' ? {...PineLooks.withBaseFace(doc,'long'),bodyFinish:'painted'} : studyBench === 'body' ? PineLooks.randomCharacter({ base:'child', seed:3418494998, release:PineLooks.gameFaceRelease }) :
-        studyBench === 'bases' ? PineLooks.withGameFace(PineLooks.withBaseFace(doc,'long')) : doc;
-      const candidate = studyBench === 'cut' ? PineLooks.withClothingStudy(base) : studyBench === 'body' ? { ...base, bodyFinish:'painted' } :
-        studyBench === 'bases' ? PineLooks.withBaseFace(base) : PineLooks.withGameFace(base);
+    function measureClip(base, candidate, clip) {
       const actors = [PineLooks.build(base), PineLooks.build(candidate)];
       const samples = [[],[]], projection = [[],[]];
-      const walk = PineMotion.actions.get('walk');
+      const action = PineMotion.actions.get(clip);
       const target = document.createElement('canvas');
       target.width = 320; target.height = 256;
       const ctx = target.getContext('2d');
@@ -397,7 +460,7 @@ function check(studyBench) {
       for (let frame=0;frame<24;frame++) {
         for (const side of frame % 2 ? [1,0] : [0,1]) {
           const actor = actors[side], t0 = performance.now();
-          const sample = walk.sample((frame + .3)/24,actor)[0], body = actor.body, model = body.makePose(sample.pose);
+          const sample = action.sample((frame + .3)/24,actor)[0], body = actor.body, model = body.makePose(sample.pose);
           const part = { ...sample, actor, body, model, x:0, y:0, heading:0 };
           const bands = studioPortraitLayers([part],PineMotion,PineMotion.figureLayers) || [part];
           const t1 = performance.now();
@@ -416,9 +479,24 @@ function check(studyBench) {
         const sorted = values.slice().sort((a,b)=>a-b), middle = sorted.length / 2;
         return +((sorted[middle-1]+sorted[middle])/2).toFixed(1);
       };
-      result[studyBench === 'body' ? 'walkingChild' : 'walkingAdult'] = {
+      return {
         versions:studyBench === 'body' ? ['original ink','painted'] : [base.packs[PineLooks.core],candidate.packs[PineLooks.core]],
         framesPerVersion:20, medianPoseAndFineBandsMs:samples.map(median), medianProjectionAndReadbackMs:projection.map(median) };
+    }
+    if (studyBench) {
+      const doc = structuredClone(pineFigureModels.adult);
+      doc.packs[PineLooks.core] = PineLooks.structureStudyRelease;
+      const base = studyBench === 'features' ? {...PineLooks.withClothingStudy(PineLooks.withBaseFace(doc,'long')),bodyFinish:'painted'} :
+        studyBench === 'cut' ? {...PineLooks.withBaseFace(doc,'long'),bodyFinish:'painted'} : studyBench === 'body' ? PineLooks.randomCharacter({ base:'child', seed:3418494998, release:PineLooks.gameFaceRelease }) :
+        studyBench === 'bases' ? PineLooks.withGameFace(PineLooks.withBaseFace(doc,'long')) : doc;
+      const candidate = studyBench === 'features' ? PineLooks.withFeatureStudy(base) :
+        studyBench === 'cut' ? PineLooks.withClothingStudy(base) : studyBench === 'body' ? { ...base, bodyFinish:'painted' } :
+        studyBench === 'bases' ? PineLooks.withBaseFace(base) : PineLooks.withGameFace(base);
+      result[studyBench === 'body' ? 'walkingChild' : 'walkingAdult'] = measureClip(base,candidate,'walk');
+      if (studyBench === 'features') {
+        const baby = PineLooks.randomCharacter({ base:'baby', seed:42, release:PineLooks.clothingStudyRelease, bodyFinish:'painted' });
+        result.seatedReach = measureClip(baby,PineLooks.withFeatureStudy(baby),'baby-reach');
+      }
     }
     $('qa').textContent = JSON.stringify(result);
   } catch (err) { $('qa').textContent = 'FAIL ' + err.stack; }
@@ -430,7 +508,7 @@ try {
   const measureCut = process.argv.includes('--measure-cut');
   const measureBases = process.argv.includes('--measure-bases');
   const measureForms = measureBases || process.argv.includes('--measure-forms');
-  const bench = process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
+  const bench = process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
   const setup = join(dir, 'draft-fixture.js');
   writeFileSync(setup, '(' + loadDraft.toString() + ')(' + readFileSync(join(root,'packs/creek-hats.json'),'utf8') + ');');
   const page = readFileSync(join(root, 'figure-study.html'), 'utf8')
@@ -444,10 +522,14 @@ try {
   const flags = ['--headless','--disable-gpu','--no-first-run','--force-device-scale-factor=1','--window-size=1100,850',
     '--user-data-dir=' + join(dir,'profile'),'--dump-dom',pathToFileURL(file).href];
   if (process.env.CI === 'true' && process.platform === 'linux') flags.unshift('--no-sandbox');
-  const cases = measureCut ? ['?before=cut'] : measureForms ? [''] : ['?subject=baby&bearing=270&before=1.19.0', '?mode=blind&resume=1', '?mode=blind&review=cast&case=child%2F5&resume=cast',
+  const featureCase = '?feature-test=1&subject=baby-face-1&before=features&size=128&bearing=270';
+  const cases = process.argv.includes('--measure-features') ? [featureCase+'&measure=1',
+    ...Array.from({length:7},(_,i)=>'?feature-test=1&measure=1&subject=draft&before=features&feature-seed='+(i+1))]
+    : measureCut ? ['?before=cut'] : measureForms ? [''] : ['?subject=baby&bearing=270&before=1.19.0', '?mode=blind&resume=1', '?mode=blind&review=cast&case=child%2F5&resume=cast',
     '?draft-test=1&before=current&action=follow-rattle&phase=36.25&bearing=270.5&framing=head', '?bad-test=1#character=%7B',
     '?base-test=1&subject=baby&before=bases&form=round&phase=36.25&action=baby-reach&bearing=270.5', '?mode=blind&review=bases&case=baby%2F0&resume=bases',
-    '?clothing-test=1&subject=baseline-4&before=cut&action=walk&phase=43', '?mode=blind&review=cut&case=baby%2F0&resume=cut'];
+    '?clothing-test=1&subject=baseline-4&before=cut&action=walk&phase=43', '?mode=blind&review=cut&case=baby%2F0&resume=cut',
+    featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features'];
   for (const query of cases) {
     const args = [...flags.slice(0,-1), flags.at(-1) + query];
     const r = spawnSync(chrome, args, { encoding:'utf8', maxBuffer:4000000, timeout:120000 });
