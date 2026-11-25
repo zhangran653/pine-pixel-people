@@ -26,6 +26,52 @@ function loadDraft(pack) {
   history.replaceState(null, '', url);
 }
 
+// Compare the public face presets on identical joint transforms and an integer-anchored camera.
+function measureFacePixels() {
+  try {
+    const rows = [];
+    for (const age of ['adult','child','baby']) {
+      const doc = PineLooks.withGameFace(pineFigureModels[age]);
+      doc.bodyFinish = 'painted';
+      const base = PineLooks.build(doc);
+      const sample = PineMotion.actions.get('idle').sample(.17, base)[0];
+      const faces = ['balanced','angular'].map(form => {
+        const actor = PineLooks.build({ ...doc, face:{ ...doc.face, form, formMix:1 } });
+        for (const field of Object.keys(base.rig)) {
+          // The lip contact point follows the sculpted mouth, for actions such as drinking.
+          if (field !== 'mouth' && JSON.stringify(actor.rig[field]) !== JSON.stringify(base.rig[field]))
+            throw Error('Face preset moved ' + age + ' joint or body measure: ' + field);
+        }
+        const body = actor.body, model = body.makePose(sample.pose);
+        const part = { ...sample, actor, body, model, x:0, y:0, heading:0 };
+        return studioPortraitLayers([part], PineMotion, PineMotion.figureLayers) || [part];
+      });
+      const high = Math.max(...faces[0].map(p => p.z + p.model.bounds[5] / p.body.density));
+      const low = Math.min(...faces[0].map(p => p.z + p.model.bounds[2] / p.body.density));
+      for (const size of [64,128]) for (const bearing of [0,315,270]) {
+        const scale = size / (high-low), yaw = bearing * Math.PI / 180;
+        const [a,b] = faces.map(bands => {
+          const c = document.createElement('canvas');
+          c.width = 256; c.height = 176;
+          const ctx = c.getContext('2d', { willReadFrequently:true });
+          for (const p of bands) {
+            const x = -Math.sin(yaw)*p.x + Math.cos(yaw)*p.y;
+            p.body.draw(ctx,p.model,128+scale*x,161-scale*p.z,yaw-p.heading,0,scale);
+          }
+          return new Uint32Array(ctx.getImageData(0,0,c.width,c.height).data.buffer);
+        });
+        let changed = 0, outline = 0;
+        for (let i=0; i<a.length; i++) {
+          if (a[i] !== b[i]) changed++;
+          if (((a[i] >>> 24) >= 128) !== ((b[i] >>> 24) >= 128)) outline++;
+        }
+        rows.push({ age,size,bearing,changed,outline });
+      }
+    }
+    document.getElementById('qa').textContent = JSON.stringify(rows);
+  } catch (err) { document.getElementById('qa').textContent = 'FAIL ' + err.stack; }
+}
+
 function check(studyBench) {
   const $ = id => document.getElementById(id);
   const expect = (v, m) => { if (!v) throw Error(m); };
@@ -282,21 +328,23 @@ function check(studyBench) {
 const dir = mkdtempSync(join(tmpdir(), 'pine-figure-qa-')), root = resolve(__dirname, '..');
 try {
   const file = join(dir, 'page.html');
+  const measureForms = process.argv.includes('--measure-forms');
   const setup = join(dir, 'draft-fixture.js');
   writeFileSync(setup, '(' + loadDraft.toString() + ')(' + readFileSync(join(root,'packs/creek-hats.json'),'utf8') + ');');
   const page = readFileSync(join(root, 'figure-study.html'), 'utf8')
     .replace('<script defer src="figure-study.js">', '<script defer src="' + pathToFileURL(setup).href + '"></script><script defer src="figure-study.js">')
     .replace('<head>', '<head><base href="' + pathToFileURL(root+sep).href + '"><script>localStorage.setItem("pine.figureStudy.1.18.0-1.19.0.v1",JSON.stringify({salt:77,votes:{"adult/0":"b"}}))</script>')
     .replace('</body>', '<output id="qa"></output><script>window.addEventListener("load",()=>(' +
-      check.toString() + ')(' + JSON.stringify(process.argv.includes('--bench-body') ? 'body' : process.argv.includes('--bench')) + '));</script></body>');
+      (measureForms ? measureFacePixels : check).toString() + ')(' + JSON.stringify(process.argv.includes('--bench-body') ? 'body' : process.argv.includes('--bench')) + '));</script></body>');
   writeFileSync(file, page);
   const chrome = process.env.CHROME_BIN || (process.platform === 'darwin'
     ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : 'google-chrome');
   const flags = ['--headless','--disable-gpu','--no-first-run','--force-device-scale-factor=1','--window-size=1100,850',
     '--user-data-dir=' + join(dir,'profile'),'--dump-dom',pathToFileURL(file).href];
   if (process.env.CI === 'true' && process.platform === 'linux') flags.unshift('--no-sandbox');
-  for (const query of ['?subject=baby&bearing=270&before=1.19.0', '?mode=blind&resume=1', '?mode=blind&review=cast&case=child%2F5&resume=cast',
-    '?draft-test=1&before=current&action=follow-rattle&phase=36.25&bearing=270.5&framing=head', '?bad-test=1#character=%7B']) {
+  const cases = measureForms ? [''] : ['?subject=baby&bearing=270&before=1.19.0', '?mode=blind&resume=1', '?mode=blind&review=cast&case=child%2F5&resume=cast',
+    '?draft-test=1&before=current&action=follow-rattle&phase=36.25&bearing=270.5&framing=head', '?bad-test=1#character=%7B'];
+  for (const query of cases) {
     const args = [...flags.slice(0,-1), flags.at(-1) + query];
     const r = spawnSync(chrome, args, { encoding:'utf8', maxBuffer:4000000, timeout:120000 });
     const msg = r.stdout?.match(/<output id="qa">([^<]*)<\/output>/)?.[1];

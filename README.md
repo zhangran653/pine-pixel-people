@@ -31,6 +31,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 在创作室随机或编辑人物后，点「对照当前人物」。两侧带入当前草稿、穿搭、视角和动作帧。用「统一厘米尺」看不同年龄的身高与坐姿，用「头肩」放大全身帧里的原始像素。任一侧都可以带回创作室继续编辑。[成人到坐姿婴儿的同尺实拍](studies/pixel-structure/whole-figure.webp) · [看婴儿的侧脸与颈部](http://127.0.0.1:8000/figure-study.html?subject=baby&before=whole&framing=head&bearing=270&size=128) · [打开全身厘米尺](http://127.0.0.1:8000/figure-study.html?subject=toddler-1&before=whole&bearing=315&size=world)
 
+在同一份动作姿态上切换「均衡」与「利落」脸型，卷袖衬衫成人在 64 像素全身画面里有 9 格色值或透明度变化，纯侧面剪影重合。128 像素时有 4 格轮廓变化。儿童与坐姿婴儿也各自取了同样的两档游戏尺寸。[三名人物实机对照及测量方法](studies/pixel-structure/README.md#把动作关节固定只换脸型)
+
 ### 1.19.2 人体建模台
 
 先选成人女性、成人男性、儿童或婴儿，也可选幼儿。转到侧面，拖动「下颌开合」，可以同时看头骨如何转动、人物的下唇和下巴如何跟随。切换到骨架、肌肉或无衣体表，再播放动作，两边会保持相同的镜头和进度。婴儿可从坐地待机开始查看。[打开人体建模台](http://127.0.0.1:8000/anatomy-study.html) · [五层实机截图](studies/pixel-structure/layers.webp) · [看婴儿侧面坐姿](http://127.0.0.1:8000/anatomy-study.html?base=baby&layer=form&bearing=270)
