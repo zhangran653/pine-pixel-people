@@ -19,6 +19,15 @@ const soloClips = (() => {
   function waist(r, person) {
     return person.tags.includes('baby') ? seated(r, true) : {};
   }
+  function infantFloorPose(r, ch) {
+    ch.pitch = 0.22;
+    ch.headPitch = -0.17;
+    ch.hipOffset[2] -= 0.016 * r.height;
+    ch.feet = sides.map(side => [0.105 * r.height, side * (r.hip[1] + 0.108 * r.height), r.ankle]);
+    ch.kneePoles = sides.map(side => [0.38, side * 1.25, 0.56]);
+    ch.hands = sides.map(side => [ch.hipOffset[0] + 0.145 * r.height, side * r.height * 0.064,
+      r.height * 0.10 + r.ankle * 0.24]);
+  }
   function idle(u, a) {
     const r = a.rig,
       ch = waist(r, a),
@@ -30,6 +39,28 @@ const soloClips = (() => {
       off[2] - breath * (1 - Math.cos(tau * u))
     ];
     ch.headYaw = 0.13 * Math.sin(u * tau) ** 3;
+    if (a.figureRelease === '1.19.0') {
+      if (a.tags.includes('baby')) {
+        infantFloorPose(r, ch);
+      } else {
+        // One planted leg takes the weight. The free foot is slightly forward
+        // and its sleeve opens away from the body at a different elbow angle.
+        ch.standing = 1;
+        ch.feet = [[r.height * 0.034, -1.08 * r.hip[1], r.ankle],
+          [-r.height * 0.014, 0.98 * r.hip[1], r.ankle]];
+        ch.hipOffset[1] += 0.016 * r.height;
+        ch.roll = -0.029;
+        ch.headRoll = 0.022;
+        const torso = frame(r.pelvis, ch.hipOffset, 0, 0, ch.roll);
+        const reach = r.upperArm + r.forearm + r.palm;
+        ch.elbowPoles = sides.map(side => [-0.97, side * 0.19, -0.32]);
+        ch.hands = sides.map((side, i) => point(torso, [
+          r.shoulder[0] + reach * (i ? 0.055 : 0.16),
+          side * (r.shoulder[1] + reach * (i ? 0.048 : 0.084)),
+          r.shoulder[2] - reach * (i ? 0.969 : 0.942)
+        ]));
+      }
+    }
     ch.blink = blink(u);
     return entry(a, pose(r, ch));
   }
@@ -59,6 +90,7 @@ const soloClips = (() => {
       p[2] += r.height * 0.047;
       return p;
     });
+    if (floor && a.figureRelease === '1.19.0') infantFloorPose(r, base);
     const p = pose(r, base);
     if (!floor)
       p.props = [

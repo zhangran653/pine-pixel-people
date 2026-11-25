@@ -322,6 +322,19 @@ const pineHeadShape = (() => {
           );
         }
       }
+      if (planes?.form?.model) {
+        // The cheek turns toward the ear above the mouth. Keep the chin pad
+        // beneath the lower lip and allow more malar fullness on the baby.
+        const { eye, mouth, chin } = planes.form;
+        const jaw = lobe(h, (chin + mouth) / 2, infant ? 0.25 : 0.32);
+        width *= 1 + (infant ? 0.038 : -0.043) * jaw;
+        for (let j = 0; j < front.length; j++) {
+          const v = lateral[j];
+          front[j] -= (infant ? 0.028 : 0.075) * lobe(h, mouth + 0.14, 0.34) * lobe(v, 0.69, 0.38)
+            + 0.046 * lobe(h, chin + 0.06, 0.19) * lobe(v, 0, 0.59);
+          front[j] += (infant ? 0.042 : 0.024) * lobe(h, eye + 0.30, 0.29) * (1 - v * v);
+        }
+      }
       // Seat the measured chin on the shorter neck of the pixel rig.
       const underChin = clamp((-h - 0.65) / 0.35, 0, 1);
       const inset = fittedJaw ? 0 : (child ? 0.13 : 0.19) * underChin * underChin * (3 - 2 * underChin);
@@ -634,7 +647,7 @@ const pineHeadShape = (() => {
       ...(planes?.strength ? [planes.eye, planes.eyeCenter, planes.mouth, planes.strength] : []),
       ...(planes?.lipBed ? ['lip', planes.lipBed.center, planes.lipBed.above, planes.lipBed.below, planes.lipBed.depth] : []),
       ...(planes?.contour ? ['contour', planes.contour.chin, planes.contour.tip] : []),
-      ...(planes?.form ? ['form', planes.form.eye, planes.form.mouth, planes.form.chin, planes.form.strength] : []),
+      ...(planes?.form ? ['form', !!planes.form.model, planes.form.eye, planes.form.mouth, planes.form.chin, planes.form.strength] : []),
       ...(planes?.orbit ? ['orbit', !!planes.form?.pixelPortrait, planes.orbit.center, planes.orbit.width, planes.orbit.height] : [])].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);

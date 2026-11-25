@@ -794,6 +794,18 @@ function checkEditor() {
     window.dispatchEvent(new PointerEvent('pointerup'));
     expect(byId('mirror').toDataURL() !== movingFace && opening.value === '0.22',
       'restore the detailed portrait at the selected value on pointer release');
+    byId('try-figure').click();
+    expect(byId('try-figure').disabled && byId('save-state').dataset.dirty === 'true',
+      'upgrading a saved figure must be an explicit, undoable edit');
+    byId('edit-undo').click();
+    expect(!byId('try-figure').disabled, 'undo must restore the previous figure painter');
+    byId('edit-redo').click();
+    byId('random-character').click();
+    expect(byId('try-figure').disabled, 'random creation must follow the selected figure painter');
+    byId('undo-random').click();
+    byId('save-look').click();
+    expect(PineWardrobe.saved.get(oldArt.id).packs['pine-core'] === PineLooks.tailoredRelease,
+      'reloaded trial character must keep the selected renderer');
     target.dataset.state = 'pass';
     target.textContent =
       'Body profiles, legacy saves, head upgrades, facial morphs, portrait styles, face auditions, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';

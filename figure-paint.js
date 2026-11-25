@@ -382,6 +382,164 @@ const pineFigurePaint = (() => {
     };
   }
 
+  // Front widths and side depths at the hem, waist, rib cage, shoulder and neck.
+  // Each row is a measured cross-section of the common body in joint space.
+  // Tabulate the profiles once; sampling a pose should not interpolate a spline per voxel.
+  function cutRings(rows) {
+    let j = 0;
+    return Array.from({ length: 97 }, (_, i) => {
+      const t = i / 96;
+      while (j < rows.length - 2 && t > rows[j + 1][0]) j++;
+      const a = rows[j], b = rows[j + 1], u = smooth(t, a[0], b[0]);
+      return a.slice(1).map((n, column) => mix(n, b[column + 1], u));
+    });
+  }
+  const shirtCut = cutRings([[0, .93, .94], [.23, .97, .95], [.42, .95, .92],
+    [.67, 1.025, 1.04], [.85, 1.025, 1.0], [.95, .89, .92], [1, .65, .77]]);
+  const knitCut = cutRings([[0, .93, .94], [.17, 1.045, 1.05], [.42, 1.04, .99],
+    [.70, 1.04, 1.04], [.85, 1.03, 1.0], [.95, .94, .92], [1, .69, .83]]);
+  const coatCut = cutRings([[0, 1.07, 1.04], [.26, 1.01, 1.0], [.48, .97, .99],
+    [.70, 1.02, 1.04], [.87, 1.035, 1.0], [.95, .94, .94], [1, .68, .81]]);
+  const nurseryCut = cutRings([[0, 1.025, 1.02], [.22, 1.055, 1.12], [.46, 1.04, 1.105],
+    [.70, .995, 1.04], [.85, .985, .99], [.96, .84, .87], [1, .71, .79]]);
+  const workCoats = new Set(['chef-coat', 'uniform', 'flightsuit', 'mechanic', 'field-jacket', 'denim-jacket',
+    'jacket', 'trail-shell', 'rain-anorak', 'hi-vis', 'blazer', ...longCoats]);
+  function garmentCut(style, base) {
+    const nursery = base === 'baby' || base === 'toddler';
+    const knit = knitwear.has(style) || style === 'snap-knit';
+    const coat = workCoats.has(style);
+    return {
+      rings: nursery ? nurseryCut : knit ? knitCut : coat ? coatCut : shirtCut,
+      knit, coat, nursery, fold: base === 'baby' ? .24 : base === 'toddler' ? .45 : base === 'child' ? .78 : 1
+    };
+  }
+  // The open throat and pointed collar share the shirt surface in every direction.
+  function shirt(k, u, v, h) {
+    const a = Math.abs(v);
+    if (u < -.35 && Math.abs(h - .79 + .06 * v * v) < .015) return k.topShade;
+    if (u < .25) return k.top;
+    if (a < .36 && h > .755 + .62 * a) return k.skin;
+    const tip = a < .31 ? .85 - .39 * (a - .055) : .75 + 1.11 * (a - .31);
+    if (a > .055 && a < .46 && h > tip && h < .85 + .33 * (a - .055))
+      return h < tip + .028 ? k.topStitch : k.topLight;
+    if (v > .28 && v < .62 && h > .45 && h < .65) {
+      if (h > .62) return k.topLight;
+      if (v > .59 || h < .47 + .055 * Math.abs(v - .45)) return k.topShade;
+    }
+    if (a < .048 && h < .79 && h > .04) {
+      if (a < .032 && Math.abs((h - .075) * 5.3 - Math.round((h - .075) * 5.3)) < .065) return k.lining;
+      return v > .011 ? k.topShade : k.topLight;
+    }
+    return k.top;
+  }
+  function cutTorso(k, value, garment, u, v, h) {
+    const { set, types, bias } = inks(k), group = types[value];
+    if (!group) return value;
+    const flank = Math.abs(v);
+    // One broad underarm shadow, a quieter front and a single drag fold above the hem.
+    const key = .79 * u - 1.58 * v + .57 * h;
+    if (group === 'flesh' || group === 'leather') return swatch(set[group], 3.7 + key + bias[value]);
+    const pit = smooth(flank, .52, .94) * (1 - smooth(Math.abs(h - .64 + .08 * v), .04, .27));
+    const direction = h - (.16 + .24 * (1 - flank) + .055 * v);
+    const pull = (1 - smooth(Math.abs(direction), .012, .068)) * smooth(flank, .22, .8);
+    const hem = 1 - smooth(h, .005, garment.knit ? .075 : .036);
+    return swatch(set[group], 3.63 + key + bias[value] - 1.36 * pit -
+      garment.fold * (garment.coat ? .71 : 1.28) * pull - .76 * hem);
+  }
+
+  // Each section gives lateral width, front-to-back depth, shift to the front and shift to the outside.
+  // These profiles follow a limb as it bends. The joint ends receive separate cap lengths.
+  const cuts = {
+    upperArm: cutRings([[0, .82, .86, -.055, -.12], [.21, .91, .95, -.055, -.07],
+      [.41, .97, 1.02, .035, .015], [.71, .92, .945, .025, .02], [1, .86, .91, -.055, 0]]),
+    forearm: cutRings([[0, .86, .91, -.055, 0], [.22, .97, 1.015, .05, .015],
+      [.58, .9, .96, .045, 0], [.84, .83, .87, 0, 0], [1, .81, .86, 0, 0]]),
+    thigh: cutRings([[0, .96, 1.04, -.025, -.04], [.24, 1.05, 1.10, .07, .035],
+      [.56, 1.015, .99, .055, .02], [.84, .915, .94, .03, 0], [1, .89, .95, .025, 0]]),
+    shin: cutRings([[0, .89, .95, .025, 0], [.25, 1.005, 1.02, -.07, .015],
+      [.43, 1.035, 1.04, -.12, .04], [.72, .94, .90, -.07, .015], [1, .86, .88, 0, 0]])
+  };
+  const widePants = new Set(['wide-leg', 'cuffed-denim', 'cargo', 'bib-overalls']);
+  function cutLink(brush, torso, paint, a, b, r0, r1, width, pigment) {
+    const { k, region, side, style, garment, bend } = paint;
+    const { types, set, bias } = inks(k);
+    const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+    const length = Math.hypot(dx, dy, dz);
+    if (length < .0001) return brush.blob(...a, r0, r0 * width, r0, pigment(0, 0, 0, 0));
+    const ax = dx / length, ay = dy / length, az = dz / length;
+    let lx = torso[1], ly = torso[5], lz = torso[9];
+    let dot = lx * ax + ly * ay + lz * az;
+    if (Math.abs(dot) > .98) {
+      lx = torso[2]; ly = torso[6]; lz = torso[10];
+      dot = lx * ax + ly * ay + lz * az;
+    }
+    lx -= dot * ax; ly -= dot * ay; lz -= dot * az;
+    const inv = 1 / Math.hypot(lx, ly, lz);
+    lx *= inv; ly *= inv; lz *= inv;
+    const fx = ay * lz - az * ly, fy = az * lx - ax * lz, fz = ax * ly - ay * lx;
+    const sleeve = region === 'upperArm' || region === 'forearm';
+    const upper = region === 'upperArm' || region === 'thigh';
+    const section = cuts[region], wide = !sleeve && widePants.has(style);
+    const gathered = style === 'joggers' || (sleeve && garment.knit);
+    const straight = style === 'trousers' || style === 'pinstripe';
+    const rolled = region === 'forearm' && style === 'oxford';
+    const pad = Math.max(r0, r1) * Math.max(width, 1) * 1.43;
+    brush.stamp(Math.min(a[0], b[0]) - pad, Math.max(a[0], b[0]) + pad,
+      Math.min(a[1], b[1]) - pad, Math.max(a[1], b[1]) + pad,
+      Math.min(a[2], b[2]) - pad, Math.max(a[2], b[2]) + pad, (x, y, z) => {
+        const px = x - a[0], py = y - a[1], pz = z - a[2];
+        const along = px * ax + py * ay + pz * az, t = clamp(along / length);
+        const cx = px - t * dx, cy = py - t * dy, cz = pz - t * dz;
+        const r = mix(r0, r1, t);
+        if (cx * cx + cy * cy + cz * cz > 2.1 * r * r) return 0;
+        const material = pigment(t, cx, cy / width, cz);
+        if (!material) return 0;
+        const skin = types[material] === 'flesh';
+        const row = section[Math.round(t * 96)];
+        const lateral = (cx * lx + cy * ly + cz * lz) / r;
+        const towards = (cx * fx + cy * fy + cz * fz) / r;
+        const outer = side * lateral;
+        // Flatten the sleeve over the outer shoulder and turn its crown towards the collar.
+        // A shirt cuff and a trouser hem have a shallow end, unlike a bare joint.
+        const nearCap = sleeve && upper ? clamp(.65 - .48 * outer, .2, 1.12) : .73;
+        const farCap = skin ? .64 : upper ? .38 : straight || wide ? .43 : .18;
+        const cap = along < 0 ? along / (r * nearCap) : along > length ? (along - length) / (r * farCap) : 0;
+        if (Math.abs(cap) > 1) return 0;
+        const band = 1 - smooth(Math.abs(t - (rolled ? .26 : .87)), .048, .13);
+        const loft = skin ? 0 : sleeve ? (garment.knit ? .11 : garment.coat ? .06 : .035) :
+          wide ? .18 : gathered || straight ? .12 : .045;
+        const hemBreak = !upper && !sleeve && !garment.nursery && !skin
+          ? 1 - smooth(Math.abs(t - .77 + .12 * outer), .035, .16) : 0;
+        const hem = !upper && !skin
+          ? (rolled ? .245 : gathered ? -.045 : wide ? .09 : 0) * band +
+            (straight ? .29 * t * t : 0) + .115 * hemBreak : 0;
+        const ease = loft * (upper ? smooth(t, .07, .52) : 1 - .3 * t);
+        const across = (lateral - side * row[3]) / (width * (row[0] + ease + hem));
+        const front = (towards - row[2]) / (row[1] + ease + hem);
+        if (across * across + front * front + cap * cap > 1) return 0;
+        const group = types[material];
+        if (!group) return material;
+        // Fixed light in body space, expressed on the actual section normal.
+        const nx = across * lx + front * fx + cap * ax;
+        const ny = across * ly + front * fy + cap * ay;
+        const nz = across * lz + front * fz + cap * az;
+        const key = .77 * (nx * torso[0] + ny * torso[4] + nz * torso[8]) -
+          1.13 * (nx * torso[1] + ny * torso[5] + nz * torso[9]) +
+          .94 * (nx * torso[2] + ny * torso[6] + nz * torso[10]);
+        const occlusion = (1 - smooth(outer, -.86, -.14)) * (sleeve ? 1.12 : .72);
+        if (skin) return swatch(set.flesh, 4.15 + key - occlusion * .7 + .42 * bias[material]);
+        // Creases start at the compressed elbow or knee. The long lit plane stays uninterrupted.
+        const crease = upper ? t - (.9 - .19 * outer + .04 * front) : t - (.13 - .16 * outer);
+        const jointFold = (1 - smooth(Math.abs(crease), .025, .15)) * smooth(outer, -.88, .22);
+        const pressing = !sleeve && !upper ? smooth(outer, -.67, .36) * hemBreak : 0;
+        const rim = smooth(Math.abs(across), .78, .99) * (key < 0 ? .88 : .48);
+        const cuff = !upper && !skin && (rolled || gathered || style === 'cuffed-denim');
+        const edge = cuff ? 1 - smooth(Math.abs(t - (rolled ? .35 : .91) + .025 * outer), .014, .045) : 0;
+        return swatch(set[group], 3.9 + key - occlusion + .78 * bias[material] -
+          garment.fold * ((1.25 + 1.35 * bend) * jointFold + 1.58 * pressing) - rim + (cuff ? .46 * band - 1.37 * edge : 0));
+      });
+  }
+
   const collared = new Set(['oxford', 'polo', 'rugby', 'denim-jacket', 'field-jacket']);
   const crew = new Set(['pullover', 'tee', 'argyle', 'breton', 'sailor-knit', 'knit-vest']);
   function neckline(brush, k, style, d, w, low, tall) {
@@ -422,7 +580,7 @@ const pineFigurePaint = (() => {
         );
       }
   }
-  function hand(brush, k, torso, side, wrist, grip, size, infant) {
+  function hand(brush, k, torso, side, wrist, grip, size, infant, tailored = false) {
     const length = Math.hypot(...grip.map((v, i) => v - wrist[i])) || 1;
     const axis = grip.map((v, i) => (v - wrist[i]) / length);
     // The thumb faces forward. Project that direction into the palm as the wrist swings.
@@ -441,6 +599,14 @@ const pineFigurePaint = (() => {
       forward[2] * axis[0] - forward[0] * axis[2],
       forward[0] * axis[1] - forward[1] * axis[0]
     ].map((n) => n * side);
+    // Rest the palm obliquely against the thigh so the thumb reads in front view.
+    if (tailored) {
+      const angle = infant ? .16 : .36;
+      const c = Math.cos(angle), s = Math.sin(angle);
+      const plane = forward;
+      forward = plane.map((n, i) => n * c + across[i] * s);
+      for (let i = 0; i < 3; i++) across[i] = across[i] * c - plane[i] * s;
+    }
     const ramp = inks(k).set.flesh,
       pad = 1.68 * size;
     brush.stamp(...grip.flatMap((n) => [n - pad, n + pad]), (x, y, z) => {
@@ -494,11 +660,11 @@ const pineFigurePaint = (() => {
       }
     };
   }
-  function shoeBrush(brush, k, foot, length, width, ankle, direction, side, style) {
+  function shoeBrush(brush, k, foot, length, width, ankle, direction, side, style, tailored = false) {
     const { set, types, bias } = inks(k);
     const floor = foot[2] - ankle;
     const laced = ['sneakers', 'runners', 'trail-boots', 'strap-sneakers', 'high-tops', 'oxfords'].includes(style);
-    const angle = side * direction * 0.17,
+    const angle = side * direction * (tailored ? 0.245 : 0.17),
       ca = Math.cos(angle),
       sa = Math.sin(angle);
     // Turn the last out around the planted ankle. The toe, heel and straps share one frame.
@@ -533,12 +699,21 @@ const pineFigurePaint = (() => {
           const f = ((x - cx) * direction) / rx,
             a = (y - cy) / ry,
             h = (z - floor) / (2 * rz);
-          const roof = 1.06 - 0.33 * smooth(f, 0.08, 0.95);
+          const roof = tailored ? 1.04 - .46 * smooth(f, -.16, .93) : 1.06 - .33 * smooth(f, .08, .95);
           const arch = f < -0.55 ? 0 : (1 - smooth(Math.abs(f + 0.34), 0.06, 0.36)) * Math.max(0, -a * side);
           if (h < 0.11 * arch) return 0;
           if (h > roof || Math.abs(a) > 1 - 0.19 * smooth(f, 0.36, 1)) return 0;
           const value = typeof pigment === 'function' ? pigment(x, y, z) : pigment;
           if (!value) return 0;
+          if (tailored && style === 'soft-booties') {
+            // A knitted slipper turns in one soft plane across the toes.
+            return swatch(set.hide, 4.1 + 0.72 * h - 1.30 * a - (h < 0.15 ? 1.1 : 0));
+          }
+          if (tailored && style === 'canvas-shoes' && value === k.rubber && f > 0.42 && h > 0.22) {
+            // The rubber foxing curves up only at the tip, leaving the dyed vamp visible.
+            const rim = 0.22 + 0.13 * smooth(f, 0.53, 0.99) + 0.055 * Math.abs(a);
+            return h < rim ? k.rubber : swatch(set.hide, 3.85 + h - 1.20 * a);
+          }
           if (value === k.outsole) return h < 0.106 ? set.hide[0] : k.outsole;
           const group = types[value];
           if (value === k.rubber && f > 0.38 && h > 0.29 && laced)
@@ -561,6 +736,10 @@ const pineFigurePaint = (() => {
   }
   return {
     palette,
+    garmentCut,
+    cutLink,
+    cutTorso,
+    shirt,
     lighting: { painted, metal: fasteners },
     hem,
     drape,

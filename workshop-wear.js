@@ -187,7 +187,7 @@ const pineWorkshopWear = (() => {
     };
   }
   // These marks are sampled on the fitted chest surface, including its shoulders and sides.
-  function fabric(style, u, v, t, k) {
+  function fabric(style, u, v, t, k, tailored = false) {
     const a = Math.abs(v),
       front = u > 0.35,
       outside = u < -0.54 || a > 0.89;
@@ -205,6 +205,12 @@ const pineWorkshopWear = (() => {
       if (front && a > 0.46 && a < 0.82 && t > 0.15 && t < 0.36)
         return t > 0.31 ? k.topLight : a > 0.76 || t < 0.19 ? k.topShade : k.top;
     } else if (style === 'snap-knit') {
+      if (tailored && front) {
+        if (a < 0.042) return k.topShade;
+        if (a < 0.10) return k.top;
+        if (t > 0.925 + 0.07 * a) return k.topLight;
+        return v > 0.56 ? k.topShade : k.top;
+      }
       if (front && a < 0.12) return a > 0.073 ? k.topLight : k.lining;
       if (t > 0.85 + 0.12 * a && front) return k.lining;
       if (front && t > 0.26 && t < 0.4 && v > 0.36 && v < 0.68) return k.topLight;

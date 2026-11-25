@@ -208,6 +208,45 @@ const pinePixelPortrait = (() => {
     if (iz > 0.14) return ix * side < 0.35 && iz > 0.48 ? k.irisHoney : k.irisLight;
     return k.eyes;
   }
+  // The guide's eye has a continuous dark upper arc and one open wedge of white.
+  // Evaluate these marks on the adjustable lid surface so they foreshorten at profile.
+  function modelEye(shape, off, h, blink, side, k, pitch) {
+    const x = off / shape.width;
+    if (Math.abs(x) >= 1) return 0;
+    const arch = Math.sqrt(1 - x * x);
+    const tilt = shape.tilt * x;
+    const upper = 1.16 * shape.up * arch + tilt;
+    const lower = -1.44 * shape.down * (0.48 * arch + 0.52 * Math.min(1, 2 * arch)) + tilt;
+    const closed = 0.22 * upper + 0.78 * lower;
+    const lid = upper + blink * (closed - upper);
+    const floor = lower + blink * (closed - lower);
+    const stroke = Math.max(0.021, Math.min(0.044, 0.67 * pitch)) * (0.73 + 0.27 * arch);
+    if (h > lid + stroke || h < floor - stroke * 0.22) return 0;
+    if (h > lid - stroke || blink > 0.91) return k.lash;
+    const v = (upper - h) / (upper - lower);
+    const irisX = (x + 0.10) / (shape.infant ? 0.77 : 0.71);
+    if (irisX * irisX + ((v - 0.47) / 0.72) ** 2 > 1)
+      return v < 0.26 || x > 0.79 ? k.scleraShade : k.sclera;
+    const glint = Math.min(0.25, Math.max(0.115, pitch / (upper - lower)));
+    if (blink < 0.36 && ((side * irisX + 0.29) / (glint * 1.4)) ** 2 + ((v - 0.32) / glint) ** 2 < 1)
+      return k.glint;
+    if (v > 0.72 && Math.abs(irisX) < 0.77) return k.eyes;
+    return Math.abs(irisX) < 0.58 ? k.pupil : k.irisShadow;
+  }
+  function modelMouth(name, row, lateral, h, infant, k, pitch) {
+    if (infant && (name === 'smile' || name === 'soft-smile'))
+      return mouth(name, row, lateral, h, infant, k);
+    const [, width, up, down, lift] = row;
+    const x = Math.abs(lateral) / width;
+    if (x >= 1) return 0;
+    const mass = 1 - x * x;
+    const offset = h - lift * x * x;
+    const line = Math.max(0.012, Math.min(0.030, pitch * 0.55));
+    if (Math.abs(offset) < line) return k.lipLine;
+    if (offset > 0 && offset < up * 0.50 * mass) return k.upperLip;
+    if (offset < 0 && -offset < down * 0.82 * mass) return k.lowerLip;
+    return 0;
+  }
   function brow(row, v, h, k, infant, pitch) {
     const [, span, base, arch, tilt, thick, peak, cut] = row,
       q = v / span;
@@ -318,7 +357,7 @@ const pinePixelPortrait = (() => {
     m.hairSheen = tint(m.hairSheen, m.lock6, 0.27);
     m.hairHighlight = tint(m.hairHighlight, m.lock8, 0.27);
   }
-  function complexion(y, h, light, forward, eyeH, mouthH, infant, k, planes, underside) {
+  function complexion(y, h, light, forward, eyeH, mouthH, infant, k, planes, underside, model = false) {
     const rel = (eyeH - h) / (eyeH - mouthH),
       across = Math.abs(y);
     const cheek = Math.max(0, 1 - ((across - 0.66) / 0.34) ** 2 - ((rel - 0.54) / 0.45) ** 2);
@@ -326,7 +365,7 @@ const pinePixelPortrait = (() => {
     const under = Math.max(0, 1 - ((rel - 1.24) / 0.16) ** 2 - (across / 0.35) ** 2);
     const chin = Math.max(0, 1 - ((rel - (infant ? 1.42 : 1.47)) / 0.29) ** 2 - (across / 0.47) ** 2);
     const cheekGleam = ((across - (y < 0 ? 0.676 : 0.701)) / 0.05) ** 2 + ((rel - 0.424) / 0.033) ** 2;
-    if (cheekGleam < 1 && light > 0.35) return k.cheekSpark;
+    if (!model && cheekGleam < 1 && light > 0.35) return k.cheekSpark;
     const turn = Math.max(0, Math.min(1, (0.94 - across) / 0.49));
     const front = clamp((forward + 0.18) / 1.16, 0, 1);
     const jawTurn = clamp((rel - 0.96) / 0.64, 0, 1) * (1 - 0.74 * front);
@@ -335,6 +374,12 @@ const pinePixelPortrait = (() => {
       - 2.45 * temple - 1.55 * under + 1.48 * chin + 1.08 * cheek
       - 1.85 * jawTurn - 0.98 * Math.max(0, rel - 1.61);
     const value = clamp(Math.round(lit + (3.5 + 0.88 * front - lit) * underside), 0, 11);
+    if (model) {
+      // Four large skin planes survive downsampling. Warmth stays below the eye
+      // and the lower cheek rolls gradually into the underside of the chin.
+      const tone = value <= 2 ? 2 : value <= 4 ? 4 : value <= 7 ? 7 : 10;
+      return k[planes[(cheek > 0.53 ? 12 : 0) + tone]];
+    }
     return k[planes[12 * Math.round(cheek * 2.9) + value]];
   }
   // The gathered hair has front, oblique and side cuts. Decode
@@ -496,5 +541,5 @@ const pinePixelPortrait = (() => {
     ...Array.from({ length: 8 }, (_, i) => 'weave' + (i + 1)),
     ...Array.from({ length: 8 }, (_, i) => 'lock' + (i + 1)),
   ];
-  return { eye, brow, mouth, ear, dye, complexion, sweptBun, templeLocks, painted };
+  return { eye, modelEye, modelMouth, brow, mouth, ear, dye, complexion, sweptBun, templeLocks, painted };
 })();

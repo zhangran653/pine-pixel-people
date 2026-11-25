@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>人物造型对照 · 松溪像素世界</title>
+    <link rel="stylesheet" href="workspace.css">
+    <link rel="stylesheet" href="figure-study.css">
+    <script defer src="workspace.js"></script>
+    <script defer src="motion.js"></script>
+    <script defer src="character-slices.js"></script>
+    <script defer src="actor.js"></script>
+    <script defer src="surveyor-art.js"></script>
+    <script defer src="family-art.js"></script>
+    <script defer src="vehicle-slices.js"></script>
+    <script defer src="world-objects.js"></script>
+    <script defer src="activity-props.js"></script>
+    <script defer src="studio-props.js"></script>
+    <script defer src="studio-rig.js"></script>
+    <script defer src="studio-actions.js"></script>
+    <script defer src="duet-clips.js"></script>
+    <script defer src="motion-gestures.js"></script>
+    <script defer src="movement-clips.js"></script>
+    <script defer src="daily-clips.js"></script>
+    <script defer src="social-clips.js"></script>
+    <script defer src="work-clips.js"></script>
+  <script defer src="studio-library.js"></script>
+    <script defer src="pixel-headwear.js"></script>
+    <script defer src="pixel-portrait.js"></script>
+    <script defer src="portrait-styles.js"></script>
+    <script defer src="hair-styles.js"></script>
+    <script defer src="head-sections.js"></script>
+    <script defer src="head-shape.js"></script>
+    <script defer src="short-hair.js"></script>
+    <script defer src="everyday-styles.js"></script>
+    <script defer src="workshop-wear.js"></script>
+    <script defer src="world-wardrobe.js"></script>
+    <script defer src="figure-paint.js"></script>
+    <script defer src="designer-body.js"></script>
+    <script defer src="appearance.js"></script>
+    <script defer src="figure-models.js"></script>
+    <script defer src="studio-stage.js"></script>
+    <script defer src="figure-study.js"></script>
+  </head>
+  <body data-workspace="atelier">
+    <header data-app-nav="atelier"></header>
+    <main class="study">
+      <header class="heading">
+        <h1>人物造型对照</h1>
+        <nav aria-label="评审方式"><button data-mode="model" aria-pressed="true">同一配方</button><button data-mode="blind" aria-pressed="false">随机盲评</button></nav>
+      </header>
+      <section class="toolbar" aria-label="人物与镜头">
+        <label id="model-field">人物<select id="subject">
+          <optgroup label="标准配方"><option value="adult">成人 · 衬衫</option><option value="child">儿童 · 套头衫</option><option value="baby">婴儿 · 棉套装</option>
+          <option value="hoodie">深色连帽衫</option><option value="chef">浅色厨师服</option></optgroup>
+          <optgroup id="baseline-subjects" label="上一轮连续随机"></optgroup>
+        </select></label>
+        <label id="age-field" hidden>年龄<select id="age"><option value="adult">成人</option><option value="child">儿童</option><option value="toddler">幼儿</option><option value="baby">婴儿</option></select></label>
+        <label>动作<select id="action"></select></label>
+        <label title="以本组中较高人物的中性轮廓定标，保留两人身高差">人物像素高度<select id="sample-size"><option value="256">256 像素</option><option value="128">128 像素</option><option value="64">64 像素</option></select></label>
+        <label>画法<select id="ink"><option value="color">原色</option><option value="values">三档明暗</option><option value="silhouette">黑色剪影</option></select></label>
+        <div class="angles" aria-label="预设视角">
+          <button data-angle="0" aria-pressed="true">正面</button><button data-angle="315" aria-pressed="false">斜面</button><button data-angle="270" aria-pressed="false">侧面</button><button data-angle="180" aria-pressed="false">背面</button>
+        </div>
+      </section>
+      <p id="prompt">同一人物配方、镜头与动作帧，分别用两版实时切片绘制。</p>
+      <div class="pair" id="pair">
+        <figure><figcaption><span id="title-a">1.18 · 原版</span><a id="edit-a" hidden>到创作室编辑</a></figcaption><canvas id="canvas-a" aria-labelledby="title-a"></canvas></figure>
+        <figure><figcaption><span id="title-b">1.19 · 试作</span><a id="edit-b" hidden>到创作室编辑</a></figcaption><canvas id="canvas-b" aria-labelledby="title-b"></canvas></figure>
+      </div>
+      <section class="transport" aria-label="回放">
+        <label>视角 <output id="angle-value" for="bearing">0°</output><input id="bearing" type="range" min="0" max="359" value="0"></label>
+        <label>动作进度 <output id="phase-value" for="phase">17%</output><input id="phase" type="range" min="0" max="100" value="17"></label>
+        <button id="play" aria-pressed="false">播放动作</button>
+      </section>
+      <section id="review" hidden aria-label="盲评">
+        <div class="review-head"><h2 id="round">人物对照</h2><span id="progress"></span></div>
+        <p>选出整体造型更协调的一侧。每组的左右顺序已打乱，完成 32 组后揭晓。</p>
+        <div class="votes" aria-label="偏好"><button data-vote="a">偏好 A</button><button data-vote="tie">两者相当</button><button data-vote="b">偏好 B</button></div>
+        <div class="review-nav"><button id="prev">上一组</button><span id="saved" role="status"></span><button id="next">下一组</button></div>
+        <div id="results" hidden><div class="review-head"><h2>分龄结果</h2><button id="export">下载评审记录</button></div><table><thead><tr><th>年龄</th><th>偏好原版</th><th>相当</th><th>偏好试作</th></tr></thead><tbody id="counts"></tbody></table></div>
+      </section>
+      <section class="guide" id="guide">
+        <div class="review-head"><h2 id="guide-label">造型设定稿</h2><div class="guide-links"><a href="figure-model-guide.webp">完整设定稿</a><a href="figure-study-turnaround.webp">四向实机总图</a></div></div>
+        <div class="guide-strip"><img id="guide-img" src="figure-model-guide.webp" alt="同一人物的正面、斜面、侧面和背面像素设定"></div>
+      </section>
+      <noscript>启用 JavaScript 后可查看实时切片并参加盲评。</noscript>
+    </main>
+  </body>
+</html>

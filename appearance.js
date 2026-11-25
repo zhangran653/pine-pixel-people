@@ -27,7 +27,8 @@ const PineLooks = (() => {
     silhouetteRelease = pinePortraitStyles.silhouetteRelease,
     facePlaneRelease = pinePortraitStyles.facePlaneRelease,
     pixelRelease = pinePortraitStyles.pixelRelease,
-    release = pinePortraitStyles.figureRelease;
+    release = pinePortraitStyles.figureRelease,
+    tailoredRelease = pinePortraitStyles.tailoredRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -55,8 +56,17 @@ const PineLooks = (() => {
     silhouetteRelease,
     facePlaneRelease,
     pixelRelease,
-    release
+    release,
+    tailoredRelease
   ];
+  function figurePin(recipe) {
+    return recipe?.packs?.[core] === tailoredRelease ? tailoredRelease : release;
+  }
+  function withFigureStudy(recipe) {
+    const next = structuredClone(recipe);
+    next.packs[core] = tailoredRelease;
+    return next;
+  }
   function hasRoundedHead(recipe) {
     return releases.indexOf(recipe.packs[core]) > releases.indexOf(hairRelease);
   }
@@ -174,7 +184,7 @@ SOFTWARE.`;
     next.base = base;
     next.gender = gender;
     if (base === 'baby' && recipe.base !== 'baby') {
-      next.packs[core] = release;
+      next.packs[core] = figurePin(recipe);
       clearAdultFaceDetails(next.face);
     } else next.packs[core] = editingRelease(next);
     return next;
@@ -298,7 +308,7 @@ SOFTWARE.`;
     requireThat(typeof style === 'string' && Object.hasOwn(portraitStyles, style), '未知人物画风');
     if (portraitStyleOf(recipe) === style) return recipe;
     recipe.face = { ...(recipe.face || facePresets.classic.face), style };
-    recipe.packs[core] = release;
+    recipe.packs[core] = figurePin(recipe);
     return recipe;
   }
   const wearables = { ...pineWorkshopWear.wearables };
@@ -836,6 +846,7 @@ SOFTWARE.`;
       )
     });
     actor.recipeId = recipe.id;
+    actor.figureRelease = recipe.packs[core];
     actor.gender = recipe.gender ?? 'unspecified';
     return actor;
   }
@@ -1180,7 +1191,88 @@ SOFTWARE.`;
   const bodySizes = ['height', 'shoulders', 'arms', 'legs'];
 
   function generationOptions(input) {
-    return typeof input === 'function' ? { random: input } : input || {};
+    if (typeof input === 'function') return { random: input };
+    if (input?.seed === undefined) return input || {};
+    const { seed } = input;
+    requireThat(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff && input.random === undefined,
+      '种子必须是 32 位无符号整数，且不能同时指定 random');
+    let state = seed;
+    // SplitMix32 avalanches neighboring seeds before the first wardrobe/age draw.
+    return { ...input, random() {
+      state = (state + 0x9e3779b9) >>> 0;
+      let value = Math.imul(state ^ (state >>> 16), 0x21f0aaad);
+      value = Math.imul(value ^ (value >>> 15), 0x735a2d97);
+      return ((value ^ (value >>> 15)) >>> 0) / 4294967296;
+    } };
+  }
+  const figureProportions = [
+    // Stature, shoulder span, arm reach and leg length share the same rig units.
+    [0.92, 1.08, 0.95, 0.94], [1.04, 0.96, 1.07, 1.10], [1.07, 1.12, 1.04, 1.03],
+    [0.94, 0.94, 1.01, 1.04], [1.03, 1.04, 0.99, 0.94], [1, 1, 1, 1]
+  ];
+  function fitBodyProportions(doc, random) {
+    const scale = { adult: 1, child: 0.83, toddler: 0.68, baby: 0.50 }[doc.base];
+    const proportions = pick(figureProportions, random);
+    for (const [i, key] of bodySizes.entries()) {
+      const variation = (random() + random() - 1) * (key === 'height' ? 0.08 : 0.042);
+      doc.shape[key] = Math.round(100 * (1 + scale * (proportions[i] - 1 + variation))) / 100;
+    }
+  }
+
+  // Each cut can use several existing authored tops, bottoms and shoes. Infant
+  // feet keep soft booties; the same dyes work across ages and complexions.
+  const clothingCuts = {
+    shirt: [['oxford', 'polo', 'knit-vest'], ['trousers', 'cuffed-denim', 'wide-leg'], ['loafers', 'canvas-shoes', 'flats']],
+    field: [['denim-jacket', 'field-jacket', 'trail-shell'], ['cargo', 'cuffed-denim', 'shorts'], ['trail-boots', 'canvas-shoes', 'chelsea']],
+    knits: [['cardigan', 'pullover', 'breton'], ['trousers', 'capris', 'wide-leg', 'skirt'], ['mary-janes', 'flats', 'canvas-shoes']],
+    active: [['hoodie', 'tee', 'rain-anorak'], ['joggers', 'track-shorts', 'knee-pants'], ['runners', 'sneakers', 'strap-sneakers']],
+    play: [['sailor-knit', 'tee', 'snap-knit'], ['bib-overalls', 'shorts', 'knee-pants'], ['strap-sneakers', 'canvas-shoes']],
+    nursery: [['snap-knit', 'sailor-knit', 'pullover'], ['knee-pants', 'bib-overalls', 'shorts'], ['soft-booties']]
+  };
+  const cutsByAge = {
+    adult: ['shirt', 'field', 'knits', 'active'], child: ['shirt', 'play', 'knits', 'active', 'field'],
+    toddler: ['play', 'knits', 'active'], baby: ['nursery']
+  };
+  const outfitPalettes = [
+    ['#698d85', '#55485a', '#8e624c', '#d6b877'], ['#967253', '#455766', '#584b49', '#b5c5a9'],
+    ['#d6c4a0', '#6e5563', '#85624f', '#698b87'], ['#56758e', '#827366', '#43525a', '#d2a76a'],
+    ['#ad7365', '#506768', '#d8c7a9', '#e6c89a'], ['#4d6268', '#a4967e', '#69574b', '#c9876a'],
+    ['#926c93', '#494a63', '#c1b3b8', '#b1bd8c'], ['#965151', '#c3b79f', '#4b4d5c', '#e9cf94'],
+    ['#9ab6bf', '#454f64', '#e1d6c0', '#c38d72'], ['#c89945', '#415d62', '#776050', '#ece0c0']
+  ];
+  const toddlerHair = ['crop', 'curly', 'bob', 'pixie', 'twin-tails', 'side-part', 'tapered-coils', 'french-bob', 'crew'];
+  // Leave headroom for crowns and brims; low braids and long side lengths still fit.
+  const brimHair = new Set(['crop', 'crew', 'fade', 'buzz', 'bald', 'pixie', 'bob', 'side-part', 'curly',
+    'braid', 'twin-braids', 'low-bun', 'shoulder-length', 'lob', 'box-braids', 'locs', 'french-bob']);
+  function tailoredOutfit(donor, lockedHair, random) {
+    // Retain complete specialist outfits (and their matching equipment) among everyday looks.
+    const keepDonor = random() < (donor.base === 'adult' ? 0.42 : 0.22);
+    if (keepDonor && (donor.parts.hat === 'none' || !lockedHair || brimHair.has(lockedHair))) return donor;
+    const cut = clothingCuts[pick(cutsByAge[donor.base], random)];
+    const [top, bottom, shoes] = cut.map(options => pick(options, random));
+    const [shirt, pants, shoe, accent] = pick(outfitPalettes, random);
+    const hat = donor.base === 'baby' && random() < 0.28 && (!lockedHair || brimHair.has(lockedHair))
+      ? core + '/cotton-cap' : 'none';
+    const casual = { ...donor, packs: { [core]: tailoredRelease }, parts: { hair: donor.parts.hair, top, bottom, shoes, neck: 'none', hat },
+      colors: { skin: donor.colors.skin, hair: donor.colors.hair, eyes: donor.colors.eyes,
+        top: shirt, bottom: pants, shoes: shoe, accent, ...(hat !== 'none' && { hat: accent }) } };
+    delete casual.identity;
+    delete casual.embeddedPacks;
+    return casual;
+  }
+  function randomHair(base, hat, tailored, random) {
+    let choices = base === 'baby' ? babyHair : Object.keys(slots.hair);
+    if (tailored && base === 'toddler') choices = toddlerHair;
+    if (tailored && hat !== 'none') choices = choices.filter(id => brimHair.has(id));
+    return pick(choices, random);
+  }
+  function seededLookId(doc, seed) {
+    // Keep replayed JSON stable, and distinguish two differently locked or styled
+    // looks generated from the same seed before either is saved to the wardrobe.
+    const { id, label, ...appearance } = doc;
+    let hash = 2166136261;
+    for (const c of JSON.stringify(appearance)) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);
+    return 'look_s' + seed.toString(16).padStart(8, '0') + '_' + (hash >>> 0).toString(16).padStart(8, '0');
   }
   // The outline and jaw already supply some of the width at mouth level. Leave room
   // for them before adding soft tissue below a low-set cheekbone.
@@ -1257,12 +1349,14 @@ SOFTWARE.`;
     s.chinProjection = fit(chin, lip * 0.36 - (expressive ? 0.53 : 0.29), lip * 0.46 + (expressive ? 0.36 : 0.20));
   }
   function randomFace(recipe, input) {
-    const { random = Math.random, style = 'natural', portrait = recipe.face?.style || 'animation', family } = generationOptions(input);
+    const { random = Math.random, style = 'natural', portrait = recipe.face?.style || 'animation',
+      family, release: pin = figurePin(recipe) } = generationOptions(input);
+    requireThat(pin === release || pin === tailoredRelease, '未知随机人物版本');
     requireThat(typeof portrait === 'string' && Object.hasOwn(portraitStyles, portrait), '未知人物画风');
     requireThat(family === undefined || (typeof family === 'string' && Object.hasOwn(portraitFamilies, family)), '未知五官组合');
     const expressive = style === 'expressive';
     const doc = structuredClone(recipe);
-    doc.packs[core] = release;
+    doc.packs[core] = pin;
     const infant = doc.base === 'baby';
     const design = portrait !== 'natural' && portraitFamilies[family || pick(familyIds, random)];
     const young = infant || (design && doc.base === 'toddler');
@@ -1317,19 +1411,23 @@ SOFTWARE.`;
     return doc;
   }
   function randomCharacter(input) {
-    const { random = Math.random, style, portrait, family, source, locks = [] } = generationOptions(input);
+    const { random = Math.random, style, portrait, family, source, seed, base,
+      release: pin = figurePin(source), locks = [] } = generationOptions(input);
     const keep = new Set(source ? locks : []);
-    const profiles = keep.has('hair') && !babyHair.includes(source.parts.hair)
+    const tailored = pin === tailoredRelease;
+    requireThat(base === undefined || Object.values(bodyProfiles).some(profile => profile.base === base), '未知年龄基型');
+    requireThat(base === undefined || !keep.has('body') || base === source.base, '指定年龄与锁定的体型不一致');
+    let profiles = base === undefined && keep.has('hair') && !babyHair.includes(source.parts.hair)
       ? profileDraws.filter((key) => key !== 'baby') : profileDraws;
+    if (base !== undefined) profiles = profiles.filter(key => bodyProfiles[key].base === base);
     const profile = keep.has('body') ? source : bodyProfiles[pick(profiles, random)];
     const donor = pick(templates.filter((doc) => doc.base === profile.base), random);
-    const outfit = keep.has('wear') ? source : donor;
+    const outfit = keep.has('wear') ? source : tailored
+      ? tailoredOutfit(donor, keep.has('hair') && source.parts.hair, random) : donor;
     const doc = randomFace({ ...outfit, base: profile.base, shape: donor.shape, face: {} },
-      { random, style, portrait: portrait || source?.face?.style || 'animation', family });
-    doc.id = newId();
-    doc.label = '新人物 ' + doc.id.slice(-5).toUpperCase();
+      { random, style, portrait: portrait || source?.face?.style || 'animation', family, release: pin });
     doc.gender = profile.gender || 'unspecified';
-    doc.parts.hair = keep.has('hair') ? source.parts.hair : pick(profile.base === 'baby' ? babyHair : Object.keys(slots.hair), random);
+    doc.parts.hair = keep.has('hair') ? source.parts.hair : randomHair(profile.base, doc.parts.hat, tailored, random);
     doc.colors.skin = keep.has('skin') ? source.colors.skin : pick(skinDyes, random);
     doc.colors.eyes = pick(Object.values(colorPresets.eyes), random);
     doc.colors.hair = keep.has('hair') ? source.colors.hair
@@ -1337,15 +1435,20 @@ SOFTWARE.`;
     for (const key of Object.keys(pinePortraitStyles.dyes)) delete doc.colors[key];
     if (keep.has('body')) {
       for (const key of bodySizes) doc.shape[key] = source.shape[key];
-    } else {
+    } else if (tailored) fitBodyProportions(doc, random);
+    else {
       doc.shape.height = between(0.88, 1.12, random);
       doc.shape.shoulders = between(0.83, 1.17, random);
     }
+    doc.id = seed === undefined ? newId() : seededLookId(doc, seed);
+    doc.label = '新人物 ' + doc.id.slice(-5).toUpperCase();
     return doc;
   }
   return {
     core,
     release,
+    tailoredRelease,
+    withFigureStudy,
     originalRelease,
     styleRelease,
     profileRelease,
@@ -1430,6 +1533,7 @@ for (const doc of PineLooks.templates) {
       id,
       label: doc.label,
       recipeId: doc.id,
+      figureRelease: doc.packs[PineLooks.core],
       gender: doc.gender,
       tags: PineLooks.hasMandible(doc) ? [doc.base, 'mandible'] : [doc.base],
       get rig() {

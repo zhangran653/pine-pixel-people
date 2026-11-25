@@ -1058,3 +1058,6 @@ dialog p {
 .jaw-controls{min-width:0;border:1px solid #81938265;border-radius:6px;padding:.6rem .8rem;margin:.8rem 0}.jaw-controls legend{padding:0 .35rem;font-weight:650}.jaw-controls .category-buttons{margin-bottom:.65rem}
 
 .jaw-points,.jaw-points span{display:flex;align-items:center;gap:.32rem}.jaw-points{flex-wrap:wrap;font-size:.72rem;margin:.55rem 0}.jaw-points span{margin-left:.24rem}.jaw-points i{width:8px;height:8px;border-radius:50%}
+
+.figure-trial { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 8px 0; }
+.figure-trial a { font-size: .85rem; color: #365747; }

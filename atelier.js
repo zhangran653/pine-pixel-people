@@ -259,6 +259,9 @@
     previousEdit = readEdit();
     $('mirror-name').textContent = draft.label || '未命名形象';
     $('portrait-style').value = looks.portraitStyleOf(draft);
+    const trial = draft.packs[looks.core] === looks.tailoredRelease;
+    $('try-figure').disabled = trial;
+    $('try-figure').textContent = trial ? '已启用新版人物造型' : '试用新版人物造型';
     measurements();
     $('save-state').textContent = dirty ? '有未保存的修改' : saved ? '已保存' : '新形象';
     $('save-state').dataset.dirty = String(dirty);
@@ -493,7 +496,7 @@
     return group;
   }
   function upgradeLabel() {
-    if (draft.packs[looks.core] === looks.release) return '';
+    if ([looks.release, looks.tailoredRelease].includes(draft.packs[looks.core])) return '';
     if (draft.packs[looks.core] === looks.pixelRelease) return '试用全身像素画风';
     if (draft.packs[looks.core] === looks.facePlaneRelease) return '试用像素笔触';
     if ([looks.illustratedRelease, looks.silhouetteRelease].includes(draft.packs[looks.core]))
@@ -551,7 +554,7 @@
     const guide = $('turnaround-guide').content.firstElementChild.cloneNode(true);
     const babyGuide = draft.base === 'baby' || draft.base === 'toddler';
     guide.dataset.sitter = babyGuide ? 'baby' : 'adult';
-    if ([looks.pixelRelease, looks.release].includes(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
+    if ([looks.pixelRelease, looks.release, looks.tailoredRelease].includes(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
       guide.dataset.art = 'pixel';
       const comparison = guide.querySelector('.guide-comparison');
       comparison.href = 'pixel-face-before-after.webp';
@@ -1366,7 +1369,7 @@
         gallery.remove();
         const body = Object.fromEntries(tabKeys.shape.map(key => [key, draft.shape[key]]));
         draft = { ...draft, face: clone(candidate.face), shape: { ...candidate.shape, ...body },
-          packs: { ...draft.packs, [looks.core]: looks.release } };
+          packs: { ...draft.packs, [looks.core]: candidate.packs[looks.core] } };
       } else draft = looks.randomFace(draft, { style, portrait });
       changed();
       fields(gallery);
@@ -1376,6 +1379,13 @@
     dirty = true;
     heading();
   }
+  function tryFigure() {
+    if (draft.packs[looks.core] === looks.tailoredRelease) return;
+    draft = looks.withFigureStudy(draft);
+    changed();
+    fields();
+  }
+  $('try-figure').onclick = tryFigure;
   $('random-character').onclick = () => randomize(true);
   $('portrait-style').onchange = () => {
     looks.setPortraitStyle(draft, $('portrait-style').value);
@@ -1895,9 +1905,11 @@
   const first =
     transferredLook ||
     stored ||
+    (Object.hasOwn(pineFigureModels, query.get('model')) && pineFigureModels[query.get('model')]) ||
     looks.templates.find((doc) => doc.id === query.get('preset')) ||
     looks.templates[0];
   activate(first, (stored ? 'saved:' : 'preset:') + first.id, !!stored);
+  if (query.get('figure') === 'study') tryFigure();
   const partner = looks.templates.find((doc) => doc.id !== first.id && doc.id === query.get('compare'));
   if (partner) {
     $('compare').value = 'preset:' + partner.id;

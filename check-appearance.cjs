@@ -109,6 +109,79 @@ for (const doc of [first, second]) {
 assert.notEqual(digest(a.m.characters.get(first.id), a.m), digest(a.m.characters.get(second.id), a.m));
 const baseline = digest(a.l.build(first), a.m);
 const current = { ...first, packs: { 'pine-core': a.l.release } };
+// These idle-frame pigments and band placements come from the actual 1.18.0
+// painter at 5d94b2d. Both the full-body Canvas and Three adapters use these bands.
+for (const [id, archived] of [
+  ['look_programmer', 'faa4e55d7ebca677a69d81e91bd290f0ba0da038e7486497aeb75fbe9a67a30b'],
+  ['look_relay', '655bd4c05553b79c747adc8a131e7c696822eec31128adb95369ff17dadd008d'],
+  ['look_workshop_toddler', 'a2a16b89122b878de4c5d0df6cfd5a695396381f09ac32eb332bf40fcf3ca41a'],
+  ['look_chestnut', '95e2aa1b079db4efd6050d40954af773a04118865678d488a47fe91332035916']
+]) {
+  const recipe = clone(a.l.templateById.get(id));
+  recipe.packs[a.l.core] = '1.18.0';
+  const actor = a.l.build(recipe);
+  const pose = a.m.actions.get('idle').sample(0.31, actor)[0].pose;
+  const hash = createHash('sha256');
+  for (const band of a.m.figureLayers(actor, pose, actor.body.makePose(pose))) {
+    const { body, model, x, y, z } = band;
+    hash.update(JSON.stringify([x, y, z, body.nx, body.ny, body.nz, body.density, model.bounds]));
+    hash.update(Buffer.from(model.colors.buffer, model.colors.byteOffset, model.colors.byteLength));
+  }
+  assert.equal(hash.digest('hex'), archived, 'archived 1.18 full-body pigments/placement: ' + id);
+}
+{
+  const looks = a.l, preview = looks.tailoredRelease, core = looks.core;
+  const external = looks.withFigureStudy(second);
+  assert.deepEqual(clone(external), { ...second, packs: { ...second.packs, [core]: preview } });
+  assert.notEqual(external.parts, second.parts);
+  assert.equal(looks.build(external).figureRelease, preview);
+  assert.equal(looks.build(second).figureRelease, second.packs[core]);
+  assert.equal(looks.randomCharacter({ seed: 0 }).packs[core], looks.release);
+  // Archive the public eight-character baseline captured before the trial.
+  let state = 20261125;
+  const random = () => ((state = (Math.imul(1664525, state) + 1013904223) >>> 0) / 4294967296);
+  const archived = Array.from({ length: 8 }, () => {
+    const doc = looks.randomCharacter({ random, source: looks.templateById.get('look_hazel'), style: 'natural', portrait: 'animation' });
+    return [doc.base, doc.parts.top, doc.parts.hair].join('/');
+  });
+  assert.deepEqual(archived, ['adult/apron/curly-lob', 'adult/jacket/wolf', 'child/tee/crop', 'child/pullover/low-bun',
+    'adult/hi-vis/crop', 'toddler/sailor-knit/mullet', 'adult/uniform/ponytail', 'adult/denim-jacket/pixie']);
+  assert.equal(looks.withBodyProfile(external, 'baby').packs[core], preview);
+  assert.equal(looks.setPortraitStyle(clone(external), 'manga').packs[core], preview);
+  assert.equal(looks.randomFace(external, { seed: 3 }).packs[core], preview);
+  const fitted = looks.randomCharacter({ source: external, locks: ['body', 'skin', 'hair', 'wear'], seed: 42 });
+  assert.deepEqual(clone(fitted.parts), external.parts);
+  assert.deepEqual(clone(fitted.packs), external.packs);
+  assert.deepEqual(clone(fitted.embeddedPacks), external.embeddedPacks);
+  for (const key of ['height', 'shoulders', 'arms', 'legs']) assert.equal(fitted.shape[key], external.shape[key]);
+  for (const key of ['skin', 'hair', 'top', 'bottom', 'shoes']) assert.equal(fitted.colors[key], external.colors[key]);
+  looks.prepare(fitted);
+  const knot = looks.withFigureStudy(looks.templateById.get('look_hazel'));
+  for (let seed = 0; seed < 32; seed++) {
+    const fittedHair = looks.randomCharacter({ seed, source: knot, locks: ['hair'] });
+    assert.equal(fittedHair.parts.hat, 'none');
+    assert.equal(fittedHair.parts.hair, 'top-knot');
+  }
+  for (const base of ['adult', 'child', 'toddler', 'baby']) {
+    const cuts = new Set(), spans = new Set(), skins = new Set();
+    for (let seed = 0; seed < 96; seed++) {
+      const options = { base, seed, release: preview };
+      const generated = looks.randomCharacter(options);
+      assert.equal(generated.base, base);
+      assert.equal(generated.packs[core], preview);
+      assert.equal(looks.prepare(generated).recipe.id, generated.id);
+      assert.deepEqual(looks.randomCharacter(options), generated, 'seed must replay the whole recipe including its ID');
+      cuts.add([generated.parts.top, generated.parts.bottom, generated.parts.shoes].join('/'));
+      spans.add(generated.shape.arms + '/' + generated.shape.legs);
+      skins.add(generated.colors.skin);
+    }
+    assert.ok(cuts.size >= 7 && spans.size >= 20 && skins.size >= 10, base + ' wardrobe, limbs and dyes vary independently');
+  }
+  assert.throws(() => looks.randomCharacter({ seed: -1 }));
+  assert.throws(() => looks.randomCharacter({ seed: 1, random: () => 0 }));
+  assert.throws(() => looks.randomCharacter({ base: 'other' }));
+  assert.throws(() => looks.randomCharacter({ source: external, base: 'adult', locks: ['body'] }));
+}
 const shapeSchema = json('character-v1.schema.json').properties.shape.properties;
 for (const [key, values] of Object.entries(a.l.shape)) {
   const { minimum, maximum, default: normal } = shapeSchema[key];

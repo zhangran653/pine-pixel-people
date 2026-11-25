@@ -3,7 +3,7 @@ const pineDesignerBody = (() => {
   // The first three sculpt releases added the scalp, layered short hair and fitted jaw in order.
   const sculptedReleases = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1',
     '1.12.0', '1.13.0', '1.13.1', '1.14.0', '1.15.0', pinePortraitStyles.illustratedRelease,
-    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease];
+    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease];
   // Relative to the selected body. The editor, recipe validator and painter share these limits.
   const shapeRanges = {
     height: [0.75, 1.3, 1],
@@ -182,6 +182,7 @@ const pineDesignerBody = (() => {
   };
   function contouredLink(brush, torso, sections, paint) {
     return (a, b, r0, r1, width, pigment) => {
+      if (paint && paint.tailored) return pineFigurePaint.cutLink(brush, torso, paint, a, b, r0, r1, width, pigment);
       const dx = b[0] - a[0],
         dy = b[1] - a[1],
         dz = b[2] - a[2];
@@ -212,6 +213,12 @@ const pineDesignerBody = (() => {
         return material && distance2 <= edge * edge ? fabric.color(material, t, u, v * width, w, edge) : 0;
       });
     };
+  }
+  // Compression rises from zero on a straight limb to one on a right-angle bend.
+  function jointCompression(a, joint, b) {
+    const ax = joint[0] - a[0], ay = joint[1] - a[1], az = joint[2] - a[2];
+    const bx = b[0] - joint[0], by = b[1] - joint[1], bz = b[2] - joint[2];
+    return clamp(1 - (ax * bx + ay * by + az * bz) / (Math.hypot(ax, ay, az) * Math.hypot(bx, by, bz) || 1), 0, 1);
   }
   // Each lock follows a curved path down the head. Angles run from the forehead
   // (0°) to the nape (180°). Each entry gives root, bend, tip, tip height,
@@ -545,7 +552,9 @@ const pineDesignerBody = (() => {
     const pin = recipe.packs?.['pine-core'];
     const style = pinePortraitStyles.portraitStyle(recipe);
     const illustrated = style !== 'natural';
-    const wholeFigure = pin === pinePortraitStyles.figureRelease;
+    const tailored = pin === pinePortraitStyles.tailoredRelease;
+    const wholeFigure = pin === pinePortraitStyles.figureRelease || tailored;
+    const garment = tailored && pineFigurePaint.garmentCut(parts.top, recipe.base);
     const pixelPortrait = pinePortraitStyles.hasPixelFace(pin) && style === 'animation';
     const fittedFace = pin === pinePortraitStyles.facePlaneRelease || pinePortraitStyles.hasPixelFace(pin);
     const infantFace = fittedFace && recipe.base === 'baby';
@@ -597,7 +606,7 @@ const pineDesignerBody = (() => {
         Math.min(1, above / 0.15, below / 0.15);
       skinPlanes = { ...planes, lipBed: { center: mouthH, above, below, depth } };
       if (refitProfile) skinPlanes.contour = { chin: chinH, tip: eyeLevel - noseRow[3] * feature.noseLength };
-      if (fittedFace) skinPlanes.form = { pixelPortrait, eye: eyeLevel, mouth: mouthH, chin: chinH, strength: profileStrength };
+      if (fittedFace) skinPlanes.form = { model: pin === pinePortraitStyles.tailoredRelease && pixelPortrait, pixelPortrait, eye: eyeLevel, mouth: mouthH, chin: chinH, strength: profileStrength };
       if (animated) skinPlanes.orbit = {
         center: feature.eyeCenter * spacing / pinePortraitStyles.jawBreadth(faceOutline, jaw, eyeLevel, feature.outlineStrength),
         width: 1.23 * animationEye.width * feature.eyeWidth * (1 + 0.23 * (shape.eyeWidth || 0)),
@@ -621,10 +630,13 @@ const pineDesignerBody = (() => {
     const crownHeight = (h) => (headShape ? headShape.crown.raise(h) : h);
     const sliceHeight = (h) => (headShape ? headShape.crown.lower(h) : h);
     const downHair = infant && ['crop', 'crew', 'curly'].includes(parts.hair);
-    const shortHair = sculptedHead && !downHair
-      ? pineShortHair.get(parts.hair, headKind, hasHat, layeredHair, refitNape, !!planes) : null;
+    const modelHair = tailored && !hasHat && !infant && pineShortHair.modelCut(parts.hair, headKind);
+    const shortHair = modelHair || (sculptedHead && !downHair
+      ? pineShortHair.get(parts.hair, headKind, hasHat, layeredHair, refitNape, !!planes) : null);
     const ankle = base.ankle * s;
     const legChange = (base.hip[2] - base.ankle) * (legs - 1) * s;
+    const shoulderFit = pin === pinePortraitStyles.tailoredRelease
+      ? { adult: 0.925, child: 0.935, toddler: 0.97, baby: 1 }[recipe.base] : 1;
     const hipBreadth = base.hip[1] * s * (1 + 0.17 * (shoulders - 1)) * cut.hipSpan;
     const rig = {
       height: base.height * s,
@@ -633,7 +645,7 @@ const pineDesignerBody = (() => {
       pelvis: [base.pelvis[0] * s, 0, base.pelvis[2] * s + legChange],
       shoulder: [
         base.shoulder[0] * s,
-        base.shoulder[1] * s * shoulders * cut.shoulderSpan,
+        base.shoulder[1] * s * shoulders * cut.shoulderSpan * shoulderFit,
         base.shoulder[2] * s + 0.14 * legChange + cut.shoulderLift * s
       ],
       neck: base.neck.map((v) => v * s),
@@ -766,7 +778,37 @@ const pineDesignerBody = (() => {
       }
       return strokes;
     }
-    const wisps = downHair ? (animated && knitBand ? [] : infantLocks(parts.hair)) : null;
+    // Curls follow the baby's own cranial sections. The cheek and the high
+    // forehead stay exposed, while locks can descend behind the ears.
+    function infantCurls() {
+      const strokes = [];
+      for (const [polar, count, phase] of [[0.24, 4, 0.8], [0.64, 8, 0.3], [1.02, 10, 0], [1.40, 11, 0.22], [1.72, 9, -0.4]]) {
+        for (let i = 0; i < count; i++) {
+          const bearing = (i + phase + 0.21 * Math.sin(i * 2.3 + polar * 5)) * 2 * Math.PI / count;
+          const front = Math.cos(bearing);
+          if (polar > 1.52 - 0.52 * front) continue;
+          const points = [], radii = [];
+          for (let j = 0; j <= 6; j++) {
+            const t = j / 6, bow = Math.sin(Math.PI * t);
+            const sweep = bearing + 0.46 * bow + 0.19 * t;
+            const latitude = polar + 0.073 * Math.cos(i * 2.71 + phase) + 0.37 * t - 0.15 * bow;
+            const h = Math.cos(latitude), row = skinShape.row(h);
+            const u = Math.cos(sweep), v = Math.sin(sweep);
+            const forward = u < 0 ? row.axis + row.rear * u : skinShape.frontAt(row, v);
+            const lift = 0.024 + 0.069 * bow;
+            points.push([fit.x + fit.rx * posterior.fit(forward + lift * u, h),
+              fit.ry * v * (row.width * breadthScale(h) + lift),
+              fit.z + fit.rz * (crownHeight(h) + lift * h)]);
+            radii.push(0.025 + 0.11 * bow + 0.055 * (1 - t));
+          }
+          const lit = Math.sin(bearing) < -0.15 && polar < 1.18;
+          strokes.push({ points, radii, shade: lit ? 0 : polar > 1.33 && Math.sin(bearing) > 0.28 ? 2 : 1 });
+        }
+      }
+      return strokes;
+    }
+    const modelCurls = downHair && parts.hair === 'curly' && pin === pinePortraitStyles.tailoredRelease && !hasHat;
+    const wisps = downHair ? (animated && knitBand ? [] : modelCurls ? infantCurls() : infantLocks(parts.hair)) : null;
     function faceFront(y, z) {
       const h = sliceHeight((z - fit.z) / fit.rz);
       if (headShape) {
@@ -932,6 +974,11 @@ const pineDesignerBody = (() => {
     if (illustrated) pinePortraitStyles.illustratedColors(materials, recipe.colors, tint, style, infant);
     if (pixelPortrait) pinePixelPortrait.dye(materials, recipe.colors, tint);
     if (wholeFigure) pineFigurePaint.palette(materials, recipe.colors, tint);
+    if (modelCurls) {
+      materials.fineHairRoot = tint(materials.hair, materials.hairDepth, 0.43);
+      materials.fineHairMid = materials.hair;
+      materials.fineHairLight = tint(materials.hair, materials.hairPlane, 0.57);
+    }
     if (infantFace && !animated) {
       const warm = tint(materials.skin, 'c47570', 0.36);
       materials.cheekWarm = tint(materials.faceLight, warm, 0.65);
@@ -1036,10 +1083,11 @@ const pineDesignerBody = (() => {
         const side = i ? 1 : -1,
           foot = pose.feet[i],
           { hip, knee } = pose.legs[i];
+        const bend = tailored ? jointCompression(hip, knee, foot) : 0;
         const thighLink = softContours ? contouredLink(b, pose.torso, limbContours.thigh,
-          wholeFigure && { k, side, base: recipe.base, region: 'thigh', style: parts.bottom }) : b.link;
+          wholeFigure && { k, side, tailored, bend, garment, base: recipe.base, region: 'thigh', style: parts.bottom }) : b.link;
         const shinLink = softContours ? contouredLink(b, pose.torso, limbContours.shin,
-          wholeFigure && { k, side, base: recipe.base, region: 'shin', style: parts.bottom }) : b.link;
+          wholeFigure && { k, side, tailored, bend, garment, base: recipe.base, region: 'shin', style: parts.bottom }) : b.link;
         if (collectionBottom && !skirt) {
           pineEverydayStyles.pants(
             parts.bottom,
@@ -1131,7 +1179,7 @@ const pineDesignerBody = (() => {
         const forward = 1 - 2 * clamp((dx / (Math.hypot(dx, dz) || 1) - 0.7) / 0.29, 0, 1);
         const toe = shoeX * 0.25 * forward,
           sh = ankle * (boots ? 0.73 : 0.64);
-        const footwear = wholeFigure ? pineFigurePaint.shoeBrush(b, k, foot, shoeX, shoeY, ankle, forward, side, parts.shoes) : b;
+        const footwear = wholeFigure ? pineFigurePaint.shoeBrush(b, k, foot, shoeX, shoeY, ankle, forward, side, parts.shoes, tailored) : b;
         if (collectionShoes) {
           pineEverydayStyles.shoe(
             parts.shoes,
@@ -1275,10 +1323,11 @@ const pineDesignerBody = (() => {
         palm = measures.hand * s;
       b.frame(null);
       for (const { side, shoulder, elbow, wrist, hand } of pose.arms) {
+        const bend = tailored ? jointCompression(shoulder, elbow, wrist) : 0;
         const upperLink = softContours ? contouredLink(b, pose.torso, limbContours.upperArm,
-          wholeFigure && { k, side, base: recipe.base, region: 'upperArm', style: parts.top }) : b.link;
+          wholeFigure && { k, side, tailored, bend, garment, base: recipe.base, region: 'upperArm', style: parts.top }) : b.link;
         const foreLink = softContours ? contouredLink(b, pose.torso, limbContours.forearm,
-          wholeFigure && { k, side, base: recipe.base, region: 'forearm', style: parts.top }) : b.link;
+          wholeFigure && { k, side, tailored, bend, garment, base: recipe.base, region: 'forearm', style: parts.top }) : b.link;
         if (worldTop || collectionTop || workshopTop) {
           const sleeve = worldTop
             ? pineWorldWardrobe.sleeve
@@ -1289,6 +1338,11 @@ const pineDesignerBody = (() => {
             sleeve(parts.top, t, u, v, side, elbowR, false, k)
           );
           foreLink(elbow, wrist, 1.02 * elbowR, cuff, 0.96, (t, u, v) => {
+            if (tailored && parts.top === 'oxford') {
+              if (t > 0.38) return k.skin;
+              if (t > 0.14) return t < 0.19 || t > 0.34 ? k.topShade : k.topLight;
+              return k.top;
+            }
             if (wholeFigure && parts.top === 'oxford' && t > 0.45) {
               if (t > 0.69) return k.skin;
               return t < 0.50 || t > 0.63 ? k.topShade : k.topLight;
@@ -1335,7 +1389,11 @@ const pineDesignerBody = (() => {
           );
         } else {
           upperLink(shoulder, elbow, upper, elbowR, 0.95, (t, u, v) => {
-            if (!jacket && t > 0.4 && t < 0.59) return k.accent;
+            if (!jacket && !tailored && t > 0.4 && t < 0.59) return k.accent;
+            if (tailored && parts.top === 'pullover') {
+              const stripe = 0.53 + 0.036 * (side * v - u) / upper;
+              if (Math.abs(t - stripe) < 0.043) return k.accent;
+            }
             if (jacket && t < 0.25) return k.topLight;
             return side * v < -0.74 * s ? k.topShade : k.top;
           });
@@ -1345,7 +1403,7 @@ const pineDesignerBody = (() => {
         }
         if (parts.wrist && side === 1) pineWorkshopWear.wristwear(parts.wrist, b, k, { elbow, wrist }, cuff);
         if (wholeFigure) {
-          pineFigurePaint.hand(b, k, pose.torso, side, wrist, hand, palm, infant);
+          pineFigurePaint.hand(b, k, pose.torso, side, wrist, hand, palm * (tailored ? 1.10 : 1), infant, tailored);
         } else {
           const length = Math.hypot(...hand.map((v, j) => v - wrist[j])) || 1;
           const axis = hand.map((v, j) => (v - wrist[j]) / length);
@@ -1383,7 +1441,7 @@ const pineDesignerBody = (() => {
         tall = high - low;
       const ease = hoodie ? 1.085 : cardigan ? 1.025 : 1;
       const broad = rig.shoulder[1] * 1.06,
-        maxW = Math.max(hipHalf * 1.11, broad) * 1.05 * ease;
+        maxW = Math.max(hipHalf * 1.11, broad) * (tailored ? 1.18 : 1.05) * ease;
       const fittedDepth = ease * Math.max(chestDepth * 1.28, hipThickness + 0.77 * s);
       const back = selectedCut ? -fittedDepth : -1.14 * chestDepth;
       const front = selectedCut ? fittedDepth : 1.19 * chestDepth;
@@ -1399,9 +1457,17 @@ const pineDesignerBody = (() => {
           const bib = pineWorkshopWear.bib(u, v, t, k);
           if (bib) return bib;
         }
+        if (tailored && parts.top === 'oxford') return paint.shirt(k, u, v, t);
+        if (tailored && parts.top === 'pullover') {
+          const yoke = 0.68 - 0.055 * v * v + 0.018 * u;
+          if (Math.abs(t - yoke) < 0.031) return k.accent;
+          if (t < .095) return Math.floor((v + .07 * u) * 16) % 3 === 0 ? k.topShade : k.top;
+          if (v < -.62 && t < .145 && t > .085 && u > .12) return k.accent;
+          return k.top;
+        }
         if (worldTop) return pineWorldWardrobe.fabric(parts.top, u, v, t, k);
         if (collectionTop) return pineEverydayStyles.overlay(parts.top, u, v, t, k);
-        if (workshopTop) return pineWorkshopWear.fabric(parts.top, u, v, t, k);
+        if (workshopTop) return pineWorkshopWear.fabric(parts.top, u, v, t, k, pin === pinePortraitStyles.tailoredRelease);
         if (tee) {
           const crew = 0.852 + 0.37 * a * a;
           if (u > 0.44 && a < 0.6 && t > crew) return t < crew + 0.052 ? k.topStitch : k.skin;
@@ -1455,19 +1521,20 @@ const pineDesignerBody = (() => {
               : k.bottom,
         2.7
       );
-      b.stamp(back, front, -maxW, maxW, low, high, (x, y, z) => {
+      b.stamp(back * (tailored ? 1.15 : 1), front * (tailored ? 1.15 : 1), -maxW, maxW, low, high, (x, y, z) => {
         const t = (z - low) / tall,
           w = hipHalf * (1 - t) + broad * t;
         const waistWeight = Math.max(0, 1 - Math.abs(t - cut.waistAt) / 0.34);
         const waist = w * (1 - cut.waistInset * waistWeight);
         const easeOverHips = clamp((0.34 - t) / 0.13, 0, 1);
         const drape = wholeFigure ? paint.drape(parts.top, t, waistline) : 1;
-        const widthAt = (waist + easeOverHips * Math.max(0, hipHalf + 0.29 * s - waist)) * ease * drape;
+        const ring = garment && garment.rings[clamp(Math.round(t * 96), 0, 96)];
+        const widthAt = (ring ? ring[0] : 1) * (waist + easeOverHips * Math.max(0, hipHalf + 0.29 * s - waist)) * ease * drape;
         const chest = chestDepth * (0.92 + 0.08 * t);
         const depth =
           (chest + easeOverHips * Math.max(0, hipThickness - rig.pelvis[0] + 0.34 * s - chest)) *
           ease *
-          (1 - cut.waistDepthInset * waistWeight) * drape;
+          (1 - cut.waistDepthInset * waistWeight) * drape * (ring ? ring[1] : 1);
         const ribWeight = Math.max(0, 1 - Math.abs(t - 0.67) / 0.29);
         const v = y / widthAt,
           u = (x - 0.07 * s - cut.chestForward * s * ribWeight) / depth;
@@ -1482,10 +1549,11 @@ const pineDesignerBody = (() => {
         if (wholeFigure && t < waistline + hemRise) return paint.waist(k, u, v, t / (waistline + hemRise));
         const garmentHeight = wholeFigure ? (t - waistline - hemRise) / (1 - waistline - hemRise) : t;
         const value = clothAt(u, v, garmentHeight);
+        if (tailored) return paint.cutTorso(k, value, garment, u, v, garmentHeight);
         return wholeFigure ? paint.torso(k, value, parts.top, u, v, garmentHeight) : value;
       });
       const hemZ = low + tall * waistline, clothHeight = high - hemZ;
-      if (wholeFigure) paint.neckline(b, k, parts.top, chestDepth, broad, hemZ, clothHeight);
+      if (wholeFigure && !(tailored && parts.top === 'oxford')) paint.neckline(b, k, parts.top, chestDepth, broad, hemZ, clothHeight);
       if (workshopTop) {
         pineWorkshopWear.torsoDetails(parts.top, b, k, chestDepth, broad, hemZ, clothHeight);
       } else if (tee) {
@@ -2134,6 +2202,8 @@ const pineDesignerBody = (() => {
         return brows === 'thick' && d > half * 0.42 ? k.hair : k.hairShade;
       }
       function eyeInk(off, z, side) {
+        if (pixelPortrait && pin === pinePortraitStyles.tailoredRelease)
+          return pinePixelPortrait.modelEye(drawnEye, off / ry, (z - eyeZ) / rz, blink, side, k, eyePixel);
         if (pixelPortrait) return pinePixelPortrait.eye(drawnEye, off / ry, (z - eyeZ) / rz, blink, side, k, eyePixel, !b.faceDetail);
         if (illustrated) return pinePortraitStyles.illustratedEye(drawnEye, off / ry, (z - eyeZ) / rz, blink, side, k, eyePixel, style, !b.faceDetail);
         if (eyeStyle) return pinePortraitStyles.eye(eyeStyle, off / ry, (z - eyeZ) / rz, blink, side, k, infant ? 1.22 : 1);
@@ -2189,6 +2259,8 @@ const pineDesignerBody = (() => {
         const a = Math.abs(y - mouthY) / (ry * lipSpan);
         const radius = rz * (z >= mouthZ ? upperLipScale : lowerLipScale);
         const h = (z - mouthZ) / radius;
+        if (pixelPortrait && pin === pinePortraitStyles.tailoredRelease)
+          return pinePixelPortrait.modelMouth(mouth, drawnMouth, (y - mouthY) / (ry * lipSpan), h, infant, k, 0.5 / (b.density * rz));
         if (pixelPortrait && (b.faceDetail || (infant && liftedCorners)))
           return pinePixelPortrait.mouth(mouth, drawnMouth, (y - mouthY) / (ry * lipSpan), h, infant, k);
         if (animated) return b.faceDetail ? pinePortraitStyles.animationMouth(drawnMouth, a, h, k, 0.5 / (b.density * radius), infant)
@@ -2497,7 +2569,7 @@ const pineDesignerBody = (() => {
             const edge = angleHeight + (chinH - 0.038 - angleHeight) * along;
             const underside = infant ? 0 : studioRig.ramp(edge - h, -0.042, 0.095);
             return pinePixelPortrait.complexion(y / ry, h, light, dx / Math.max(0.05, section.fore),
-              eyeLevel, mouthH, infant, k, planeMaterials, underside);
+              eyeLevel, mouthH, infant, k, planeMaterials, underside, pin === pinePortraitStyles.tailoredRelease);
           }
           if (dx > 0) {
             const j = Math.min(
@@ -2777,6 +2849,7 @@ const pineDesignerBody = (() => {
       }
       const scalp = surfaceDetails && !wisps && !shortHair && !hairStyle?.shave ? hairScalp(hairstyle, hasHat) : null;
       const hairTones = [0, k.hairDepth, k.hairMid, k.hair, k.hairSheen, k.hairHighlight, k.hairPart];
+      const guideTones = modelHair && [0, ...[0, 1, 2, 3, 4, 4, 5, 6].map(i => k['strandInk' + i])];
       const shortTones = shortHair && [
         0,
         k.hairRoot,
@@ -2788,10 +2861,27 @@ const pineDesignerBody = (() => {
         k.stubbleDark
       ];
       const scalpWidth = shortHair && layeredHair ? 1.43 : surfaceDetails ? 1.24 : 1.115;
+      if (modelCurls) {
+        // The short undercoat connects the curl roots. Separate arched locks
+        // extend beyond it at the temples and crown, leaving an open forehead.
+        b.stamp(cx - 1.5 * rx, cx + 1.45 * rx, -1.24 * ry, 1.24 * ry,
+          cz - 0.51 * rz, cz + crownHeight(1.075) * rz, (x, y, z) => {
+            const h = sliceHeight((z - cz) / rz) / 1.052;
+            if (h >= 1) return 0;
+            const row = skinShape.row(h);
+            const axis = row.axis;
+            const u = (posterior.unfit((x - cx) / rx, h) - axis) / 1.045;
+            const v = y / (ry * breadthScale(h) * 1.055);
+            const edge = -0.31 + 1.04 * studioRig.ramp(u / Math.max(0.3, row.width), -0.56, 0.80)
+              - 0.12 * swell(v, -0.64, 0.25);
+            if (h < edge || !skinShape.insideSkin(row, axis + u, v)) return 0;
+            return h < edge + 0.14 || (v > 0.54 && h < 0.55) ? k.fineHairRoot : k.fineHairMid;
+          });
+      }
       if (wisps) {
         const tones = [k.fineHairLight, k.fineHairMid, k.fineHairRoot];
-        const radii = [0.019, 0.034, 0.038, 0.027, 0.010];
-        for (const { points, shade } of wisps) {
+        const wispRadii = [0.019, 0.034, 0.038, 0.027, 0.010];
+        for (const { points, shade, radii = wispRadii } of wisps) {
           for (let j = 1; j < points.length; j++)
             b.link(points[j - 1], points[j], radii[j - 1] * ry, radii[j] * ry, 1, () => tones[shade]);
         }
@@ -2809,6 +2899,7 @@ const pineDesignerBody = (() => {
             const u = posterior ? posterior.unfit((x - cx) / rx, h) : (x - cx) / rx;
             if (shortHair) {
               const tone = shortHair(u, v / breadthScale(h), h);
+              if (guideTones) return guideTones[tone];
               return wholeFigure ? pineFigurePaint.hair(k, tone, u, v, h, true, shortTones) : shortTones[tone];
             }
             const chart = headShape?.chart(h);
@@ -3072,12 +3163,12 @@ const pineDesignerBody = (() => {
         if (parts.implement && !pose.props?.length && !pose.bottle?.held) {
           const id = parts.implement,
             scale = rig.height / 50;
-          const item = activityMotion.atGrip(
-            id,
-            pose.arms[0].hand,
-            PineWorld.items.get(id).anchors.grip || [0, 0, 0],
-            scale
-          );
+          const flatBook = tailored && (id === 'clipboard' || id === 'notebook');
+          // Carry flat stationery by its upper edge beside the leg. The signed
+          // roll points the page outward while the top corner stays in the hand.
+          const grip = flatBook ? [0.65, 3.65, 0.28] : PineWorld.items.get(id).anchors.grip || [0, 0, 0];
+          const item = activityMotion.atGrip(id, pose.arms[0].hand, grip, scale,
+            flatBook ? 0.43 : 0, 0, flatBook ? 1.39 : 0);
           studioProps.paint({ props: [item] }, brush, ink);
         }
       }
