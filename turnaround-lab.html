@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>从原画到切片 · 松溪像素世界</title>
+  <link rel="stylesheet" href="workspace.css"><link rel="stylesheet" href="turnaround-lab.css">
+  <script defer src="workspace.js"></script><script defer src="turnaround-lab.js"></script>
+</head>
+<body data-workspace="atelier">
+<header data-app-nav="atelier"></header>
+<main class="lab">
+  <header><h1>从原画到切片</h1><p>转动由几张原画生成的底模，对照留出的斜面，再直接修改水平切片。</p></header>
+  <div class="controls"><label>样本 <select id="sample">
+    <option value="smooth-baby">动画原画 · 婴儿头像</option><option value="smooth-adult">动画原画 · 成人头像</option>
+    <option value="baby">像素设定 · 婴儿坐姿</option><option value="child">像素设定 · 儿童全身</option><option value="adult">像素设定 · 成人全身</option>
+  </select></label>
+  <label class="file">打开底模 JSON<input id="open" type="file" accept=".json,application/json"></label>
+  <button id="save" disabled>导出当前底模</button></div>
+  <p id="status" role="status"></p>
+  <div class="stage">
+    <section><h2>生成的底模</h2><canvas id="render" aria-label="可旋转的切片底模"></canvas>
+    <div class="angle"><label for="angle">视角</label><input id="angle" type="range" min="0" max="359" value="45"><output id="ang" for="angle">45°</output></div>
+    <div class="presets"><button data-angle="0">正面</button><button data-angle="45">斜面 45°</button><button data-angle="90">侧面</button><button data-angle="180">背面</button></div></section>
+    <section id="proof"><h2>留出的 45° 原画</h2><canvas id="reference" aria-label="独立参考原画"></canvas><p id="metric"></p>
+    <details><summary>查看参与生成的角度</summary><div id="inputs"></div></details></section>
+  </div>
+  <section class="editor"><div><h2>修一层切片</h2><p>从上方看，画面上方是人物面朝的方向。选中颜色后，点格子可以增补体积或改色。</p>
+    <canvas id="section" aria-label="可编辑的水平切片"></canvas></div>
+    <div class="edit-tools">
+      <label>高度 <output id="level-value"></output><input id="level" type="range" min="0" max="95" value="47"></label>
+      <label>画笔 <select id="brush"><option value="paint">填入选中色</option><option value="cut">去掉格子</option><option value="pick">从切片取色</option></select></label>
+      <label>色板索引 <select id="swatches"></select></label>
+      <label>修改本色在全身的颜色 <input id="dye" type="color" value="#926940"></label>
+      <button id="undo" disabled>撤销上一步</button>
+    </div>
+  </section>
+  <p><a href="studies/turnaround/pixel-translation.webp">对照原画的三种二维像素化方式</a> · <a href="https://github.com/zhangran653/pine-pixel-world/blob/main/studies/turnaround/README.md">转换接口与实验结果</a></p>
+</main></body></html>

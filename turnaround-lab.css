@@ -1,0 +1,176 @@
+.lab {
+  max-width: 1080px;
+  margin: auto;
+  padding: 28px clamp(12px, 3vw, 36px) 50px;
+  font-family: var(--ws-ui);
+}
+.lab * {
+  box-sizing: border-box;
+}
+.lab h1 {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  margin: 0;
+}
+.lab h2 {
+  font-size: 1.08rem;
+  margin: 0 0 10px;
+}
+.lab p,
+.lab summary {
+  color: var(--ws-muted);
+  line-height: 1.55;
+}
+.lab header p {
+  margin: 6px 0 18px;
+}
+.controls,
+.presets,
+.angle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.lab :is(button, select, .file) {
+  font: inherit;
+  background: var(--ws-card);
+  color: var(--ws-ink);
+  border: 1px solid #a9b7a9;
+  border-radius: 5px;
+  padding: 6px 10px;
+}
+.lab button,
+.lab .file,
+.lab summary {
+  cursor: pointer;
+}
+.lab button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.lab input {
+  accent-color: var(--ws-pine);
+}
+.file input {
+  width: 1px;
+  height: 1px;
+  position: absolute;
+  opacity: 0;
+}
+.file:focus-within {
+  outline: 2px solid var(--ws-pine);
+}
+#status {
+  font-size: 0.87rem;
+  min-height: 1.4em;
+  margin: 8px 0;
+}
+.stage,
+.editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+.stage section,
+.editor {
+  background: var(--ws-card);
+  padding: 16px;
+  border: 1px solid var(--ws-line);
+  border-radius: 8px;
+}
+.stage canvas {
+  width: 100%;
+  height: clamp(200px, 35vh, 380px);
+  object-fit: contain;
+  display: block;
+  background: #eee9dd;
+}
+#render,
+#section {
+  image-rendering: pixelated;
+}
+.angle {
+  margin: 10px 0;
+}
+.angle input {
+  flex: 1;
+}
+.angle output {
+  min-width: 3.2em;
+  text-align: right;
+}
+#inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+#inputs figure {
+  margin: 0;
+  text-align: center;
+}
+#inputs canvas {
+  width: 76px;
+  height: 88px;
+}
+#inputs figcaption,
+.lab summary,
+#metric,
+.editor p {
+  font-size: 0.85rem;
+}
+.editor {
+  margin-top: 16px;
+  grid-template-columns: minmax(165px, 1fr) minmax(170px, 0.8fr);
+}
+.editor p {
+  margin: 0 0 10px;
+}
+.edit-tools {
+  align-self: center;
+  display: grid;
+  gap: 12px;
+  max-width: 300px;
+}
+.edit-tools label {
+  display: grid;
+  gap: 5px;
+  font-size: 0.88rem;
+}
+.edit-tools #level-value {
+  display: inline;
+}
+#section {
+  display: block;
+  width: 100%;
+  max-width: 270px;
+  background: #ede9dc;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+@media (max-width: 620px) {
+  .lab {
+    padding: 16px 10px 36px;
+  }
+  .stage,
+  .editor {
+    gap: 6px;
+  }
+  .stage section,
+  .editor {
+    padding: 8px;
+  }
+  .stage canvas {
+    height: 195px;
+  }
+  .editor {
+    grid-template-columns: 1fr;
+  }
+  .edit-tools {
+    max-width: none;
+  }
+  .presets button {
+    padding: 5px 6px;
+    font-size: 0.8rem;
+  }
+}

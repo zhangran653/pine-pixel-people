@@ -21,7 +21,9 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
-1.19.0 人物造型试作提供普通卷袖衬衫、儿童套头衫和婴儿棉套装的四向设定与实时对照。在人物设定里点「试用新版人物造型」即可编辑当前人物，新生成的人物会沿用所选版本。常规创建仍使用 1.18.0。盲评每个年龄有八对样本，完成 32 对后可以查看并下载本机结果。[试用卷袖衬衫](http://127.0.0.1:8000/atelier.html?model=adult&figure=study&bearing=315) · [同配方实机对照](http://127.0.0.1:8000/figure-study.html) · [分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind) · [设定与实机四向图](figure-study-turnaround.webp)
+原画转切片实验能从两到三张设定自动生成可旋转的静态像素底模。可在浏览器对照独立留出的 45° 原画、编辑水平切片、染色并导出 JSON。五组样本同时保留了脸颊投色接缝等失败之处。[打开实验室](http://127.0.0.1:8000/turnaround-lab.html) · [转换接口、独立评估与研究结果](studies/turnaround/README.md)
+
+1.19.1 人物造型试作可以对照同一角色的脸、头身比例和姿态。成人、儿童和婴儿各有四向像素设定稿，左栏可切换到 1.19.0 首版或 1.18.0 稳定版。在人物设定里点「试用新版人物造型」即可编辑当前人物，新生成的人物会沿用所选版本。常规创建仍使用 1.18.0。盲评每个年龄有八对样本，完成 32 对后可以查看并下载本机结果。[试用卷袖衬衫](http://127.0.0.1:8000/atelier.html?model=adult&figure=study&bearing=315) · [同配方实机对照](http://127.0.0.1:8000/figure-study.html) · [分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind) · [婴儿侧面坐姿](http://127.0.0.1:8000/figure-study.html?subject=baby&bearing=270) · [1.19.1 四向对照](figure-study-1.19.1-turnaround.webp)
 
 1.18.0 把像素画法延伸到整个人物。衣领和肩线有厚度，衣摆与裤腰分层，袖子和裤腿的褶线随关节运动。头发、皮革和金属有不同的亮面。肤色、发色和每件衣物的染色仍由人物配方决定。[全身美术规范](appearance-standard.html#figure-art) · [同一个人物的三种配色](pixel-figure-dyes.webp) · [版本对照](pixel-figure-comparison.webp)
 

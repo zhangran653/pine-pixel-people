@@ -1,0 +1,304 @@
+{
+  "smooth-baby": {
+    "height": 96,
+    "rounding": 0.75,
+    "voxels": 302951,
+    "paletteSize": 64,
+    "views": {
+      "front": {
+        "role": "input",
+        "angle": 0.0,
+        "silhouetteIou": 1.0,
+        "colorMae": 7.24653175512282,
+        "overlapPixels": 5238,
+        "referencePixels": 5238,
+        "renderedPixels": 5238
+      },
+      "profile": {
+        "role": "input",
+        "angle": 90.0,
+        "silhouetteIou": 1.0,
+        "colorMae": 7.6234237346692,
+        "overlapPixels": 5789,
+        "referencePixels": 5789,
+        "renderedPixels": 5789
+      },
+      "oblique": {
+        "role": "holdout",
+        "angle": 45.0,
+        "silhouetteIou": 0.8902186053933301,
+        "colorMae": 27.906195853498236,
+        "overlapPixels": 5579,
+        "referencePixels": 5603,
+        "renderedPixels": 6243
+      }
+    },
+    "summary": {
+      "input": {
+        "silhouetteIou": 1.0,
+        "colorMae": 7.43497774489601
+      },
+      "holdout": {
+        "silhouetteIou": 0.8902186053933301,
+        "colorMae": 27.906195853498236
+      }
+    },
+    "uncutHull": {
+      "input": {
+        "silhouetteIou": 1.0,
+        "colorMae": 3.848431123503114
+      },
+      "holdout": {
+        "silhouetteIou": 0.720164609053498,
+        "colorMae": 29.156607142857144
+      }
+    }
+  },
+  "smooth-adult": {
+    "height": 96,
+    "rounding": 0.75,
+    "voxels": 167001,
+    "paletteSize": 64,
+    "views": {
+      "front": {
+        "role": "input",
+        "angle": 0.0,
+        "silhouetteIou": 1.0,
+        "colorMae": 7.413270637408568,
+        "overlapPixels": 3828,
+        "referencePixels": 3828,
+        "renderedPixels": 3828
+      },
+      "profile": {
+        "role": "input",
+        "angle": 90.0,
+        "silhouetteIou": 1.0,
+        "colorMae": 6.916724496877169,
+        "overlapPixels": 4323,
+        "referencePixels": 4323,
+        "renderedPixels": 4323
+      },
+      "oblique": {
+        "role": "holdout",
+        "angle": 45.0,
+        "silhouetteIou": 0.8394175144623978,
+        "colorMae": 29.559727503168567,
+        "overlapPixels": 4208,
+        "referencePixels": 4287,
+        "renderedPixels": 4934
+      }
+    },
+    "summary": {
+      "input": {
+        "silhouetteIou": 1.0,
+        "colorMae": 7.164997567142869
+      },
+      "holdout": {
+        "silhouetteIou": 0.8394175144623978,
+        "colorMae": 29.559727503168567
+      }
+    },
+    "uncutHull": {
+      "input": {
+        "silhouetteIou": 1.0,
+        "colorMae": 3.777770133554551
+      },
+      "holdout": {
+        "silhouetteIou": 0.7296882984159427,
+        "colorMae": 31.45930594460006
+      }
+    }
+  },
+  "adult": {
+    "height": 96,
+    "rounding": 0.75,
+    "voxels": 29607,
+    "paletteSize": 64,
+    "views": {
+      "front": {
+        "role": "input",
+        "angle": 0.0,
+        "silhouetteIou": 0.9460715946071595,
+        "colorMae": 4.4476658476658475,
+        "overlapPixels": 2035,
+        "referencePixels": 2151,
+        "renderedPixels": 2035
+      },
+      "profile": {
+        "role": "input",
+        "angle": 90.0,
+        "silhouetteIou": 1.0,
+        "colorMae": 10.727931488801055,
+        "overlapPixels": 1518,
+        "referencePixels": 1518,
+        "renderedPixels": 1518
+      },
+      "back": {
+        "role": "input",
+        "angle": 180.0,
+        "silhouetteIou": 0.9473929236499069,
+        "colorMae": 4.2044226044226045,
+        "overlapPixels": 2035,
+        "referencePixels": 2148,
+        "renderedPixels": 2035
+      },
+      "oblique": {
+        "role": "holdout",
+        "angle": 45.0,
+        "silhouetteIou": 0.8208892617449665,
+        "colorMae": 24.179696814852665,
+        "overlapPixels": 1957,
+        "referencePixels": 2110,
+        "renderedPixels": 2231
+      }
+    },
+    "summary": {
+      "input": {
+        "silhouetteIou": 0.9644881727523554,
+        "colorMae": 6.460006646963169
+      },
+      "holdout": {
+        "silhouetteIou": 0.8208892617449665,
+        "colorMae": 24.179696814852665
+      }
+    },
+    "uncutHull": {
+      "input": {
+        "silhouetteIou": 0.9644881727523554,
+        "colorMae": 3.2899448855970594
+      },
+      "holdout": {
+        "silhouetteIou": 0.7872097449562239,
+        "colorMae": 25.420535138620245
+      }
+    }
+  },
+  "child": {
+    "height": 96,
+    "rounding": 0.75,
+    "voxels": 43179,
+    "paletteSize": 64,
+    "views": {
+      "front": {
+        "role": "input",
+        "angle": 0.0,
+        "silhouetteIou": 0.9080690485748695,
+        "colorMae": 5.254494547597996,
+        "overlapPixels": 2262,
+        "referencePixels": 2491,
+        "renderedPixels": 2262
+      },
+      "profile": {
+        "role": "input",
+        "angle": 90.0,
+        "silhouetteIou": 1.0,
+        "colorMae": 10.004297747980058,
+        "overlapPixels": 1939,
+        "referencePixels": 1939,
+        "renderedPixels": 1939
+      },
+      "back": {
+        "role": "input",
+        "angle": 180.0,
+        "silhouetteIou": 0.9139393939393939,
+        "colorMae": 5.300176834659593,
+        "overlapPixels": 2262,
+        "referencePixels": 2475,
+        "renderedPixels": 2262
+      },
+      "oblique": {
+        "role": "holdout",
+        "angle": 45.0,
+        "silhouetteIou": 0.7831715210355987,
+        "colorMae": 25.183807774716865,
+        "overlapPixels": 2178,
+        "referencePixels": 2450,
+        "renderedPixels": 2509
+      }
+    },
+    "summary": {
+      "input": {
+        "silhouetteIou": 0.9406694808380878,
+        "colorMae": 6.852989710079217
+      },
+      "holdout": {
+        "silhouetteIou": 0.7831715210355987,
+        "colorMae": 25.183807774716865
+      }
+    },
+    "uncutHull": {
+      "input": {
+        "silhouetteIou": 0.9406694808380878,
+        "colorMae": 3.801358873685526
+      },
+      "holdout": {
+        "silhouetteIou": 0.7713077423552375,
+        "colorMae": 26.148319977505974
+      }
+    }
+  },
+  "baby": {
+    "height": 96,
+    "rounding": 0.75,
+    "voxels": 172583,
+    "paletteSize": 64,
+    "views": {
+      "front": {
+        "role": "input",
+        "angle": 0.0,
+        "silhouetteIou": 0.9217763751127142,
+        "colorMae": 6.471671965435722,
+        "overlapPixels": 4089,
+        "referencePixels": 4436,
+        "renderedPixels": 4089
+      },
+      "profile": {
+        "role": "input",
+        "angle": 90.0,
+        "silhouetteIou": 1.0,
+        "colorMae": 9.944198260298704,
+        "overlapPixels": 4062,
+        "referencePixels": 4062,
+        "renderedPixels": 4062
+      },
+      "back": {
+        "role": "input",
+        "angle": 180.0,
+        "silhouetteIou": 0.9432525951557094,
+        "colorMae": 5.074753403440124,
+        "overlapPixels": 4089,
+        "referencePixels": 4335,
+        "renderedPixels": 4089
+      },
+      "oblique": {
+        "role": "holdout",
+        "angle": 45.0,
+        "silhouetteIou": 0.8163345827579405,
+        "colorMae": 29.260834541646528,
+        "overlapPixels": 4138,
+        "referencePixels": 4400,
+        "renderedPixels": 4807
+      }
+    },
+    "summary": {
+      "input": {
+        "silhouetteIou": 0.9550096567561411,
+        "colorMae": 7.16354120972485
+      },
+      "holdout": {
+        "silhouetteIou": 0.8163345827579405,
+        "colorMae": 29.260834541646528
+      }
+    },
+    "uncutHull": {
+      "input": {
+        "silhouetteIou": 0.9550096567561411,
+        "colorMae": 3.178166277913664
+      },
+      "holdout": {
+        "silhouetteIou": 0.7460154241645244,
+        "colorMae": 32.26663603644996
+      }
+    }
+  }
+}

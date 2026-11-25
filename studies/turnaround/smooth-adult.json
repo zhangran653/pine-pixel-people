@@ -1,0 +1,44 @@
+{
+  "format": "pine.turnaround/1",
+  "source": "../../animation-turnaround.webp",
+  "alphaMask": "portrait-alpha.png",
+  "height": 96,
+  "views": [
+    {
+      "id": "front",
+      "angle": 0,
+      "crop": [
+        18,
+        445,
+        498,
+        1024
+      ],
+      "originX": 0.5,
+      "role": "input"
+    },
+    {
+      "id": "profile",
+      "angle": 90,
+      "crop": [
+        986,
+        445,
+        1466,
+        1024
+      ],
+      "originX": 0.5,
+      "role": "input"
+    },
+    {
+      "id": "oblique",
+      "angle": 45,
+      "crop": [
+        502,
+        445,
+        982,
+        1024
+      ],
+      "originX": 0.5,
+      "role": "holdout"
+    }
+  ]
+}

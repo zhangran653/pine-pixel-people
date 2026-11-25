@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pine turnaround study v1",
+  "oneOf": [
+    { "$ref": "#/$defs/turnaround" },
+    { "$ref": "#/$defs/slices" }
+  ],
+  "$defs": {
+    "background": {
+      "type": "object",
+      "properties": {
+        "rgb": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+        "tolerance": { "type": "number", "minimum": 0, "maximum": 255 }
+      }
+    },
+    "view": {
+      "type": "object",
+      "required": ["id", "angle", "role", "crop"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+        "angle": { "type": "number" },
+        "role": { "enum": ["input", "holdout"] },
+        "crop": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer", "minimum": 0 } },
+        "originX": { "type": "number", "minimum": 0, "maximum": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "alphaMask": { "type": "string", "minLength": 1 },
+        "background": { "$ref": "#/$defs/background" }
+      }
+    },
+    "turnaround": {
+      "type": "object",
+      "required": ["format", "views"],
+      "properties": {
+        "format": { "const": "pine.turnaround/1" },
+        "source": { "type": "string", "minLength": 1 },
+        "alphaMask": { "type": "string", "minLength": 1 },
+        "height": { "type": "integer", "minimum": 4, "maximum": 256 },
+        "background": { "$ref": "#/$defs/background" },
+        "views": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/view" }, "contains": { "properties": { "role": { "const": "input" } } }, "minContains": 2 }
+      }
+    },
+    "slices": {
+      "type": "object",
+      "required": ["format", "dimensions", "palette", "runs"],
+      "properties": {
+        "format": { "const": "pine.slices/1" },
+        "dimensions": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 1 } },
+        "palette": { "type": "array", "minItems": 1, "maxItems": 256, "items": { "type": "string", "pattern": "^#[A-Fa-f0-9]{6}$" } },
+        "runs": { "type": "array", "items": { "type": "array", "minItems": 5, "maxItems": 5, "items": { "type": "integer", "minimum": 0 } } }
+      }
+    }
+  }
+}

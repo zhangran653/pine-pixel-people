@@ -6,7 +6,7 @@
     world: ['世界', 'index.html'], three: ['三维预览', 'three.html']
   };
   const resources = [
-    ['松溪步道', 'trail.html'], ['人物切片', 'slice-study.html'], ['形象规范', 'appearance-standard.html'],
+    ['松溪步道', 'trail.html'], ['人物切片', 'slice-study.html'], ['原画转切片', 'turnaround-lab.html'], ['形象规范', 'appearance-standard.html'],
     ['动作规范', 'motion-standard.html'], ['场景规范', 'world-standard.md'], ['动作研究', 'motion-notes.html'],
     ['GitHub', 'https://github.com/zhangran653/pine-pixel-world']
   ];

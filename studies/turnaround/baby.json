@@ -1,0 +1,63 @@
+{
+  "format": "pine.turnaround/1",
+  "source": "../../figure-model-guide.webp",
+  "height": 96,
+  "background": {
+    "rgb": [
+      204,
+      197,
+      193
+    ],
+    "tolerance": 30
+  },
+  "views": [
+    {
+      "id": "front",
+      "angle": 0,
+      "crop": [
+        84,
+        868,
+        405,
+        1086
+      ],
+      "role": "input",
+      "originX": 0.5
+    },
+    {
+      "id": "profile",
+      "angle": 90,
+      "crop": [
+        726,
+        868,
+        1047,
+        1086
+      ],
+      "role": "input",
+      "originX": 0.5
+    },
+    {
+      "id": "back",
+      "angle": 180,
+      "crop": [
+        1047,
+        868,
+        1368,
+        1086
+      ],
+      "role": "input",
+      "originX": 0.5
+    },
+    {
+      "id": "oblique",
+      "angle": 45,
+      "crop": [
+        405,
+        868,
+        726,
+        1086
+      ],
+      "role": "holdout",
+      "originX": 0.5
+    }
+  ]
+}

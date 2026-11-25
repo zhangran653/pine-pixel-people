@@ -1,3 +1,5 @@
 .DS_Store
 # Local host export of the early study. The standalone character source is in slice-study.html.
 study.html
+
+__pycache__/
