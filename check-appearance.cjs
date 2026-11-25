@@ -36,6 +36,7 @@ const sources = [
   'everyday-styles',
   'workshop-wear',
   'world-wardrobe',
+  'figure-paint',
   'designer-body',
   'appearance',
   'appearance-store'

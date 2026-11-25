@@ -26,7 +26,8 @@ const PineLooks = (() => {
     illustratedRelease = pinePortraitStyles.illustratedRelease,
     silhouetteRelease = pinePortraitStyles.silhouetteRelease,
     facePlaneRelease = pinePortraitStyles.facePlaneRelease,
-    release = pinePortraitStyles.pixelRelease;
+    pixelRelease = pinePortraitStyles.pixelRelease,
+    release = pinePortraitStyles.figureRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -53,6 +54,7 @@ const PineLooks = (() => {
     illustratedRelease,
     silhouetteRelease,
     facePlaneRelease,
+    pixelRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -1365,7 +1367,7 @@ SOFTWARE.`;
     infantRelease,
     infantNapeRelease,
     naturalProfileRelease,
-    lipJawRelease, illustratedRelease, silhouetteRelease, facePlaneRelease,
+    lipJawRelease, illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease,
     portraitStyles, portraitStyleOf, setPortraitStyle, portraitFamilies,
     morphs: pinePortraitStyles.morphs,
     profileControls: pinePortraitStyles.profileControls,

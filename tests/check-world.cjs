@@ -1069,6 +1069,40 @@ world.register(
   ({ oval, k }) => oval([0, 0, 1], [2.5, 2.5, 1], k.teal)
 );
 assert.ok(world.geometry('test-cushion').model.colors.some(Boolean));
+// Editable figures share anatomical anchors across editions and the value design across dyes.
+{
+  const painter = vm.runInContext('pineDesignerBody', context);
+  const archives = {
+    look_chestnut: '35eb37ae64013ec86f64d1a76d32533a07a6ac0074d870f88c21bcbe6d50e04e',
+    look_hazel: '379d98d7e669218a385658a1ed910e4c7dcb1f4b47c1e505b2830c0a8ae47a9e',
+    look_developer: 'f87d7a3cd7984576cb12b2a72fadb3d19ac3d62676acd14114638126cd7b0506'
+  };
+  for (const id of [...Object.keys(archives), 'look_workshop_toddler', 'look_style_runner']) {
+    const recipe = looks.templateById.get(id);
+    const old = looks.build({ ...recipe, packs: { 'pine-core': looks.pixelRelease } }), current = looks.build(recipe);
+    assert.deepEqual(current.sockets, old.sockets);
+    assert.deepEqual(current.rig, old.rig);
+    const pose = motion.actions.get(recipe.base === 'baby' ? 'sit' : 'walk').sample(0.32, current)[0].pose;
+    const historic = old.body.makePose(pose), standard = current.body.makePose(pose);
+    if (archives[id]) assert.equal(hash(historic.colors), archives[id], 'published 1.17.0 ' + id);
+    assert.notEqual(hash(standard.colors), hash(historic.colors));
+    const colors = { ...recipe.colors, skin: '#654632', hair: '#553867', top: '#3967a8', bottom: '#75415a', shoes: '#14563e' };
+    const saved = looks.prepare(JSON.parse(JSON.stringify({ ...recipe, colors }))).recipe;
+    const materials = painter.build(saved).art.materials;
+    for (const [group, slot] of [['cloth','top'], ['trouser','bottom'], ['strand','hair'], ['hide','shoes']]) {
+      assert.equal(materials[group + 'Ink4'], colors[slot].slice(1));
+      assert.equal(new Set(Array.from({ length: 8 }, (_, level) => materials[group + 'Ink' + level])).size, 8);
+    }
+    const dyed = looks.build(saved), recolored = dyed.body.makePose(pose);
+    const fine = motion.figureLayers(current, pose, standard)[0], alternate = motion.figureLayers(dyed, pose, recolored)[0];
+    for (const [before, after] of [[standard, recolored], [fine.model, alternate.model]]) {
+      assert.deepEqual(before.bounds, after.bounds);
+      assert.equal(before.colors.length, after.colors.length);
+      assert.ok(before.colors.every((color, i) => Boolean(color) === Boolean(after.colors[i])), 'dye changed a silhouette');
+      assert.notEqual(hash(before.colors), hash(after.colors));
+    }
+  }
+}
 async function three() {
   const T = await import('../vendor/three-r187/three.module.js'),
     { createPineCast } = await import('../pine-three.mjs');

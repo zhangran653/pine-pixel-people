@@ -494,6 +494,7 @@
   }
   function upgradeLabel() {
     if (draft.packs[looks.core] === looks.release) return '';
+    if (draft.packs[looks.core] === looks.pixelRelease) return '试用全身像素画风';
     if (draft.packs[looks.core] === looks.facePlaneRelease) return '试用像素笔触';
     if ([looks.illustratedRelease, looks.silhouetteRelease].includes(draft.packs[looks.core]))
       return draft.base === 'baby' ? '试用新版婴儿脸' : '试用新版侧脸';
@@ -550,7 +551,7 @@
     const guide = $('turnaround-guide').content.firstElementChild.cloneNode(true);
     const babyGuide = draft.base === 'baby' || draft.base === 'toddler';
     guide.dataset.sitter = babyGuide ? 'baby' : 'adult';
-    if (draft.packs[looks.core] === looks.release && looks.portraitStyleOf(draft) === 'animation') {
+    if ([looks.pixelRelease, looks.release].includes(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
       guide.dataset.art = 'pixel';
       const comparison = guide.querySelector('.guide-comparison');
       comparison.href = 'pixel-face-before-after.webp';
@@ -1120,6 +1121,7 @@
     colorFields(area);
   }
   function colorFields(area) {
+    figureUpgrade(area);
     const palette = document.createElement('fieldset'),
       legend = document.createElement('legend'),
       tabs = document.createElement('div'),
@@ -1225,6 +1227,7 @@
     if (qualified !== 'none' && owner !== looks.core) draft.packs[owner] = version;
   }
   function wearFields(area) {
+    figureUpgrade(area);
     const apply = (outfit) => looks.applyOutfit(draft, outfit);
     const featured = presetGroup('工坊同款', looks.workshopOutfits, 'outfit', apply);
     area.append(featured);
@@ -1939,8 +1942,12 @@
     if (tab === 'face') fields();
   }
   const requestedHair = query.get('hair');
-  const requestedSkin = query.get('skin');
-  const changeSkin = /^[0-9a-f]{6}$/i.test(requestedSkin || '') && '#' + requestedSkin.toLowerCase() !== draft.colors.skin;
+  const dyes = {};
+  for (const key of Object.keys({ ...looks.colors, ...looks.portraitColors, ...looks.gearColors })) {
+    const value = query.get('dye.' + key) ?? (key === 'skin' ? query.get('skin') : null);
+    if (/^[0-9a-f]{6}$/i.test(value || '') && '#' + value.toLowerCase() !== draft.colors[key])
+      dyes[key] = '#' + value.toLowerCase();
+  }
   const changeHair = Object.hasOwn(looks.slots.hair, requestedHair) && requestedHair !== draft.parts.hair;
   const removeHat = query.get('hat') === 'none' && draft.parts.hat !== 'none';
   if (changeHair) {
@@ -1948,10 +1955,10 @@
     hairGroup = looks.hairGroups[requestedHair];
   }
   if (removeHat) selectHat('none');
-  if (changeSkin) draft.colors.skin = '#' + requestedSkin.toLowerCase();
-  if (changeHair || removeHat || changeSkin) {
+  if (changeHair || removeHat || Object.keys(dyes).length) {
+    Object.assign(draft.colors, dyes);
     changed();
-    if (tab === 'hair' || tab === 'wear' || changeSkin) fields();
+    fields();
   }
   const requestedAction = query.get('action');
   if (requestedAction && [...$('action').options].some((o) => o.value === requestedAction)) {

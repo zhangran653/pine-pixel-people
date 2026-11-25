@@ -12,16 +12,18 @@ const pinePortraitStyles = (() => {
   const silhouetteRelease = '1.16.1';
   const facePlaneRelease = '1.16.2';
   const pixelRelease = '1.17.0';
+  const figureRelease = '1.18.0';
+  const hasPixelFace = pin => pin === pixelRelease || pin === figureRelease;
   const portraitStyles = { animation: '立体动画', game: '游戏立绘', manga: '漫画', natural: '自然' };
   function portraitStyle(recipe) {
     const pin = recipe.packs?.['pine-core'];
-    if (pin === facePlaneRelease || pin === pixelRelease) return recipe.face?.style || 'animation';
+    if (pin === facePlaneRelease || hasPixelFace(pin)) return recipe.face?.style || 'animation';
     return pin === illustratedRelease || pin === silhouetteRelease ? recipe.face?.style || 'game' : 'natural';
   }
   function proportionsFor(base, style, pin) {
     const infant = base === 'baby';
     let p = proportions[infant ? 'baby' : 'standard'];
-    if (infant && (pin === facePlaneRelease || pin === pixelRelease)) p = { ...p, eyeCenter: 0.478, eyeWidth: 1.08, eyeOpen: 1.14,
+    if (infant && (pin === facePlaneRelease || hasPixelFace(pin))) p = { ...p, eyeCenter: 0.478, eyeWidth: 1.08, eyeOpen: 1.14,
       browWidth: 0.77, browHeight: 0.91, noseLength: 0.72, noseReach: 0.72, lipWidth: 0.92, lipHeight: 0.97 };
     if (style === 'animation') return { ...p, headWidth: { baby: 0.916, toddler: 0.934, child: 0.95, adult: 0.938 }[base],
       eyeWidth: p.eyeWidth * 1.09, eyeOpen: p.eyeOpen * 1.09,
@@ -698,7 +700,7 @@ const pinePortraitStyles = (() => {
   }
   return {
     proportions,
-    illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
+    illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, figureRelease, hasPixelFace, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
     illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors,
     morphs,
     profileControls,

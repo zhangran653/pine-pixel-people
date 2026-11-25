@@ -24,6 +24,9 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
   for (const name of art.portraitLighting?.soft || []) portraitLighting[ink[name]] = 1;
   for (const name of art.portraitLighting?.painted || []) portraitLighting[ink[name]] = 2;
 
+  for (const name of art.figureLighting?.painted || []) portraitLighting[ink[name]] = 3;
+  for (const name of art.figureLighting?.metal || []) if (ink[name]) portraitLighting[ink[name]] = 4;
+
   function paintBottle({base, lip, held}, rightArm, stamp, link) {
     const vector = lip.map((v, i) => v-base[i]);
     const length = Math.hypot(...vector);
@@ -174,7 +177,12 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
           const dz = Number(!!cells[i-pitch]) - Number(!!cells[i+pitch]);
           const n = normalLength[dx*dx + dy*dy + dz*dz];
           let shade = n ? Math.round((0.94 + (0.17 * (0.43 * dx - 0.37 * dy + 0.81 * dz)) / n) * 24) : 0;
-          if (faceDetail && portraitLighting[material] === 2) {
+          if (portraitLighting[material] === 3) {
+            // Cloth folds carry their own light through the joints at both sampling densities.
+            shade = 24;
+          } else if (portraitLighting[material] === 4) {
+            shade = n && dz > 0 && dx - dy >= 0 ? 29 : 22;
+          } else if (faceDetail && portraitLighting[material] === 2) {
             // The artist lit the small color planes of the face in head space.
             shade = 24;
           } else if (faceDetail && n && portraitLighting[material]) {

@@ -152,7 +152,7 @@ const pineWorldWardrobe = (() => {
       return ['cross-robe', 'brocade', 'mantle', 'flightsuit'].includes(style) ? k.accent : k.topShade;
     return side * v < -0.38 * r ? k.topShade : k.top;
   }
-  function carried(parts, b, k, d, w, low, h) {
+  function carried(parts, b, k, d, w, low, h, figure = false) {
     if (bags[parts.bag]) {
       const x = -0.45 * d,
         y = 1.12 * w,
@@ -227,16 +227,21 @@ const pineWorldWardrobe = (() => {
         r * 0.48,
         r * (badge ? 1.3 : 1),
         r * (badge ? 1.65 : kind === 'vial' ? 1.42 : 1),
-        (px, py, pz) =>
-          kind === 'jade' && Math.hypot(py - y, pz - z + r * 0.68) < 0.39 * r
-            ? 0
-            : kind === 'pass' && pz > z - r * 0.72
-              ? k.lining
-              : kind === 'compass' && Math.abs(py - y - (pz - z + r * 0.68) * 0.45) < r * 0.26
-                ? k.brass
-                : kind === 'vial' && pz > z
-                  ? k.brassShade
-                  : k.charmMain,
+        (px, py, pz) => {
+          if (figure && badge) {
+            const u = (py - y) / r, v = (pz - z + r * 0.68) / r;
+            if (px < x || Math.abs(u) > 1.07 || Math.abs(v) > 1.43) return k.charmShade;
+            if (v > 1.02 || v < -1.03) return k.charmMain;
+            if (u < -0.08 && ((u + 0.56) ** 2 + (v - 0.32) ** 2 < 0.12 ||
+              ((u + 0.56) / 0.46) ** 2 + ((v + 0.35) / 0.38) ** 2 < 1)) return k.charmShade;
+            if (u > 0.13 && u < 0.87 && (Math.abs(v - 0.24) < 0.12 || Math.abs(v + 0.29) < 0.11)) return k.charmMain;
+            return k.lining;
+          }
+          if (kind === 'jade' && Math.hypot(py - y, pz - z + r * 0.68) < 0.39 * r) return 0;
+          if (badge && pz > z - r * 0.72) return k.lining;
+          if (kind === 'compass' && Math.abs(py - y - (pz - z + r * 0.68) * 0.45) < r * 0.26) return k.brass;
+          return kind === 'vial' && pz > z ? k.brassShade : k.charmMain;
+        },
         badge ? 5 : 2
       );
     }

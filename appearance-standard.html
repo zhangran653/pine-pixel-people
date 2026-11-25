@@ -61,6 +61,7 @@
           一个形象文件记录人体基型、体型与五官、穿搭、配色和依赖版本。动作通过共同的骨架和接触点驱动角色。创作室、动作工坊和
           Three.js 场景读取同一份形象。
         </p>
+        <p><a href="#figure-art">全身像素造型与配色样张</a> · <a href="#portrait-art">五官画风</a></p>
         <h2>形象文件</h2>
         <p>
           用创作室的「导入角色」打开下面的任一示例。编辑后可以保持 ID 保存，也可以另存为独立形象。导入相同
@@ -213,6 +214,23 @@
           额前发束用从发根经过弯折点到发梢的曲线定义，越靠近末端越窄。每个高度与方位保存发束的外径和颜色档位，交叠处取外侧的一束，再采样为像素切片。多个人物可复用同款发型的形状，各自按 <code>colors.hair</code> 着色。戴帽时帽冠下的发量会收拢。<a href="atelier.html?preset=look_body_female&amp;tab=hair&amp;hair=shoulder-length&amp;bearing=35">旋转查看披肩长发</a>
         </p>
         <h2>从参数到 360° 像素</h2>
+        <h2 id="figure-art">全身像素造型</h2>
+        <p>从 <code>pine-core 1.18.0</code> 起，共用的人物画法覆盖头发、上衣、四肢、鞋和随身配件。下图来自实时人物切片。成人看手机、孩子跳步和婴儿坐着时，都使用各自年龄的骨架。</p>
+        <img src="pixel-figure-cast.webp" alt="同一画法下，五个人物穿不同颜色的衣服，做各自的动作" width="1120" height="444" loading="lazy" style="max-width:100%;height:auto">
+        <h3>部件绘制约定</h3>
+        <ul>
+          <li>先看轮廓。成人衣摆和裤腰有可辨认的交界，袖口、膝弯和脚踝有宽窄变化。幼儿减少硬折，婴儿的袖筒和手掌保留圆润的体积。检查正面、斜面、背面以及关节弯曲的姿势。</li>
+          <li>衣褶从受力点起笔。上衣的褶线从腋下和腰侧收拢，袖子、裤腿的明暗围绕各自骨段。针织用宽转折，衬衫用更窄的折边。鞋面有收窄的鞋头和薄底，包盖的边线与金属扣的亮点各有宽度。</li>
+          <li>颜色从配方取。布料、裤料、鞋革、包面、饰边与发束分别从八级色阶取色，索引 4 对应该部件的染色值。手掌、手臂和小腿的明暗与脸部共享肤色来源。每个部件可以单独换色。</li>
+        </ul>
+        <p>下图使用阿榛的同一张脸、同一套衣服、同一个姿势和镜头。选一组进入创作室「配色」即可继续编辑。</p>
+        <img src="pixel-figure-dyes.webp" alt="阿榛的三种肤色、发色与衣物配色，轮廓和衣褶一致" width="923" height="440" loading="lazy" style="max-width:100%;height:auto">
+        <p><a href="atelier.html?preset=look_hazel&amp;tab=colors&amp;bearing=328&amp;dye.skin=e3b98c&amp;dye.hair=936352&amp;dye.top=984d69&amp;dye.bottom=44546c&amp;dye.shoes=8c5746">莓红</a> · <a href="atelier.html?preset=look_hazel&amp;tab=colors&amp;bearing=328&amp;dye.skin=724735&amp;dye.hair=2d2933&amp;dye.top=3c6c98&amp;dye.bottom=474963&amp;dye.shoes=a4664b">湖蓝</a> · <a href="atelier.html?preset=look_hazel&amp;tab=colors&amp;bearing=328&amp;dye.skin=b77d60&amp;dye.hair=cfb4ab&amp;dye.top=a375a5&amp;dye.bottom=3a666b&amp;dye.shoes=685256">兰紫</a></p>
+        <p>文件继续使用 <code>pine-character v1</code>。用 <code>colors.skin</code>、<code>colors.hair</code>、<code>colors.top</code> 等六位 RGB 值给已有部件染色。创作室链接接受 <code>dye.字段=六位色值</code>。锁定 1.17.0 的存档可在「穿搭」或「配色」点「试用全身像素画风」，再保存选择。<a href="pixel-figure-comparison.webp">同配方的 1.17 与 1.18 实机对照</a></p>
+        <details id="figure-art-prompt"><summary>全身造型的美术参考与生成提示词</summary>
+          <p>这张全身设计稿由内置图像生成工具参照项目的像素转面稿绘制，用于研究肩腰比例、衣料转折与配件反光。运行时的衣褶由部件坐标中的曲线生成。<a href="pixel-figure-guide.webp">全身设计稿</a> · <a href="pixel-face-guide.webp">头部转面稿</a></p>
+          <blockquote lang="en">Extend the attached original pixel model sheet into a full-body costume sheet for the same cozy adventure game. Keep the infant and silver-haired adult recognizably the same characters as the attached art. Show four separate full figures in one wide horizontal lineup on the same plain pale mint ground, evenly spaced with margins and feet visible. From left to right: the small seated baby with oatmeal ribbed cap, teal folded button-neck knit, soft knee pants and booties; the warm brown-skinned silver-bun artist in a soft teal folded collar, plum cuffed trousers, tan flats, small gold hoops and a chestnut crossbody satchel; a school-age hiker with dark short hair, a moss field jacket, ocher scarf, dark shorts, trail sneakers and a small pack; a young male software developer in sea-green Oxford shirt, slate cargo trousers, running shoes, dark side-parted hair, square glasses and an ID badge. Adult silhouettes about four to five heads high, child about three and a half. One shared ground line, each actor shown at a relaxed three-quarter angle. Crisp hand-placed connected square pixel clusters, selective colored dark accents at overlaps, one warm upper-left light, muted jewel dyes, deep colored shadows, softly lit cheeks and hands, broad directional hair locks. Use large readable shapes and a few decisive grouped folds at elbow, waist and knee. Knit has broad ribbed turns, leather has a narrow caramel edge, metal one pinpoint glint. Keep the pixel density consistent across the entire figure, like a beautifully hand-drawn 100-to-140-pixel-tall character sprite enlarged with nearest neighbor. No text, logos, panels, scale markings, scenery, or cast shadows.</blockquote>
+        </details>
         <h3 id="portrait-art">人物画风与候选脸</h3>
         <p>从 <code>pine-core 1.16.0</code> 起，可选字段 <code>face.style</code> 支持 <code>game</code>（游戏立绘，1.16.0 与 1.16.1 的默认值）、<code>manga</code>（漫画）和 <code>natural</code>（自然）。画风一起控制眼睑、虹膜、眉色、鼻部明暗与下半脸轮廓。成人、学童、幼儿和婴儿分别沿用自己的骨架与五官尺寸。创作室在静止的单人五官近景提高头部采样精度。拖动捏脸滑杆时使用普通预览精度，松手即可检查精细结果。动作与场景沿用各自的精度预算。锁定 1.15.0 或更早版本的存档使用原版绘法。<a href="portrait-art-preview.png">同一角色正侧面与随机样本</a></p>
         <p>从 <code>pine-core 1.16.2</code> 起，<code>face.style</code> 新增 <code>animation</code>（立体动画），也是这个版本未指定画风时的默认值。婴儿与成人的眼睑弧线、脸颊转折和皮肤明暗参考本项目的原创转面稿。眼型、眼距、嘴型、脸宽和各处染色分别作用于同一个头部体积，随头转动、眨眼和张口。标准精度的嘴形使用按各款唇形设计的小像素图案，贴合嘴部截面。<a href="animation-game-sizes.png">实际游戏尺寸</a> · <a href="animation-rotation.webp">两个人物的完整转面</a></p>

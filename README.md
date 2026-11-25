@@ -21,6 +21,10 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+1.18.0 把像素画法延伸到整个人物。衣领和肩线有厚度，衣摆与裤腰分层，袖子和裤腿的褶线随关节运动。头发、皮革和金属有不同的亮面。肤色、发色和每件衣物的染色仍由人物配方决定。[全身美术规范](appearance-standard.html#figure-art) · [同一个人物的三种配色](pixel-figure-dyes.webp) · [版本对照](pixel-figure-comparison.webp)
+
+![五位不同年龄和配色的人物在坐、挥手、跳步、看手机和走路时的实际切片](pixel-figure-cast.webp)
+
 1.17.0 为「立体动画」重画了实时像素脸。小栗有婴儿专用的眼睑和笑嘴，阿榛的眼神、银色发束和下唇到前颈的曲线可以在正侧面查看。两位都从普通配方生成，可以换装、染发、捏脸和套用动作。在「五官 → 动画美术参考」点任一幅像素稿，人物就会转到相应角度。[编辑小栗](http://127.0.0.1:8000/atelier.html?preset=look_chestnut&tab=face&bearing=315&reference=1) · [编辑阿榛的正侧面](http://127.0.0.1:8000/atelier.html?preset=look_hazel&tab=face&bearing=270&reference=1) · [侧面下巴的局部对照](pixel-chin-profile.webp)
 
 ![小栗和阿榛的两版实时像素，每组左为 1.16.2，右为 1.17.0](pixel-face-before-after.webp)
