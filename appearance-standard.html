@@ -197,6 +197,9 @@
           <code>pine-core 1.13.1</code> 为婴儿单独采样参考网格后脑正中从颈部到头顶的轮廓。耳后各层沿这条曲线连接，耳垂随两侧头骨的宽度贴合，下颌可独立张合。头发沿相同的后缘生长，反折棉帽按婴儿头围收拢后侧帽沿。1.13.0 存档可以在「五官」中点「试用婴儿后脑曲线」，再保存选中的形象。<a href="atelier.html?preset=look_workshop_baby&amp;tab=face&amp;hat=none&amp;hair=bald&amp;bearing=90">旋转查看裸头</a> · <a href="infant-nape-preview.png">裸头、细发与戴帽对照</a>
         </p>
         <p>
+          <code>pine-core 1.14.0</code> 将成人、学童和幼儿的眼窝、鼻根、嘴角和颏唇沟放在同一个头部表面上。移动嘴部高度时，嘴周轮廓、上下唇接点和饮水接点一起移动。唇色与唇形仍可独立选择。新建和随机人物默认使用这次调整，1.12、1.13 系列的成人和儿童可以在「五官」中点「试用自然侧脸」并保存。婴儿使用 1.13.1 的专用头型。<a href="atelier.html?preset=look_ridge&amp;tab=face&amp;bearing=90">旋转查看侧脸</a> · <a href="natural-profile-preview.png">四个角度对照</a>
+        </p>
+        <p>
           用 Python 3 在项目根目录执行下面的命令即可重新生成截面表。两个参数分别指向上述固定版本的网格及其形变目录。<a href="tools/sample-head.py">采样脚本</a> · <a href="head-sections.js">生成的截面数据</a>
         </p>
         <pre><code>python3 tools/sample-head.py path/to/base.obj path/to/macrodetails &gt; head-sections.js</code></pre>

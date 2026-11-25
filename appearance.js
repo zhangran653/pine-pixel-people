@@ -20,7 +20,8 @@ const PineLooks = (() => {
     occipitalRelease = '1.11.1',
     morphRelease = '1.12.0',
     infantRelease = '1.13.0',
-    release = '1.13.1';
+    infantNapeRelease = '1.13.1',
+    release = '1.14.0';
   const releases = [
     originalRelease,
     styleRelease,
@@ -41,6 +42,7 @@ const PineLooks = (() => {
     occipitalRelease,
     morphRelease,
     infantRelease,
+    infantNapeRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -1149,7 +1151,7 @@ SOFTWARE.`;
     const noseRow = pinePortraitStyles.noses[nose] || pinePortraitStyles.basicNoses[nose];
     const upperLip = pinePortraitStyles.mouths[mouth]?.[2] ?? (mouth === 'full' ? 0.092 : 0.061);
     // Include the wing below the tip and the extra lip peak painted by the bow style.
-    const clearance = (noseRow[3] + Math.max(0.105, Math.min(0.11, noseRow[6]))) * fit.noseLength
+    const clearance = (noseRow[3] + pinePortraitStyles.noseUnderside(noseRow, doc.base !== 'baby')) * fit.noseLength
       + Math.max(upperLip, mouth === 'bow' ? 0.105 : 0) * fit.lipHeight * (1 + 0.54 * s.upperLipFullness) + 0.04;
     s.mouthHeight = Math.min(s.mouthHeight, pineDesignerBody.maxMouthHeight(doc.base, clearance));
     if (outline === 'diamond') s.cheekWidth = Math.min(0.3, s.cheekWidth);
@@ -1235,6 +1237,7 @@ SOFTWARE.`;
     occipitalRelease,
     morphRelease,
     infantRelease,
+    infantNapeRelease,
     morphs: pinePortraitStyles.morphs,
     cheekPresets,
     cheekAdjustment,

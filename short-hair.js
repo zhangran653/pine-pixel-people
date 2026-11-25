@@ -277,7 +277,7 @@ const pineShortHair = (() => {
     }
     return { radius, colors, axes, inner, lowest };
   }
-  function canopy(head, cut, volume) {
+  function canopy(head, cut, volume, taperedFringe) {
     const hi = new Float32Array(nx * ny).fill(-2),
       lo = new Float32Array(nx * ny).fill(2);
     const shade = new Uint8Array(nx * ny);
@@ -318,12 +318,16 @@ const pineShortHair = (() => {
         c = Math.cos(theta),
         s = Math.sin(theta);
       const forward = ease(-0.1, 0.85, c);
-      const h = tipHeight - (volume ? forward * (0.03 + 0.04 * Math.sin(2.8 * index)) : 0);
+      const stagger = taperedFringe ? forward * (0.046 + 0.080 * Math.sin(2.2 * index)) : 0;
+      const h = tipHeight + stagger - (volume ? forward * (0.03 + 0.04 * Math.sin(2.8 * index)) : 0);
+      // Scissor-cut tips drop around the forehead at different lengths. Leave loft
+      // at the parting and lift each end separately from the hairline.
+      const reach = taperedFringe ? 1 - forward * (0.47 + 0.15 * Math.cos(1.9 * index)) : 1;
       const section = head.row(h),
         radius =
           boundary(head, section, c, s) +
           cut.tips +
-          (volume ? volume.fringe * (0.31 + 0.69 * forward) * (0.87 + 0.13 * Math.sin(index)) : 0);
+          (volume ? volume.fringe * reach * (0.31 + 0.69 * forward) * (0.87 + 0.13 * Math.sin(index)) : 0);
       const bx = section.axis + radius * c,
         by = radius * s;
       // A quadratic passing through the guide at its midpoint controls the flow across the head.
@@ -363,8 +367,9 @@ const pineShortHair = (() => {
             const x = ix + (i + 0.5) / chartDensity - a.x,
               y = iy + (j + 0.5) / chartDensity - a.y;
             const p = clamp((x * dx + y * dy) / L, 0, 1);
-            const t = mix(a.t, b.t, p),
-              width = w * (0.49 + 0.51 * ease(0, 0.3, t)) * (0.055 + 0.945 * Math.sqrt(1 - t ** 3));
+            const t = mix(a.t, b.t, p);
+            const taper = taperedFringe ? 1 - 0.34 * forward * ease(0.5, 0.95, t) : 1;
+            const width = w * (0.49 + 0.51 * ease(0, 0.3, t)) * (0.055 + 0.945 * Math.sqrt(1 - t ** 3)) * taper;
             const q = (Math.sign(dx * y - dy * x || 1) * Math.hypot(x - p * dx, y - p * dy)) / width;
             if (Math.abs(q) >= 1) continue;
             const at = j * nx + i,
@@ -410,15 +415,17 @@ const pineShortHair = (() => {
     }
     return { hi, lo, shade };
   }
-  function get(id, base, hat, layered = false, refitNape = false) {
+  function get(id, base, hat, layered = false, refitNape = false, naturalProfile = false) {
     if (!Object.hasOwn(cuts, id)) return null;
-    const key = base + '/' + id + (hat ? '/hat' : '') + (layered ? '/layered' : '') + (refitNape ? '/nape' : '');
+    const taperedFringe = naturalProfile && layered && !hat && ['crop', 'side-part', 'pixie'].includes(id);
+    const key = base + '/' + id + (hat ? '/hat' : '') + (layered ? '/layered' : '') +
+      (refitNape ? '/nape' : '') + (taperedFringe ? '/taper' : '');
     if (cache.has(key)) return cache.get(key);
     const head = pineHeadShape.scalp(base, refitNape),
       cut = cuts[id],
       volume = layered ? volumes[id] : null,
       foundation = shell(head, cut, hat, volume);
-    const locks = (cut.locks || cut.brush) && !hat ? canopy(head, cut, volume) : null;
+    const locks = (cut.locks || cut.brush) && !hat ? canopy(head, cut, volume, taperedFringe) : null;
     const read = (x, y, h) => {
       if (h < low || h >= high) return 0;
       const row = Math.floor(((h - low) * rows) / (high - low)),

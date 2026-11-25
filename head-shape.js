@@ -121,7 +121,7 @@ const pineHeadShape = (() => {
       return fitted;
     });
   }
-  function profile(base, fittedJaw = false, settings, relief = 0, facial, refitNape = false) {
+  function profile(base, fittedJaw = false, settings, relief = 0, facial, refitNape = false, planes) {
     const child = base !== 'adult', infant = base === 'baby';
     const reference = pineHeadSections[base];
     const faceRings = fittedJaw ? jawSections(reference, base, settings) : reference;
@@ -184,6 +184,30 @@ const pineHeadShape = (() => {
           }
         }
       }
+      if (planes && h > -0.92 && h < 0.44) {
+        // The source sections have their original nose and lips removed for the editable features.
+        // Restore the bed of the orbit and wrap the dental arch back around the mouth corners.
+        const orbit = lobe(h, planes.eye + 0.012, 0.24);
+        const root = lobe(h, planes.eye + 0.025, 0.21);
+        const chinH = -0.735 + 0.055 * settings.chinHeight;
+        const chinTurn = 0.031 * lobe(h, chinH, 0.17) + 0.064 * lobe(h, chinH - 0.102, 0.086);
+        const room = clamp((planes.mouth - chinH) / 0.30, 0.35, 1);
+        const lipH = (h - planes.mouth) / (h < planes.mouth ? room : 1);
+        const arch = lobe(lipH, 0, 0.32);
+        const lip = 0.043 * lobe(lipH, 0.025, 0.11) + 0.032 * lobe(lipH, -0.060, 0.09);
+        const inset = 0.026 * lobe(lipH, 0.145, 0.13) + 0.029 * lobe(lipH, -0.17, 0.13);
+        for (let j = 0; j < front.length; j++) {
+          const v = lateral[j];
+          front[j] += planes.strength * (
+            -0.061 * root * lobe(v, 0, 0.34) -
+            0.100 * orbit * lobe(v, planes.eyeCenter / width, 0.38) +
+            (lip - inset) * lobe(v, 0, 0.46) -
+            0.023 * arch * lobe(v, 0, 0.67) -
+            0.076 * arch * lobe(v, 0.32, 0.34) -
+            chinTurn * lobe(v, 0, 0.78)
+          );
+        }
+      }
       // Seat the measured chin on the shorter neck of the pixel rig.
       const underChin = clamp((-h - 0.65) / 0.35, 0, 1);
       const inset = fittedJaw ? 0 : (child ? 0.13 : 0.19) * underChin * underChin * (3 - 2 * underChin);
@@ -210,6 +234,16 @@ const pineHeadShape = (() => {
       const face = Float32Array.from(meridians, ({ interval, angle }) =>
         sample(outline, tangent, interval, 1, angle)
       );
+      if (planes && Math.abs(h - planes.eye) < 0.15) {
+        // The iris sits on the round front of the eye. Its inner corner turns back
+        // into the nose and the outer lid follows the temple as the camera turns.
+        const center = planes.eyeCenter;
+        const eye = planes.strength * lobe(h, planes.eye, 0.15);
+        for (let j = 0; j <= lateralSteps; j++) {
+          const y = width * j / lateralSteps;
+          face[j] += eye * (0.068 * lobe(y, center, 0.20) - 0.066 * lobe(y, center - 0.20, 0.17));
+        }
+      }
       const templeDelta = refitNape && h > -0.18 && h < 0.26
         ? sample(temples, templeSlopes, 1, 1, h) - value(1) : 0;
       return { axis, rear, fore: face[0] - axis, width, templeDelta, face };
@@ -364,17 +398,18 @@ const pineHeadShape = (() => {
   }
   const controls = ['chinHeight', 'chinProjection', 'chinRoundness', 'jawPosition', 'jawAngle', 'jawNeck'];
   const adjustable = new Map();
-  function reshape(base, shape, relief = 0, individual = false, refitNape = false) {
+  function reshape(base, shape, relief = 0, individual = false, refitNape = false, planes) {
     const settings = Object.fromEntries(controls.map((key) => [key, shape[key] ?? 0]));
     const facial = individual && {
       cheekHeight: shape.cheekHeight || 0, cheekWidth: shape.cheekWidth || 0,
       cheekProjection: shape.cheekProjection || 0, cheekFullness: shape.cheekFullness || 0,
       eyeDepth: shape.eyeDepth || 0, eyeSpacing: shape.eyeSpacing ?? 1
     };
-    const key = [base, relief, refitNape, ...Object.values(settings), ...(facial ? Object.values(facial) : [])].join('|');
+    const key = [base, relief, refitNape, ...Object.values(settings), ...(facial ? Object.values(facial) : []),
+      ...(planes ? [planes.eye, planes.eyeCenter, planes.mouth, planes.strength] : [])].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);
-      adjustable.set(key, profile(base, true, settings, relief, facial, refitNape));
+      adjustable.set(key, profile(base, true, settings, relief, facial, refitNape, planes));
     }
     return adjustable.get(key);
   }

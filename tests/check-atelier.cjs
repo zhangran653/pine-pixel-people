@@ -652,6 +652,25 @@ function checkEditor() {
     expect(PineWardrobe.saved.get(firstInfant.id).packs['pine-core'] === PineLooks.infantRelease, 'preview must preserve the pinned save');
     byId('save-look').click();
     expect(PineWardrobe.saved.get(firstInfant.id).packs['pine-core'] === PineLooks.release, 'save the refitted nape');
+    const priorSideRecipe = PineWardrobe.importCharacter({
+      ...PineLooks.templateById.get('look_fern'), id: 'look_prior_facial_planes',
+      packs: { 'pine-core': PineLooks.infantNapeRelease }
+    }).recipe;
+    byId('look-query').value = priorSideRecipe.id;
+    byId('look-query').dispatchEvent(new Event('input'));
+    document.querySelector('[data-key="saved:' + priorSideRecipe.id + '"]').click();
+    byId('tab-face').click();
+    byId('bearing').value = '90';
+    byId('bearing').dispatchEvent(new Event('input'));
+    const oldSide = byId('mirror').toDataURL();
+    expect(byId('update-head')?.textContent === '试用自然侧脸', 'offer the side profile on a pinned 1.13.1 child');
+    byId('update-head').click();
+    expect(byId('mirror').toDataURL() !== oldSide && byId('bearing').value === '90', 'redraw in the same camera');
+    expect(PineWardrobe.saved.get(priorSideRecipe.id).packs['pine-core'] === PineLooks.infantNapeRelease, 'preview must keep the save');
+    byId('save-look').click();
+    const savedSide = PineWardrobe.saved.get(priorSideRecipe.id);
+    expect(savedSide.packs['pine-core'] === PineLooks.release && ['face', 'shape', 'parts', 'colors'].every(
+      key => JSON.stringify(savedSide[key]) === JSON.stringify(priorSideRecipe[key])), 'save the upgraded recipe in place');
     target.dataset.state = 'pass';
     target.textContent =
       'Body profiles, legacy saves, head upgrades, facial morphs, guided random portraits, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';

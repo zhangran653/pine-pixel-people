@@ -211,28 +211,35 @@ const pinePortraitStyles = (() => {
     if (Math.abs(h - mid) < (gap || 0.014) * taper + 0.006) return k.lipLine;
     return h > mid ? k.upperLip : k.lowerLip;
   }
-  function nose(row, b, k, fit, eyeZ, front, widthScale = 1, bridgeScale = 1, reachScale = 1) {
+  function noseUnderside(row, shapedTip) {
+    return Math.max(0.105, shapedTip ? 1.25 * row[6] : Math.min(0.11, row[6]));
+  }
+  function nose(row, b, k, fit, eyeZ, front, widthScale = 1, bridgeScale = 1, reachScale = 1, shapedTip = false) {
     const [, baseWidth, baseReach, length, start, wingStrength, tipHeight] = row,
       { x: cx, rx, ry, rz } = fit;
-    const reach = baseReach * reachScale;
+    const reach = baseReach * reachScale * (shapedTip ? 0.92 : 1);
     const maxWidth = baseWidth * Math.max(1, widthScale) * ry;
     const root = eyeZ + start * rz,
       tip = eyeZ - length * rz;
-    b.stamp(cx + 0.49 * rx, cx + (1.46 + Math.max(0, bridgeScale - 1) * reach) * rx, -maxWidth, maxWidth, tip - 0.11 * rz, root, (x, y, z) => {
+    const underside = shapedTip ? noseUnderside(row, true) : 0.11;
+    b.stamp(cx + 0.49 * rx, cx + (1.46 + Math.max(0, bridgeScale - 1) * reach) * rx, -maxWidth, maxWidth, tip - underside * rz, root, (x, y, z) => {
       const t = (root - z) / (root - tip);
       const wingBlend = Math.min(1, Math.max(0, (t - 0.15) / 0.65));
       const width = baseWidth * (1 + (widthScale - 1) * wingBlend * wingBlend * (3 - 2 * wingBlend));
       const q = y / (width * ry), h = (z - tip) / rz;
       if (t < 0 || Math.abs(q) >= 1) return 0;
+      const bridgeWidth = shapedTip ? 0.49 + 0.20 * t : 0.39 + 0.19 * t;
       const bridge =
-        Math.max(0, 1 - (q / (0.39 + 0.19 * t)) ** 2) *
+        Math.max(0, 1 - (q / bridgeWidth) ** 2) *
         Math.min(1, t) *
         Math.max(0, Math.min(1, (1.19 - t) / 0.29));
-      const bulb = Math.max(0, 1 - (q / 0.66) ** 2 - (h / tipHeight) ** 2);
+      const bulb = Math.max(0, 1 - (q / 0.66) ** 2 - (h / (shapedTip && h < 0 ? underside : tipHeight)) ** 2);
       const wing = Math.max(0, 1 - ((Math.abs(q) - 0.63) / 0.38) ** 2 - ((h + 0.032) / 0.073) ** 2);
       const offset = Math.max(bridge * bridgeScale, bulb, wing * wingStrength),
         surface = front(y, z);
       if (offset < 0.045 || x < surface - 0.12 * rx || x > surface + reach * rx * offset) return 0;
+      if (shapedTip && h < -0.029 && h > -0.085 && Math.abs(q) > 0.47 && Math.abs(q) < 0.91 && wing > 0.16)
+        return k.noseShade;
       if (wing > 0.25 && h < -0.024 && Math.abs(q) > 0.38 && Math.abs(q) < 0.75) return k.noseShade;
       return h < -0.025 || q > 0.44 ? k.faceEdge : q < -0.19 && q > -0.62 ? k.noseLight : k.faceMid;
     });
@@ -387,6 +394,7 @@ const pinePortraitStyles = (() => {
     brow,
     mouth,
     nose,
+    noseUnderside,
     iris,
     skinInk
   };

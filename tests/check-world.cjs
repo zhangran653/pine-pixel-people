@@ -377,9 +377,11 @@ const skull = vm.runInContext('pineHeadShape', context);
   const head = skull.reshape('baby', {}, 1, true);
   for (const h of [-0.75, -0.45, 0.3, 0.8]) assert.notEqual(head.row(h).width, skull.child.row(h).width);
   for (const base of ['adult', 'child', 'toddler']) {
-    const doc = { ...recipe, base };
+    const doc = { ...recipe, base, packs: { 'pine-core': looks.infantNapeRelease } };
     assert.deepEqual(digests(looks.build(doc)), digests(looks.build({ ...doc, packs: archived.packs })), base);
   }
+  assert.deepEqual(digests(infant), digests(looks.build({ ...recipe, packs: { 'pine-core': looks.infantNapeRelease } })),
+    '1.14 uses the separate infant portrait at both sampling densities');
   const adult = { ...archived, base: 'adult', face: { ...recipe.face, facialHair: 'beard', complexion: 'fine-lines' } };
   const converted = looks.withBodyProfile(adult, 'baby');
   assert.equal(converted.packs['pine-core'], looks.release);
@@ -506,7 +508,8 @@ const skull = vm.runInContext('pineHeadShape', context);
       const nose = styles.noses[expressive.face.nose] || styles.basicNoses[expressive.face.nose];
       const lip = styles.mouths[expressive.face.mouth]?.[2] ?? (expressive.face.mouth === 'full' ? 0.092 : 0.061);
       const fit = styles.proportions[expressive.base === 'baby' ? 'baby' : 'standard'];
-      assert.ok(vertical - (nose[3] + 0.105) * fit.noseLength - lip * fit.lipHeight * (1 + 0.54 * (expressive.shape.upperLipFullness || 0)) >= 0.0399,
+      const underside = styles.noseUnderside(nose, expressive.base !== 'baby');
+      assert.ok(vertical - (nose[3] + underside) * fit.noseLength - lip * fit.lipHeight * (1 + 0.54 * (expressive.shape.upperLipFullness || 0)) >= 0.0399,
         'nose and upper lip need space on the ' + expressive.base + ' rig');
     }
   }

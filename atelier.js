@@ -472,9 +472,10 @@
   }
   function upgradeLabel() {
     if (draft.packs[looks.core] === looks.release) return '';
-    if (looks.hasInfantHead(draft)) return '试用婴儿后脑曲线';
+    if (looks.hasInfantHead(draft))
+      return draft.packs[looks.core] === looks.infantRelease ? '试用婴儿后脑曲线' : '';
     if (draft.base === 'baby') return '试用婴儿头型';
-    if (looks.hasFacialMorphs(draft)) return '';
+    if (looks.hasFacialMorphs(draft)) return '试用自然侧脸';
     if (draft.packs[looks.core] === looks.occipitalRelease) return '试用独立颧颊与五官';
     if (draft.packs[looks.core] === looks.sagittalRelease) return '试用微收后脑';
     if (draft.packs[looks.core] === looks.mandibleRelease) return '试用新侧面轮廓';

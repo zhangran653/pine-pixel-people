@@ -1,5 +1,8 @@
 // An editable body uses the same joint frames, material brushes and action sockets as the cast.
 const pineDesignerBody = (() => {
+  // The first three sculpt releases added the scalp, layered short hair and fitted jaw in order.
+  const sculptedReleases = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1',
+    '1.12.0', '1.13.0', '1.13.1', '1.14.0'];
   // Relative to the selected body. The editor, recipe validator and painter share these limits.
   const shapeRanges = {
     height: [0.75, 1.3, 1],
@@ -476,9 +479,9 @@ const pineDesignerBody = (() => {
     roundedHead = true,
     surfaceDetails = roundedHead,
     softContours = surfaceDetails,
-    sculptedHead = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1', '1.12.0', '1.13.0', '1.13.1'].includes(recipe.packs?.['pine-core']),
-    layeredHair = ['1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1', '1.12.0', '1.13.0', '1.13.1'].includes(recipe.packs?.['pine-core']),
-    fittedJaw = ['1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1', '1.12.0', '1.13.0', '1.13.1'].includes(recipe.packs?.['pine-core'])
+    sculptedHead = sculptedReleases.includes(recipe.packs?.['pine-core']),
+    layeredHair = sculptedReleases.indexOf(recipe.packs?.['pine-core']) >= 1,
+    fittedJaw = sculptedReleases.indexOf(recipe.packs?.['pine-core']) >= 2
   ) {
     const kind = recipe.base === 'adult' ? 'adult' : 'child';
     const base = studioRig.profiles[recipe.base],
@@ -533,12 +536,24 @@ const pineDesignerBody = (() => {
         : 'crop';
     const hasHat = !!parts.hat && parts.hat !== 'none' && typeof paintHat === 'function';
     const pin = recipe.packs?.['pine-core'];
-    const infantHeadVersion = pin === '1.13.0' || pin === '1.13.1';
+    const naturalProfile = pin === '1.14.0';
+    const infantHeadVersion = pin === '1.13.0' || pin === '1.13.1' || naturalProfile;
     const infant = recipe.base === 'baby' && infantHeadVersion;
-    const refitNape = sculptedHead && infant && pin === '1.13.1';
+    const refitNape = sculptedHead && infant && pin !== '1.13.0';
     const headKind = infant ? 'baby' : kind;
     const feature = pinePortraitStyles.proportions[infant ? 'baby' : 'standard'];
     const heights = faceHeights(recipe.base, infant);
+    const { up, down } = mouthTravel(recipe.base, surfaceDetails, infant);
+    const mouthLevel = heights.mouth + mouthOffset * (mouthOffset > 0 ? up : down);
+    const mouthZ = mouthLevel * s;
+    const [cx, cz, rx, ry, rz] = measures.head;
+    const eyeLevel = (heights.eye - cz) / rz;
+    const planes = naturalProfile && !infant ? {
+      eye: eyeLevel,
+      eyeCenter: feature.eyeCenter * spacing / pinePortraitStyles.jawBreadth(faceOutline, jaw, eyeLevel),
+      mouth: (mouthLevel - cz) / rz,
+      strength: { adult: 1, child: 0.82, toddler: 0.55 }[recipe.base]
+    } : null;
     const headShape = sculptedHead ? pineHeadShape.scalp(headKind, refitNape) : null;
     const individual = pin === '1.12.0' || infantHeadVersion;
     const softenedOcciput = individual || recipe.packs?.['pine-core'] === '1.11.1';
@@ -546,7 +561,7 @@ const pineDesignerBody = (() => {
     const articulatedJaw = fittedDepth || recipe.packs?.['pine-core'] === '1.10.1';
     const adjustableJaw = articulatedJaw || recipe.packs?.['pine-core'] === '1.10.0';
     const skinShape = adjustableJaw
-      ? pineHeadShape.reshape(headKind, shape, fittedDepth ? measure(shape, 'faceRelief') : 0, individual, refitNape)
+      ? pineHeadShape.reshape(headKind, shape, fittedDepth ? measure(shape, 'faceRelief') : 0, individual, refitNape, planes)
       : fittedJaw
         ? pineHeadShape.withJaw(headKind)
         : headShape;
@@ -556,7 +571,8 @@ const pineDesignerBody = (() => {
     const crownHeight = (h) => (headShape ? headShape.crown.raise(h) : h);
     const sliceHeight = (h) => (headShape ? headShape.crown.lower(h) : h);
     const downHair = infant && ['crop', 'crew', 'curly'].includes(parts.hair);
-    const shortHair = sculptedHead && !downHair ? pineShortHair.get(parts.hair, headKind, hasHat, layeredHair, refitNape) : null;
+    const shortHair = sculptedHead && !downHair
+      ? pineShortHair.get(parts.hair, headKind, hasHat, layeredHair, refitNape, !!planes) : null;
     const ankle = base.ankle * s;
     const legChange = (base.hip[2] - base.ankle) * (legs - 1) * s;
     const hipBreadth = base.hip[1] * s * (1 + 0.17 * (shoulders - 1)) * cut.hipSpan;
@@ -578,7 +594,6 @@ const pineDesignerBody = (() => {
       forearm: base.forearm * s * arms,
       palm: base.palm * s
     };
-    const [cx, cz, rx, ry, rz] = measures.head;
     const neutralX = cx * s,
       neutralRx = rx * s * (1 + 0.12 * (width - 1));
     // Restore most of the two reference axes' unit ratio. Younger silhouettes
@@ -718,8 +733,6 @@ const pineDesignerBody = (() => {
       return fit.x + fit.rx * Math.sqrt(Math.sqrt(Math.max(0, 1 - h * h - v * v * v * v)));
     }
     const mouthY = roundedHead ? 0 : -0.062 * fit.ry;
-    const { up, down } = mouthTravel(recipe.base, surfaceDetails, infant);
-    const mouthZ = (heights.mouth + mouthOffset * (mouthOffset > 0 ? up : down)) * s;
     // The rounded head carries the lip pigments on its own surface. The bottle
     // meets that same surface regardless of the shape or color of the lips.
     const lipReach = surfaceDetails
@@ -778,8 +791,9 @@ const pineDesignerBody = (() => {
     }
     const materials = palette(recipe.colors, surfaceDetails, individual);
     if (adjustableJaw) {
-      for (const [index, amount] of [0.105, 0.084, 0.062, 0.04].entries())
-        materials['neckTone' + index] = tint(materials.faceMid, '805b4c', amount);
+      const shades = planes ? [0.215, 0.158, 0.106, 0.054] : [0.105, 0.084, 0.062, 0.04];
+      for (const [index, amount] of shades.entries())
+        materials['neckTone' + index] = tint(materials.faceMid, planes ? '50373a' : '805b4c', amount);
     }
     if (mandible) {
       materials.oralShade = tint(materials.lipLine, '371f2b', 0.73);
@@ -2080,9 +2094,13 @@ const pineDesignerBody = (() => {
             if (gap > 0 && z < seam && z > seam - gap) {
               const t = (seam - z) / gap;
               const frontLip = surface(y, seam);
-              const inset = rx * pose.jawOpen * corner * (0.055 + 0.19 * Math.sin(Math.PI * t));
-              // Only the exposed oral opening cuts the front surface. Lips retain their own pigment.
-              if (x > frontLip - inset) return 0;
+              // In profile the inner lip turns back into the mouth. Its lower edge
+              // travels with the mandible as it opens around the ear-side joint.
+              const lowerFront = planes ? jawFrame[0] * frontLip + jawFrame[2] * seam + jawFrame[3] : frontLip;
+              const edge = frontLip + (lowerFront - frontLip) * t * corner;
+              const inset = rx * pose.jawOpen * corner * (planes
+                ? 0.023 + 0.064 * Math.sin(Math.PI * t) : 0.055 + 0.19 * Math.sin(Math.PI * t));
+              if (x > edge - inset) return 0;
               if (x > frontLip - 0.42 * rx) return t > 0.78 ? k.oralTongue : k.oralShade;
             }
             const followLip = 1 - studioRig.ramp(across, lipHalf * 0.7, lipHalf * 1.46);
@@ -2175,7 +2193,17 @@ const pineDesignerBody = (() => {
         if (!surfaceDetails && (roundedHead ? h > 0.72 : h > 0.63 || (u < -0.52 && h > -0.6))) return k.hair;
         if (headShape) {
           const dx = localX - section.axis;
-          if (adjustableJaw && h < -0.54) {
+          if (planes && h < -0.36) {
+            // The shaded underside rises from the chin to the lateral angle below the ear.
+            // The angle and chin controls move both the surface and its turning plane.
+            const along = clamp((u - angleForward) / (0.96 - angleForward), 0, 1);
+            const edge = angleHeight + (-0.84 + 0.055 * (shape.chinHeight || 0) - angleHeight) * along;
+            const side = studioRig.ramp(u, angleForward - 0.30, angleForward + 0.09);
+            const under = studioRig.ramp(edge - h, -0.038, 0.17) * side;
+            if (under > 0.77) return k.neckTone0;
+            if (under > 0.49) return k.neckTone1;
+            if (under > 0.24) return k.neckTone2;
+          } else if (adjustableJaw && h < -0.54) {
             // Submental shadow is local to the underside. It loses contrast toward
             // the ear instead of drawing a diagonal seam across the whole neck.
             const along = clamp((u - 0.07 - 0.12 * (shape.jawPosition || 0)) / 0.89, 0, 1);
@@ -2271,7 +2299,7 @@ const pineDesignerBody = (() => {
       const noseZ = eyeZ - 0.205 * rz,
         noseX = faceFront(0, noseZ) - 0.1 * rx;
       if (noseStyle || individual)
-        pinePortraitStyles.nose(noseStyle || pinePortraitStyles.basicNoses[nose], b, k, noseFit, eyeZ, surface, noseSpan, noseRise, feature.noseReach);
+        pinePortraitStyles.nose(noseStyle || pinePortraitStyles.basicNoses[nose], b, k, noseFit, eyeZ, surface, noseSpan, noseRise, feature.noseReach, !!planes);
       else if (b.faceDetail) {
         const root = eyeZ + 0.1 * rz,
           tip = eyeZ - (nose === 'button' ? 0.26 : 0.32) * rz;

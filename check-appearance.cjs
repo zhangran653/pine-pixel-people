@@ -753,6 +753,7 @@ for (const id of ['look_body_male', 'look_relay']) {
 for (const base of ['adult', 'child']) {
   const actor = a.l.build({
     ...adultSeed,
+    packs: { 'pine-core': a.l.infantNapeRelease },
     base,
     gender: base === 'adult' ? 'female' : 'unspecified',
     parts: { ...adultSeed.parts, hair: 'shoulder-length', hat: 'none' }
@@ -784,6 +785,54 @@ for (const base of ['adult', 'child']) {
   for (let z = lipZ - 2; z <= lipZ + 2; z++) {
     assert.ok(front(center, z) <= front(center, z + 1), base + ' raised lip ledge in profile');
   }
+}
+// Look through both sides of the actual portrait grid. A frontal lip mark can
+// be present and centered yet disappear behind the cheek at exactly 90 degrees.
+function lipColumns(doc) {
+  const spec = a.painter.build(doc);
+  for (const key of ['lips', 'lipLine', 'upperLip', 'lowerLip']) spec.art.materials[key] = 'ff00ff';
+  const actor = a.m.createCharacter({ id: doc.id, label: doc.label, ...spec });
+  const pose = a.m.rig.pose(actor.rig), coarse = actor.body.makePose(pose);
+  const band = actor.body.faceLayers(pose, coarse, actor.sockets.chinTip.point[2] - 1, 6)[1];
+  const { nx, ny, density } = band.body;
+  const mouth = a.m.rig.socket(actor, pose, 'mouth'), lipZ = Math.floor((mouth[2] - band.z) * density);
+  const center = Math.floor((mouth[1] - band.y) * density + ny / 2);
+  function front(z) {
+    const start = (z * ny + center) * nx;
+    return band.model.colors.subarray(start, start + nx).findLastIndex(Boolean);
+  }
+  const contact = band.x + (front(lipZ) + 0.5 - nx / 2) / density;
+  assert.ok(Math.abs(contact - mouth[0]) <= 1 / density, doc.id + ' mouth socket must meet the lip surface');
+  const eyeZ = Math.floor((a.m.rig.socket(actor, pose, 'leftEye')[2] - band.z) * density);
+  let tip = -1;
+  for (let z = lipZ + 3; z < eyeZ; z++) tip = Math.max(tip, front(z));
+  assert.ok(tip - front(lipZ) >= 2, doc.id + ' closed lips must sit behind the nose tip');
+  return [-1, 1].map((side) => {
+    const columns = new Set();
+    for (let z = lipZ - 4; z <= lipZ + 4; z++) {
+      for (let x = 0; x < nx; x++) {
+        for (let i = 0; i < ny; i++) {
+          const y = side < 0 ? i : ny - 1 - i;
+          const color = band.model.colors[(z * ny + y) * nx + x];
+          if (!color) continue;
+          if ((color & 255) > 140 && (color & 0xff00) === 0 && ((color >>> 16) & 255) > 140) columns.add(x);
+          break;
+        }
+      }
+    }
+    return columns.size;
+  });
+}
+for (const id of ['look_body_female', 'look_fern', 'look_workshop_toddler']) {
+  const doc = clone(a.l.templateById.get(id));
+  doc.parts.hat = 'none'; doc.parts.hair = 'bald';
+  const old = { ...doc, packs: { 'pine-core': a.l.infantNapeRelease } };
+  const prior = lipColumns(old), revised = lipColumns(doc);
+  revised.forEach((n, i) => assert.ok(n >= 3 && n > prior[i], id + ' lips need to read from either profile'));
+  const before = a.l.build(old), after = a.l.build(doc);
+  assert.deepEqual(after.rig.jawPivot, before.rig.jawPivot);
+  assert.deepEqual(after.rig.headPivot, before.rig.headPivot);
+  assert.ok(Math.abs(after.rig.mouth[0] - before.rig.mouth[0]) < 0.25, id + ' lip advance must stay subtle');
 }
 for (const base of ['adult', 'child']) {
   const actor = a.l.build({ ...current, base });
