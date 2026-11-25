@@ -462,6 +462,34 @@ const pineFigurePaint = (() => {
       [.43, 1.035, 1.04, -.12, .04], [.72, .94, .90, -.07, .015], [1, .86, .88, 0, 0]])
   };
   const widePants = new Set(['wide-leg', 'cuffed-denim', 'cargo', 'bib-overalls']);
+  // Pigments are taken after the face has been dyed. Warm half-tones wrap
+  // around a limb, with the same daylight and deep shadow as its owner's cheek.
+  function skinPalette(materials) {
+    const tones = [12, 14, 15, 16, 17, 6, 8, 10];
+    for (const [i, tone] of tones.entries()) {
+      if (materials['skinPlane' + tone]) materials['fleshInk' + i] = materials['skinPlane' + tone];
+    }
+  }
+  const skinStrokes = {
+    // Each mark is a tapered band on a moving section. Height, tilt and width
+    // place the elbow turn, wrist, knee and ankle in local coordinates.
+    upperArm: [.86, .16, .15], forearm: [.1, -.21, .16],
+    thigh: [.89, -.12, .17], shin: [.15, .20, .18]
+  };
+  function limbSkin(ramp, region, t, outer, front, key, contact, bend, age) {
+    const [height, tilt, spread] = skinStrokes[region];
+    const turn = 1 - smooth(Math.abs(t - height - tilt * outer), .03, spread);
+    const elbow = region === 'upperArm' || region === 'forearm';
+    const facesMark = elbow ? smooth(-front, -.42, .49) : smooth(front, -.26, .58);
+    const youth = age === 'baby' ? .48 : age === 'toddler' ? .64 : age === 'child' ? .82 : 1;
+    // An open knee catches light above its small shadow. The inside of a bent
+    // arm is quiet at rest and develops a short warm fold as it closes.
+    const joint = elbow ? -turn * (.62 + .76 * bend) : turn * (.63 - 1.55 * smooth(t, height - .03, height + .12));
+    const taper = region === 'shin' || region === 'forearm' ? smooth(t, .62, .96) : 0;
+    const underside = 1 - smooth(key, -.95, -.24);
+    return swatch(ramp, 3.72 + 2.05 * key - 1.05 * contact - .75 * underside +
+      youth * (facesMark * joint - .69 * taper * smooth(outer, -.35, .46)));
+  }
   function cutLink(brush, torso, paint, a, b, r0, r1, width, pigment) {
     const { k, region, side, style, garment, bend, seated = 0 } = paint;
     const { types, set, bias } = inks(k);
@@ -487,6 +515,12 @@ const pineFigurePaint = (() => {
     const rolled = region === 'forearm' && style === 'oxford';
     const muscle = paint.anatomy?.muscleSection;
     const belly = muscle && section.map((_, i) => muscle(region, i / 96, bend));
+    // A short sleeve ends at the upper arm's breadth, shorts at the thigh's.
+    // The cuff can stand clear of skin even as the elbow or knee swings.
+    const end = paint.end;
+    const coverage = paint.paintedBody && end && end !== b
+      ? clamp(length / Math.hypot(end[0] - a[0], end[1] - a[1], end[2] - a[2])) : 1;
+    const shortHem = coverage < 1;
     const pad = Math.max(r0, r1) * Math.max(width, 1) * (belly ? 1.58 : 1.43);
     brush.stamp(Math.min(a[0], b[0]) - pad, Math.max(a[0], b[0]) + pad,
       Math.min(a[1], b[1]) - pad, Math.max(a[1], b[1]) + pad,
@@ -494,8 +528,9 @@ const pineFigurePaint = (() => {
         const px = x - a[0], py = y - a[1], pz = z - a[2];
         const along = px * ax + py * ay + pz * az, t = clamp(along / length);
         const cx = px - t * dx, cy = py - t * dy, cz = pz - t * dz;
-        const index = Math.round(t * 96);
-        const r = mix(r0, r1, t) * (belly ? belly[index] : 1);
+        const onLimb = shortHem ? t * coverage : t;
+        const index = Math.round(onLimb * 96);
+        const r = mix(r0, r1, onLimb) * (belly ? belly[index] : 1);
         if (cx * cx + cy * cy + cz * cz > 2.1 * r * r) return 0;
         const material = pigment(t, cx, cy / width, cz);
         if (!material) return 0;
@@ -507,7 +542,7 @@ const pineFigurePaint = (() => {
         // Flatten the sleeve over the outer shoulder and turn its crown towards the collar.
         // A shirt cuff and a trouser hem have a shallow end, unlike a bare joint.
         const nearCap = sleeve && upper ? clamp(.65 - .48 * outer, .2, 1.12) : .73;
-        const farCap = skin ? .64 : upper ? .38 : straight || wide ? .43 : .18;
+        const farCap = shortHem ? .10 : skin ? .64 : upper ? .38 : straight || wide ? .43 : .18;
         const cap = along < 0 ? along / (r * nearCap) : along > length ? (along - length) / (r * farCap) : 0;
         if (Math.abs(cap) > 1) return 0;
         const band = 1 - smooth(Math.abs(t - (rolled ? .26 : .87)), .048, .13);
@@ -532,7 +567,14 @@ const pineFigurePaint = (() => {
           1.13 * (nx * torso[1] + ny * torso[5] + nz * torso[9]) +
           .94 * (nx * torso[2] + ny * torso[6] + nz * torso[10]);
         const occlusion = (1 - smooth(outer, -.86, -.14)) * (sleeve ? 1.12 : .72);
-        if (skin) return swatch(set.flesh, 4.15 + key - occlusion * .7 + .42 * bias[material]);
+        if (shortHem && t > .91) {
+          const cloth = sleeve ? set.cloth : set.trouser;
+          return swatch(cloth, 2.6 + key - .7 * occlusion - .8 * smooth(t, .96, 1));
+        }
+        if (skin) {
+          if (paint.paintedBody) return limbSkin(set.flesh, region, t, outer, front, key, occlusion, bend, paint.base);
+          return swatch(set.flesh, 4.15 + key - occlusion * .7 + .42 * bias[material]);
+        }
         // Creases start at the compressed elbow or knee. The long lit plane stays uninterrupted.
         const crease = upper ? t - (.9 - .19 * outer + .04 * front) : t - (.13 - .16 * outer);
         const jointFold = (1 - smooth(Math.abs(crease), .025, .15)) * smooth(outer, -.88, .22);
@@ -589,7 +631,7 @@ const pineFigurePaint = (() => {
         );
       }
   }
-  function hand(brush, k, torso, side, wrist, grip, size, infant, tailored = false) {
+  function hand(brush, k, torso, side, wrist, grip, size, infant, tailored = false, paintedBody = false) {
     const length = Math.hypot(...grip.map((v, i) => v - wrist[i])) || 1;
     const axis = grip.map((v, i) => (v - wrist[i]) / length);
     // The thumb faces forward. Project that direction into the palm as the wrist swings.
@@ -636,6 +678,15 @@ const pineFigurePaint = (() => {
       if (thumb > 1 && palm > 1) return 0;
       const seam = thumb <= 1 && u < 0.63 && h > -0.08 && v < 0.1;
       const tipShade = h > 0.48 && v < 0.04 && Math.cos((u + 0.16) * 10.8) < -0.79;
+      if (paintedBody) {
+        // The back of the hand is one lit cluster. One shadow joins the
+        // fingertips and the thumb web, which still reads on a four-pixel palm.
+        const sideLight = -.94 * side * v + .7 * u;
+        const knuckle = (1 - smooth(Math.abs(h - .18 + .17 * u), .09, .33)) * smooth(v, -.16, .27);
+        const tip = smooth(h, .42, 1.05);
+        return swatch(ramp, 3.85 + 1.84 * sideLight + .72 * knuckle - 1.22 * tip -
+          (seam ? 1.5 : 0) - (tipShade && !infant ? .7 : 0));
+      }
       return swatch(ramp, 4.2 + 0.91 * u + 1.14 * v - 0.68 * h - (seam || tipShade ? 1.55 : 0));
     });
   }
@@ -797,6 +848,7 @@ const pineFigurePaint = (() => {
   }
   return {
     palette,
+    skinPalette,
     garmentCut,
     cutLink,
     cutTorso,

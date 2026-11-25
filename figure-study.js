@@ -6,9 +6,13 @@
   const rows = { adult: [0, 484], child: [489, 363], baby: [868, 218] };
   const originals = { hoodie: 'look_programmer', chef: 'look_chef' };
   const stableRelease = '1.18.0', previousStudy = looks.structureStudyRelease, currentStudy = looks.gameFaceRelease;
-  const key = 'pine.figureStudy.' + previousStudy + '-' + currentStudy + '.v1';
   const holdout = 'pine/figure-holdout/' + currentStudy + '/';
   const search = new URLSearchParams(location.search);
+  let reviewKind = search.get('review') === 'cast' ? 'cast' : 'face';
+  function storageKey() {
+    const versions = reviewKind === 'cast' ? stableRelease + '-' + currentStudy + '.painted.cast' : previousStudy + '-' + currentStudy;
+    return 'pine.figureStudy.' + versions + '.v1';
+  }
   const stages = [$('canvas-a'), $('canvas-b')];
   let mode = search.get('mode') === 'blind' ? 'blind' : 'model';
   let actors, recipes, neutralLayers, neutralHeight, layers, ceiling, renderRequest = 0, timer = 0;
@@ -25,7 +29,7 @@
   const ids = Object.keys(ages).flatMap(age => Array.from({ length: 8 }, (_, n) => subjectId(age, n)));
   function restore() {
     let data;
-    try { data = JSON.parse(localStorage.getItem(key)); } catch { /* Private browsing or invalid data. */ }
+    try { data = JSON.parse(localStorage.getItem(storageKey())); } catch { /* Private browsing or invalid data. */ }
     const validSalt = Number.isInteger(data?.salt) && data.salt >= 0 && data.salt <= 0xffffffff;
     const votes = {};
     if (validSalt) for (const id of ids) {
@@ -36,7 +40,8 @@
       current: ids.includes(data?.current) ? data.current : ids[0], votes
     };
   }
-  const session = restore();
+  let session = restore();
+  const sessions = new Map([[reviewKind, session]]);
   const requestedCase = search.get('case');
   if (mode === 'blind' && ids.includes(requestedCase)) session.current = requestedCase;
   function syncAddress() {
@@ -44,19 +49,24 @@
     if (mode === 'blind') {
       url.searchParams.set('mode','blind');
       url.searchParams.set('case',session.current);
+      if (reviewKind === 'cast') url.searchParams.set('review','cast');
+      else url.searchParams.delete('review');
       url.searchParams.delete('subject');
       url.searchParams.delete('before');
     } else {
       url.searchParams.delete('mode');
       url.searchParams.delete('case');
+      url.searchParams.delete('review');
       url.searchParams.set('subject',$('subject').value);
       url.searchParams.set('before',$('before').value);
     }
     url.searchParams.set('bearing',$('bearing').value);
+    if ($('sample-size').value !== '256') url.searchParams.set('size',$('sample-size').value);
+    else url.searchParams.delete('size');
     history.replaceState(null,'',url);
   }
   function save() {
-    try { localStorage.setItem(key, JSON.stringify(session)); }
+    try { localStorage.setItem(storageKey(), JSON.stringify(session)); }
     catch { storageOK = false; }
   }
   function flipped(id) {
@@ -68,8 +78,9 @@
     const base = session.current.split('/')[0];
     const seed = hash(holdout + session.current);
     const options = { base, seed, portrait: 'animation', style: 'natural' };
-    const revised = looks.randomCharacter({ ...options, release: currentStudy });
-    const old = looks.withFigureStudy(revised);
+    const cast = reviewKind === 'cast';
+    const revised = looks.randomCharacter({ ...options, release: currentStudy, bodyFinish: cast ? 'painted' : undefined });
+    const old = cast ? looks.randomCharacter({ ...options, release: stableRelease }) : looks.withFigureStudy(revised);
     return flipped(session.current) ? [revised, old] : [old, revised];
   }
   // Reproduce the original consecutive 1.18 random-contact sheet. The eight recipes
@@ -94,10 +105,15 @@
   }
   function modelPair() {
     const subject = $('subject').value;
-    const doc = pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
-    const baseline = structuredClone(doc);
+    const doc = subject === 'child-6'
+      ? looks.randomCharacter({ base: 'child', seed: hash(holdout + 'child/5'), release: currentStudy })
+      : pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
+    const revised = looks.withGameFace(doc);
+    if ($('before').value === 'finish') return [revised, { ...revised, bodyFinish: 'painted' }];
+    const baseline = looks.withFigureStudy(doc);
     baseline.packs[looks.core] = $('before').value;
-    return [baseline, looks.withGameFace(doc)];
+    if (!pinePortraitStyles.hasStructureStudy(baseline.packs[looks.core])) delete baseline.anatomyParts;
+    return [baseline, revised];
   }
 
   function stop() {
@@ -111,6 +127,8 @@
     const blind = mode === 'blind';
     $('model-field').hidden = blind;
     $('before-field').hidden = blind;
+    $('review-field').hidden = !blind;
+    $('review-kind').value = reviewKind;
     $('age-field').hidden = !blind;
     $('review').hidden = !blind;
     $('age').value = session.current.split('/')[0];
@@ -123,10 +141,14 @@
       $('guide-label').textContent = ages[subject] + '造型设定稿';
     }
     $('title-a').textContent = blind ? 'A' : $('before').selectedOptions[0].textContent;
-    $('title-b').textContent = blind ? 'B' : currentStudy + ' · 美术基础脸';
+    const finish = $('before').value === 'finish';
+    $('title-b').textContent = blind ? 'B' : currentStudy + (finish ? ' · 四肢与衣边色块' : ' · 美术基础脸');
     $('prompt').textContent = blind
-      ? '本批比较 1.19.2 与 1.19.3。同一张随机配方使用相同的服装、颜色、动作和镜头。'
-      : '同一人物配方、镜头与动作帧，分别用两版实时切片绘制。';
+      ? reviewKind === 'cast'
+        ? '稳定版与试作各自随机生成一人。年龄、种子、镜头与动作帧相同，比较整体搭配和造型。'
+        : '本批比较 1.19.2 与 1.19.3。同一张随机配方使用相同的服装、颜色、动作和镜头。'
+      : finish ? '同一个人物、同一帧。可转到侧面看袖口、手臂、膝盖和小腿的明暗。'
+        : '同一人物配方、镜头与动作帧，分别用两版实时切片绘制。';
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     recipes = blind ? blindPair() : modelPair();
     actors = recipes.map(doc => looks.build(doc));
@@ -227,8 +249,8 @@
     $('saved').textContent = !storageOK ? '本次评审只保存在当前页面' : done ? '评审已完成' : vote ? '本组偏好已保存' : '进度自动保存在此浏览器';
     $('results').hidden = !done;
     if (done) {
-      $('title-a').textContent = flipped(session.current) ? 'A · ' + currentStudy : 'A · ' + previousStudy;
-      $('title-b').textContent = flipped(session.current) ? 'B · ' + previousStudy : 'B · ' + currentStudy;
+      $('title-a').textContent = 'A · ' + recipes[0].packs[looks.core];
+      $('title-b').textContent = 'B · ' + recipes[1].packs[looks.core];
       const counts = $('counts');
       counts.replaceChildren();
       for (const [base, label] of Object.entries(ages)) {
@@ -282,27 +304,38 @@
   $('prev').onclick = () => navigate(ids[ids.indexOf(session.current) - 1]);
   $('next').onclick = () => navigate(ids[ids.indexOf(session.current) + 1]);
   $('export').onclick = () => {
+    const before = reviewKind === 'cast' ? stableRelease : previousStudy;
     const pairs = ids.map(id => {
       const [base, ordinal] = id.split('/');
       const vote = session.votes[id], newOnLeft = flipped(id);
       return { base, number: Number(ordinal) + 1, seed: hash(holdout + id),
-        a: newOnLeft ? currentStudy : previousStudy, b: newOnLeft ? previousStudy : currentStudy, vote };
+        a: newOnLeft ? currentStudy : before, b: newOnLeft ? before : currentStudy, vote };
     });
-    const file = new Blob([JSON.stringify({ study: 'pine-figure-holdout-' + currentStudy, pairs }, null, 2)], { type: 'application/json' });
+    const report = { study: 'pine-figure-holdout-' + currentStudy, review: reviewKind,
+      ...(reviewKind === 'cast' ? { candidateBodyFinish: 'painted' } : {}), pairs };
+    const file = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(file);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'pine-figure-review-' + currentStudy + '.json';
+    link.download = 'pine-figure-review-' + currentStudy + (reviewKind === 'cast' ? '-cast' : '') + '.json';
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   $('before').onchange = $('subject').onchange = () => { syncAddress(); setSample(); };
+  $('review-kind').onchange = () => {
+    reviewKind = $('review-kind').value;
+    session = sessions.get(reviewKind) || restore();
+    sessions.set(reviewKind, session);
+    save();
+    syncAddress();
+    setSample();
+  };
   $('action').onchange = () => { startClip(); refreshLinks(); };
   $('phase').oninput = () => { stop(); rebuildFrame(); };
   $('bearing').oninput = () => { draw(); refreshLinks(); };
   $('bearing').onchange = syncAddress;
   $('ink').onchange = draw;
-  $('sample-size').onchange = draw;
+  $('sample-size').onchange = () => { draw(); syncAddress(); };
   $('play').onclick = () => {
     if (timer) { stop(); return; }
     const seconds = motion.actions.get($('action').value).seconds;
@@ -325,7 +358,8 @@
     cancelAnimationFrame(renderRequest);
     renderRequest = requestAnimationFrame(draw);
   });
-  $('before').value = [stableRelease, looks.tailoredRelease, looks.proportionStudyRelease, previousStudy].includes(search.get('before')) ? search.get('before') : previousStudy;
+  $('before').value = [stableRelease, looks.tailoredRelease, looks.proportionStudyRelease, previousStudy, 'finish'].includes(search.get('before')) ? search.get('before') : previousStudy;
+  if (['64', '128', '256'].includes(search.get('size'))) $('sample-size').value = search.get('size');
   const initialAngle = Number(search.get('bearing'));
   if (Number.isInteger(initialAngle) && initialAngle >= 0 && initialAngle < 360) $('bearing').value = initialAngle;
   if ([...$('subject').options].some(o => o.value === search.get('subject'))) $('subject').value = search.get('subject');

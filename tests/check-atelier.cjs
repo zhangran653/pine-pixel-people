@@ -813,6 +813,9 @@ function checkEditor() {
     expect(!formMix.disabled, 'selected art base enables its blend control');
     formMix.value = '0.65'; formMix.dispatchEvent(new Event('input'));
     byId('tab-shape').click();
+    const bodyFinish = byId('edit-body-finish');
+    expect(bodyFinish.value === '', 'existing recipes keep their original body paint');
+    bodyFinish.value = 'painted'; bodyFinish.dispatchEvent(new Event('change'));
     const assembly = { torso: 'broad', arms: 'slender', legs: 'strong' };
     for (const [slot, value] of Object.entries(assembly)) {
       const field = byId('edit-anatomy-' + slot);
@@ -830,7 +833,7 @@ function checkEditor() {
       'age change must retain the chosen components');
     document.querySelector('[data-random-lock="body"]').checked = true;
     byId('random-character').click();
-    expect(byId('try-figure').disabled && Object.entries(assembly).every(([slot, value]) =>
+    expect(byId('try-figure').disabled && byId('edit-body-finish').value === 'painted' && Object.entries(assembly).every(([slot, value]) =>
       byId('edit-anatomy-' + slot).value === value), 'body lock must retain the renderer and all component choices');
     byId('undo-random').click();
     byId('save-look').click();
@@ -838,7 +841,7 @@ function checkEditor() {
     const diskRecipe = JSON.parse(localStorage.getItem('pineCreek.look.v1.' + assembled.id));
     const reimported = PineWardrobe.importCharacter(diskRecipe).recipe;
     expect(assembled.packs['pine-core'] === PineLooks.gameFaceRelease &&
-      reimported.id === assembled.id && reimported.face.form === 'angular' && reimported.face.formMix === 0.65 && JSON.stringify(reimported.anatomyParts) === JSON.stringify(assembly),
+      reimported.id === assembled.id && reimported.bodyFinish === 'painted' && reimported.face.form === 'angular' && reimported.face.formMix === 0.65 && JSON.stringify(reimported.anatomyParts) === JSON.stringify(assembly),
       'portable trial character must keep the selected renderer and art face and three individual body components');
     const partialAssembly = { ...assembled, anatomyParts: { arms: 'strong' } };
     expect(JSON.stringify(PineLooks.prepare(partialAssembly).recipe.anatomyParts) === '{"arms":"strong"}',
@@ -850,7 +853,7 @@ function checkEditor() {
       expect(rejected, 'reject unsupported anatomy fields, choices and renderer versions');
     }
     const priorRoll = PineLooks.randomCharacter({ seed: 18, source: assembled, release: '1.19.1', locks: ['body', 'wear'] });
-    expect(!Object.hasOwn(PineLooks.prepare(priorRoll).recipe, 'anatomyParts'),
+    expect(!Object.hasOwn(PineLooks.prepare(priorRoll).recipe, 'anatomyParts') && !Object.hasOwn(priorRoll, 'bodyFinish'),
       'explicit older random generation must produce a portable old-format recipe');
     target.dataset.state = 'pass';
     target.textContent =

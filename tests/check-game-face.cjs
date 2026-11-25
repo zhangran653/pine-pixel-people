@@ -118,10 +118,36 @@ async function check() {
     assert.notEqual(digest(model.colors), digest(shut.colors), 'eyelids close on the live character');
     distinct.add(digest(model.colors));
   }
+  // The two painters can be compared on the exact short-sleeved child from the
+  // holdout, with identical pose landmarks, clothing dyes and face pixels.
+  const sample = { base: 'child', seed: 3418494998, release: looks.gameFaceRelease };
+  const original = looks.randomCharacter(sample);
+  const finish = looks.randomCharacter({ ...sample, bodyFinish: 'painted' });
+  assert.deepEqual(finish, { ...original, bodyFinish: 'painted', id: finish.id, label: finish.label });
+  assert.notEqual(original.id, finish.id);
+  assert.equal(looks.prepare(toPlain(finish)).recipe.bodyFinish, 'painted');
+  assert.ok(!Object.hasOwn(looks.withFigureStudy(finish), 'bodyFinish'));
+  assert.throws(() => looks.prepare({ ...original, bodyFinish: 'unknown' }));
+  assert.throws(() => looks.randomCharacter({ ...sample, release: looks.release, bodyFinish: 'painted' }));
+  for (const skin of ['#e1b798', '#47332f']) {
+    const actors = [original, finish].map(doc => looks.build({ ...doc, colors: { ...doc.colors, skin } }));
+    const [prior, revised] = actors;
+    assert.deepEqual(prior.rig, revised.rig);
+    assert.deepEqual(prior.sockets, revised.sockets);
+    const pose = motion.actions.get('idle').sample(.17, prior)[0].pose;
+    const colors = actors.map(a => a.body.makePose(pose).colors);
+    const { nx, ny, density } = prior.body;
+    const band = (z) => Math.ceil(z * density) * nx * ny;
+    assert.equal(digest(colors[0].subarray(band(prior.rig.neck[2] + 1))), digest(colors[1].subarray(band(prior.rig.neck[2] + 1))));
+    assert.notEqual(digest(colors[0].subarray(0, band(pose.legs[0].knee[2]))), digest(colors[1].subarray(0, band(pose.legs[0].knee[2]))));
+    motion.characters.set(revised.id, revised);
+    cast.setFrame(motion.actions.get('wave').sample(.37, revised));
+    assert.ok(cast.group.getObjectByName(revised.id).geometry.drawRange.count > 0);
+  }
   cast.dispose();
   assert.equal(distinct.size, 4);
   console.log(
-    'Four ages, 16 authored faces, 128 replayed recipes, mouth profiles, blinks, independent dyes, grounded infant rest and four Three.js face meshes passed'
+    'Four ages, 16 authored faces, 128 replayed recipes, blinks, grounded infant rest, independent limb paint, preserved face and sockets, and Three.js surface meshes passed'
   );
 }
 check().catch((err) => {

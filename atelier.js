@@ -1129,6 +1129,14 @@
               (draft.anatomyParts ??= {})[slot] = value;
             }));
         }
+        if (draft.packs[looks.core] === looks.gameFaceRelease) {
+          section.querySelector('legend').textContent = '身体造型';
+          grid.append(picker('身体着色', 'body-finish', [['', '原有着色'], ['painted', '四肢与衣边色块']],
+            draft.bodyFinish || '', value => {
+              if (value) draft.bodyFinish = value;
+              else delete draft.bodyFinish;
+            }));
+        }
         area.append(section);
       }
       area.append(...tabKeys.shape.map(slider));

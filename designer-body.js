@@ -582,6 +582,7 @@ const pineDesignerBody = (() => {
     const modelAnatomy = pinePortraitStyles.hasProportionStudy(pin);
     const pixelStructure = pinePortraitStyles.hasStructureStudy(pin);
     const gameFace = pin === pinePortraitStyles.gameFaceRelease && style === 'animation';
+    const paintedBody = recipe.bodyFinish === 'painted';
     const wholeFigure = pin === pinePortraitStyles.figureRelease || tailored;
     const garment = tailored && pineFigurePaint.garmentCut(parts.top, recipe.base);
     const pixelPortrait = pinePortraitStyles.hasPixelFace(pin) && style === 'animation';
@@ -1033,6 +1034,7 @@ const pineDesignerBody = (() => {
       }
     }
     if (gameFace) pineGameFace.palette(materials,recipe.colors,tint);
+    if (paintedBody) pineFigurePaint.skinPalette(materials);
     if (infantFace && !animated) {
       const warm = tint(materials.skin, 'c47570', 0.36);
       materials.cheekWarm = tint(materials.faceLight, warm, 0.65);
@@ -1146,9 +1148,9 @@ const pineDesignerBody = (() => {
           { hip, knee } = pose.legs[i];
         const bend = tailored ? jointCompression(hip, knee, foot) : 0;
         const thighLink = softContours ? contouredLink(b, pose.torso, limbContours.thigh,
-          wholeFigure && { k, side, tailored, bend, garment, anatomy, base: recipe.base, region: 'thigh', seated, style: parts.bottom }) : b.link;
+          wholeFigure && { k, side, tailored, bend, garment, anatomy, paintedBody, end: knee, base: recipe.base, region: 'thigh', seated, style: parts.bottom }) : b.link;
         const shinLink = softContours ? contouredLink(b, pose.torso, limbContours.shin,
-          wholeFigure && { k, side, tailored, bend, garment, anatomy, base: recipe.base, region: 'shin', style: parts.bottom }) : b.link;
+          wholeFigure && { k, side, tailored, bend, garment, anatomy, paintedBody, end: foot, base: recipe.base, region: 'shin', style: parts.bottom }) : b.link;
         if (collectionBottom && !skirt) {
           pineEverydayStyles.pants(
             parts.bottom,
@@ -1390,9 +1392,9 @@ const pineDesignerBody = (() => {
       for (const { side, shoulder, elbow, wrist, hand } of pose.arms) {
         const bend = tailored ? jointCompression(shoulder, elbow, wrist) : 0;
         const upperLink = softContours ? contouredLink(b, pose.torso, limbContours.upperArm,
-          wholeFigure && { k, side, tailored, bend, garment, anatomy, base: recipe.base, region: 'upperArm', style: parts.top }) : b.link;
+          wholeFigure && { k, side, tailored, bend, garment, anatomy, paintedBody, end: elbow, base: recipe.base, region: 'upperArm', style: parts.top }) : b.link;
         const foreLink = softContours ? contouredLink(b, pose.torso, limbContours.forearm,
-          wholeFigure && { k, side, tailored, bend, garment, anatomy, base: recipe.base, region: 'forearm', style: parts.top }) : b.link;
+          wholeFigure && { k, side, tailored, bend, garment, anatomy, paintedBody, end: wrist, base: recipe.base, region: 'forearm', style: parts.top }) : b.link;
         if (worldTop || collectionTop || workshopTop) {
           const sleeve = worldTop
             ? pineWorldWardrobe.sleeve
@@ -1468,7 +1470,7 @@ const pineDesignerBody = (() => {
         }
         if (parts.wrist && side === 1) pineWorkshopWear.wristwear(parts.wrist, b, k, { elbow, wrist }, cuff);
         if (wholeFigure) {
-          pineFigurePaint.hand(b, k, pose.torso, side, wrist, hand, palm * (tailored ? 1.10 : 1), infant, tailored);
+          pineFigurePaint.hand(b, k, pose.torso, side, wrist, hand, palm * (tailored ? 1.10 : 1), infant, tailored, paintedBody);
         } else {
           const length = Math.hypot(...hand.map((v, j) => v - wrist[j])) || 1;
           const axis = hand.map((v, j) => (v - wrist[j]) / length);

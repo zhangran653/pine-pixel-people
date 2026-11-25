@@ -39,6 +39,10 @@
         "baby"
       ]
     },
+    "bodyFinish": {
+      "description": "四肢和手掌的像素色块，以及包住肢体的短袖短裤衣边。省略时沿用该版本原有的身体着色。",
+      "const": "painted"
+    },
     "anatomyParts": {
       "description": "pine-core 1.19.2 起的可换人体部件。1.19.3 的立体动画脸优先使用 face.form。每个部位都可省略，省略时使用所选年龄与体型的标准形态。",
       "type": "object",
@@ -863,7 +867,7 @@
   "allOf": [
     {
       "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "const": "1.19.3" } } } } } },
-      "then": { "properties": { "face": { "properties": { "form": false, "formMix": false } } } }
+      "then": { "properties": { "bodyFinish": false, "face": { "properties": { "form": false, "formMix": false } } } }
     },
     {
       "if": { "required": ["anatomyParts"] },

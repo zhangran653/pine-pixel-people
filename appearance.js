@@ -69,6 +69,7 @@ const PineLooks = (() => {
   function withFigureStudy(recipe) {
     const next = structuredClone(recipe);
     next.packs[core] = structureStudyRelease;
+    delete next.bodyFinish;
     if (next.face?.form) {
       next.anatomyParts = { ...next.anatomyParts, skull: next.face.form };
       delete next.face.form;
@@ -502,7 +503,7 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (recipe.face?.form !== undefined || recipe.face?.formMix !== undefined) needed = gameFaceRelease;
+    if (recipe.bodyFinish !== undefined || recipe.face?.form !== undefined || recipe.face?.formMix !== undefined) needed = gameFaceRelease;
     else if (recipe.anatomyParts !== undefined) needed = structureStudyRelease;
     else if (recipe.face?.style === 'animation') needed = facePlaneRelease;
     else if (recipe.face?.style !== undefined) needed = illustratedRelease;
@@ -679,7 +680,7 @@ SOFTWARE.`;
     fields(
       raw,
       ['format', 'version', 'id', 'label', 'base', 'packs', 'parts', 'shape', 'colors'],
-      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity', 'anatomyParts']
+      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity', 'anatomyParts', 'bodyFinish']
     );
     requireThat(raw.baseNotice === undefined || raw.baseNotice === baseNotice, '基础素材许可声明与版本不符');
     requireThat(
@@ -755,6 +756,7 @@ SOFTWARE.`;
     fields(raw.packs, owner === core ? [core] : [core, owner]);
     const pin = raw.packs[core];
     requireThat(releases.includes(pin), '不支持的基础部件版本');
+    requireThat(raw.bodyFinish === undefined || raw.bodyFinish === 'painted', '未知身体着色方式');
     const required = editingRelease(raw);
     requireThat(pin === required, '所选形象需要 pine-core ' + required);
     let anatomy;
@@ -832,6 +834,7 @@ SOFTWARE.`;
       ...(identity ? { identity } : {}),
       ...(hasProfiles ? { gender } : {}),
       packs: pins,
+      ...(raw.bodyFinish ? { bodyFinish: raw.bodyFinish } : {}),
       ...(anatomy ? { anatomyParts: anatomy } : {}),
       shape: sizes,
       parts,
@@ -1401,6 +1404,7 @@ SOFTWARE.`;
     const expressive = style === 'expressive';
     const doc = structuredClone(recipe);
     doc.packs[core] = pin;
+    if (pin !== gameFaceRelease) delete doc.bodyFinish;
     if (!pinePortraitStyles.hasStructureStudy(pin)) delete doc.anatomyParts;
     if (doc.face) {
       delete doc.face.formMix;
@@ -1473,7 +1477,9 @@ SOFTWARE.`;
   }
   function randomCharacter(input) {
     const { random = Math.random, style, portrait, family, source, seed, base,
-      release: pin = figurePin(source), locks = [] } = generationOptions(input);
+      release: pin = figurePin(source), bodyFinish = pin === gameFaceRelease ? source?.bodyFinish : undefined,
+      locks = [] } = generationOptions(input);
+    requireThat(bodyFinish === undefined || (bodyFinish === 'painted' && pin === gameFaceRelease), '身体着色试作需要 pine-core ' + gameFaceRelease);
     const keep = new Set(source ? locks : []);
     const tailored = pinePortraitStyles.hasTailoredFigure(pin);
     requireThat(base === undefined || Object.values(bodyProfiles).some(profile => profile.base === base), '未知年龄基型');
@@ -1512,6 +1518,7 @@ SOFTWARE.`;
       doc.anatomyParts = { ...(doc.face.form ? {} : {skull: pick(skulls, random)}), torso,
         arms: pick(['balanced', build], random), legs: pick(['balanced', build], random) };
     }
+    if (bodyFinish) doc.bodyFinish = bodyFinish;
     doc.id = seed === undefined ? newId() : seededLookId(doc, seed);
     doc.label = '新人物 ' + doc.id.slice(-5).toUpperCase();
     return doc;
