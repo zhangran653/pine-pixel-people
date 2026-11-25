@@ -184,8 +184,12 @@ function check(studyBench) {
       if (query.has('measure')) {
         $('qa').textContent=JSON.stringify({baby:Number(query.get('feature-seed') || 0)+1,frames:results}); return;
       }
+      choose('before','whole-1.19.6');
+      expect(!$('face-gallery').hidden && $('face-gallery').href.endsWith('/whole-1.19.6.webp') &&
+        JSON.stringify(linkedRecipe('b')) === JSON.stringify(pair[1]) &&
+        linkedRecipe('a').packs[PineLooks.core] === PineLooks.release, 'full trial changed the random infant');
       document.querySelector('[data-mode="blind"]').click(); choose('review-kind','features');
-      expect($('progress').textContent.includes('0 / 32') && !$('edit-b').hasAttribute('href'),'the feature holdout leaked an answer');
+      expect($('progress').textContent.includes('0 / 32') && !$('edit-b').hasAttribute('href') && $('face-gallery').hidden,'the feature holdout leaked an answer');
       for(let i=0;i<32;i++) document.querySelector('[data-vote="tie"]').click();
       expect(!$('results').hidden && [...$('counts').rows].every(row=>row.cells[2].textContent==='8'), 'unreviewed age');
       $('qa').textContent='Checked 32 reversible feature pairs and seated throat pixels '+JSON.stringify(results);
@@ -369,6 +373,15 @@ function check(studyBench) {
     choose('subject','baseline-4');
     const baseline = JSON.parse(new URLSearchParams(new URL($('edit-b').href).hash.slice(1)).get('character'));
     expect(baseline.base === 'child' && baseline.parts.hat === 'pine-core/sunhat' && baseline.parts.top === 'pullover' && $('guide').hidden, 'original consecutive sample 4 was lost');
+    choose('before','whole-1.19.6');
+    const stableHat = linkedRecipe('a'), trialHat = linkedRecipe('b');
+    expect(stableHat.packs[PineLooks.core] === PineLooks.release && trialHat.packs[PineLooks.core] === PineLooks.featureStudyRelease &&
+      trialHat.bodyFinish === 'painted' && PineLooks.usesClothingCut(trialHat), 'full figure versions or finishes do not match');
+    for (const field of ['base','id','parts','shape','colors'])
+      expect(JSON.stringify(stableHat[field]) === JSON.stringify(trialHat[field]), 'the complete comparison changed '+field);
+    for (const key of ['eyes','brows','mouth','nose','outline'])
+      expect(stableHat.face[key] === trialHat.face[key], 'the complete comparison changed '+key);
+    expect($('canvas-a').toDataURL()!==picture(), 'stable yellow-hat pixels were reused on both sides');
     choose('subject','child-6');
     choose('before','finish');
     const left = linkedRecipe('a'), right = linkedRecipe('b');

@@ -27,6 +27,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 对照台两边使用同一份人物配方和同一动作帧。样本「婴儿随机 01」曾在正侧面露出颏下缺口，可以直接旋转并切换坐姿、伸手和爬行。盲评的四个年龄各有八人，每组的发型、肤色、帽子和衣服都随原始随机结果保留。[重看婴儿随机 01](http://127.0.0.1:8000/figure-study.html?subject=baby-face-1&before=features&bearing=270&size=128) · [连续随机的八人实拍](studies/pixel-structure/feature-random.webp) · [32 组分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=features&size=128)
 
+选择「稳定版与完整试作」可以直接看 1.18.0 到 1.19.6 的累计变化。黄帽橙衫使用项目留存的第 04 号随机人物，程序员与餐厅厨师使用形象库预设。已有 1.19.6 草稿会保留自己的脸型、选色和剪裁。每组共用摄像机和地面，动作取同一进度。[四人全身、侧脸与动作剪影实拍](studies/pixel-structure/whole-1.19.6.webp) · [旋转黄帽橙衫 04](http://127.0.0.1:8000/figure-study.html?subject=baseline-4&before=whole-1.19.6&size=128)
+
 ### 1.19.5 分龄衣物剪裁试作
 
 在人物创作室的「体型 → 衣物轮廓」选「分龄剪裁」。衣服按成人、儿童、幼儿和婴儿各自的正面宽度与前后深度成形。短袖的领边和胸袋沿布面转到侧面，腰带随腰围收拢。走路时裤管跨过膝部，坐姿婴儿的裤腿在大腿上铺开。这项试作可以保存、撤销，普通新建人物使用 1.18.0。[编辑幼儿的剪裁](http://127.0.0.1:8000/atelier.html?model=toddler&figure=cut&tab=shape) · [黄帽橙衫、厨师服与儿童短袖的实拍](studies/pixel-structure/garment-cuts.webp) · [旋转儿童短袖](http://127.0.0.1:8000/figure-study.html?subject=child-6&before=cut&bearing=270&size=128)

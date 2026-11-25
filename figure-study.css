@@ -27,7 +27,7 @@
 .transport label output { text-align:right; font-variant-numeric:tabular-nums; }
 .transport input { grid-column:1/-1; width:100%; accent-color:var(--ws-pine); margin:0; }
 .guide,#review { padding:14px; border:1px solid var(--ws-line); border-radius:7px; background:var(--ws-card); }
-.guide a { color:var(--ws-pine); font-size:.88rem; }
+.guide a,.transport a { color:var(--ws-pine); font-size:.88rem; }
 .guide-strip { margin-top:10px; overflow:hidden; }
 .guide-strip img { display:block; width:100%; }
 #review p { margin:6px 0 10px; }

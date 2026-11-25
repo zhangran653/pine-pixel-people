@@ -60,7 +60,8 @@
           <optgroup id="baseline-subjects" label="上一轮连续随机"></optgroup>
         </select></label>
         <label id="before-field">比较内容<select id="before">
-          <optgroup id="whole-comparisons" label="完整人物"><option value="whole">稳定版与全身试作</option><option value="bases">分龄基础脸 · 1.19.3 / 1.19.4</option><option value="cut">分龄衣物剪裁 · 1.19.4 / 1.19.5</option><option value="features">五官与下颌 · 1.19.5 / 1.19.6</option></optgroup>
+          <optgroup id="whole-comparisons" label="完整人物"><option value="whole-1.19.6">稳定版与完整试作 · 1.18.0 / 1.19.6</option><option value="whole">稳定版与全身试作 · 1.18.0 / 1.19.3</option></optgroup>
+          <optgroup label="分项试作"><option value="bases">分龄基础脸 · 1.19.3 / 1.19.4</option><option value="cut">分龄衣物剪裁 · 1.19.4 / 1.19.5</option><option value="features">五官与下颌 · 1.19.5 / 1.19.6</option></optgroup>
           <optgroup label="单项对照"><option value="1.19.2" selected>1.19.2 · 人体结构</option><option value="1.19.1">1.19.1 · 身体比例</option><option value="1.19.0">1.19.0 · 首版试作</option><option value="1.18.0">1.18.0 · 稳定版</option><option value="finish">1.19.3 · 原有身体着色</option></optgroup>
         </select></label>
         <label id="form-field" hidden>比较的脸型<select id="drawn-form"><option value="">随人物配方</option><option value="balanced">均衡</option><option value="long">长脸</option><option value="round">短圆脸</option><option value="angular">方脸</option></select></label>
@@ -85,6 +86,7 @@
         <label>视角 <output id="angle-value" for="bearing">0°</output><input id="bearing" type="range" min="0" max="360" step="any" value="0"></label>
         <label>动作进度 <output id="phase-value" for="phase">17%</output><input id="phase" type="range" min="0" max="100" step="any" value="17"></label>
         <button id="play" aria-pressed="false">播放动作</button>
+        <a id="face-gallery" href="studies/pixel-structure/game-faces.webp">新旧脸型实拍</a>
       </section>
       <section id="review" hidden aria-label="盲评">
         <div class="review-head"><h2 id="round">人物对照</h2><span id="progress"></span></div>
@@ -94,7 +96,7 @@
         <div id="results" hidden><div class="review-head"><h2>分龄结果</h2><button id="export">下载评审记录</button></div><table><thead><tr><th>年龄</th><th>偏好原版</th><th>相当</th><th>偏好试作</th></tr></thead><tbody id="counts"></tbody></table></div>
       </section>
       <section class="guide" id="guide">
-        <div class="review-head"><h2 id="guide-label">造型设定稿</h2><div class="guide-links"><a id="face-gallery" href="studies/pixel-structure/game-faces.webp">新旧脸型实拍</a><a href="figure-model-guide.webp">完整设定稿</a><a href="figure-study-1.19.1-turnaround.webp">1.19.1 四向对照</a><a href="figure-study-turnaround.webp">首版四向图</a></div></div>
+        <div class="review-head"><h2 id="guide-label">造型设定稿</h2><div class="guide-links"><a href="figure-model-guide.webp">完整设定稿</a><a href="figure-study-1.19.1-turnaround.webp">1.19.1 四向对照</a><a href="figure-study-turnaround.webp">首版四向图</a></div></div>
         <div class="guide-strip"><img id="guide-img" src="figure-model-guide.webp" alt="同一人物的正面、斜面、侧面和背面像素设定"></div>
       </section>
       <noscript>启用 JavaScript 后可查看实时切片并参加盲评。</noscript>
