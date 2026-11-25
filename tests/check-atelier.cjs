@@ -736,7 +736,12 @@ function checkEditor() {
       b.click();
       expect(Number(byId('bearing').value) === Number(b.dataset.artAngle) &&
         byId('portrait-style').value === 'natural', 'reference thumbnails rotate the existing character');
+      expect(guide.querySelectorAll('[aria-pressed="true"]').length === 1 && b.getAttribute('aria-pressed') === 'true',
+        'highlight the matching reference while turning the camera');
     }
+    byId('bearing').value = 180;
+    byId('bearing').dispatchEvent(new Event('input'));
+    expect(!guide.querySelector('[aria-pressed="true"]'), 'a rear view clears the front-facing references');
     byId('bearing').value = originalAngle;
     byId('bearing').dispatchEvent(new Event('input'));
     guide.open = false;

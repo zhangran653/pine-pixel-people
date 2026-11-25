@@ -634,7 +634,8 @@ h2 {
   font-weight: 550;
 }
 .preset-choices button[aria-pressed='true'],
-.hair-angles button[aria-pressed='true'] {
+.hair-angles button[aria-pressed='true'],
+.turnaround-angles button[aria-pressed='true'] {
   border-color: #436448;
   background: #e5ebdd;
   color: #233c2d;

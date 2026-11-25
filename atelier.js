@@ -211,8 +211,8 @@
     const dirs = ['正面', '正面偏侧', '侧面', '背面偏侧', '背面', '背面偏侧', '侧面', '正面偏侧'];
     $('angle-tag').textContent = dirs[Math.round(bearing / 45) % 8] + ' · ' + Math.round(bearing) + '°';
     $('bearing').value = Math.round(bearing);
-    for (const b of document.querySelectorAll('[data-hair-angle], [data-profile-angle]')) {
-      const angle = Number(b.dataset.profileAngle ?? b.dataset.hairAngle);
+    for (const b of document.querySelectorAll('[data-hair-angle], [data-profile-angle], [data-art-angle]')) {
+      const angle = Number(b.dataset.profileAngle ?? b.dataset.hairAngle ?? b.dataset.artAngle);
       const difference = Math.abs(((bearing - angle + 540) % 360) - 180);
       b.setAttribute('aria-pressed', String(difference < 8));
     }
