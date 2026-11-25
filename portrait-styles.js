@@ -15,7 +15,9 @@ const pinePortraitStyles = (() => {
   const figureRelease = '1.18.0';
   const tailoredRelease = '1.19.0';
   const proportionStudyRelease = '1.19.1';
-  const hasTailoredFigure = pin => pin === tailoredRelease || pin === proportionStudyRelease;
+  const structureStudyRelease = '1.19.2';
+  const hasProportionStudy = pin => pin === proportionStudyRelease || pin === structureStudyRelease;
+  const hasTailoredFigure = pin => pin === tailoredRelease || hasProportionStudy(pin);
   const hasPixelFace = pin => pin === pixelRelease || pin === figureRelease || hasTailoredFigure(pin);
   const portraitStyles = { animation: '立体动画', game: '游戏立绘', manga: '漫画', natural: '自然' };
   function portraitStyle(recipe) {
@@ -32,7 +34,7 @@ const pinePortraitStyles = (() => {
       const young = base === 'child' || base === 'toddler';
       // The turnaround gives the iris more vertical room while leaving clean skin
       // between lid and brow. The rim and nose share a smaller plane on young faces.
-      const study = pin === proportionStudyRelease;
+      const study = hasProportionStudy(pin);
       const headWidth = study ? { baby: 1.03, toddler: 1.045, child: 1.055, adult: 0.993 }[base]
         : infant ? 1.015 : young ? 0.975 : 0.935;
       return { ...p, headWidth,
@@ -717,7 +719,7 @@ const pinePortraitStyles = (() => {
   }
   return {
     proportions,
-    illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, figureRelease, tailoredRelease, proportionStudyRelease, hasTailoredFigure, hasPixelFace, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
+    illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, figureRelease, tailoredRelease, proportionStudyRelease, structureStudyRelease, hasProportionStudy, hasTailoredFigure, hasPixelFace, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
     illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors,
     morphs,
     profileControls,

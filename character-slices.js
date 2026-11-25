@@ -160,9 +160,11 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     const brush = {density, faceDetail, frame(transform) {frame=transform;}, stamp, blob, link};
     art.paint(pose, brush, ink);
     frame = null;
-    const bottle = pose.bottle || art.carriedBottle?.(pose);
-    if (bottle) paintBottle(bottle, pose.arms.find(arm => arm.side === -1), stamp, link);
-    if (accessories && pose.props?.length) accessories.paint(pose,brush,ink,art.devices);
+    if (!art.structureOnly) {
+      const bottle = pose.bottle || art.carriedBottle?.(pose);
+      if (bottle) paintBottle(bottle, pose.arms.find(arm => arm.side === -1), stamp, link);
+      if (accessories && pose.props?.length) accessories.paint(pose,brush,ink,art.devices);
+    }
 
     const colors = new Uint32Array(cells.length);
     const bounds=[nx,ny,nz,0,0,0];
@@ -260,7 +262,9 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
   function faceLayers(pose, model, height, desiredDensity, bodyDensity = 0, close = false) {
     const b = model.bounds, plane = nx * ny;
     if (art.portraitFloor) height = Math.min(height, art.portraitFloor(pose));
-    const cut = Math.max(b[2] + 1, Math.floor(height * density));
+    // A detached modeling head has no neck/body band. Include the underside of
+    // the mandible in the refined volume instead of leaving one coarse slice.
+    const cut = art.isolatedHead ? Math.max(0, b[2] - 1) : Math.max(b[2] + 1, Math.floor(height * density));
     if (cut >= b[5]) return null;
     const magnified = close && art.illustratedPortrait;
     const upper = refineBand(pose, model, cut, b[5], magnified ? desiredDensity * 1.5 : desiredDensity,
@@ -274,7 +278,7 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
         body: createSliceProjector(nx, ny, to - from, density),
         model: {
           colors: model.colors.subarray(plane * from, plane * to),
-          bounds: [b[0], b[1], Math.max(0, b[2] - from), b[3], b[4], Math.min(to, b[5]) - from],
+          bounds: [b[0], b[1], clamp(b[2] - from, 0, to - from), b[3], b[4], Math.min(to, b[5]) - from],
           sheets: []
         }
       };

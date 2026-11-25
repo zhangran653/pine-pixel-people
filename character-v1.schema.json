@@ -39,6 +39,17 @@
         "baby"
       ]
     },
+    "anatomyParts": {
+      "description": "pine-core 1.19.2 的可换人体部件。每个部位都可省略，省略时使用所选年龄与体型的标准形态。",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skull": { "enum": ["balanced", "long", "round", "angular"] },
+        "torso": { "enum": ["balanced", "broad", "slender"] },
+        "arms": { "enum": ["balanced", "strong", "slender"] },
+        "legs": { "enum": ["balanced", "strong", "slender"] }
+      }
+    },
     "packs": {
       "type": "object",
       "required": [
@@ -80,7 +91,8 @@
             "1.17.0",
             "1.18.0",
             "1.19.0",
-            "1.19.1"
+            "1.19.1",
+            "1.19.2"
           ]
         }
       },
@@ -847,21 +859,25 @@
   },
   "allOf": [
     {
-      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1"] } } } } } },
+      "if": { "required": ["anatomyParts"] },
+      "then": { "properties": { "packs": { "properties": { "pine-core": { "const": "1.19.2" } } } } }
+    },
+    {
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2"] } } } } } },
       "then": { "properties": { "face": { "properties": { "style": { "not": { "const": "animation" } } } } } }
     },
     {
-      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1"] } } } } } },
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2"] } } } } } },
       "then": { "properties": { "face": { "properties": { "style": false } } } }
     },
     {
-      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1"] } } } } } },
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2"] } } } } } },
       "then": { "properties": { "shape": { "properties": {
         "lipProjection": { "const": 0 }, "jawDefinition": { "const": 0 }
       } } } }
     },
     {
-      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1"] } } } } } },
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2"] } } } } } },
       "then": { "properties": { "shape": { "properties": {
         "cheekHeight": { "const": 0 },
         "cheekWidth": { "const": 0 },
@@ -882,7 +898,7 @@
     {
       "if": {
         "properties": {
-          "packs": { "properties": { "pine-core": { "not": { "enum": ["1.11.0", "1.11.1", "1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1"] } } } }
+          "packs": { "properties": { "pine-core": { "not": { "enum": ["1.11.0", "1.11.1", "1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0", "1.16.1", "1.16.2", "1.17.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2"] } } } }
         }
       },
       "then": {
@@ -932,7 +948,8 @@
                   "1.17.0",
                   "1.18.0",
                   "1.19.0",
-                  "1.19.1"
+                  "1.19.1",
+            "1.19.2"
                 ]
               }
             }

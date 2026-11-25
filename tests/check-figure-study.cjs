@@ -27,11 +27,11 @@ function check(studyBench) {
     expect($('subject').value === 'baby' && $('before').value === '1.19.0' && $('bearing').value === '270',
       'baby profile comparison link lost its subject, angle or baseline');
     choose('subject','adult');
-    expect($('title-b').textContent.includes('1.19.1'), 'latest study did not start');
+    expect($('title-b').textContent.includes('1.19.2'), 'latest study did not start');
     const pin = side => JSON.parse(new URLSearchParams(new URL($('edit-' + side).href).hash.slice(1)).get('character')).packs['pine-core'];
-    expect(pin('a') === '1.19.0' && pin('b') === '1.19.1', 'default comparison should be first versus current study');
+    expect(pin('a') === '1.19.0' && pin('b') === '1.19.2', 'default comparison should be first versus current study');
     choose('before','1.18.0');
-    expect(pin('a') === '1.18.0' && pin('b') === '1.19.1', 'stable alternative baseline did not load');
+    expect(pin('a') === '1.18.0' && pin('b') === '1.19.2', 'stable alternative baseline did not load');
     const headings = new Set();
     for (const a of [0,315,270,180]) { turn(a); headings.add(picture()); }
     expect(headings.size === 4, 'four model views did not produce four distinct images');
@@ -57,7 +57,7 @@ function check(studyBench) {
     const neutralPixels = Math.max(occupiedHeight($('canvas-a')), occupiedHeight(canvas));
     expect(Math.abs(neutralPixels - 64) <= 3, 'neutral figure occupied ' + neutralPixels + ' pixels instead of 64');
     const editable = new URLSearchParams(new URL($('edit-b').href).hash.slice(1)).get('character');
-    expect(JSON.parse(editable).packs['pine-core'] === '1.19.1', 'editor handoff lost the selected recipe');
+    expect(JSON.parse(editable).packs['pine-core'] === '1.19.2', 'editor handoff lost the selected recipe');
     choose('sample-size','256');
     choose('ink','color');
     choose('subject','baseline-4');
@@ -82,12 +82,12 @@ function check(studyBench) {
     expect(!$('results').hidden && $('counts').rows.length === 4 && !$('edit-a').hidden, 'complete review missing results');
     const rows = [...$('counts').rows].map(row => [...row.cells].slice(1).map(td => +td.textContent));
     expect(rows.every(row => row.reduce((a,b)=>a+b,0) === 8) && rows.reduce((n,r)=>n+r[1],0) === 31, 'wrong age/vote totals');
-    expect(Object.keys(JSON.parse(localStorage.getItem('pine.figureStudy.1.18.0-1.19.1.v1')).votes).length === 32, 'review not persisted');
+    expect(Object.keys(JSON.parse(localStorage.getItem('pine.figureStudy.1.18.0-1.19.2.v1')).votes).length === 32, 'review not persisted');
     expect(localStorage.getItem('pine.figureStudy.1.18.0-1.19.0.v1') === '{"salt":77,"votes":{"adult/0":"b"}}', 'archived results were overwritten');
     const result = { views: headings.size, reviewPairs: 32 };
     if (studyBench) {
       const doc = structuredClone(pineFigureModels.adult);
-      doc.packs[PineLooks.core] = PineLooks.tailoredRelease;
+      doc.packs[PineLooks.core] = PineLooks.proportionStudyRelease;
       const actors = [PineLooks.build(doc), PineLooks.build(PineLooks.withFigureStudy(doc))];
       const samples = [[],[]], projection = [[],[]];
       const walk = PineMotion.actions.get('walk');
@@ -117,7 +117,7 @@ function check(studyBench) {
         const sorted = values.slice().sort((a,b)=>a-b), middle = sorted.length / 2;
         return +((sorted[middle-1]+sorted[middle])/2).toFixed(1);
       };
-      result.walkingAdult = { versions:[PineLooks.tailoredRelease,PineLooks.proportionStudyRelease], framesPerVersion:20, medianPoseAndFineBandsMs:samples.map(median), medianProjectionAndReadbackMs:projection.map(median) };
+      result.walkingAdult = { versions:[PineLooks.proportionStudyRelease,PineLooks.structureStudyRelease], framesPerVersion:20, medianPoseAndFineBandsMs:samples.map(median), medianProjectionAndReadbackMs:projection.map(median) };
     }
     $('qa').textContent = JSON.stringify(result);
   } catch (err) { $('qa').textContent = 'FAIL ' + err.stack; }

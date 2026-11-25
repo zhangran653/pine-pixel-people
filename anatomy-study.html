@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>人体建模台 · 松溪像素世界</title>
+    <link rel="stylesheet" href="workspace.css" />
+    <link rel="stylesheet" href="figure-study.css" />
+    <link rel="stylesheet" href="anatomy-study.css" />
+    <script defer src="workspace.js"></script>
+    <script defer src="motion.js"></script>
+    <script defer src="character-slices.js"></script>
+    <script defer src="actor.js"></script>
+    <script defer src="surveyor-art.js"></script>
+    <script defer src="family-art.js"></script>
+    <script defer src="vehicle-slices.js"></script>
+    <script defer src="world-objects.js"></script>
+    <script defer src="activity-props.js"></script>
+    <script defer src="studio-props.js"></script>
+    <script defer src="studio-rig.js"></script>
+    <script defer src="studio-actions.js"></script>
+    <script defer src="duet-clips.js"></script>
+    <script defer src="motion-gestures.js"></script>
+    <script defer src="movement-clips.js"></script>
+    <script defer src="daily-clips.js"></script>
+    <script defer src="social-clips.js"></script>
+    <script defer src="work-clips.js"></script>
+    <script defer src="studio-library.js"></script>
+    <script defer src="pixel-headwear.js"></script>
+    <script defer src="pixel-portrait.js"></script>
+    <script defer src="portrait-styles.js"></script>
+    <script defer src="hair-styles.js"></script>
+    <script defer src="head-sections.js"></script>
+    <script defer src="skull-core.js"></script>
+    <script defer src="head-shape.js"></script>
+    <script defer src="short-hair.js"></script>
+    <script defer src="everyday-styles.js"></script>
+    <script defer src="workshop-wear.js"></script>
+    <script defer src="world-wardrobe.js"></script>
+    <script defer src="figure-paint.js"></script>
+    <script defer src="anatomy-core.js"></script>
+    <script defer src="designer-body.js"></script>
+    <script defer src="appearance.js"></script>
+    <script defer src="figure-models.js"></script>
+    <script defer src="studio-stage.js"></script>
+    <script defer src="anatomy-study.js"></script>
+  </head>
+  <body data-workspace="atelier">
+    <header data-app-nav="atelier"></header>
+    <main class="study anatomy">
+      <header class="heading">
+        <h1>人体建模台</h1>
+        <a href="figure-study.html">同配方前后对照</a>
+      </header>
+      <section class="toolbar" aria-label="人体与结构">
+        <label
+          >人体基型<select id="base">
+            <option value="female">成人女性</option>
+            <option value="male">成人男性</option>
+            <option value="adult">成人通用</option>
+            <option value="child">儿童</option>
+            <option value="baby">婴儿</option>
+            <option value="toddler">幼儿</option>
+          </select></label
+        >
+        <label
+          >结构层<select id="layer">
+            <option value="skull">独立头骨</option>
+            <option value="skeleton">骨架</option>
+            <option value="muscle">肌肉</option>
+            <option value="form">无衣体表</option>
+          </select></label
+        >
+        <label
+          >取景<select id="framing">
+            <option value="head">头颈近景</option>
+            <option value="body">全身</option>
+          </select></label
+        >
+        <label>动作<select id="action"></select></label>
+        <div class="angles">
+          <button data-angle="0">正面</button><button data-angle="315">斜面</button
+          ><button data-angle="270">侧面</button><button data-angle="180">背面</button>
+        </div>
+      </section>
+      <div class="pair">
+        <figure>
+          <figcaption id="structure-label">独立头骨</figcaption>
+          <canvas id="structure" aria-label="可旋转的人体结构"></canvas>
+        </figure>
+        <figure>
+          <figcaption>
+            <span>同一姿态的像素人物</span><a id="edit" href="atelier.html">到创作室编辑</a>
+          </figcaption>
+          <canvas id="dressed" aria-label="套用结构的像素人物"></canvas>
+        </figure>
+      </div>
+      <section class="transport" aria-label="姿态控制">
+        <label
+          >视角 <output id="angle-value"></output
+          ><input id="angle" type="range" min="0" max="359" value="315"
+        /></label>
+        <label
+          >动作进度 <output id="phase-value"></output
+          ><input id="phase" type="range" min="0" max="100" value="17"
+        /></label>
+        <label
+          >下颌开合 <output id="jaw-value"></output><input id="jaw" type="range" min="0" max="100" value="0"
+        /></label>
+        <button id="play" aria-pressed="false">播放动作</button>
+      </section>
+      <section class="guide">
+        <h2>部件组合</h2>
+        <div class="toolbar" id="parts"></div>
+        <div class="transport proportions">
+          <label
+            >头部前后深度 <output id="depth-value"></output
+            ><input id="depth" type="range" min="80" max="120" value="100"
+          /></label>
+          <label
+            >下巴前后 <output id="chin-value"></output
+            ><input id="chin" type="range" min="-100" max="100" value="0"
+          /></label>
+          <button id="reset">恢复当前基型</button><button id="download">导出人物 JSON</button>
+        </div>
+      </section>
+      <p id="status" role="status"></p>
+    </main>
+  </body>
+</html>

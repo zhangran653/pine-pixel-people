@@ -5,7 +5,7 @@
   const ages = { adult: '成人', child: '儿童', toddler: '幼儿', baby: '婴儿' };
   const rows = { adult: [0, 484], child: [489, 363], baby: [868, 218] };
   const originals = { hoodie: 'look_programmer', chef: 'look_chef' };
-  const stableRelease = '1.18.0', firstStudy = looks.tailoredRelease, currentStudy = looks.proportionStudyRelease;
+  const stableRelease = '1.18.0', previousStudy = looks.proportionStudyRelease, currentStudy = looks.structureStudyRelease;
   const key = 'pine.figureStudy.' + stableRelease + '-' + currentStudy + '.v1';
   const holdout = 'pine/figure-holdout/' + currentStudy + '/';
   const search = new URLSearchParams(location.search);
@@ -125,7 +125,7 @@
     $('title-a').textContent = blind ? 'A' : $('before').selectedOptions[0].textContent;
     $('title-b').textContent = blind ? 'B' : currentStudy + ' · 新试作';
     $('prompt').textContent = blind
-      ? '本批比较 1.18 稳定版与 1.19.1 新试作。两侧使用相同年龄和种子，评审进度独立保存。'
+      ? '本批比较 1.18 稳定版与 1.19.2 人体结构试作。两侧使用相同年龄和种子，评审进度独立保存。'
       : '同一人物配方、镜头与动作帧，分别用两版实时切片绘制。';
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     recipes = blind ? blindPair() : modelPair();
@@ -325,7 +325,7 @@
     cancelAnimationFrame(renderRequest);
     renderRequest = requestAnimationFrame(draw);
   });
-  $('before').value = search.get('before') === stableRelease ? stableRelease : firstStudy;
+  $('before').value = [stableRelease, looks.tailoredRelease, previousStudy].includes(search.get('before')) ? search.get('before') : previousStudy;
   const initialAngle = Number(search.get('bearing'));
   if (Number.isInteger(initialAngle) && initialAngle >= 0 && initialAngle < 360) $('bearing').value = initialAngle;
   if ([...$('subject').options].some(o => o.value === search.get('subject'))) $('subject').value = search.get('subject');

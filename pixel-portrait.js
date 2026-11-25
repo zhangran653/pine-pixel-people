@@ -258,6 +258,28 @@ const pinePixelPortrait = (() => {
     if ((ix / 0.53) ** 2 + ((iz - 0.09) / 0.72) ** 2 < 1) return k.pupil;
     return iz > 0.18 ? k.irisShadow : iz < -0.38 ? k.irisLight : k.eyes;
   }
+  // A short upper lid, a single iris mass and one catchlight remain legible
+  // when the complete character is only 64 or 128 pixels tall.
+  function structureEye(shape, off, h, blink, side, k, pixel) {
+    const q = off / (shape.width * (shape.infant ? 0.98 : 0.96));
+    if (Math.abs(q) >= 1) return 0;
+    const arch = (1 - q * q) ** 0.70;
+    const y = h - shape.tilt * q;
+    const top = shape.up * (shape.infant ? 1.04 : 0.98) * arch;
+    const base = -shape.down * (shape.infant ? 1.22 : 1.12) * arch;
+    const shut = base * 0.48 + top * 0.18;
+    const stroke = Math.max(0.021, Math.min(0.042, pixel * 0.80)) * (0.68 + 0.32 * arch);
+    const lid = top + blink * (shut - top), floor = base + blink * (shut - base);
+    if (y > lid + stroke || y < floor - stroke * (blink > 0.75 ? 0.72 : 0.18)) return 0;
+    if (blink > 0.91 || y >= lid - 0.55 * stroke) return k.lash;
+    const ix = (q + 0.035) / (shape.infant ? 0.72 : 0.70);
+    const iz = (y - 0.045 * shape.up) / (1.16 * Math.max(shape.up, shape.down));
+    if (ix * ix + iz * iz > 1) return Math.abs(q) > 0.68 || y > 0.2 * top ? k.scleraShade : k.sclera;
+    const dot = clamp(pixel / (shape.up + shape.down), 0.24, 0.31);
+    if (blink < 0.50 && ((side * ix + 0.25) / dot) ** 2 + ((iz - 0.27) / (dot * 1.08)) ** 2 < 1) return k.glint;
+    if (iz < -0.10 && Math.abs(ix) < 0.87) return iz < -0.28 ? k.irisLight : k.eyes;
+    return Math.abs(ix) < 0.56 ? k.pupil : k.irisShadow;
+  }
   function modelMouth(name, row, lateral, h, infant, k, pitch) {
     if (infant && (name === 'smile' || name === 'soft-smile'))
       return mouth(name, row, lateral, h, infant, k);
@@ -566,5 +588,5 @@ const pinePixelPortrait = (() => {
     ...Array.from({ length: 8 }, (_, i) => 'weave' + (i + 1)),
     ...Array.from({ length: 8 }, (_, i) => 'lock' + (i + 1)),
   ];
-  return { eye, modelEye, orbitEye, modelMouth, brow, mouth, ear, dye, complexion, sweptBun, templeLocks, painted };
+  return { eye, modelEye, orbitEye, structureEye, modelMouth, brow, mouth, ear, dye, complexion, sweptBun, templeLocks, painted };
 })();

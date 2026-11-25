@@ -259,7 +259,8 @@
     previousEdit = readEdit();
     $('mirror-name').textContent = draft.label || '未命名形象';
     $('portrait-style').value = looks.portraitStyleOf(draft);
-    const trial = draft.packs[looks.core] === looks.proportionStudyRelease;
+    const trial = draft.packs[looks.core] === looks.structureStudyRelease;
+    $('anatomy-link').href = 'anatomy-study.html#' + new URLSearchParams({character: JSON.stringify(draft)});
     $('try-figure').disabled = trial;
     $('try-figure').textContent = trial ? '已启用新版人物造型' : '试用新版人物造型';
     measurements();
@@ -496,7 +497,7 @@
     return group;
   }
   function upgradeLabel() {
-    if ([looks.release, looks.tailoredRelease, looks.proportionStudyRelease].includes(draft.packs[looks.core])) return '';
+    if ([looks.release, looks.tailoredRelease, looks.proportionStudyRelease, looks.structureStudyRelease].includes(draft.packs[looks.core])) return '';
     if (draft.packs[looks.core] === looks.pixelRelease) return '试用全身像素画风';
     if (draft.packs[looks.core] === looks.facePlaneRelease) return '试用像素笔触';
     if ([looks.illustratedRelease, looks.silhouetteRelease].includes(draft.packs[looks.core]))
@@ -554,7 +555,7 @@
     const guide = $('turnaround-guide').content.firstElementChild.cloneNode(true);
     const babyGuide = draft.base === 'baby' || draft.base === 'toddler';
     guide.dataset.sitter = babyGuide ? 'baby' : 'adult';
-    if ([looks.pixelRelease, looks.release, looks.tailoredRelease, looks.proportionStudyRelease].includes(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
+    if ([looks.pixelRelease, looks.release, looks.tailoredRelease, looks.proportionStudyRelease, looks.structureStudyRelease].includes(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
       guide.dataset.art = 'pixel';
       const comparison = guide.querySelector('.guide-comparison');
       comparison.href = 'pixel-face-before-after.webp';
@@ -1105,6 +1106,18 @@
     }
     if (tab === 'shape') {
       figureUpgrade(area);
+      if (draft.packs[looks.core] === looks.structureStudyRelease) {
+        const section = $('anatomy-fields').content.cloneNode(true);
+        const grid = section.querySelector('.wardrobe-grid');
+        const captions = { skull: '颅骨', torso: '躯干', arms: '手臂', legs: '腿部' };
+        for (const [slot, options] of Object.entries(looks.anatomyParts)) {
+          grid.append(picker(captions[slot], 'anatomy-' + slot, Object.entries(options),
+            draft.anatomyParts?.[slot] ?? 'balanced', value => {
+              (draft.anatomyParts ??= {})[slot] = value;
+            }));
+        }
+        area.append(section);
+      }
       area.append(...tabKeys.shape.map(slider));
       return;
     }
@@ -1380,7 +1393,7 @@
     heading();
   }
   function tryFigure() {
-    if (draft.packs[looks.core] === looks.proportionStudyRelease) return;
+    if (draft.packs[looks.core] === looks.structureStudyRelease) return;
     draft = looks.withFigureStudy(draft);
     changed();
     fields();

@@ -80,6 +80,25 @@ const studioRig = (() => {
     return [c * x + s * y, -s * x + c * y, p[2] - root.z];
   }
   function seated(r, floor = false) {
+    if (floor && r.infantFloorSupport) {
+      const length = r.thigh + r.shin, height = r.height;
+      const seatX = -.045 * height, seatZ = .102 * height;
+      // A ring sitter balances on the seat and both heels. One leg opens farther
+      // out while the other extends forward; the ankles separate in profile too.
+      return {
+        floorSeat: true,
+        hipOffset: [seatX, 0, seatZ - r.pelvis[2]],
+        pitch: .16, headPitch: -.13,
+        feet: [[seatX + .90 * length, -(r.hip[1] + .28 * length), r.ankle],
+          [seatX + .48 * length, r.hip[1] + .46 * length, r.ankle]],
+        kneePoles: [[.24, -.86, .92], [-.38, 1.08, .70]],
+        // The palms rest over the two thighs, above the booties. The elbows
+        // open to either side and stay below the shoulder girdle.
+        hands: [[seatX + .56 * length, -.91 * r.shoulder[1], seatZ + .48 * length],
+          [seatX + .49 * length, 1.08 * r.shoulder[1], seatZ + .31 * length]],
+        elbowPoles: [[-.45, -.80, -.67], [-.52, .90, -.52]]
+      };
+    }
     const depth = r.height * (floor ? 0.09 : 0.157),
       top = floor ? 0 : r.height * 0.16;
     return {
@@ -87,6 +106,15 @@ const studioRig = (() => {
       pitch: floor ? 0.07 : 0.045,
       feet: sides.map((s) => [floor ? r.height * 0.15 : 0, s * r.hip[1] * (floor ? 1.18 : 1), r.ankle])
     };
+  }
+  // The tucked leg opens more at the hip, the extended leg flexes up at
+  // the ankle. Skin, shoes and socks can use the same two rotations.
+  function seatedAnkle(r, pose, index) {
+    const foot = pose.feet[index], hip = pose.legs[index].hip;
+    const length = r.thigh + r.shin;
+    const outward = Math.abs(foot[1] - hip[1]) / length;
+    const extension = Math.abs(foot[0] - hip[0]) / length;
+    return {pitch: .30 + .47 * clamp(extension), yaw: sides[index] * (.18 + .83 * clamp(outward, 0, .88))};
   }
   function validate(rig) {
     if (!rig || typeof rig !== 'object') throw new Error('请提供已登记的体型名称或体型参数');
@@ -235,6 +263,7 @@ const studioRig = (() => {
     centimetersPerUnit: 3.4,
     profiles,
     seated,
+    seatedAnkle,
     world,
     local,
     validate,

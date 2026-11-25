@@ -794,21 +794,56 @@ function checkEditor() {
     window.dispatchEvent(new PointerEvent('pointerup'));
     expect(byId('mirror').toDataURL() !== movingFace && opening.value === '0.22',
       'restore the detailed portrait at the selected value on pointer release');
+    byId('tab-shape').click();
+    expect(!byId('edit-anatomy-skull'), 'old versions must keep their original body editor');
     byId('try-figure').click();
     expect(byId('try-figure').disabled && byId('save-state').dataset.dirty === 'true',
       'upgrading a saved figure must be an explicit, undoable edit');
     byId('edit-undo').click();
     expect(!byId('try-figure').disabled, 'undo must restore the previous figure painter');
     byId('edit-redo').click();
+    const assembly = { skull: 'angular', torso: 'broad', arms: 'slender', legs: 'strong' };
+    for (const [slot, value] of Object.entries(assembly)) {
+      const field = byId('edit-anatomy-' + slot);
+      expect(field.value === 'balanced' && field.options.length === Object.keys(PineLooks.anatomyParts[slot]).length,
+        'upgrading should start with an editable standard ' + slot);
+      field.value = value;
+      field.dispatchEvent(new Event('change'));
+    }
+    byId('edit-undo').click();
+    expect(byId('edit-anatomy-legs').value === 'balanced' && byId('edit-anatomy-arms').value === 'slender',
+      'undo one component edit without replacing the others');
+    byId('edit-redo').click();
+    document.querySelector('[data-body-profile="baby"]').click();
+    expect(Object.entries(assembly).every(([slot, value]) => byId('edit-anatomy-' + slot).value === value),
+      'age change must retain the chosen components');
+    document.querySelector('[data-random-lock="body"]').checked = true;
     byId('random-character').click();
-    expect(byId('try-figure').disabled, 'random creation must follow the selected figure painter');
+    expect(byId('try-figure').disabled && Object.entries(assembly).every(([slot, value]) =>
+      byId('edit-anatomy-' + slot).value === value), 'body lock must retain the renderer and all component choices');
     byId('undo-random').click();
     byId('save-look').click();
-    expect(PineWardrobe.saved.get(oldArt.id).packs['pine-core'] === PineLooks.proportionStudyRelease,
-      'reloaded trial character must keep the selected renderer');
+    const assembled = PineWardrobe.saved.get(oldArt.id);
+    const diskRecipe = JSON.parse(localStorage.getItem('pineCreek.look.v1.' + assembled.id));
+    const reimported = PineWardrobe.importCharacter(diskRecipe).recipe;
+    expect(assembled.packs['pine-core'] === PineLooks.structureStudyRelease &&
+      reimported.id === assembled.id && JSON.stringify(reimported.anatomyParts) === JSON.stringify(assembly),
+      'portable trial character must keep the selected renderer and four individual body components');
+    const partialAssembly = { ...assembled, anatomyParts: { arms: 'strong' } };
+    expect(JSON.stringify(PineLooks.prepare(partialAssembly).recipe.anatomyParts) === '{"arms":"strong"}',
+      'a partial recipe should keep its implicit standard components');
+    for (const invalid of [{ ...partialAssembly, packs: { ...assembled.packs, 'pine-core': '1.19.1' } },
+      { ...assembled, anatomyParts: { arms: 'round' } }, { ...assembled, anatomyParts: { ribs: 'balanced' } }]) {
+      let rejected = false;
+      try { PineLooks.prepare(invalid); } catch { rejected = true; }
+      expect(rejected, 'reject unsupported anatomy fields, choices and renderer versions');
+    }
+    const priorRoll = PineLooks.randomCharacter({ seed: 18, source: assembled, release: '1.19.1', locks: ['body', 'wear'] });
+    expect(!Object.hasOwn(PineLooks.prepare(priorRoll).recipe, 'anatomyParts'),
+      'explicit older random generation must produce a portable old-format recipe');
     target.dataset.state = 'pass';
     target.textContent =
-      'Body profiles, legacy saves, head upgrades, facial morphs, portrait styles, face auditions, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';
+      'Body profiles, interchangeable anatomy, legacy saves, head upgrades, facial morphs, portrait styles, face auditions, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';
   } catch (err) {
     target.dataset.state = 'fail';
     target.textContent = err.stack || err.message;

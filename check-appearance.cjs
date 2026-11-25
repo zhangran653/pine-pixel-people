@@ -31,13 +31,13 @@ const sources = [
   'portrait-styles',
   'hair-styles',
   'head-sections',
-  'head-shape',
+  'skull-core', 'head-shape',
   'short-hair',
   'everyday-styles',
   'workshop-wear',
   'world-wardrobe',
   'figure-paint',
-  'designer-body',
+  'anatomy-core', 'designer-body',
   'appearance',
   'appearance-store'
 ];
@@ -129,7 +129,7 @@ for (const [id, stable, firstStudy] of [
   assert.equal(hash.digest('hex'), archived, pin + ' full-body pigments/placement: ' + id);
 }
 {
-  const looks = a.l, preview = looks.proportionStudyRelease, core = looks.core;
+  const looks = a.l, preview = looks.structureStudyRelease, core = looks.core;
   const external = looks.withFigureStudy(second);
   assert.deepEqual(clone(external), { ...second, packs: { ...second.packs, [core]: preview } });
   assert.notEqual(external.parts, second.parts);
@@ -176,15 +176,28 @@ for (const [id, stable, firstStudy] of [
     }
     assert.ok(cuts.size >= 7 && spans.size >= 20 && skins.size >= 10, base + ' wardrobe, limbs and dyes vary independently');
   }
-  const infant = looks.build(looks.withFigureStudy(looks.templateById.get('look_chestnut')));
-  for (const action of ['idle', 'sway', 'sit']) {
-    const seated = a.m.actions.get(action).sample(0.31, infant)[0].pose;
-    assert.ok(seated.floorSeat, action);
-    seated.legs.forEach(({ hip, knee }, i) => {
-      const ankle = seated.feet[i];
-      assert.ok(ankle[0] > hip[0] + 0.73 * (infant.rig.thigh + infant.rig.shin));
-      assert.ok(Math.abs(Math.hypot(...knee.map((v, j) => v - hip[j])) - infant.rig.thigh) < 1e-4);
-    });
+  const sitter = looks.withFigureStudy(looks.templateById.get('look_chestnut'));
+  for (const pin of [looks.proportionStudyRelease, preview]) {
+    const infant = looks.build({...sitter, packs:{...sitter.packs, [core]:pin}});
+    const rig = infant.rig, length = rig.thigh + rig.shin;
+    for (const action of ['idle', 'sway', 'sit']) {
+      const seated = a.m.actions.get(action).sample(.31, infant)[0].pose;
+      assert.ok(seated.floorSeat, action);
+      seated.legs.forEach(({ hip, knee }, i) => {
+        const ankle = seated.feet[i], forward = (ankle[0] - hip[0]) / length;
+        assert.equal(ankle[2], rig.ankle, 'heel stays grounded');
+        assert.ok(Math.abs(Math.hypot(...knee.map((v, j) => v - hip[j])) - rig.thigh) < 1e-4);
+        assert.ok(Math.abs(Math.hypot(...knee.map((v, j) => v - ankle[j])) - rig.shin) < 1e-4);
+        if (pin === looks.proportionStudyRelease) assert.ok(forward > .73, 'archived forward seat');
+        else {
+          // The near heel tucks toward the hip, while the other leg extends.
+          assert.ok(i === 0 ? forward > .82 : forward > .40 && forward < .61, 'sitting leg reach');
+          assert.ok(seated.arms[i].hand[2] - ankle[2] > .10 * rig.height, 'palms above booties');
+        }
+      });
+      if (pin === preview)
+        assert.ok(seated.feet[0][0] - seated.feet[1][0] > .37 * length, 'heel separation in profile');
+    }
   }
   assert.throws(() => looks.randomCharacter({ seed: -1 }));
   assert.throws(() => looks.randomCharacter({ seed: 1, random: () => 0 }));

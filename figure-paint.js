@@ -485,19 +485,22 @@ const pineFigurePaint = (() => {
     const gathered = style === 'joggers' || (sleeve && garment.knit);
     const straight = style === 'trousers' || style === 'pinstripe';
     const rolled = region === 'forearm' && style === 'oxford';
-    const pad = Math.max(r0, r1) * Math.max(width, 1) * 1.43;
+    const muscle = paint.anatomy?.muscleSection;
+    const belly = muscle && section.map((_, i) => muscle(region, i / 96, bend));
+    const pad = Math.max(r0, r1) * Math.max(width, 1) * (belly ? 1.58 : 1.43);
     brush.stamp(Math.min(a[0], b[0]) - pad, Math.max(a[0], b[0]) + pad,
       Math.min(a[1], b[1]) - pad, Math.max(a[1], b[1]) + pad,
       Math.min(a[2], b[2]) - pad, Math.max(a[2], b[2]) + pad, (x, y, z) => {
         const px = x - a[0], py = y - a[1], pz = z - a[2];
         const along = px * ax + py * ay + pz * az, t = clamp(along / length);
         const cx = px - t * dx, cy = py - t * dy, cz = pz - t * dz;
-        const r = mix(r0, r1, t);
+        const index = Math.round(t * 96);
+        const r = mix(r0, r1, t) * (belly ? belly[index] : 1);
         if (cx * cx + cy * cy + cz * cz > 2.1 * r * r) return 0;
         const material = pigment(t, cx, cy / width, cz);
         if (!material) return 0;
         const skin = types[material] === 'flesh';
-        const row = section[Math.round(t * 96)];
+        const row = section[index];
         const lateral = (cx * lx + cy * ly + cz * lz) / r;
         const towards = (cx * fx + cy * fy + cz * fz) / r;
         const outer = side * lateral;
@@ -669,8 +672,8 @@ const pineFigurePaint = (() => {
   // The heel and the buttocks support a floor sitter. Rotate the last about the
   // anatomical ankle. Leave links (boot shafts) on the lower leg so their cuffs
   // continue to meet the shin when the baby flexes a foot.
-  function seatedFoot(brush, foot, forward, weight) {
-    const flex = studioRig.frame(foot, [0, 0, 0], 0, -.82 * forward * weight, 0);
+  function seatedFoot(brush, foot, forward, weight, pitch = .82) {
+    const flex = studioRig.frame(foot, [0, 0, 0], 0, -pitch * forward * weight, 0);
     function rolled(method, args) {
       brush.frame(flex);
       method(...args);
@@ -688,10 +691,11 @@ const pineFigurePaint = (() => {
   const seatSections = cutRings([[0, .56, .55, .08], [.09, .81, .80, .06],
     [.28, 1.0, 1.0, .035], [.49, 1.06, .99, .01],
     [.73, .94, .91, 0], [.90, .74, .71, 0], [1, .41, .46, 0]]);
-  function infantLap(k, u, v, h) {
+  function infantLap(k, u, v, h, structured) {
     // Knit pants meet the belly in a soft fold, with the dye continuous over the hip.
     const shadow = (1 - smooth(h, .04, .49)) * .45;
-    return swatch(inks(k).set.trouser, 3.72 + .78 * u - 1.25 * v + .26 * h - shadow);
+    const hemShadow = structured ? 1.85 * smooth(h, .65, .94) * (.70 + .30 * u) : 0;
+    return swatch(inks(k).set.trouser, 3.72 + .78 * u - 1.25 * v + .26 * h - shadow - hemShadow);
   }
   function infantSeat(brush, k, pose, rig, depth, width, hipHeight, load) {
     const hip = studioRig.point(pose.torso, rig.pelvis);
@@ -716,11 +720,12 @@ const pineFigurePaint = (() => {
         return swatch(ramp, 3.85 + .72 * front - 1.19 * side + .65 * h - contact);
       });
   }
-  function shoeBrush(brush, k, foot, length, width, ankle, direction, side, style, tailored = false) {
+  function shoeBrush(brush, k, foot, length, width, ankle, direction, side, style, tailored = false,
+    turnout = tailored ? .245 : .17) {
     const { set, types, bias } = inks(k);
     const floor = foot[2] - ankle;
     const laced = ['sneakers', 'runners', 'trail-boots', 'strap-sneakers', 'high-tops', 'oxfords'].includes(style);
-    const angle = side * direction * (tailored ? 0.245 : 0.17),
+    const angle = side * direction * turnout,
       ca = Math.cos(angle),
       sa = Math.sin(angle);
     // Turn the last out around the planted ankle. The toe, heel and straps share one frame.

@@ -31,12 +31,14 @@
     <script defer src="portrait-styles.js"></script>
     <script defer src="hair-styles.js"></script>
     <script defer src="head-sections.js"></script>
+    <script defer src="skull-core.js"></script>
     <script defer src="head-shape.js"></script>
     <script defer src="short-hair.js"></script>
     <script defer src="everyday-styles.js"></script>
     <script defer src="workshop-wear.js"></script>
     <script defer src="world-wardrobe.js"></script>
     <script defer src="figure-paint.js"></script>
+    <script defer src="anatomy-core.js"></script>
     <script defer src="designer-body.js"></script>
     <script defer src="appearance.js"></script>
     <script defer src="figure-models.js"></script>
@@ -142,7 +144,7 @@
             </label>
             <button type="button" id="random-character">随机人物</button><button type="button" id="undo-random" hidden>撤销随机</button>
           </div>
-          <div class="figure-trial"><button type="button" id="try-figure">试用新版人物造型</button><a href="figure-study.html">造型对照与盲评</a></div>
+          <div class="figure-trial"><button type="button" id="try-figure">试用新版人物造型</button><a id="anatomy-link" href="anatomy-study.html">查看人体结构</a><a href="figure-study.html">造型对照与盲评</a></div>
           <details class="random-settings">
             <summary>随机设置</summary>
             <label class="random-style">变化幅度
@@ -150,12 +152,18 @@
             </label>
             <fieldset>
               <legend>生成整个人物时保留</legend>
-              <label><input type="checkbox" data-random-lock="body">体型</label>
+              <label><input type="checkbox" data-random-lock="body">体型与人体部件</label>
               <label><input type="checkbox" data-random-lock="skin">肤色</label>
               <label><input type="checkbox" data-random-lock="hair">发型与发色</label>
               <label><input type="checkbox" data-random-lock="wear">穿搭与配饰</label>
             </fieldset>
           </details>
+          <template id="anatomy-fields">
+            <fieldset class="preset-group">
+              <legend>人体部件</legend>
+              <div class="wardrobe-grid"></div>
+            </fieldset>
+          </template>
           <div class="tabs" role="tablist" aria-label="编辑类别">
             <button
               id="tab-shape"

@@ -46,36 +46,50 @@ const soloClips = (() => {
       side * r.height * 0.105, r.height * 0.133]);
     ch.elbowPoles = sides.map(side => [-0.48, side * 0.82, -0.46]);
   }
+  // Hand offsets are fractions of arm reach: forward, outward and down from their shoulder.
+  const archivedStance = {
+    stride: .034, feet: [1.08,.98], shift: .016, roll: -.029, headRoll: .022, yaw: 0,
+    hands: [[.16,.084,.942], [.055,.048,.969]]
+  };
+  const plantedStance = {
+    stride: .055, feet: [1.08,.98], shift: .27, roll: .026, headRoll: -.018, yaw: .033,
+    hands: [[.035,.084,.976], [.19,.048,.944]]
+  };
+  const toddlerStance = {
+    stride: .026, feet: [1.18,1.12], shift: .13, roll: .006, headRoll: -.004, yaw: .012,
+    hands: [[.035,.16,.976], [.19,.16,.944]]
+  };
   function idle(u, a) {
     const r = a.rig,
       ch = waist(r, a),
       off = ch.hipOffset || zero,
-      breath = ch.feet ? 0.15 : 0.005 * (r.thigh + r.shin);
+      breath = r.infantFloorSupport ? .002 * r.height : ch.feet ? 0.15 : 0.005 * (r.thigh + r.shin);
     ch.hipOffset = [
       off[0],
       off[1] + r.height * 0.005 * Math.sin(tau * u),
       off[2] - breath * (1 - Math.cos(tau * u))
     ];
     ch.headYaw = 0.13 * Math.sin(u * tau) ** 3;
-    if ((a.figureRelease === '1.19.0' || a.figureRelease === '1.19.1')) {
+    const structured = a.figureRelease === '1.19.2';
+    if (structured || a.figureRelease === '1.19.0' || a.figureRelease === '1.19.1') {
       if (a.tags.includes('baby')) {
         if (!ch.floorSeat) infantFloorPose(r, ch);
       } else {
         // One planted leg takes the weight. The free foot is slightly forward
         // and its sleeve opens away from the body at a different elbow angle.
         ch.standing = 1;
-        ch.feet = [[r.height * 0.034, -1.08 * r.hip[1], r.ankle],
-          [-r.height * 0.014, 0.98 * r.hip[1], r.ankle]];
-        ch.hipOffset[1] += 0.016 * r.height;
-        ch.roll = -0.029;
-        ch.headRoll = 0.022;
-        const torso = frame(r.pelvis, ch.hipOffset, 0, 0, ch.roll);
+        const stance = structured ? (a.tags.includes('toddler') ? toddlerStance : plantedStance) : archivedStance;
+        ch.feet = [[r.height * stance.stride, -stance.feet[0] * r.hip[1], r.ankle],
+          [-r.height * .014, stance.feet[1] * r.hip[1], r.ankle]];
+        ch.hipOffset[1] += stance.shift * (structured ? r.hip[1] : r.height);
+        ch.roll = stance.roll;
+        ch.headRoll = stance.headRoll;
+        ch.yaw = stance.yaw;
+        const torso = frame(r.pelvis, ch.hipOffset, ch.yaw, 0, ch.roll);
         const reach = r.upperArm + r.forearm + r.palm;
         ch.elbowPoles = sides.map(side => [-0.97, side * 0.19, -0.32]);
-        ch.hands = sides.map((side, i) => point(torso, [
-          r.shoulder[0] + reach * (i ? 0.055 : 0.16),
-          side * (r.shoulder[1] + reach * (i ? 0.048 : 0.084)),
-          r.shoulder[2] - reach * (i ? 0.969 : 0.942)
+        ch.hands = stance.hands.map(([front, out, down], i) => point(torso, [
+          r.shoulder[0] + reach * front, sides[i] * (r.shoulder[1] + reach * out), r.shoulder[2] - reach * down
         ]));
       }
     }
@@ -88,9 +102,11 @@ const soloClips = (() => {
       off = ch.hipOffset || zero,
       w = Math.sin(tau * u),
       nod = 1 - Math.cos(tau * u);
-    ch.hipOffset = [off[0], off[1] + r.height * 0.026 * w, off[2] - r.height * 0.006 * nod];
-    ch.roll = -0.068 * w;
-    ch.headRoll = 0.054 * w;
+    const grounded = r.infantFloorSupport;
+    ch.hipOffset = [off[0], off[1] + r.height * (grounded ? .009 : .026) * w,
+      off[2] - r.height * (grounded ? .002 : .006) * nod];
+    ch.roll = (grounded ? -.041 : -.068) * w;
+    ch.headRoll = (grounded ? .033 : .054) * w;
     ch.headYaw = 0.09 * w;
     ch.blink = blink(u);
     return entry(a, pose(r, ch));
@@ -101,13 +117,14 @@ const soloClips = (() => {
       base = seated(r, floor);
     base.headYaw = 0.11 * Math.sin(tau * u);
     base.blink = blink(u);
-    const legs = pose(r, base).legs;
-    base.hands = legs.map(({ hip, knee }, i) => {
-      const p = blend(hip, knee, 0.75);
-      p[1] += sides[i] * 0.4;
-      p[2] += r.height * 0.047;
-      return p;
-    });
+    if (!r.infantFloorSupport) {
+      base.hands = pose(r, base).legs.map(({ hip, knee }, i) => {
+        const p = blend(hip, knee, 0.75);
+        p[1] += sides[i] * 0.4;
+        p[2] += r.height * 0.047;
+        return p;
+      });
+    }
     if (floor && a.figureRelease === '1.19.1') supportedSeat(r, base);
     else if (floor && a.figureRelease === '1.19.0') infantFloorPose(r, base);
     const p = pose(r, base);
@@ -164,7 +181,7 @@ const soloClips = (() => {
       [0.24, -0.54 - 0.16 * Math.sin(3 * tau * u), 0.48 + 0.13 * Math.cos(3 * tau * u)],
       length
     );
-    ch.hands = [blend(neutral.arms[0].hand, target, weight), null];
+    ch.hands = [blend(neutral.arms[0].hand, target, weight), r.infantFloorSupport ? neutral.arms[1].hand : null];
     ch.headRoll = 0.03 * weight;
     return entry(a, pose(r, ch));
   }

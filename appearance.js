@@ -29,7 +29,8 @@ const PineLooks = (() => {
     pixelRelease = pinePortraitStyles.pixelRelease,
     release = pinePortraitStyles.figureRelease,
     tailoredRelease = pinePortraitStyles.tailoredRelease,
-    proportionStudyRelease = pinePortraitStyles.proportionStudyRelease;
+    proportionStudyRelease = pinePortraitStyles.proportionStudyRelease,
+    structureStudyRelease = pinePortraitStyles.structureStudyRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -58,7 +59,7 @@ const PineLooks = (() => {
     facePlaneRelease,
     pixelRelease,
     release,
-    tailoredRelease, proportionStudyRelease
+    tailoredRelease, proportionStudyRelease, structureStudyRelease
   ];
   function figurePin(recipe) {
     const pin = recipe?.packs?.[core];
@@ -66,7 +67,7 @@ const PineLooks = (() => {
   }
   function withFigureStudy(recipe) {
     const next = structuredClone(recipe);
-    next.packs[core] = proportionStudyRelease;
+    next.packs[core] = structureStudyRelease;
     return next;
   }
   function hasRoundedHead(recipe) {
@@ -169,6 +170,12 @@ SOFTWARE.`;
     baby: { base: 'baby', gender: 'unspecified', label: '婴儿' },
     toddler: { base: 'toddler', gender: 'unspecified', label: '幼儿' },
     child: { base: 'child', gender: 'unspecified', label: '儿童' }
+  };
+  const anatomyParts = {
+    skull: { balanced: '标准', long: '修长', round: '圆润', angular: '棱角分明' },
+    torso: { balanced: '标准', broad: '宽厚', slender: '纤细' },
+    arms: { balanced: '标准', strong: '健壮', slender: '纤细' },
+    legs: { balanced: '标准', strong: '健壮', slender: '纤细' }
   };
   function bodyProfileOf(recipe) {
     if (recipe.base !== 'adult') return recipe.base;
@@ -483,7 +490,8 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (recipe.face?.style === 'animation') needed = facePlaneRelease;
+    if (recipe.anatomyParts !== undefined) needed = structureStudyRelease;
+    else if (recipe.face?.style === 'animation') needed = facePlaneRelease;
     else if (recipe.face?.style !== undefined) needed = illustratedRelease;
     else if (profileKeys.some((key) => (recipe.shape[key] ?? 0) !== 0)) needed = lipJawRelease;
     else if (morphKeys.some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 0))
@@ -658,7 +666,7 @@ SOFTWARE.`;
     fields(
       raw,
       ['format', 'version', 'id', 'label', 'base', 'packs', 'parts', 'shape', 'colors'],
-      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity']
+      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity', 'anatomyParts']
     );
     requireThat(raw.baseNotice === undefined || raw.baseNotice === baseNotice, '基础素材许可声明与版本不符');
     requireThat(
@@ -736,6 +744,17 @@ SOFTWARE.`;
     requireThat(releases.includes(pin), '不支持的基础部件版本');
     const required = editingRelease(raw);
     requireThat(pin === required, '所选形象需要 pine-core ' + required);
+    let anatomy;
+    if (raw.anatomyParts !== undefined) {
+      fields(raw.anatomyParts, [], Object.keys(anatomyParts));
+      anatomy = {};
+      for (const [slot, options] of Object.entries(anatomyParts)) {
+        if (!Object.hasOwn(raw.anatomyParts, slot)) continue;
+        const value = raw.anatomyParts[slot];
+        requireThat(typeof value === 'string' && Object.hasOwn(options, value), '未知人体部件 · ' + slot);
+        anatomy[slot] = value;
+      }
+    }
     const hasProfiles = releases.indexOf(pin) >= releases.indexOf(profileRelease);
     const gender = raw.gender === undefined ? 'unspecified' : raw.gender;
     requireThat(['female', 'male', 'unspecified'].includes(gender), '未知的性别值');
@@ -791,6 +810,7 @@ SOFTWARE.`;
       ...(identity ? { identity } : {}),
       ...(hasProfiles ? { gender } : {}),
       packs: pins,
+      ...(anatomy ? { anatomyParts: anatomy } : {}),
       shape: sizes,
       parts,
       ...(face ? { face } : {}),
@@ -1359,6 +1379,7 @@ SOFTWARE.`;
     const expressive = style === 'expressive';
     const doc = structuredClone(recipe);
     doc.packs[core] = pin;
+    if (pin !== structureStudyRelease) delete doc.anatomyParts;
     const infant = doc.base === 'baby';
     const design = portrait !== 'natural' && portraitFamilies[family || pick(familyIds, random)];
     const young = infant || (design && doc.base === 'toddler');
@@ -1437,10 +1458,21 @@ SOFTWARE.`;
     for (const key of Object.keys(pinePortraitStyles.dyes)) delete doc.colors[key];
     if (keep.has('body')) {
       for (const key of bodySizes) doc.shape[key] = source.shape[key];
+      if (pin === structureStudyRelease && source.anatomyParts !== undefined) {
+        doc.anatomyParts = structuredClone(source.anatomyParts);
+      } else delete doc.anatomyParts;
     } else if (tailored) fitBodyProportions(doc, random);
     else {
       doc.shape.height = between(0.88, 1.12, random);
       doc.shape.shoulders = between(0.83, 1.17, random);
+    }
+    if (pin === structureStudyRelease && !keep.has('body')) {
+      const torso = doc.shape.shoulders > 1.045 ? 'broad' : doc.shape.shoulders < 0.965 ? 'slender' : 'balanced';
+      const build = torso === 'broad' ? 'strong' : torso;
+      const skulls = doc.base === 'baby' || doc.base === 'toddler'
+        ? ['balanced', 'balanced', 'round', 'long'] : ['balanced', 'long', 'round', 'angular'];
+      doc.anatomyParts = { skull: pick(skulls, random), torso,
+        arms: pick(['balanced', build], random), legs: pick(['balanced', build], random) };
     }
     doc.id = seed === undefined ? newId() : seededLookId(doc, seed);
     doc.label = '新人物 ' + doc.id.slice(-5).toUpperCase();
@@ -1449,7 +1481,7 @@ SOFTWARE.`;
   return {
     core,
     release,
-    tailoredRelease, proportionStudyRelease,
+    tailoredRelease, proportionStudyRelease, structureStudyRelease,
     withFigureStudy,
     originalRelease,
     styleRelease,
@@ -1489,7 +1521,7 @@ SOFTWARE.`;
     hasInfantHead,
     editingRelease,
     usesExtendedShape,
-    bodyProfiles,
+    bodyProfiles, anatomyParts,
     bodyProfileOf,
     withBodyProfile,
     features,

@@ -29,13 +29,13 @@ const builtins = [
   'portrait-styles',
   'hair-styles',
   'head-sections',
-  'head-shape',
+  'skull-core', 'head-shape',
   'short-hair',
   'everyday-styles',
   'workshop-wear',
   'world-wardrobe',
   'figure-paint',
-  'designer-body',
+  'anatomy-core', 'designer-body',
   'appearance'
 ];
 const files = builtins.map((name) => join(__dirname, name + '.js'));

@@ -483,6 +483,54 @@ const pineHeadShape = (() => {
         ring.fore = ring.face[0] - ring.axis;
       }
     }
+    if (planes?.form?.pixelStructure) {
+      const { eye, mouth, chin } = planes.form;
+      const bones = planes.form.bones || pineSkull.proportions(base, { ...settings, ...facial }, planes.form);
+      const gap = mouth - chin;
+      const pad = 0.48 * row(chin + 0.15 * gap).face[0] + 0.52 * (bones.chinFront + 0.069);
+      const throat = row(-1).face[0];
+      const depth = pad - throat;
+      // Carry the front of the chin into its underside in one turn. The end
+      // points come from the edited jaw, so projection and height still travel.
+      const edge = [
+        [-1, throat],
+        [chin - 0.115, throat + (infant ? 0.34 : 0.29) * depth],
+        [chin - 0.063, throat + (infant ? 0.65 : 0.69) * depth],
+        [chin - 0.018, pad - (infant ? 0.078 : child ? 0.068 : 0.062)],
+        [chin + 0.16 * gap, pad],
+        [chin + 0.44 * gap, row(chin + 0.44 * gap).face[0]],
+      ];
+      const edgeSlopes = slopes(edge, 1);
+      let interval = 0;
+      for (let i = 0; i <= count; i++) {
+        const h = (2 * i) / count - 1;
+        const ring = rows[i];
+        const front = ring.face[0];
+        let chinShift = 0;
+        if (h < edge.at(-1)[0]) {
+          while (h > edge[interval + 1][0]) interval++;
+          chinShift = sample(edge, edgeSlopes, interval, 1, h) - front;
+        }
+        const lowerCheek = lobe(h, bones.archHeight, infant ? 0.33 : 0.44);
+        const jaw = lobe(h, chin + 0.31 * gap, 0.18);
+        const brow = lobe(h, eye + 0.22, 0.31);
+        ring.width *= 1 - (infant ? 0.042 : child ? 0.035 : 0.047) * lowerCheek
+          + (bones.jawWidth - 1 + (infant ? 0.018 : child ? 0.035 : 0.056)) * jaw;
+        for (let j = 0; j < lateralSteps; j++) {
+          const v = j / lateralSteps;
+          const arc = Math.sqrt(1 - v * v);
+          // A broad forehead turns back at the temples. Below it the cheek
+          // sweeps toward the jaw, then the sides roll around the chin pad.
+          const sweep = lobe(v, bones.archWidth - 0.055, 0.31);
+          const chinArc = lobe(v, 0, 0.89);
+          const chinShoulder = lobe(v, 0.09 + bones.chinWidth, 0.39);
+          ring.face[j] += chinShift * arc - (bones.cheekTurn + (0.65 - bones.archFront) * 0.50) * lowerCheek * sweep
+            + 0.035 * brow * (chinArc - 0.72 * sweep)
+            + (infant ? 0.022 : 0.038) * jaw * chinShoulder;
+        }
+        ring.fore = ring.face[0] - ring.axis;
+      }
+    }
     if (planes?.orbit) {
       // Embed the front cap of the eyeball beneath the two lids, before taking
       // lighting normals. Its iris and rim foreshorten on the same physical surface.
@@ -497,7 +545,8 @@ const pineHeadShape = (() => {
           const across = ring.width * j / lateralSteps - center;
           const radius = (across / width) ** 2 + z * z;
           if (radius >= 1) continue;
-          const cap = apex - (study ? .94 : pixel ? .39 : .12) * across + (study ? .42 : pixel ? .33 : .270) * (Math.sqrt(1 - radius) - 1);
+          const depth = planes.form.bones ? planes.form.bones.orbitDepth + 0.08 : study ? .42 : pixel ? .33 : .270;
+          const cap = apex - (study ? .94 : pixel ? .39 : .12) * across + depth * (Math.sqrt(1 - radius) - 1);
           const weight = clamp((1 - radius) / 0.47, 0, 1);
           ring.face[j] += Math.max(study ? -.19 : pixel ? -.073 : -.026, cap - ring.face[j]) * weight * weight * (3 - 2 * weight);
         }
@@ -530,7 +579,15 @@ const pineHeadShape = (() => {
         const ambient = 0.53 + 0.18 * Math.sqrt(1 - v * v) + 0.075 * ((2 * i) / count - 1);
         r.frontLight[j] = 0.58 * (0.74 - 0.53 * dxdh) * normal + 0.42 * ambient;
         r.sideLight[j] = 0.085 * dxdy * normal;
-        if (planes?.orbit) {
+        if (planes?.form?.pixelStructure) {
+          // Large-scale normal and a broad fill light. The side of the cheek
+          // shares the same light all the way back to the ear.
+          const h = 2 * i / count - 1;
+          const frontal = Math.sqrt(1 - v * v);
+          const diffuse = (0.72 - 0.56 * dxdh) * normal;
+          r.frontLight[j] = 0.40 + 0.18 * frontal + 0.18 * diffuse + 0.045 * h;
+          r.sideLight[j] = 0.070 * dxdy * normal;
+        } else if (planes?.orbit) {
           // A broad light source reads the turning cheek and forehead without
           // turning each small lip or orbital crease into a dark stripe.
           const h = 2 * i / count - 1;
@@ -674,7 +731,8 @@ const pineHeadShape = (() => {
       ...(planes?.strength ? [planes.eye, planes.eyeCenter, planes.mouth, planes.strength] : []),
       ...(planes?.lipBed ? ['lip', planes.lipBed.center, planes.lipBed.above, planes.lipBed.below, planes.lipBed.depth] : []),
       ...(planes?.contour ? ['contour', planes.contour.chin, planes.contour.tip] : []),
-      ...(planes?.form ? ['form', !!planes.form.model, !!planes.form.anatomy, planes.form.eye, planes.form.mouth, planes.form.chin, planes.form.strength] : []),
+      ...(planes?.form ? ['form', !!planes.form.model, !!planes.form.anatomy, !!planes.form.pixelStructure, planes.form.eye, planes.form.mouth, planes.form.chin, planes.form.strength] : []),
+      ...(planes?.form?.bones ? Object.values(planes.form.bones) : []),
       ...(planes?.orbit ? ['orbit', !!planes.form?.pixelPortrait, planes.orbit.center, planes.orbit.width, planes.orbit.height] : [])].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);

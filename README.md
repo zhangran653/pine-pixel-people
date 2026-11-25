@@ -21,9 +21,19 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
-原画转切片实验能从两到三张设定自动生成可旋转的静态像素底模。可在浏览器对照独立留出的 45° 原画、编辑水平切片、染色并导出 JSON。五组样本同时保留了脸颊投色接缝等失败之处。[打开实验室](http://127.0.0.1:8000/turnaround-lab.html) · [转换接口、独立评估与研究结果](studies/turnaround/README.md)
+### 1.19.2 人体建模台
 
-1.19.1 人物造型试作可以对照同一角色的脸、头身比例和姿态。成人、儿童和婴儿各有四向像素设定稿，左栏可切换到 1.19.0 首版或 1.18.0 稳定版。在人物设定里点「试用新版人物造型」即可编辑当前人物，新生成的人物会沿用所选版本。常规创建仍使用 1.18.0。盲评每个年龄有八对样本，完成 32 对后可以查看并下载本机结果。[试用卷袖衬衫](http://127.0.0.1:8000/atelier.html?model=adult&figure=study&bearing=315) · [同配方实机对照](http://127.0.0.1:8000/figure-study.html) · [分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind) · [婴儿侧面坐姿](http://127.0.0.1:8000/figure-study.html?subject=baby&bearing=270) · [1.19.1 四向对照](figure-study-1.19.1-turnaround.webp)
+先选成人女性、成人男性、儿童或婴儿，也可选幼儿。转到侧面，拖动「下颌开合」，可以同时看头骨如何转动、人物的下唇和下巴如何跟随。切换到骨架、肌肉或无衣体表，再播放动作，两边会保持相同的镜头和进度。婴儿可从坐地待机开始查看。[打开人体建模台](http://127.0.0.1:8000/anatomy-study.html) · [五层实机截图](studies/pixel-structure/layers.webp) · [看婴儿侧面坐姿](http://127.0.0.1:8000/anatomy-study.html?base=baby&layer=form&bearing=270)
+
+在「部件组合」里可以独立选头骨、躯干、双臂和双腿。点「到创作室编辑」可继续换装、染色、套动作。已有形象可以在创作室点「试用新版人物造型」，到「体型 → 人体部件」更换，满意后保存。配方记录所用版本和各部件，同一组动作可以继续使用。普通新建人物默认采用 1.18.0。[试编辑一个人物](http://127.0.0.1:8000/atelier.html?model=adult&figure=study&tab=shape&bearing=315) · [部件值和 API 示例](appearance-standard.html#anatomy-parts)
+
+![1.19.1 和 1.19.2 的成人男、成人女、儿童、坐姿婴儿及黄帽随机人物，全身正面、45 度、侧面和同帧睁闭眼实拍](studies/pixel-structure/comparison.webp)
+
+图中前四行的人高按 128 像素定标，末行是先绘成 64 像素再放大两倍的黄帽人物。眼区和侧脸直接裁自全身画面。在这个尺寸，眼中亮点有时只占一个像素，侧身或帽檐遮挡会影响双眼的可读性。页面里可用同一配方对照 1.19.1、1.19.0 和 1.18.0。独立盲评则按年龄分为四组，每组八对，比较稳定版和本次试作各自生成的人物。[同配方实机对照](http://127.0.0.1:8000/figure-study.html) · [黄帽橙衫随机样本](http://127.0.0.1:8000/figure-study.html?subject=baseline-4&bearing=270) · [分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind) · [1.19.1 四向对照](figure-study-1.19.1-turnaround.webp)
+
+### 独立研究与历史版本
+
+原画转切片实验从两到三张设定图推算可旋转的静态像素体积。在实验室可与留出的 45° 视图对照、编辑水平切片、染色并导出体素 JSON。五组样本保留了脸颊投色接缝等失败现象。这个研究使用独立的文件格式，创作室人物则从骨架、部件和颜色配方生成。[打开原画实验室](http://127.0.0.1:8000/turnaround-lab.html) · [转换接口与评估结果](studies/turnaround/README.md)
 
 1.18.0 把像素画法延伸到整个人物。衣领和肩线有厚度，衣摆与裤腰分层，袖子和裤腿的褶线随关节运动。头发、皮革和金属有不同的亮面。肤色、发色和每件衣物的染色仍由人物配方决定。[全身美术规范](appearance-standard.html#figure-art) · [同一个人物的三种配色](pixel-figure-dyes.webp) · [版本对照](pixel-figure-comparison.webp)
 
@@ -167,7 +177,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 兼容性检查
 
-使用 Node.js 22 或更新版本。在项目根目录运行以下检查。页面测试调用本机 Chrome，Linux 默认使用 google-chrome，可通过 CHROME_BIN 指定可执行文件。GitHub Actions 在推送和拉取请求时运行这些检查。
+使用 Node.js 22 或更新版本。在项目根目录运行以下检查。页面测试调用本机 Chrome，Linux 默认使用 google-chrome，可通过 CHROME_BIN 指定可执行文件。项目的自动检查配置见 [GitHub Actions 工作流](.github/workflows)。
 
 ```sh
 node check-motion.cjs
@@ -175,6 +185,9 @@ node check-appearance.cjs
 node tests/check-world.cjs
 node tests/check-atelier.cjs
 node tests/check-figure-study.cjs
+node tests/check-anatomy-study.cjs
+node tests/check-floor-sitter.cjs
+node tests/check-skull.cjs
 ```
 
 检查涵盖内置动作与演员标签、时序和接触点，还会在独立运行环境中验证形象的逐像素还原、部件版本和冲突处理。贡献新帽子时应为新版本保留唯一的包名与版本组合，分别检查儿童和成人佩戴时的正面、侧面与后脑。

@@ -4,7 +4,7 @@ const studioLibrary = (() => {
     actions = new Map(),
     rigs = studioRig.profiles;
   const isId = (s) => typeof s === 'string' && /^[a-z][a-z0-9_-]*$/.test(s);
-  function createCharacter({ id, label, rig, art, density = 2, tags, box, sockets }) {
+  function createCharacter({ id, label, rig, art, density = 2, tags, box, sockets, anatomy }) {
     if (!isId(id) || !label || typeof art?.paint !== 'function' || !art.materials)
       throw new Error('人物定义无效');
     if (
@@ -35,6 +35,7 @@ const studioLibrary = (() => {
       id,
       label,
       rig: skeleton,
+      ...(anatomy ? {anatomy} : {}),
       sockets: studioRig.bindSockets(skeleton, sockets),
       tags: [...tags],
       body: createSliceActor(art, density, studioProps, bounds)

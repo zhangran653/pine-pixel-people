@@ -15,6 +15,9 @@ jobs:
       - run: node check-appearance.cjs
       - run: node tests/check-atelier.cjs
       - run: node tests/check-figure-study.cjs
+      - run: node tests/check-floor-sitter.cjs
+      - run: node tests/check-skull.cjs
+      - run: node tests/check-anatomy-study.cjs
   image-conversion:
     runs-on: ubuntu-latest
     steps:
