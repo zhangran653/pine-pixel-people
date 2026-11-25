@@ -167,7 +167,8 @@
   function studyLens() {
     if (!draft) return;
     const paintedFace = draft.bodyFinish === 'painted' && looks.portraitStyleOf(draft) === 'animation';
-    const before = draft.packs[looks.core] === looks.release || paintedFace ? 'whole' : 'current';
+    const before = draft.packs[looks.core] === looks.baseFaceRelease && looks.portraitStyleOf(draft) === 'animation' ? 'bases' :
+      draft.packs[looks.core] === looks.release || paintedFace ? 'whole' : 'current';
     $('figure-link').search = new URLSearchParams({ before, subject: 'draft', action, phase: String(phase * 100),
       bearing: String(((bearing % 360) + 360) % 360), framing: view === 'body' ? 'body' : 'head', size: '128' });
   }
@@ -277,11 +278,11 @@
     previousEdit = readEdit();
     $('mirror-name').textContent = draft.label || '未命名形象';
     $('portrait-style').value = looks.portraitStyleOf(draft);
-    const trial = draft.packs[looks.core] === looks.gameFaceRelease && looks.portraitStyleOf(draft) === 'animation';
+    const trial = pinePortraitStyles.hasGameFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation';
     $('anatomy-link').href = 'anatomy-study.html#' + new URLSearchParams({character: JSON.stringify(draft)});
     studyLink();
     $('try-figure').disabled = trial;
-    $('try-figure').textContent = trial ? '已启用美术基础脸' : '试用动画美术脸型';
+    $('try-figure').textContent = trial ? (draft.packs[looks.core] === looks.baseFaceRelease ? '已启用分龄基础脸' : '已启用美术基础脸') : '试用动画美术脸型';
     measurements();
     $('save-state').textContent = dirty ? '有未保存的修改' : saved ? '已保存' : '新形象';
     $('save-state').dataset.dirty = String(dirty);
@@ -517,7 +518,7 @@
     return group;
   }
   function upgradeLabel() {
-    if ([looks.release, looks.tailoredRelease, looks.proportionStudyRelease, looks.structureStudyRelease, looks.gameFaceRelease].includes(draft.packs[looks.core])) return '';
+    if (draft.packs[looks.core] === looks.release || pinePortraitStyles.hasTailoredFigure(draft.packs[looks.core])) return '';
     if (draft.packs[looks.core] === looks.pixelRelease) return '试用全身像素画风';
     if (draft.packs[looks.core] === looks.facePlaneRelease) return '试用像素笔触';
     if ([looks.illustratedRelease, looks.silhouetteRelease].includes(draft.packs[looks.core]))
@@ -571,13 +572,23 @@
   }
   function faceFields(area, candidates) {
     figureUpgrade(area);
-    const gameFace = draft.packs[looks.core] === looks.gameFaceRelease && looks.portraitStyleOf(draft) === 'animation';
+    const gameFace = pinePortraitStyles.hasGameFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation';
+    const drawn = gameFace && draft.packs[looks.core] === looks.baseFaceRelease;
+    if (!drawn) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.id = 'try-base-face';
+      button.textContent = '试用分龄基础脸';
+      button.onclick = () => tryBaseFace();
+      area.append(button);
+    }
     if (gameFace) {
       const form = draft.face?.form ?? draft.anatomyParts?.skull ?? 'balanced';
       const mix = slider('formMix');
       const field = mix.querySelector('input');
       field.disabled = form === 'balanced';
-      area.append(picker('美术基础脸', 'face-form', Object.entries(looks.gameFaceForms), form, value => {
+      const choices = drawn ? looks.baseFaceForms(draft.base) : looks.gameFaceForms;
+      area.append(picker(drawn ? '分龄基础脸' : '美术基础脸', 'face-form', Object.entries(choices), form, value => {
         draft.face.form = value;
         field.disabled = value === 'balanced';
       }), mix);
@@ -586,10 +597,10 @@
     const guide = $('turnaround-guide').content.firstElementChild.cloneNode(true);
     const babyGuide = draft.base === 'baby' || draft.base === 'toddler';
     guide.dataset.sitter = babyGuide ? 'baby' : 'adult';
-    if ([looks.pixelRelease, looks.release, looks.tailoredRelease, looks.proportionStudyRelease, looks.structureStudyRelease, looks.gameFaceRelease].includes(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
+    if (pinePortraitStyles.hasPixelFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
       guide.dataset.art = 'pixel';
       const comparison = guide.querySelector('.guide-comparison');
-      comparison.href = gameFace ? 'studies/pixel-structure/game-faces.webp' : 'pixel-face-before-after.webp';
+      comparison.href = drawn ? 'studies/pixel-structure/drawn-faces.webp' : gameFace ? 'studies/pixel-structure/game-faces.webp' : 'pixel-face-before-after.webp';
       comparison.textContent = '同一角色的两版实机对照';
     }
     guide.open = expandedFields.get('turnaround') === true;
@@ -1142,13 +1153,13 @@
         const grid = section.querySelector('.wardrobe-grid');
         const captions = { skull: '颅骨', torso: '躯干', arms: '手臂', legs: '腿部' };
         for (const [slot, options] of Object.entries(looks.anatomyParts)) {
-          if (slot === 'skull' && draft.packs[looks.core] === looks.gameFaceRelease && looks.portraitStyleOf(draft) === 'animation') continue;
+          if (slot === 'skull' && pinePortraitStyles.hasGameFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') continue;
           grid.append(picker(captions[slot], 'anatomy-' + slot, Object.entries(options),
             draft.anatomyParts?.[slot] ?? 'balanced', value => {
               (draft.anatomyParts ??= {})[slot] = value;
             }));
         }
-        if (draft.packs[looks.core] === looks.gameFaceRelease) {
+        if (pinePortraitStyles.hasGameFace(draft.packs[looks.core])) {
           section.querySelector('legend').textContent = '身体造型';
           grid.append(picker('身体着色', 'body-finish', [['', '原有着色'], ['painted', '四肢与衣边色块']],
             draft.bodyFinish || '', value => {
@@ -1433,8 +1444,13 @@
     heading();
   }
   function tryFigure() {
-    if (draft.packs[looks.core] === looks.gameFaceRelease && looks.portraitStyleOf(draft) === 'animation') return;
+    if (pinePortraitStyles.hasGameFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') return;
     draft = looks.withGameFace(draft);
+    changed();
+    fields();
+  }
+  function tryBaseFace(form) {
+    draft = looks.withBaseFace(draft, form);
     changed();
     fields();
   }
@@ -1979,6 +1995,10 @@
     activate(first, '', false, availableId);
   } else activate(first, (stored ? 'saved:' : 'preset:') + first.id, !!stored);
   if (query.get('figure') === 'study') tryFigure();
+  if (query.get('figure') === 'bases') {
+    const form = query.get('form');
+    tryBaseFace(Object.hasOwn(looks.gameFaceForms, form) ? form : undefined);
+  }
   const partner = looks.templates.find((doc) => doc.id !== first.id && doc.id === query.get('compare'));
   if (partner || transferredPartner) {
     $('compare').value = transferredPartner ? 'review:partner' : 'preset:' + partner.id;

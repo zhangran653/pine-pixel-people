@@ -72,6 +72,80 @@ const pineGameFace = (() => {
     angular: [0.087, 0.062, -0.042, 0.016]
   };
   const forms = { balanced: '均衡', long: '秀长', round: '柔圆', angular: '利落' };
+  const adultForms = { balanced:'均衡', long:'窄颏长脸', round:'短圆脸', angular:'宽颌脸' };
+  const youngForms = { balanced:'均衡', long:'小椭圆脸', round:'短圆脸', angular:'柔方脸' };
+  const baseForms = age => age === 'adult' ? adultForms : youngForms;
+  // The front, profile and three-quarter drawings use a 32-unit head radius.
+  // Rows rise from chin to forehead. Read across a row as half-width, back,
+  // temple, centre front, and the front surfaces at 52% and 82% of half-width.
+  // Above the last row the original scalp and hair attachment take over.
+  const drawingLevels = [-1, -.91, -.76, -.58, -.39, -.17, .06, .29, .52];
+  const drawings = {
+    adult: {
+      round: [
+        [0,12,12,12,12,12], [12,7,13,20,20,18], [20,0,10,27,26,22],
+        [24,-14,5,27,26,21], [27,-26,2,29,27,20], [28,-35,1,31,28,21],
+        [30,-39,1,29,26,20], [31,-40,1,32,29,22], [31,-37,1,32,29,21]],
+      long: [
+        [0,13,13,13,13,13], [6,8,14,22,21,18], [13,2,12,27,26,21],
+        [17,-9,7,28,25,18], [21,-24,3,29,25,18], [25,-36,1,30,26,19],
+        [28,-39,1,30,26,18], [30,-40,1,33,29,21], [31,-37,1,32,29,21]],
+      angular: [
+        [0,15,15,15,15,15], [12,9,14,24,23,20], [22,1,11,29,28,24],
+        [25,-15,5,29,26,20], [26,-26,2,30,26,19], [27,-36,1,30,26,18],
+        [29,-39,1,30,27,19], [31,-40,1,33,29,21], [31,-37,1,32,29,21]]
+    },
+    child: {
+      round: [
+        [0,12,12,12,12,12], [12,7,13,20,20,17], [20,1,11,25,24,20],
+        [25,-11,7,27,26,22], [28,-22,4,29,28,22], [30,-29,2,30,29,22],
+        [31,-35,2,30,28,20], [32,-36,2,33,30,23], [31,-33,2,33,30,23]],
+      long: [
+        [0,13,13,13,13,13], [7,8,13,21,20,18], [14,2,11,27,25,21],
+        [19,-9,7,27,24,18], [22,-20,4,28,26,19], [26,-30,2,29,26,19],
+        [29,-35,2,30,27,20], [31,-36,2,33,30,23], [31,-33,2,33,30,23]],
+      angular: [
+        [0,14,14,14,14,14], [11,8,13,23,22,19], [20,1,11,29,27,23],
+        [24,-11,7,27,25,19], [26,-21,4,29,26,20], [28,-30,2,29,27,20],
+        [30,-35,2,30,28,20], [31,-36,2,33,30,23], [31,-33,2,33,30,23]]
+    },
+    toddler: {
+      round: [
+        [0,13,13,13,13,13], [12,8,13,20,19,17], [21,2,11,25,24,21],
+        [26,-8,8,27,26,23], [29,-17,5,30,29,23], [31,-25,3,30,29,22],
+        [32,-32,3,32,29,22], [32,-33,3,34,31,24], [31,-30,3,33,30,23]],
+      long: [
+        [0,13,13,13,13,13], [8,8,13,21,20,18], [16,2,12,26,25,21],
+        [21,-8,8,27,25,20], [25,-17,5,28,26,20], [28,-26,3,30,28,21],
+        [31,-32,3,32,29,21], [32,-33,3,34,31,24], [31,-30,3,33,30,23]],
+      angular: [
+        [0,14,14,14,14,14], [11,8,13,22,21,18], [20,2,12,28,26,23],
+        [24,-8,8,27,25,21], [27,-17,5,29,27,21], [29,-26,3,30,28,21],
+        [31,-32,3,32,29,21], [32,-33,3,34,31,24], [31,-30,3,33,30,23]]
+    },
+    baby: {
+      round: [
+        [0,13,13,13,13,13], [13,9,14,19,19,17], [22,4,12,24,24,21],
+        [27,-5,9,27,27,23], [30,-15,6,30,29,24], [31,-23,4,30,29,22],
+        [32,-29,3,32,30,23], [32,-31,3,34,31,24], [30,-26,4,33,30,23]],
+      long: [
+        [0,13,13,13,13,13], [8,9,14,21,20,18], [16,4,12,25,24,21],
+        [22,-5,9,26,25,21], [26,-15,6,28,27,21], [29,-24,4,30,28,21],
+        [31,-29,3,32,30,22], [32,-31,3,34,31,24], [30,-26,4,33,30,23]],
+      angular: [
+        [0,14,14,14,14,14], [11,9,14,21,20,18], [20,4,12,27,26,22],
+        [25,-5,9,27,26,22], [28,-15,6,29,28,22], [30,-24,4,30,28,22],
+        [31,-29,3,32,30,22], [32,-31,3,34,31,24], [30,-26,4,33,30,23]]
+    }
+  };
+  // Vertical chin cut, lip height relative to the original, and nasal reach.
+  const landmarks = {
+    adult: { round:[.215,.067,.82], long:[.03,-.023,1.04], angular:[.116,.008,1.10] },
+    child: { round:[.183,.052,.87], long:[.025,-.013,1.03], angular:[.087,.012,1.04] },
+    toddler: { round:[.161,.047,.91], long:[.038,-.009,1.02], angular:[.083,.015,1.02] },
+    baby: { round:[.165,.053,.93], long:[.044,.004,1.025], angular:[.090,.024,1] }
+  };
+  const neutralChins = { adult:.09, child:.069, toddler:.055, baby:.06 };
   const limits = { adult: 1, child: 0.74, toddler: 0.54, baby: 0.37 };
   const steps = 96,
     rings = 192;
@@ -121,6 +195,17 @@ const pineGameFace = (() => {
       )
     ])
   );
+  const drawnProfiles = Object.fromEntries(Object.entries(drawings).map(([age, designs]) => [
+    age, Object.fromEntries(Object.entries(designs).map(([form, rows]) => [
+      form, rows[0].map((_, i) => curve(drawingLevels, rows.map(row => row[i] / 32)))
+    ]))
+  ]));
+  function lipLift(age, form, mix = 1) {
+    return (landmarks[age][form]?.[1] || 0) * mix;
+  }
+  function chinShift(age, form, mix = 1) {
+    return ((landmarks[age][form]?.[0] ?? neutralChins[age]) - neutralChins[age]) * mix;
+  }
   const noses = curve([-0.32, -0.04, 0.24, 0.46, 0.61, 0.73, 0.88, 1], [0, 0.13, 0.49, 0.8, 1, 0.58, 0, 0]);
   const cross = [0, 0.28, 0.52, 0.82, 0.95, 1];
   function frontAt(row, v) {
@@ -133,12 +218,16 @@ const pineGameFace = (() => {
     const v = y / row.width;
     return x < row.axis ? (x - row.axis) ** 2 <= row.rear ** 2 * (1 - v * v) : x <= frontAt(row, v);
   }
-  function build(base, shape, face, baseTarget, scalp, eye, mouth, noseRow) {
-    const p = profiles[base],
-      amount = limits[base],
+  function build(base, shape, face, baseTarget, scalp, eye, mouth, noseRow, drawn) {
+    const mix = face.formMix ?? 1, drawing = drawn && drawnProfiles[base][baseTarget];
+    const p = drawing && mix > 0 ? profiles[base].map((original, i) => h => {
+      const a = original(h);
+      return a + (drawing[i](h) - a) * mix;
+    }) : profiles[base];
+    const amount = limits[base],
       infant = base === 'baby';
-    const [jawTarget, chinTarget, cheekTarget, lengthTarget] = targets[baseTarget || 'balanced'].map(
-      (delta) => delta * (face.formMix ?? 1)
+    const [jawTarget, chinTarget, cheekTarget, lengthTarget] = targets[drawing ? 'balanced' : baseTarget || 'balanced'].map(
+      delta => delta * mix
     );
     const value = (key) => shape[key] || 0;
     const mouthDepth = amount * 0.075 * value('lipProjection');
@@ -146,7 +235,7 @@ const pineGameFace = (() => {
     const reach =
       (infant ? 0.132 : base === 'adult' ? 0.205 : 0.166) *
       clamp(noseRow[2] / 0.19 + 0.32 * value('noseBridge'), 0.58, 1.5) *
-      (0.85 + 0.15 * (shape.faceRelief ?? 1));
+      (0.85 + 0.15 * (shape.faceRelief ?? 1)) * (drawing ? 1 + (landmarks[base][baseTarget][2] - 1) * mix : 1);
     const noseWidth = clamp(noseRow[1] * (1 + 0.26 * value('noseWidth')) * (infant ? 1.17 : 1), 0.105, 0.32);
     // Both lids close over the same curved eye plane. The brow and cheek can
     // change depth outside it without shearing the iris on a three-quarter turn.
@@ -163,7 +252,7 @@ const pineGameFace = (() => {
       temple + 0.54 * (outer - temple),
       temple
     ]);
-    const chinLift = { adult: 0.09, child: 0.069, toddler: 0.055, baby: 0.06 }[base];
+    const chinLift = neutralChins[base] + (drawing ? chinShift(base, baseTarget, mix) : 0);
     const lowerLength = lengthTarget * amount - 0.032 * amount * value('chinHeight');
     const rowList = Array.from({ length: rings + 1 }, (_, i) => {
       const h = (i * 2) / rings - 1,
@@ -213,7 +302,8 @@ const pineGameFace = (() => {
       const fold = bell(h, mouth - 0.134, 0.07);
       // The dental arch turns gradually from the cheek to the chin. A short
       // horizontal indentation at lip height casts a moustache-shaped stripe.
-      const oralArc = ramp(eye - h, 0.1, 0.46) * (1 - ramp(-h, 0.76, 0.99)) * (infant ? 0.105 : 0.155);
+      const archDepth = (infant ? 0.105 : 0.155) + (drawing ? mix * (infant ? .03 : .07) : 0);
+      const oralArc = ramp(eye - h, 0.1, 0.46) * (1 - ramp(-h, 0.76, 0.99)) * archDepth;
       const mouthBed =
         mouthDepth * bell(h, mouth, 0.19) +
         upper * (0.041 + 0.014 * value('upperLipFullness')) +
@@ -231,8 +321,9 @@ const pineGameFace = (() => {
           y = v * width,
           eyeBand = bell(h, eye, 0.19);
         const socket = bell(y, 0.48, 0.29) * eyeBand * (0.044 + 0.036 * value('eyeDepth')) * amount;
+        const undisturbed = dome(v);
         let f =
-          dome(v) +
+          undisturbed +
           nose * bell(y, 0, noseWidth) +
           0.037 * wing * bell(y, noseWidth * 0.74, noseWidth * 0.6) +
           mouthBed * bell(y, 0, 0.41) -
@@ -244,6 +335,12 @@ const pineGameFace = (() => {
           const eyeSurface =
             eyelids(y / eyeWidth) + 0.026 * bell(y, 0.46, 0.26) - 0.036 * amount * value('eyeDepth');
           f += lidRegion * (eyeSurface - f);
+        }
+        // Fade mouth and eye relief towards the temple at the outer edge of
+        // each authored cross section. The legacy endpoint keeps its original relief.
+        if (drawing && mix > 0) {
+          const joined = Math.max(axis, f + (undisturbed - f) * ramp(v, .77, 1));
+          f += (joined - f) * mix;
         }
         ring.face[j] = f * (1 - vault) + cap.face[j] * vault;
       }
@@ -300,12 +397,12 @@ const pineGameFace = (() => {
     if ((irisX * irisX) / 0.48 + (irisY * irisY) / 0.85 < 1) return k.pupil;
     return irisY > 0.32 ? k.irisShadow : k.eyes;
   }
-  function lip(name, params, v, h, infant, k, pitch) {
+  function lip(name, params, v, h, infant, k, pitch, drawn = 0) {
     const [, width, up, down, smile] = params,
-      q = Math.abs(v) / (width * (infant ? 1.06 : 1.08));
+      q = Math.abs(v) / (width * (infant ? 1.06 : 1.08) * (1 + .07 * drawn));
     if (q >= 1) return 0;
     const curve = 1 - q * q,
-      line = clamp(0.012 + pitch * 0.35, 0.014, 0.031);
+      line = clamp(0.012 + pitch * 0.35, 0.014, 0.031) + drawn * (.006 + .15 * pitch);
     const height = h - clamp(smile * (infant ? 1.22 : 1.05), -0.08, 0.11) * q * q;
     if (infant && (name === 'soft-smile' || name === 'smile')) {
       const cavity = (name === 'smile' ? 0.129 : 0.087) * curve;
@@ -377,13 +474,13 @@ const pineGameFace = (() => {
     }
   }
   const cache = new Map();
-  function model(base, shape, face, target, scalp, eye, mouth, nose) {
-    const key = JSON.stringify([base, shape, face.outline, face.nose, target, face.formMix ?? 1, eye, mouth]);
+  function model(base, shape, face, target, scalp, eye, mouth, nose, drawn = false) {
+    const key = JSON.stringify([base, shape, face.outline, face.nose, target, face.formMix ?? 1, eye, mouth, drawn]);
     if (!cache.has(key)) {
       if (cache.size >= 8) cache.delete(cache.keys().next().value);
-      cache.set(key, build(base, shape, face, target, scalp, eye, mouth, nose));
+      cache.set(key, build(base, shape, face, target, scalp, eye, mouth, nose, drawn));
     }
     return cache.get(key);
   }
-  return { model, forms, eye, lip, skin, palette };
+  return { model, forms, baseForms, lipLift, chinShift, eye, lip, skin, palette };
 })();

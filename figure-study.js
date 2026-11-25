@@ -6,11 +6,12 @@
   const rows = { adult: [0, 484], child: [489, 363], baby: [868, 218] };
   const originals = { hoodie: 'look_programmer', chef: 'look_chef' };
   const stableRelease = '1.18.0', previousStudy = looks.structureStudyRelease, currentStudy = looks.gameFaceRelease;
+  const reviews = { face:[previousStudy,currentStudy], cast:[stableRelease,currentStudy], bases:[currentStudy,looks.baseFaceRelease] };
   const holdout = 'pine/figure-holdout/' + currentStudy + '/';
   const search = new URLSearchParams(location.search);
-  let reviewKind = search.get('review') === 'cast' ? 'cast' : 'face';
+  let reviewKind = Object.hasOwn(reviews, search.get('review')) ? search.get('review') : 'face';
   function storageKey() {
-    const versions = reviewKind === 'cast' ? stableRelease + '-' + currentStudy + '.painted.cast' : previousStudy + '-' + currentStudy;
+    const versions = reviews[reviewKind].join('-') + ({face:'', cast:'.painted.cast', bases:'.bases'}[reviewKind]);
     return 'pine.figureStudy.' + versions + '.v1';
   }
   const stages = [$('canvas-a'), $('canvas-b')];
@@ -70,7 +71,7 @@
     if (mode === 'blind') {
       url.searchParams.set('mode','blind');
       url.searchParams.set('case',session.current);
-      if (reviewKind === 'cast') url.searchParams.set('review','cast');
+      if (reviewKind !== 'face') url.searchParams.set('review',reviewKind);
       else url.searchParams.delete('review');
       url.searchParams.delete('subject');
       url.searchParams.delete('before');
@@ -81,6 +82,9 @@
       url.searchParams.set('subject',$('subject').value);
       url.searchParams.set('before',$('before').value);
     }
+    if (mode === 'model' && $('before').value === 'bases' && $('drawn-form').value)
+      url.searchParams.set('form',$('drawn-form').value);
+    else url.searchParams.delete('form');
     url.searchParams.set('bearing',$('bearing').value);
     if ($('sample-size').value !== '256') url.searchParams.set('size',$('sample-size').value);
     else url.searchParams.delete('size');
@@ -102,11 +106,13 @@
   }
   function blindPair() {
     const base = session.current.split('/')[0];
-    const seed = hash(holdout + session.current);
-    const options = { base, seed, portrait: 'animation', style: 'natural' };
+    const [, release] = reviews[reviewKind];
+    const seed = hash('pine/figure-holdout/' + release + '/' + session.current);
+    const options = { base, seed, portrait: 'animation', style: 'natural', release };
     const cast = reviewKind === 'cast';
-    const revised = looks.randomCharacter({ ...options, release: currentStudy, bodyFinish: cast ? 'painted' : undefined });
-    const old = cast ? looks.randomCharacter({ ...options, release: stableRelease }) : looks.withFigureStudy(revised);
+    const revised = looks.randomCharacter({ ...options, bodyFinish: reviewKind === 'face' ? undefined : 'painted' });
+    const old = cast ? looks.randomCharacter({ ...options, release:stableRelease }) :
+      reviewKind === 'bases' ? looks.withGameFace(revised) : looks.withFigureStudy(revised);
     return flipped(session.current) ? [revised, old] : [old, revised];
   }
   // Reproduce the original consecutive 1.18 random-contact sheet. The eight recipes
@@ -137,6 +143,10 @@
       ? looks.randomCharacter({ base: sample.split('/')[0], seed: hash(holdout + sample), release: currentStudy })
       : pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
     const before = $('before').value;
+    if (before === 'bases') {
+      const trial = looks.withBaseFace(doc, $('drawn-form').value || undefined);
+      return [looks.withGameFace(trial), trial];
+    }
     const whole = before === 'whole' || before === 'current';
     const revised = looks.withGameFace(doc);
     if (whole) {
@@ -180,14 +190,24 @@
     }
     recipes = blind ? blindPair() : modelPair();
     const before = $('before').value, finish = before === 'finish', whole = before === 'whole' || before === 'current';
-    const baselineTitle = before === 'whole' ? stableRelease + ' · 稳定版' :
+    const bases = !blind && before === 'bases';
+    $('face-gallery').href = 'studies/pixel-structure/' + (bases ? 'drawn-faces.webp' : 'game-faces.webp');
+    $('face-gallery').textContent = bases ? '分龄基础脸三视图' : '新旧脸型实拍';
+    $('form-field').hidden = !bases;
+    const names = looks.baseFaceForms(recipes[1].base);
+    if (bases) for (const opt of $('drawn-form').options) if (opt.value) opt.textContent = names[opt.value];
+    const baselineTitle = bases ? currentStudy + ' · 原有脸型' : before === 'whole' ? stableRelease + ' · 稳定版' :
       before === 'current' ? recipes[0].packs[looks.core] + ' · 草稿原版' : $('before').selectedOptions[0].textContent;
     $('title-a').textContent = blind ? 'A' : baselineTitle;
-    $('title-b').textContent = blind ? 'B' : currentStudy + (whole ? ' · 全身试作' : finish ? ' · 四肢与衣边色块' : ' · 美术基础脸');
+    $('title-b').textContent = blind ? 'B' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
+      currentStudy + (whole ? ' · 全身试作' : finish ? ' · 四肢与衣边色块' : ' · 美术基础脸');
     $('prompt').textContent = blind
       ? reviewKind === 'cast'
         ? '稳定版与试作各自随机生成一人。年龄、种子、镜头与动作帧相同，比较整体搭配和造型。'
-        : '本批比较 1.19.2 与 1.19.3。同一张随机配方使用相同的服装、颜色、动作和镜头。'
+        : '本批比较 ' + reviews[reviewKind].join(' 与 ') + '。两侧共用同一张随机配方、同一动作和机位。'
+      : bases ? (recipes[1].face.form === 'balanced' || recipes[1].face.formMix === 0
+        ? '均衡底脸为两版共用。选择其他脸型或在创作室调高强度，可以比较分龄轮廓。'
+        : '两侧使用同一款脸型、同一形变强度和动作帧。转到侧面看鼻唇与颏尖，再转到斜面看下颌接入颈部的位置。')
       : whole ? '两侧共用肤色、五官选择、穿搭和动作进度。' +
         (looks.portraitStyleOf(recipes[0]) === 'animation' ? '' : '左侧保留原画风，右侧使用立体动画基础脸。') +
         '头肩镜头直接放大全身画面里的像素。'
@@ -395,24 +415,24 @@
   $('prev').onclick = () => navigate(ids[ids.indexOf(session.current) - 1]);
   $('next').onclick = () => navigate(ids[ids.indexOf(session.current) + 1]);
   $('export').onclick = () => {
-    const before = reviewKind === 'cast' ? stableRelease : previousStudy;
+    const [before, after] = reviews[reviewKind];
     const pairs = ids.map(id => {
       const [base, ordinal] = id.split('/');
       const vote = session.votes[id], newOnLeft = flipped(id);
-      return { base, number: Number(ordinal) + 1, seed: hash(holdout + id),
-        a: newOnLeft ? currentStudy : before, b: newOnLeft ? before : currentStudy, vote };
+      return { base, number: Number(ordinal) + 1, seed: hash('pine/figure-holdout/' + after + '/' + id),
+        a: newOnLeft ? after : before, b: newOnLeft ? before : after, vote };
     });
-    const report = { study: 'pine-figure-holdout-' + currentStudy, review: reviewKind,
-      ...(reviewKind === 'cast' ? { candidateBodyFinish: 'painted' } : {}), pairs };
+    const report = { study: 'pine-figure-holdout-' + after, review: reviewKind,
+      ...(reviewKind !== 'face' ? { candidateBodyFinish: 'painted' } : {}), pairs };
     const file = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(file);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'pine-figure-review-' + currentStudy + (reviewKind === 'cast' ? '-cast' : '') + '.json';
+    link.download = 'pine-figure-review-' + after + (reviewKind === 'face' ? '' : '-' + reviewKind) + '.json';
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  $('before').onchange = $('subject').onchange = () => { setSample(); syncAddress(); };
+  $('before').onchange = $('drawn-form').onchange = $('subject').onchange = () => { setSample(); syncAddress(); };
   $('review-kind').onchange = () => {
     reviewKind = $('review-kind').value;
     session = sessions.get(reviewKind) || restore();
@@ -455,6 +475,7 @@
     for (const event of ['click','auxclick','contextmenu']) $(id).addEventListener(event, refreshLinks);
   }
   if (submitted) $('subject').value = 'draft';
+  if (Object.hasOwn(looks.gameFaceForms, search.get('form'))) $('drawn-form').value = search.get('form');
   if ([...$('before').options].some(o => o.value === search.get('before'))) $('before').value = search.get('before');
   else $('before').value = submitted ? 'whole' : previousStudy;
   if (search.get('framing') === 'head') $('framing').value = 'head';

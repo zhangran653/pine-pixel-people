@@ -820,6 +820,18 @@ function checkEditor() {
       reviewUrl.searchParams.get('framing') === 'head' && submitted.id === oldArt.id && submitted.face.form === 'angular' &&
       submitted.face.formMix === .65 && PineWardrobe.saved.get(oldArt.id).face.formMix !== .65,
       'the comparison opens the current unsaved sculpture without updating the wardrobe');
+    byId('try-base-face').click();
+    const formField = byId('edit-face-form');
+    expect(!byId('try-base-face') && formField.value === 'angular' && byId('edit-formMix').value === '0.65',
+      'enter the drawn base on the current sculpt and strength');
+    formField.value = 'round'; formField.dispatchEvent(new Event('change'));
+    const drawnUrl = new URL(reviewLink.href);
+    const drawnDoc = JSON.parse(new URLSearchParams(drawnUrl.hash.slice(1)).get('character'));
+    expect(drawnDoc.packs['pine-core'] === PineLooks.baseFaceRelease && drawnDoc.face.form === 'round' &&
+      drawnUrl.searchParams.get('before') === 'bases', 'send the selected drawn face to its own comparison');
+    byId('edit-undo').click();
+    byId('edit-undo').click();
+    expect(byId('try-base-face') && byId('edit-face-form').value === 'angular', 'return to the archived painter through undo');
     byId('tab-shape').click();
     const bodyFinish = byId('edit-body-finish');
     expect(bodyFinish.value === '', 'existing recipes keep their original body paint');

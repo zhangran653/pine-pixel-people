@@ -70,7 +70,7 @@ const soloClips = (() => {
       off[2] - breath * (1 - Math.cos(tau * u))
     ];
     ch.headYaw = 0.13 * Math.sin(u * tau) ** 3;
-    const structured = a.figureRelease === '1.19.2' || a.figureRelease === '1.19.3';
+    const structured = ['1.19.2','1.19.3','1.19.4'].includes(a.figureRelease);
     if (structured || a.figureRelease === '1.19.0' || a.figureRelease === '1.19.1') {
       if (a.tags.includes('baby')) {
         if (!ch.floorSeat) infantFloorPose(r, ch);

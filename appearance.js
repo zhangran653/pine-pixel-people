@@ -31,7 +31,8 @@ const PineLooks = (() => {
     tailoredRelease = pinePortraitStyles.tailoredRelease,
     proportionStudyRelease = pinePortraitStyles.proportionStudyRelease,
     structureStudyRelease = pinePortraitStyles.structureStudyRelease,
-    gameFaceRelease = pinePortraitStyles.gameFaceRelease;
+    gameFaceRelease = pinePortraitStyles.gameFaceRelease,
+    baseFaceRelease = pinePortraitStyles.baseFaceRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -60,7 +61,7 @@ const PineLooks = (() => {
     facePlaneRelease,
     pixelRelease,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease
   ];
   function figurePin(recipe) {
     const pin = recipe?.packs?.[core];
@@ -81,6 +82,17 @@ const PineLooks = (() => {
     const next = structuredClone(recipe);
     next.packs[core] = gameFaceRelease;
     next.face = { ...facePresets.classic.face, ...next.face, style: 'animation' };
+    return next;
+  }
+  function withBaseFace(recipe, form) {
+    if (form === undefined) {
+      const original = recipe.face?.form ?? recipe.anatomyParts?.skull;
+      form = original ?? (['baby','toddler'].includes(recipe.base) ? 'round' : 'long');
+    }
+    requireThat(typeof form === 'string' && Object.hasOwn(pineGameFace.forms, form), '未知分龄基础脸');
+    const next = withGameFace(recipe);
+    next.packs[core] = baseFaceRelease;
+    next.face.form = form;
     return next;
   }
   function hasRoundedHead(recipe) {
@@ -1345,7 +1357,7 @@ SOFTWARE.`;
     return changes;
   }
   // Limit the generated pigment footprints in head radii, using the painter's selected feature styles.
-  function fitRandomFace(doc) {
+  function fitRandomFace(doc, baseLipLift = 0) {
     const { eyes, brows, nose, mouth, outline } = doc.face, s = doc.shape;
     const style = portraitStyleOf(doc), illustrated = style !== 'natural';
     const fit = pinePortraitStyles.proportionsFor(doc.base, style, doc.packs[core]);
@@ -1376,7 +1388,7 @@ SOFTWARE.`;
     // Include the wing below the tip and the extra lip peak painted by the bow style.
     const clearance = (noseRow[3] + pinePortraitStyles.noseUnderside(noseRow, doc.base !== 'baby' || style === 'animation')) * fit.noseLength
       + Math.max(upperLip, mouth === 'bow' ? 0.105 : 0) * fit.lipHeight * (1 + 0.54 * s.upperLipFullness) + 0.04;
-    s.mouthHeight = Math.min(s.mouthHeight, pineDesignerBody.maxMouthHeight(doc.base, clearance));
+    s.mouthHeight = Math.min(s.mouthHeight, pineDesignerBody.maxMouthHeight(doc.base, clearance + baseLipLift));
     if (outline === 'diamond') s.cheekWidth = Math.min(0.3, s.cheekWidth);
     if (s.cheekHeight > 0.32 && s.cheekProjection > 0.32) s.cheekFullness = Math.max(-0.12, s.cheekFullness);
   }
@@ -1404,13 +1416,15 @@ SOFTWARE.`;
     const expressive = style === 'expressive';
     const doc = structuredClone(recipe);
     doc.packs[core] = pin;
-    if (pin !== gameFaceRelease) delete doc.bodyFinish;
+    if (!pinePortraitStyles.hasGameFace(pin)) delete doc.bodyFinish;
     if (!pinePortraitStyles.hasStructureStudy(pin)) delete doc.anatomyParts;
     if (doc.face) {
       delete doc.face.formMix;
-      if (pin !== gameFaceRelease || portrait !== 'animation') delete doc.face.form;
+      if (!pinePortraitStyles.hasGameFace(pin) || portrait !== 'animation') delete doc.face.form;
     }
     const infant = doc.base === 'baby';
+    const drawnForm = pin === baseFaceRelease && portrait === 'animation'
+      ? pick(infant ? ['round','long','round','angular'] : ['round','long','angular'], random) : null;
     const design = portrait !== 'natural' && portraitFamilies[family || pick(familyIds, random)];
     const young = infant || (design && doc.base === 'toddler');
     const eyePair = young ? pick(design ? infantEyes.filter(p => design.youngEyes.includes(p.face.eyes)) : infantEyes, random)
@@ -1420,7 +1434,9 @@ SOFTWARE.`;
     doc.face = { ...doc.face, style: portrait, eyes: eyePair.face.eyes, brows: eyePair.face.brows,
       nose: nosePair.face.nose, mouth: nosePair.face.mouth };
     if (young) clearAdultFaceDetails(doc.face);
-    const outline = pick(young ? ['', 'oval', 'round', 'pear'] : design ? design.outlines : ['', ...Object.keys(faceDetails.outline)], random);
+    const matchedOutlines = drawnForm && { round:['round','oval','pear'], long:['oval','heart'],
+      angular:young ? ['oval','pear'] : ['square','oval'] }[drawnForm];
+    const outline = pick(matchedOutlines || (young ? ['', 'oval', 'round', 'pear'] : design ? design.outlines : ['', ...Object.keys(faceDetails.outline)]), random);
     if (outline) doc.face.outline = outline;
     else delete doc.face.outline;
     const ageFullness = { baby: 0.12, toddler: 0.06 }[doc.base] || 0;
@@ -1452,7 +1468,7 @@ SOFTWARE.`;
       const widthLimit = (expressive ? 1.085 : 1.035) * (doc.shape.headDepth ?? 1) ** 0.45 / widthAtJaw;
       doc.shape.faceWidth = Math.min(doc.shape.faceWidth, Math.max(0.94, Math.floor(100 * widthLimit) / 100));
     }
-    fitRandomFace(doc);
+    fitRandomFace(doc, drawnForm ? Math.max(0, pineGameFace.lipLift(doc.base, drawnForm)) : 0);
     Object.assign(doc.shape, cheekAdjustment(doc, expressive ? 'expressive' : 'natural'));
     const spread = expressive ? 0.70 : 0.36;
     for (const key of profileKeys) {
@@ -1461,13 +1477,14 @@ SOFTWARE.`;
       doc.shape[key] = Math.round(100 * (center + (random() + random() - 1) * jitter)) / 100;
     }
     fitRandomProfile(doc, expressive);
-    if (pin === gameFaceRelease && portrait === 'animation') {
+    if (pinePortraitStyles.hasGameFace(pin) && portrait === 'animation') {
       // Draw from the neighbourhood of the chosen face. Colour and wardrobe never select a form.
       const options = infant ? ['balanced','round'] : ({
         heart: ['balanced','long'], round: ['balanced','round'], square: ['balanced','angular'],
         long: ['long','balanced'], diamond: ['angular','long'], pear: ['round','balanced']
       }[outline] || ['balanced','long','round']);
-      doc.face.form = pick(options, random);
+      doc.face.form = drawnForm || pick(options, random);
+      if (drawnForm && drawnForm !== 'balanced') doc.face.formMix = between(.82, 1, random);
       if (infant && ['crescent','level-eye','monolid'].includes(doc.face.eyes)) {
         doc.shape.eyeOpening = Math.max(.16,doc.shape.eyeOpening);
         if (doc.face.mouth === 'relaxed') doc.face.mouth = 'soft-smile';
@@ -1477,9 +1494,9 @@ SOFTWARE.`;
   }
   function randomCharacter(input) {
     const { random = Math.random, style, portrait, family, source, seed, base,
-      release: pin = figurePin(source), bodyFinish = pin === gameFaceRelease ? source?.bodyFinish : undefined,
+      release: pin = figurePin(source), bodyFinish = pinePortraitStyles.hasGameFace(pin) ? source?.bodyFinish : undefined,
       locks = [] } = generationOptions(input);
-    requireThat(bodyFinish === undefined || (bodyFinish === 'painted' && pin === gameFaceRelease), '身体着色试作需要 pine-core ' + gameFaceRelease);
+    requireThat(bodyFinish === undefined || (bodyFinish === 'painted' && pinePortraitStyles.hasGameFace(pin)), '身体着色试作需要 pine-core 1.19.3 或 1.19.4');
     const keep = new Set(source ? locks : []);
     const tailored = pinePortraitStyles.hasTailoredFigure(pin);
     requireThat(base === undefined || Object.values(bodyProfiles).some(profile => profile.base === base), '未知年龄基型');
@@ -1526,8 +1543,8 @@ SOFTWARE.`;
   return {
     core,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease,
-    withFigureStudy, withGameFace,
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease,
+    withFigureStudy, withGameFace, withBaseFace,
     originalRelease,
     styleRelease,
     profileRelease,
@@ -1550,7 +1567,7 @@ SOFTWARE.`;
     infantNapeRelease,
     naturalProfileRelease,
     lipJawRelease, illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease,
-    portraitStyles, portraitStyleOf, setPortraitStyle, portraitFamilies, gameFaceForms:pineGameFace.forms,
+    portraitStyles, portraitStyleOf, setPortraitStyle, portraitFamilies, gameFaceForms:pineGameFace.forms, baseFaceForms:pineGameFace.baseForms,
     morphs: pinePortraitStyles.morphs,
     profileControls: pinePortraitStyles.profileControls,
     cheekPresets,

@@ -27,15 +27,16 @@ function loadDraft(pack) {
 }
 
 // Compare the public face presets on identical joint transforms and an integer-anchored camera.
-function measureFacePixels() {
+function measureFacePixels(edition) {
   try {
-    const rows = [];
-    for (const age of ['adult','child','baby']) {
-      const doc = PineLooks.withGameFace(pineFigureModels[age]);
+    const drawn = edition === 'bases', rows = [];
+    const forms = drawn ? ['balanced','angular','round','long'] : ['balanced','angular'];
+    for (const age of drawn ? ['adult','child','toddler','baby'] : ['adult','child','baby']) {
+      const doc = drawn ? PineLooks.withBaseFace(pineFigureModels[age],'balanced') : PineLooks.withGameFace(pineFigureModels[age]);
       doc.bodyFinish = 'painted';
       const base = PineLooks.build(doc);
       const sample = PineMotion.actions.get('idle').sample(.17, base)[0];
-      const faces = ['balanced','angular'].map(form => {
+      const faces = forms.map(form => {
         const actor = PineLooks.build({ ...doc, face:{ ...doc.face, form, formMix:1 } });
         for (const field of Object.keys(base.rig)) {
           // The lip contact point follows the sculpted mouth, for actions such as drinking.
@@ -50,7 +51,7 @@ function measureFacePixels() {
       const low = Math.min(...faces[0].map(p => p.z + p.model.bounds[2] / p.body.density));
       for (const size of [64,128]) for (const bearing of [0,315,270]) {
         const scale = size / (high-low), yaw = bearing * Math.PI / 180;
-        const [a,b] = faces.map(bands => {
+        const images = faces.map(bands => {
           const c = document.createElement('canvas');
           c.width = 256; c.height = 176;
           const ctx = c.getContext('2d', { willReadFrequently:true });
@@ -60,12 +61,16 @@ function measureFacePixels() {
           }
           return new Uint32Array(ctx.getImageData(0,0,c.width,c.height).data.buffer);
         });
-        let changed = 0, outline = 0;
-        for (let i=0; i<a.length; i++) {
-          if (a[i] !== b[i]) changed++;
-          if (((a[i] >>> 24) >= 128) !== ((b[i] >>> 24) >= 128)) outline++;
+        for (let pair=0; pair<images.length; pair+=2) {
+          const a=images[pair], b=images[pair+1];
+          let changed = 0, outline = 0;
+          for (let i=0; i<a.length; i++) {
+            if (a[i] !== b[i]) changed++;
+            if (((a[i] >>> 24) >= 128) !== ((b[i] >>> 24) >= 128)) outline++;
+          }
+          if (drawn && pair===2 && !outline) throw Error('The two bases share a silhouette at ' + [age,size,bearing]);
+          rows.push({ age,size,bearing,...(drawn ? {from:forms[pair],to:forms[pair+1]} : {}),changed,outline });
         }
-        rows.push({ age,size,bearing,changed,outline });
       }
     }
     document.getElementById('qa').textContent = JSON.stringify(rows);
@@ -85,6 +90,24 @@ function check(studyBench) {
   const linkedRecipe = side => JSON.parse(new URLSearchParams(new URL($('edit-' + side).href).hash.slice(1)).get('character'));
   try {
     const query = new URLSearchParams(location.search);
+    if (query.has('base-test')) {
+      const left = linkedRecipe('a'), right = linkedRecipe('b');
+      expect(left.packs['pine-core'] === PineLooks.gameFaceRelease && right.packs['pine-core'] === PineLooks.baseFaceRelease &&
+        right.face.form === 'round' && JSON.stringify(left) === JSON.stringify(PineLooks.withGameFace(right)), 'base review must hold the entire recipe fixed');
+      expect(!$('form-field').hidden && $('action').value === 'baby-reach' && $('bearing').value === '270.5' &&
+        $('phase').value === '36.25' && $('canvas-a').toDataURL() !== picture(), 'new baby profile or same-frame handoff missing');
+      choose('drawn-form','balanced');
+      expect($('canvas-a').toDataURL() === picture() && $('prompt').textContent.includes('均衡'), 'two equal neutral bases should match pixel for pixel');
+      choose('drawn-form','long'); choose('subject','toddler');
+      expect($('title-b').textContent.includes('小椭圆') && new URL(location.href).searchParams.get('form') === 'long', 'toddler base choice lost');
+      document.querySelector('[data-mode="blind"]').click();
+      choose('review-kind','bases');
+      expect($('form-field').hidden && $('progress').textContent.includes('0 / 32') && !$('edit-b').hasAttribute('href'), 'base review leaked its form or inherited votes');
+      for (let n=0;n<32;n++) document.querySelector('[data-vote="tie"]').click();
+      expect(!$('results').hidden && $('counts').rows.length === 4 && [...$('counts').rows].every(r=>r.cells[2].textContent==='8'), 'base review did not reach all four age groups');
+      $('qa').textContent = 'Matched recipes, native neutral pixels, the seated baby action and 32 isolated base-review pairs';
+      return;
+    }
     if (query.has('bad-test')) {
       expect(!$('source-status').hidden && $('subject').value !== 'draft' && linkedRecipe('b').id, 'invalid fragment must recover with a usable standard figure');
       $('qa').textContent = 'Recovered from an invalid draft';
@@ -127,6 +150,26 @@ function check(studyBench) {
       return;
     }
     const resume = query.get('resume');
+    if (resume === 'bases') {
+      const sides = [linkedRecipe('a'),linkedRecipe('b')].sort((a,b)=>a.packs['pine-core'].localeCompare(b.packs['pine-core']));
+      expect($('review-kind').value==='bases' && !$('results').hidden && JSON.stringify(sides[0])===JSON.stringify(PineLooks.withGameFace(sides[1])),
+        'resumed base review lost the actual control');
+      let report;
+      const BlobImpl=window.Blob, click=HTMLAnchorElement.prototype.click;
+      try {
+        window.Blob=class extends BlobImpl { constructor(parts,opts) { super(parts,opts);report=JSON.parse(parts[0]); } };
+        HTMLAnchorElement.prototype.click=()=>{};
+        $('export').click();
+      } finally { window.Blob=BlobImpl; HTMLAnchorElement.prototype.click=click; }
+      expect(report.study.endsWith(PineLooks.baseFaceRelease) && report.review==='bases' && report.pairs.length===32, 'base review report format');
+      const [age,index]=new URLSearchParams(location.search).get('case').split('/');
+      const pair=report.pairs.find(p=>p.base===age && p.number===+index+1);
+      const actual=PineLooks.randomCharacter({base:age,seed:pair.seed,release:PineLooks.baseFaceRelease,bodyFinish:'painted'});
+      expect(JSON.stringify(actual)===JSON.stringify(sides[1]) && [pair.a,pair.b].sort().join('/')===[PineLooks.gameFaceRelease,PineLooks.baseFaceRelease].join('/'),
+        'base review seed, versions or actual clothing did not replay');
+      $('qa').textContent='Restored and independently replayed the 1.19.4 age review and its hidden-side export';
+      return;
+    }
     if (resume === 'cast') {
       expect($('review-kind').value === 'cast' && $('progress').textContent.includes('1 / 32') &&
         $('results').hidden && !$('edit-a').hasAttribute('href'), 'separate whole-cast session did not restore');
@@ -286,9 +329,11 @@ function check(studyBench) {
     if (studyBench) {
       const doc = structuredClone(pineFigureModels.adult);
       doc.packs[PineLooks.core] = PineLooks.structureStudyRelease;
-      const base = studyBench === 'body'
-        ? PineLooks.randomCharacter({ base:'child', seed:3418494998, release:PineLooks.gameFaceRelease }) : doc;
-      const actors = [PineLooks.build(base), PineLooks.build(studyBench === 'body' ? { ...base, bodyFinish:'painted' } : PineLooks.withGameFace(base))];
+      const base = studyBench === 'body' ? PineLooks.randomCharacter({ base:'child', seed:3418494998, release:PineLooks.gameFaceRelease }) :
+        studyBench === 'bases' ? PineLooks.withGameFace(PineLooks.withBaseFace(doc,'long')) : doc;
+      const candidate = studyBench === 'body' ? { ...base, bodyFinish:'painted' } :
+        studyBench === 'bases' ? PineLooks.withBaseFace(base) : PineLooks.withGameFace(base);
+      const actors = [PineLooks.build(base), PineLooks.build(candidate)];
       const samples = [[],[]], projection = [[],[]];
       const walk = PineMotion.actions.get('walk');
       const target = document.createElement('canvas');
@@ -318,7 +363,7 @@ function check(studyBench) {
         return +((sorted[middle-1]+sorted[middle])/2).toFixed(1);
       };
       result[studyBench === 'body' ? 'walkingChild' : 'walkingAdult'] = {
-        versions:studyBench === 'body' ? ['original ink','painted'] : [PineLooks.structureStudyRelease,PineLooks.gameFaceRelease],
+        versions:studyBench === 'body' ? ['original ink','painted'] : [base.packs[PineLooks.core],candidate.packs[PineLooks.core]],
         framesPerVersion:20, medianPoseAndFineBandsMs:samples.map(median), medianProjectionAndReadbackMs:projection.map(median) };
     }
     $('qa').textContent = JSON.stringify(result);
@@ -328,14 +373,16 @@ function check(studyBench) {
 const dir = mkdtempSync(join(tmpdir(), 'pine-figure-qa-')), root = resolve(__dirname, '..');
 try {
   const file = join(dir, 'page.html');
-  const measureForms = process.argv.includes('--measure-forms');
+  const measureBases = process.argv.includes('--measure-bases');
+  const measureForms = measureBases || process.argv.includes('--measure-forms');
+  const bench = process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
   const setup = join(dir, 'draft-fixture.js');
   writeFileSync(setup, '(' + loadDraft.toString() + ')(' + readFileSync(join(root,'packs/creek-hats.json'),'utf8') + ');');
   const page = readFileSync(join(root, 'figure-study.html'), 'utf8')
     .replace('<script defer src="figure-study.js">', '<script defer src="' + pathToFileURL(setup).href + '"></script><script defer src="figure-study.js">')
     .replace('<head>', '<head><base href="' + pathToFileURL(root+sep).href + '"><script>localStorage.setItem("pine.figureStudy.1.18.0-1.19.0.v1",JSON.stringify({salt:77,votes:{"adult/0":"b"}}))</script>')
     .replace('</body>', '<output id="qa"></output><script>window.addEventListener("load",()=>(' +
-      (measureForms ? measureFacePixels : check).toString() + ')(' + JSON.stringify(process.argv.includes('--bench-body') ? 'body' : process.argv.includes('--bench')) + '));</script></body>');
+      (measureForms ? measureFacePixels : check).toString() + ')(' + JSON.stringify(bench) + '));</script></body>');
   writeFileSync(file, page);
   const chrome = process.env.CHROME_BIN || (process.platform === 'darwin'
     ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : 'google-chrome');
@@ -343,7 +390,8 @@ try {
     '--user-data-dir=' + join(dir,'profile'),'--dump-dom',pathToFileURL(file).href];
   if (process.env.CI === 'true' && process.platform === 'linux') flags.unshift('--no-sandbox');
   const cases = measureForms ? [''] : ['?subject=baby&bearing=270&before=1.19.0', '?mode=blind&resume=1', '?mode=blind&review=cast&case=child%2F5&resume=cast',
-    '?draft-test=1&before=current&action=follow-rattle&phase=36.25&bearing=270.5&framing=head', '?bad-test=1#character=%7B'];
+    '?draft-test=1&before=current&action=follow-rattle&phase=36.25&bearing=270.5&framing=head', '?bad-test=1#character=%7B',
+    '?base-test=1&subject=baby&before=bases&form=round&phase=36.25&action=baby-reach&bearing=270.5', '?mode=blind&review=bases&case=baby%2F0&resume=bases'];
   for (const query of cases) {
     const args = [...flags.slice(0,-1), flags.at(-1) + query];
     const r = spawnSync(chrome, args, { encoding:'utf8', maxBuffer:4000000, timeout:120000 });

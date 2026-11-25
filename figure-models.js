@@ -1,4 +1,4 @@
-// The three turnaround sitters use the same parts, pigments and recipe format as the editor.
+// Turnaround sitters use the same parts, pigments and recipe format as the editor.
 const pineFigureModels = (() => {
   const plain = PineLooks.templates.find(doc => doc.id === 'look_body_male');
   function sitter(profile, label, parts, face, colors) {
@@ -15,6 +15,9 @@ const pineFigureModels = (() => {
     child: sitter('child', '蓝色套头衫', { hair: 'crop', top: 'pullover', bottom: 'trousers', shoes: 'sneakers' },
       { eyes: 'round', brows: 'fine', nose: 'button', mouth: 'smile', outline: 'heart' },
       { skin: '#c38a60', hair: '#593b2f', eyes: '#4b322b', top: '#516881', bottom: '#a36544', shoes: '#cbbb96', accent: '#536479' }),
+    toddler: sitter('toddler', '杏色背带裤', { hair: 'pixie', top: 'tee', bottom: 'bib-overalls', shoes: 'strap-sneakers' },
+      { eyes: 'round', brows: 'fine', nose: 'button', mouth: 'soft-smile', outline: 'oval' },
+      { skin: '#c59170', hair: '#57473b', eyes: '#494034', top: '#849887', bottom: '#ba8752', shoes: '#92745c', accent: '#d9c29c' }),
     baby: sitter('baby', '青色棉套装', { hair: 'curly', top: 'snap-knit', bottom: 'knee-pants', shoes: 'soft-booties' },
       { eyes: 'round', brows: 'fine', nose: 'button', mouth: 'soft-smile', outline: 'round' },
       { skin: '#99613f', hair: '#4e3028', eyes: '#442921', top: '#58796c', bottom: '#58796c', shoes: '#7d9580', accent: '#b5bc91' })

@@ -21,6 +21,12 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 1.19.4 分龄基础脸试作
+
+在人物创作室的「五官」点「试用分龄基础脸」。成人可以选窄颏长脸、短圆脸和宽颌脸。儿童、幼儿、婴儿各有自己的一套小椭圆脸、短圆脸和柔方脸。转到侧面比较鼻底、嘴唇和下巴，拖「脸型强度」可以回到原有的均衡脸。试作使用原有衣物、配色和动作，普通新建人物使用 1.18.0。[编辑坐姿婴儿](http://127.0.0.1:8000/atelier.html?model=baby&figure=bases&form=round&tab=face&bearing=270) · [四个年龄的三视图](studies/pixel-structure/drawn-faces.webp) · [配方接口](appearance-standard.html#base-faces)
+
+在造型对照台选择「分龄基础脸 · 1.19.3 / 1.19.4」，两侧共用脸型选择、强度、穿搭和动作。分龄盲评每个年龄八组，固定种子。实拍图逐龄取前两组，保留帽檐和长发对五官的遮挡。[同一婴儿的侧脸](http://127.0.0.1:8000/figure-study.html?subject=baby&before=bases&form=round&framing=head&bearing=270&size=128) · [八组随机实拍](studies/pixel-structure/drawn-random.webp) · [分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=bases&size=128)
+
 ### 1.19.3 美术基础脸试作
 
 在创作室点「试用动画美术脸型」，再进「五官」选择均衡、秀长、柔圆或利落，用「脸型强度」调节与均衡脸之间的变化。成人、儿童、幼儿、婴儿各有一套原创切面。嘴角沿牙弓转向脸侧，眼睑沿同一曲面闭合。肤色、眼色、穿搭与动作仍由人物配方控制。婴儿有较短的下巴、坐地时的头颈位置和放在腿面附近的双手。[编辑成人](http://127.0.0.1:8000/atelier.html?model=adult&figure=study&tab=face&bearing=315) · [旋转坐姿婴儿](http://127.0.0.1:8000/figure-study.html?subject=baby&bearing=270) · [配方接口](appearance-standard.html#game-face)
