@@ -121,6 +121,27 @@ const pineHeadShape = (() => {
       return fitted;
     });
   }
+  // Offsets in head radii. The hm08 midline has a supported philtrum and a
+  // shallower fold below the lip than the feature-free base used for painting.
+  // Fit the turns to the actor's own tip, lip seam and chin before sampling.
+  function oralProfile(planes) {
+    const { chin, tip } = planes.contour, lip = planes.mouth;
+    const lower = lip - chin, upper = tip - lip;
+    const points = [
+      [chin - 0.18, 0], [chin - 0.095, -0.043], [chin - 0.013, 0], [chin + 0.013, 0],
+      [chin + 0.26 * lower, 0.014], [chin + 0.50 * lower, 0.078],
+      [chin + 0.72 * lower, 0.081], [lip - 0.16 * lower, 0.072], [lip, 0.047],
+      [lip + 0.15 * upper, 0.075], [lip + 0.49 * upper, 0.121],
+      [lip + 0.76 * upper, 0.077], [tip, 0.008], [tip + 0.13, 0]
+    ];
+    const tangents = slopes(points, 1);
+    return h => {
+      if (h <= points[0][0] || h >= points.at(-1)[0]) return 0;
+      let i = 0;
+      while (h > points[i + 1][0]) i++;
+      return planes.strength * sample(points, tangents, i, 1, h);
+    };
+  }
   function profile(base, fittedJaw = false, settings, relief = 0, facial, refitNape = false, planes) {
     const child = base !== 'adult', infant = base === 'baby';
     const reference = pineHeadSections[base];
@@ -134,6 +155,7 @@ const pineHeadShape = (() => {
     const neutral = posterior(1);
     const angles = lateral.map(Math.asin);
     const cheekCenter = facial ? (infant ? -0.34 : -0.205) + (infant ? 0.12 : 0.20) * facial.cheekHeight : -0.14;
+    const oralDepth = planes?.contour && oralProfile(planes);
     const meridians = Array.from({ length: lateralSteps + 1 }, (_, j) => {
       const angle = Math.asin(j / lateralSteps);
       let interval = 0;
@@ -170,7 +192,7 @@ const pineHeadShape = (() => {
           const v = lateral[j];
           front[j] += amount * (
             (facial ? 0.052 : 0.115) * cheek * lobe(v, facial ? 0.59 : 0.50, facial ? 0.48 : 0.40) +
-            0.068 * bridge * lobe(v, 0, 0.44) +
+            (oralDepth ? 0.029 : 0.068) * bridge * lobe(v, 0, 0.44) +
             0.045 * chin * lobe(v, 0, 0.78) -
             0.062 * mouthCorners * lobe(v, 0.39, 0.37)
           );
@@ -265,6 +287,10 @@ const pineHeadShape = (() => {
           const pad = (midline - face[j]) * lobe(v, 0, 0.14) * (planes.strength || Math.abs(bed.depth));
           face[j] += arch + envelope * (pad - cornerInset * lobe(v, 0.39, 0.34));
         }
+      }
+      const support = oralDepth && oralDepth(h);
+      if (support) {
+        for (let j = 0; j <= lateralSteps; j++) face[j] += support * lobe(j / lateralSteps, 0, 0.64);
       }
       const templeDelta = refitNape && h > -0.18 && h < 0.26
         ? sample(temples, templeSlopes, 1, 1, h) - value(1) : 0;
@@ -429,7 +455,8 @@ const pineHeadShape = (() => {
     };
     const key = [base, relief, refitNape, ...Object.values(settings), ...(facial ? Object.values(facial) : []),
       ...(planes?.strength ? [planes.eye, planes.eyeCenter, planes.mouth, planes.strength] : []),
-      ...(planes?.lipBed ? ['lip', planes.lipBed.center, planes.lipBed.above, planes.lipBed.below, planes.lipBed.depth] : [])].join('|');
+      ...(planes?.lipBed ? ['lip', planes.lipBed.center, planes.lipBed.above, planes.lipBed.below, planes.lipBed.depth] : []),
+      ...(planes?.contour ? ['contour', planes.contour.chin, planes.contour.tip] : [])].join('|');
     if (!adjustable.has(key)) {
       if (adjustable.size >= 8) adjustable.delete(adjustable.keys().next().value);
       adjustable.set(key, profile(base, true, settings, relief, facial, refitNape, planes));

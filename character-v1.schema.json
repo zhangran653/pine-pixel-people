@@ -74,7 +74,8 @@
             "1.13.1",
             "1.14.0",
             "1.15.0",
-            "1.16.0"
+            "1.16.0",
+            "1.16.1"
           ]
         }
       },
@@ -841,17 +842,17 @@
   },
   "allOf": [
     {
-      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "const": "1.16.0" } } } } } },
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.16.0", "1.16.1"] } } } } } },
       "then": { "properties": { "face": { "properties": { "style": false } } } }
     },
     {
-      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.15.0", "1.16.0"] } } } } } },
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.15.0", "1.16.0", "1.16.1"] } } } } } },
       "then": { "properties": { "shape": { "properties": {
         "lipProjection": { "const": 0 }, "jawDefinition": { "const": 0 }
       } } } }
     },
     {
-      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0"] } } } } } },
+      "if": { "properties": { "packs": { "properties": { "pine-core": { "not": { "enum": ["1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0", "1.16.1"] } } } } } },
       "then": { "properties": { "shape": { "properties": {
         "cheekHeight": { "const": 0 },
         "cheekWidth": { "const": 0 },
@@ -872,7 +873,7 @@
     {
       "if": {
         "properties": {
-          "packs": { "properties": { "pine-core": { "not": { "enum": ["1.11.0", "1.11.1", "1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0"] } } } }
+          "packs": { "properties": { "pine-core": { "not": { "enum": ["1.11.0", "1.11.1", "1.12.0", "1.13.0", "1.13.1", "1.14.0", "1.15.0", "1.16.0", "1.16.1"] } } } }
         }
       },
       "then": {
@@ -916,7 +917,8 @@
                   "1.13.1",
                   "1.14.0",
                   "1.15.0",
-                  "1.16.0"
+                  "1.16.0",
+                  "1.16.1"
                 ]
               }
             }

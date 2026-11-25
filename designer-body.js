@@ -2,7 +2,7 @@
 const pineDesignerBody = (() => {
   // The first three sculpt releases added the scalp, layered short hair and fitted jaw in order.
   const sculptedReleases = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1',
-    '1.12.0', '1.13.0', '1.13.1', '1.14.0', '1.15.0', pinePortraitStyles.illustratedRelease];
+    '1.12.0', '1.13.0', '1.13.1', '1.14.0', '1.15.0', pinePortraitStyles.illustratedRelease, pinePortraitStyles.silhouetteRelease];
   // Relative to the selected body. The editor, recipe validator and painter share these limits.
   const shapeRanges = {
     height: [0.75, 1.3, 1],
@@ -539,7 +539,8 @@ const pineDesignerBody = (() => {
     const pin = recipe.packs?.['pine-core'];
     const style = pinePortraitStyles.portraitStyle(recipe);
     const illustrated = style !== 'natural';
-    const editableProfile = pin === '1.15.0' || pin === pinePortraitStyles.illustratedRelease;
+    const refitProfile = pin === pinePortraitStyles.silhouetteRelease && recipe.base !== 'baby';
+    const editableProfile = pin === '1.15.0' || pin === pinePortraitStyles.illustratedRelease || pin === pinePortraitStyles.silhouetteRelease;
     const naturalProfile = pin === '1.14.0' || editableProfile;
     const infantHeadVersion = pin === '1.13.0' || pin === '1.13.1' || naturalProfile;
     const infant = recipe.base === 'baby' && infantHeadVersion;
@@ -562,16 +563,24 @@ const pineDesignerBody = (() => {
       mouth: mouthH,
       strength: { adult: 1, child: 0.82, toddler: 0.55 }[recipe.base]
     } : null;
+    const noseType = recipe.face?.nose || 'classic';
+    const noseRow = pinePortraitStyles.noses[noseType] || pinePortraitStyles.basicNoses[noseType];
     let skinPlanes = planes;
     if (editableProfile) {
-      const nose = recipe.face?.nose || 'classic';
-      const noseRow = pinePortraitStyles.noses[nose] || pinePortraitStyles.basicNoses[nose];
       const above = clamp(eyeLevel - noseRow[3] * feature.noseLength - mouthH - 0.012, 0.045, 0.245);
       const below = clamp(mouthH - chinH - 0.012, 0.035, 0.27);
       const reach = shape.lipProjection || 0;
-      const depth = profileStrength * ((infant ? 0 : -0.038) + (reach < 0 ? 0.105 : 0.130) * reach) *
+      // The supported dental arch can retract farther. Its forward travel ends
+      // behind the selected nose, including on a child's shorter profile.
+      let travel = reach < 0 ? 0.105 : 0.130;
+      if (refitProfile) {
+        const noseDepth = pinePortraitStyles.tipProjection(noseRow, feature.noseReach, 1 + 0.63 * (shape.noseBridge || 0));
+        travel = reach < 0 ? 0.119 : clamp(0.54 * noseDepth - 0.029, 0.029, 0.093);
+      }
+      const depth = profileStrength * ((infant ? 0 : -0.038) + travel * reach) *
         Math.min(1, above / 0.15, below / 0.15);
       skinPlanes = { ...planes, lipBed: { center: mouthH, above, below, depth } };
+      if (refitProfile) skinPlanes.contour = { chin: chinH, tip: eyeLevel - noseRow[3] * feature.noseLength };
     }
     const headShape = sculptedHead ? pineHeadShape.scalp(headKind, refitNape) : null;
     const individual = pin === '1.12.0' || infantHeadVersion;
@@ -756,6 +765,7 @@ const pineDesignerBody = (() => {
       const v = y / jawWidth(h);
       return fit.x + fit.rx * Math.sqrt(Math.sqrt(Math.max(0, 1 - h * h - v * v * v * v)));
     }
+    const noseContour = refitProfile && pinePortraitStyles.noseContour(noseRow, noseFit, eyeZ, mouthZ, faceFront, noseRise, feature.noseReach);
     const mouthY = roundedHead ? 0 : -0.062 * fit.ry;
     // The rounded head carries the lip pigments on its own surface. The bottle
     // meets that same surface regardless of the shape or color of the lips.
@@ -2389,7 +2399,7 @@ const pineDesignerBody = (() => {
       const noseZ = eyeZ - 0.205 * rz,
         noseX = faceFront(0, noseZ) - 0.1 * rx;
       if (noseStyle || individual)
-        pinePortraitStyles.nose(noseStyle || pinePortraitStyles.basicNoses[nose], b, k, noseFit, eyeZ, surface, noseSpan, noseRise, feature.noseReach, !!planes, style);
+        pinePortraitStyles.nose(noseStyle || pinePortraitStyles.basicNoses[nose], b, k, noseFit, eyeZ, surface, noseSpan, noseRise, feature.noseReach, !!planes, style, noseContour);
       else if (b.faceDetail) {
         const root = eyeZ + 0.1 * rz,
           tip = eyeZ - (nose === 'button' ? 0.26 : 0.32) * rz;

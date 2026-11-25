@@ -494,6 +494,7 @@
   }
   function upgradeLabel() {
     if (draft.packs[looks.core] === looks.release) return '';
+    if (draft.packs[looks.core] === looks.illustratedRelease) return draft.base === 'baby' ? '' : '试用新版侧脸';
     if (draft.packs[looks.core] === looks.lipJawRelease) return '试用游戏立绘';
     if (draft.packs[looks.core] === looks.naturalProfileRelease) return '试用嘴唇与下颌线';
     if (looks.hasInfantHead(draft))
@@ -737,12 +738,28 @@
     group.append(actions, cards);
     let batch = 0;
     choose.onclick = () => {
-      const token = ++batch;
       const portrait = $('portrait-style').value, style = $('random-style').value;
       const remaining = Object.keys(looks.portraitFamilies);
       cards.replaceChildren();
       choose.textContent = '换一组候选脸';
-      const queue = [];
+      const angles = document.createElement('div'), previews = [];
+      angles.className = 'category-buttons candidate-angles';
+      angles.setAttribute('role', 'group');
+      angles.setAttribute('aria-label', '候选脸视角');
+      cards.append(angles);
+      const direction = bearing > 180 ? -1 : 1;
+      for (const [degrees, label] of [[0, '正面'], [45, '斜侧面'], [90, '正侧面']]) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.candidateAngle = String(degrees);
+        button.textContent = label;
+        button.onclick = () => {
+          const angle = (360 + direction * degrees) % 360;
+          orbit(angle);
+          render(angle);
+        };
+        angles.append(button);
+      }
       for (let i = 0; i < 4; i++) {
         const family = remaining.splice(Math.floor(Math.random() * remaining.length), 1)[0];
         const doc = looks.randomFace(draft, { portrait, style, family });
@@ -754,23 +771,30 @@
         button.append(canvas, portrait === 'natural' ? '方案 ' + (i + 1) : looks.portraitFamilies[family].label);
         button.onclick = () => {
           if (button.getAttribute('aria-pressed') === 'true') return;
-          for (const option of cards.children) option.setAttribute('aria-pressed', String(option === button));
+          for (const option of cards.querySelectorAll('[data-face-candidate]')) option.setAttribute('aria-pressed', String(option === button));
           randomize(false, doc);
           button.focus({ preventScroll: true });
         };
         cards.append(button);
-        queue.push([canvas, doc]);
+        previews.push({ canvas, doc });
       }
-      function paint() {
-        if (token !== batch || !group.isConnected || !queue.length) return;
-        const [canvas, doc] = queue.shift();
-        if (!canvas.isConnected) return;
-        const sample = looks.build({ ...doc, label: doc.label.trim() || '候选脸' });
-        thumbnails.set(canvas, { actor: sample, bearing: 18, view: 'face' });
-        paintThumbnail(canvas);
-        if (queue.length) requestAnimationFrame(paint);
+      function render(angle) {
+        const token = ++batch, queue = previews.slice();
+        const fromFront = Math.min(angle, 360 - angle);
+        const nearest = Math.min(90, Math.round(fromFront / 45) * 45);
+        for (const button of angles.children) button.setAttribute('aria-pressed', String(+button.dataset.candidateAngle === nearest));
+        function paint() {
+          if (token !== batch || !cards.isConnected || !queue.length) return;
+          const item = queue.shift();
+          if (!item.canvas.isConnected) return;
+          item.actor ??= looks.build({ ...item.doc, label: item.doc.label.trim() || '候选脸' });
+          thumbnails.set(item.canvas, { actor: item.actor, bearing: angle, view: 'face' });
+          paintThumbnail(item.canvas);
+          if (queue.length) requestAnimationFrame(paint);
+        }
+        requestAnimationFrame(paint);
       }
-      requestAnimationFrame(paint);
+      render(Math.min(bearing, 360 - bearing) > 90 ? (360 + direction * 90) % 360 : bearing);
     };
     return group;
   }

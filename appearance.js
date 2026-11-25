@@ -23,7 +23,8 @@ const PineLooks = (() => {
     infantNapeRelease = '1.13.1',
     naturalProfileRelease = '1.14.0',
     lipJawRelease = '1.15.0',
-    release = pinePortraitStyles.illustratedRelease;
+    illustratedRelease = pinePortraitStyles.illustratedRelease,
+    release = pinePortraitStyles.silhouetteRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -47,6 +48,7 @@ const PineLooks = (() => {
     infantNapeRelease,
     naturalProfileRelease,
     lipJawRelease,
+    illustratedRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -463,7 +465,7 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (recipe.face?.style !== undefined) needed = release;
+    if (recipe.face?.style !== undefined) needed = illustratedRelease;
     else if (profileKeys.some((key) => (recipe.shape[key] ?? 0) !== 0)) needed = lipJawRelease;
     else if (morphKeys.some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 0))
       needed = morphRelease;
@@ -1208,6 +1210,21 @@ SOFTWARE.`;
     if (outline === 'diamond') s.cheekWidth = Math.min(0.3, s.cheekWidth);
     if (s.cheekHeight > 0.32 && s.cheekProjection > 0.32) s.cheekFullness = Math.max(-0.12, s.cheekFullness);
   }
+  function fitRandomProfile(doc, expressive) {
+    if (doc.base === 'baby') return;
+    const s = doc.shape, style = portraitStyleOf(doc);
+    const row = pinePortraitStyles.noses[doc.face.nose] || pinePortraitStyles.basicNoses[doc.face.nose];
+    const dimensions = pinePortraitStyles.proportionsFor(doc.base, style);
+    const tip = pinePortraitStyles.tipProjection(row, dimensions.noseReach, 1 + 0.63 * s.noseBridge);
+    // Balance the dental arch with the chosen nose and chin. Keep tighter bounds
+    // on the side facing a long tip or a receding chin, with room to vary the other side.
+    const center = 1.8 * (tip - 0.145) + 0.20 * (s.chinProjection || 0);
+    const spread = expressive ? 0.42 : 0.22, limit = expressive ? 0.70 : 0.36;
+    const fit = (v, lo, hi) => Math.round(100 * Math.min(hi, Math.max(lo, v))) / 100;
+    s.lipProjection = fit(s.lipProjection + 0.075 + center, Math.max(-limit, center - spread), Math.min(limit, center + spread));
+    const chin = s.chinProjection || 0, lip = s.lipProjection;
+    s.chinProjection = fit(chin, lip * 0.36 - (expressive ? 0.53 : 0.29), lip * 0.46 + (expressive ? 0.36 : 0.20));
+  }
   function randomFace(recipe, input) {
     const { random = Math.random, style = 'natural', portrait = recipe.face?.style || 'game', family } = generationOptions(input);
     requireThat(typeof portrait === 'string' && Object.hasOwn(portraitStyles, portrait), '未知人物画风');
@@ -1260,6 +1277,7 @@ SOFTWARE.`;
       const jitter = design ? Math.min(spread * 0.60, spread - Math.abs(center)) : spread;
       doc.shape[key] = Math.round(100 * (center + (random() + random() - 1) * jitter)) / 100;
     }
+    fitRandomProfile(doc, expressive);
     return doc;
   }
   function randomCharacter(input) {
@@ -1313,7 +1331,7 @@ SOFTWARE.`;
     infantRelease,
     infantNapeRelease,
     naturalProfileRelease,
-    lipJawRelease,
+    lipJawRelease, illustratedRelease,
     portraitStyles, portraitStyleOf, setPortraitStyle, portraitFamilies,
     morphs: pinePortraitStyles.morphs,
     profileControls: pinePortraitStyles.profileControls,

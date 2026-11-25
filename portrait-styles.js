@@ -9,9 +9,11 @@ const pinePortraitStyles = (() => {
       noseWidth: 0.84, noseLength: 0.68, noseReach: 0.65, lipWidth: 0.78, lipHeight: 0.86 }
   };
   const illustratedRelease = '1.16.0';
+  const silhouetteRelease = '1.16.1';
   const portraitStyles = { game: '游戏立绘', manga: '漫画', natural: '自然' };
   function portraitStyle(recipe) {
-    return recipe.packs?.['pine-core'] === illustratedRelease ? recipe.face?.style || 'game' : 'natural';
+    const pin = recipe.packs?.['pine-core'];
+    return pin === illustratedRelease || pin === silhouetteRelease ? recipe.face?.style || 'game' : 'natural';
   }
   function proportionsFor(base, style) {
     const infant = base === 'baby', p = proportions[infant ? 'baby' : 'standard'];
@@ -305,32 +307,68 @@ const pinePortraitStyles = (() => {
     if (Math.abs(h - mid) < (gap || 0.014) * taper + 0.006) return k.lipLine;
     return h > mid ? k.upperLip : k.lowerLip;
   }
-  function noseUnderside(row, shapedTip) {
-    return Math.max(0.105, shapedTip ? 1.25 * row[6] : Math.min(0.11, row[6]));
+  function noseUnderside(row, fittedProfile) {
+    return fittedProfile ? 0.107 + 0.52 * row[6] : Math.max(0.105, Math.min(0.11, row[6]));
   }
-  function nose(row, b, k, fit, eyeZ, front, widthScale = 1, bridgeScale = 1, reachScale = 1, shapedTip = false, style = 'natural') {
+  function tipProjection(row, reachScale, bridgeScale) {
+    const reach = row[2] * reachScale;
+    return (0.83 * reach - 0.37 * Math.max(0, reach - 0.15)) * (1 + 0.14 * (bridgeScale - 1));
+  }
+  // One dorsal line from the nasal root, around the tip and back to the philtrum.
+  // Store the extra depth over this particular face, ready for any pose or camera.
+  function noseContour(row, fit, eyeZ, mouthZ, front, bridgeScale, reachScale) {
+    const tip = eyeZ - row[3] * fit.rz, root = eyeZ + row[4] * fit.rz;
+    const underside = Math.max(0.055, Math.min(noseUnderside(row, true), 0.79 * (tip - mouthZ) / fit.rz));
+    const base = tip - underside * fit.rz, baseX = front(0, base), rootX = front(0, root);
+    const tipX = front(0, tip) + fit.rx * tipProjection(row, reachScale, bridgeScale);
+    const reach = fit.rx * row[2] * reachScale * 0.92;
+    const steps = 96, smooth = t => t * t * (3 - 2 * t);
+    const relief = Float32Array.from({ length: steps + 1 }, (_, i) => {
+      const z = base + i * (root - base) / steps;
+      let ridge;
+      if (z < tip) ridge = tipX + (baseX - tipX) * smooth((tip - z) / (tip - base));
+      else {
+        const t = (root - z) / (root - tip), rise = smooth(t) ** 1.16;
+        const rootTurn = Math.max(0, 1 - ((t - 0.25) / 0.25) ** 2) ** 2;
+        ridge = rootX + (tipX - rootX) * rise +
+          reach * ((bridgeScale - 1) * 3.0 * rise * (1 - rise) - 0.115 * rootTurn);
+      }
+      return Math.max(0, (ridge - front(0, z)) / reach);
+    });
+    return { underside, at(z) {
+      const i = Math.min(steps, Math.max(0, (z - base) * steps / (root - base)));
+      const lo = Math.min(steps - 1, Math.floor(i));
+      return relief[lo] + (relief[lo + 1] - relief[lo]) * (i - lo);
+    } };
+  }
+  function nose(row, b, k, fit, eyeZ, front, widthScale = 1, bridgeScale = 1, reachScale = 1, shapedTip = false, style = 'natural', contour = null) {
     const [, baseWidth, baseReach, length, start, wingStrength, tipHeight] = row,
       { x: cx, rx, ry, rz } = fit;
     const reach = baseReach * reachScale * (shapedTip ? 0.92 : 1);
     const maxWidth = baseWidth * Math.max(1, widthScale) * ry;
     const root = eyeZ + start * rz,
       tip = eyeZ - length * rz;
-    const underside = shapedTip ? noseUnderside(row, true) : 0.11;
+    const underside = contour?.underside ?? (shapedTip ? Math.max(0.105, 1.25 * tipHeight) : 0.11);
     b.stamp(cx + 0.49 * rx, cx + (1.46 + Math.max(0, bridgeScale - 1) * reach) * rx, -maxWidth, maxWidth, tip - underside * rz, root, (x, y, z) => {
       const t = (root - z) / (root - tip);
       const wingBlend = Math.min(1, Math.max(0, (t - 0.15) / 0.65));
       const width = baseWidth * (1 + (widthScale - 1) * wingBlend * wingBlend * (3 - 2 * wingBlend));
       const q = y / (width * ry), h = (z - tip) / rz;
       if (t < 0 || Math.abs(q) >= 1) return 0;
-      const bridgeWidth = shapedTip ? 0.49 + 0.20 * t : 0.39 + 0.19 * t;
-      const bridge =
-        Math.max(0, 1 - (q / bridgeWidth) ** 2) *
-        Math.min(1, t) *
-        Math.max(0, Math.min(1, (1.19 - t) / 0.29));
       const bulb = Math.max(0, 1 - (q / 0.66) ** 2 - (h / (shapedTip && h < 0 ? underside : tipHeight)) ** 2);
       const wing = Math.max(0, 1 - ((Math.abs(q) - 0.63) / 0.38) ** 2 - ((h + 0.032) / 0.073) ** 2);
-      const offset = Math.max(bridge * bridgeScale, bulb, wing * wingStrength),
-        surface = front(y, z);
+      let offset;
+      if (contour) {
+        const span = 0.43 + 0.31 * Math.max(0, 1 - (h / 0.22) ** 2);
+        const dorsum = contour.at(z) * Math.max(0, 1 - (q / span) ** 2);
+        offset = Math.max(dorsum, 0.72 * wing * wingStrength);
+      } else {
+        const bridgeWidth = shapedTip ? 0.49 + 0.20 * t : 0.39 + 0.19 * t;
+        const bridge = Math.max(0, 1 - (q / bridgeWidth) ** 2) * Math.min(1, t) *
+          Math.max(0, Math.min(1, (1.19 - t) / 0.29));
+        offset = Math.max(bridge * bridgeScale, bulb, wing * wingStrength);
+      }
+      const surface = front(y, z);
       if (offset < 0.045 || x < surface - 0.12 * rx || x > surface + reach * rx * offset) return 0;
       if (style !== 'natural') {
         if (h < -0.033 && wing > 0.38 && Math.abs(q) > 0.45 && Math.abs(q) < 0.78) return k.noseShade;
@@ -477,7 +515,7 @@ const pinePortraitStyles = (() => {
   }
   return {
     proportions,
-    illustratedRelease, portraitStyles, portraitStyle, proportionsFor,
+    illustratedRelease, silhouetteRelease, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
     illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors,
     morphs,
     profileControls,

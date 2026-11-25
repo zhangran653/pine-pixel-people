@@ -23,6 +23,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 人物创作室从 1.16.0 起默认采用「游戏立绘」。在「画风」切换到「漫画」，同一个角色会有更舒展的眼睑、更大的虹膜和更简洁的鼻尖与下颌轮廓。想保留原来的绘法可以选「自然」。在「五官」点「挑一组脸」，一次比较同一肤色、发型与穿搭下的四张脸，再选一张继续捏。成人、儿童和婴儿都可以使用这三种画风。[打开漫画选脸](http://127.0.0.1:8000/atelier.html?preset=look_relay&tab=face&portrait=manga&candidates=1&bearing=27) · [同一人三种画风与连续八次随机结果](portrait-art-preview.png) · [人物画风接口](appearance-standard.html#portrait-art)
 
+从 1.16.1 起，「挑一组脸」可以让同一组四张候选脸一起转到正面、斜侧面或正侧面。随机时，鼻尖长度、嘴唇前后和颏尖位置会一起配合。已保存的 1.16.0 成人、学童和幼儿可在「五官」点「试用新版侧脸」，转到侧面比较后再保存。[从正侧面挑脸](http://127.0.0.1:8000/atelier.html?preset=look_body_female&tab=face&portrait=manga&hair=bun&bearing=270&candidates=1) · [白色发髻角色前后对照、连续随机五官与整人样本](random-profile-preview.png)
+
 形象库含 59 套可拆开的配方。可按时代、职业、姓名或配件搜索，再更改发型、肤色、衣装、佩饰和手持物。现代职业包括程序员、开发工程师、经理、售货员、导游、护士和飞行员。古代、奇幻和科幻系列可以互相借用部件。成人、学童、幼儿和婴儿各有适合身材的骨架。工坊最初的六位演员也从普通配方生成。已有编排仍可通过 `hiker`、`surveyor`、`mother`、`child`、`toddler` 和 `baby` 找到他们。
 
 在「五官 → 下巴与下颌」可以选自然短颌、柔圆、微尖、方正，再调颏尖高低、前伸、圆钝程度、下颌后角的位置与颌颈转折。勾选「显示接点」后选「点头回应」，侧面能看到固定在躯干上的领口、颅底的旋转支点以及下巴接入前颈的位置。1.9.2 及更早的存档保留原骨架和轮廓。[试调下颌](http://127.0.0.1:8000/atelier.html?preset=look_body_male&tab=face&bearing=90&points=1&action=nod) · [同镜头形状对照](jaw-controls-preview.png) · [侧面点头与接点动画](jaw-pivot-preview.gif)

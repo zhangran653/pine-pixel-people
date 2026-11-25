@@ -486,14 +486,19 @@ const skull = vm.runInContext('pineHeadShape', context);
   }
   const drawings = new Set();
   const archivedCharacter = looks.build(archive);
+  const archivedNatural = looks.build({ ...archive, packs: { 'pine-core': looks.illustratedRelease },
+    face: { ...(archive.face || looks.facePresets.classic.face), style: 'natural' } });
   for (const portrait of ['natural', 'game', 'manga']) {
     const doc = looks.setPortraitStyle(clone(seed), portrait);
     const character = looks.build(doc), pose = motion.rig.pose(character.rig), model = character.body.makePose(pose);
     const normal = motion.faceLayers(character, pose, model)[1];
     const close = motion.closePortraitLayers(character, pose, model)[1];
     assert.ok(normal.model.colors.length <= 480000 && close.model.colors.length <= 1152000);
-    if (portrait === 'natural') assert.equal(hash(model.colors), hash(archivedCharacter.body.makePose(pose).colors));
-    else assert.ok(close.body.density > normal.body.density, portrait + ' acquires more detail in the still editor');
+    if (portrait === 'natural') {
+      const previous = hash(archivedNatural.body.makePose(pose).colors);
+      assert.equal(previous, hash(archivedCharacter.body.makePose(pose).colors), '1.16.0 replays natural ink from 1.15.0');
+      assert.notEqual(hash(model.colors), previous, 'move the oral profile on a newly drawn natural face');
+    } else assert.ok(close.body.density > normal.body.density, portrait + ' acquires more detail in the still editor');
     for (const key of ['headPivot', 'leftEarCanal', 'leftJawJoint', 'rightJawJoint', 'chinTip'])
       assert.deepEqual(character.sockets[key], archivedCharacter.sockets[key], portrait + ' ' + key);
     drawings.add(hash(close.model.colors));
@@ -662,6 +667,37 @@ function portraitEdges(band) {
     assert.ok(first >= 0 && last > first);
     return [first, last].map((i) => band.x + (i + 0.5 - body.nx / 2) / d);
   };
+}
+// Read the centreline from the occupied pixels, including the separate nose volume.
+// Compare the same actors and lens pitch on either side of the profile upgrade.
+{
+  function tipAndPhiltrum(actor) {
+    const pose = motion.rig.pose(actor.rig), socket = name => motion.rig.socket(actor, pose, name);
+    const chin = socket('chinTip'), lip = socket('mouth'), upper = socket('upperLip'), eye = socket('leftEye');
+    const band = actor.body.faceLayers(pose, actor.body.makePose(pose), chin[2] - 1, 6)[1];
+    const edges = portraitEdges(band), pitch = 1 / band.body.density;
+    const philtrumTop = lip[2] + 0.40 * (eye[2] - lip[2]);
+    let tip = -Infinity, philtrum = Infinity;
+    for (let z = upper[2]; z <= eye[2]; z += pitch) {
+      const front = edges(0, z)[1];
+      tip = Math.max(tip, front);
+      if (z <= philtrumTop) philtrum = Math.min(philtrum, front);
+    }
+    return { recess: tip - philtrum, lipClearance: tip - edges(0, upper[2])[1], pitch };
+  }
+  for (const [id, nose, mouth, style] of [
+    ['look_body_female', 'aquiline', 'thin', 'manga'], ['look_body_male', 'broad', 'relaxed', 'natural'],
+    ['look_fern', 'short', 'soft-smile', 'game'], ['look_workshop_toddler', 'button', 'small', 'manga']
+  ]) {
+    const doc = clone(looks.templateById.get(id));
+    Object.assign(doc.parts, { hair: 'bald', hat: 'none', neck: 'none' });
+    doc.face = { ...looks.facePresets.classic.face, ...doc.face, nose, mouth, style };
+    Object.assign(doc.shape, { lipProjection: -0.14, chinProjection: 0.04, noseBridge: 0.14 });
+    const prior = tipAndPhiltrum(looks.build({ ...doc, packs: { 'pine-core': looks.illustratedRelease } }));
+    const current = tipAndPhiltrum(looks.build(doc));
+    assert.ok(current.recess <= prior.recess - 1.5 * current.pitch, id + ' soften the drop at the base of the nose');
+    assert.ok(current.lipClearance >= 1.5 * current.pitch, id + ' retain a distinct tip above the upper lip');
+  }
 }
 function sideProfile(actor) {
   const pose = motion.rig.pose(actor.rig);

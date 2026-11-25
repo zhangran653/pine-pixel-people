@@ -700,6 +700,26 @@ function checkEditor() {
     const sculpted = PineWardrobe.saved.get(original.id);
     expect(sculpted.packs['pine-core'] === PineLooks.release && sculpted.shape.lipProjection === -0.45 &&
       sculpted.shape.jawDefinition === 0.65, 'persist both profile settings on the character');
+    const pinnedManga = PineWardrobe.importCharacter({ ...sculpted, id: 'look_prior_profile_ink',
+      packs: { 'pine-core': PineLooks.illustratedRelease },
+      face: { ...PineLooks.facePresets.classic.face, ...sculpted.face, style: 'manga', nose: 'aquiline' }
+    }).recipe;
+    byId('look-query').value = pinnedManga.id;
+    byId('look-query').dispatchEvent(new Event('input'));
+    document.querySelector('[data-key="saved:' + pinnedManga.id + '"]').click();
+    byId('tab-face').click();
+    document.querySelector('[data-profile-angle="270"]').click();
+    const pinnedSide = byId('mirror').toDataURL();
+    expect(byId('portrait-style').value === 'manga' && byId('update-head')?.textContent === '试用新版侧脸',
+      'open a 1.16.0 manga save in its original style');
+    byId('update-head').click();
+    expect(byId('mirror').toDataURL() !== pinnedSide && byId('bearing').value === '270' &&
+      PineWardrobe.saved.get(pinnedManga.id).packs['pine-core'] === PineLooks.illustratedRelease,
+      'preview the new profile at the same angle before saving');
+    byId('save-look').click();
+    const fitted = PineWardrobe.saved.get(pinnedManga.id);
+    expect(fitted.packs['pine-core'] === PineLooks.release && ['face', 'shape', 'parts', 'colors'].every(
+      key => JSON.stringify(fitted[key]) === JSON.stringify(pinnedManga[key])), 'upgrade just the contour in place');
     const oldArt = PineWardrobe.importCharacter({
       ...PineLooks.templateById.get('look_relay'), id: 'look_prior_art_direction',
       packs: { 'pine-core': PineLooks.lipJawRelease }
@@ -724,6 +744,17 @@ function checkEditor() {
     expect(candidates().length === 4 && candidates()[1].getAttribute('aria-pressed') === 'true' &&
       styleSelect.value === 'manga' && byId('look-name').value === oldArt.label &&
       !byId('undo-random').hidden, 'apply just the chosen face');
+    const stableCards = candidates(), startAngle = byId('bearing').value;
+    for (const angle of [90, 45, 0]) {
+      const control = document.querySelector('[data-candidate-angle="' + angle + '"]');
+      control.click();
+      const camera = +byId('bearing').value;
+      expect(Math.min(camera, 360 - camera) === angle && control.getAttribute('aria-pressed') === 'true' &&
+        candidates().every((card, i) => card === stableCards[i]) && stableCards[1].getAttribute('aria-pressed') === 'true',
+        'rotate the same four faces and preserve the selection at ' + angle);
+    }
+    byId('bearing').value = startAngle;
+    byId('bearing').dispatchEvent(new Event('input'));
     const secondFrame = byId('mirror').toDataURL();
     candidates()[2].click();
     expect(candidates()[1].getAttribute('aria-pressed') === 'false' && byId('mirror').toDataURL() !== secondFrame,

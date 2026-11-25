@@ -966,7 +966,8 @@ dialog p {
 .portrait-style select { width: auto; min-height: 32px; }
 .face-candidates { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
 .face-candidates:not(:empty) { margin-top: 6px; }
-.face-candidates button { min-width: 0; padding: 2px 2px 5px; font-size: .76rem; }
+.face-candidates .candidate-angles { grid-column: 1 / -1; margin: 0; }
+.face-candidates > button { min-width: 0; padding: 2px 2px 5px; font-size: .76rem; }
 .face-candidates canvas { display: block; width: 100%; aspect-ratio: 1; height: auto; image-rendering: pixelated; }
 @media (max-width: 600px) {
   .face-candidates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
