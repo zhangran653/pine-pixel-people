@@ -154,10 +154,13 @@ const studioLibrary = (() => {
   function accepts(clip, slot, person) {
     return !!person && clip.roles[slot]?.some((tag) => person.tags.includes(tag));
   }
-  function faceLayers(actor, pose, model, bodyDensity = 0) {
+  function faceLayers(actor, pose, model, bodyDensity = 0, close = false) {
     const cut = studioRig.socket(actor, pose, 'mouth')[2] - actor.rig.height * 0.068;
     const density = Math.max(3, Math.min(10, Math.round(300 / actor.rig.height)));
-    return actor.body.faceLayers?.(pose, model, cut, density, bodyDensity) || null;
+    return actor.body.faceLayers?.(pose, model, cut, density, bodyDensity, close) || null;
+  }
+  function closePortraitLayers(actor, pose, model) {
+    return faceLayers(actor, pose, model, 0, true);
   }
   function figureLayers(actor, pose, model) {
     const bodyDensity = Math.max(3, Math.min(5, Math.round(180 / actor.rig.height)));
@@ -538,6 +541,7 @@ const studioLibrary = (() => {
     characters,
     actions,
     faceLayers,
+    closePortraitLayers,
     figureLayers,
     createCharacter,
     registerCharacter,

@@ -395,7 +395,8 @@ const atelierPreview = (() => {
     pixel = 1,
     detail = true,
     fixed = null,
-    landmarks = false
+    landmarks = false,
+    still = true
   ) {
     if (!groups.length) return;
     const feature = ['eyes', 'brows', 'nose', 'mouth'].includes(view);
@@ -445,10 +446,11 @@ const atelierPreview = (() => {
     groups.forEach((g, i) => {
       const [ox, oy] = origins[i];
       for (const p of g.parts) shadows(ctx, p, camera, scale, ox, oy);
-      const mode = detail ? (portrait ? 'portraitLayers' : 'figureLayers') : 'standardLayers';
+      const near = portrait && still && !compact && groups.length === 1 && g.parts.length === 1;
+      const mode = detail ? (near ? 'closePortrait' : portrait ? 'portraitLayers' : 'figureLayers') : 'standardLayers';
       if (!g[mode]) {
         const layers =
-          detail && studioPortraitLayers(g.parts, motion, portrait ? motion.faceLayers : motion.figureLayers);
+          detail && studioPortraitLayers(g.parts, motion, near ? motion.closePortraitLayers : portrait ? motion.faceLayers : motion.figureLayers);
         g[mode] = layers || [(g.drawing ??= mergeStudioActors(g.parts))];
       }
       const drawings = g[mode];
@@ -587,7 +589,8 @@ const atelierPreview = (() => {
           w / logicalSizes.get(canvas)[0],
           previous.detail,
           null,
-          previous.landmarks
+          previous.landmarks,
+          previous.still
         );
       if (!direct) {
         display.imageSmoothingEnabled = false;
@@ -609,7 +612,8 @@ const atelierPreview = (() => {
       bearing = 25,
       view = 'body',
       detail = true,
-      landmarks = false
+      landmarks = false,
+      still = true
     }) {
       if (disposed) return;
       const clip = motion.actions.get(action) || motion.actions.get('idle');
@@ -629,7 +633,7 @@ const atelierPreview = (() => {
         angle === previous.bearing &&
         view === previous.view &&
         detail === previous.detail &&
-        landmarks === previous.landmarks
+        landmarks === previous.landmarks && still === previous.still
       )
         return;
       previous = {
@@ -642,7 +646,7 @@ const atelierPreview = (() => {
         bearing: angle,
         view,
         detail,
-        landmarks
+        landmarks, still
       };
       render();
     }

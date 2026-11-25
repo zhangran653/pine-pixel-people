@@ -380,8 +380,10 @@ const skull = vm.runInContext('pineHeadShape', context);
     const doc = { ...recipe, base, packs: { 'pine-core': looks.infantNapeRelease } };
     assert.deepEqual(digests(looks.build(doc)), digests(looks.build({ ...doc, packs: archived.packs })), base);
   }
-  assert.deepEqual(digests(infant), digests(looks.build({ ...recipe, packs: { 'pine-core': looks.infantNapeRelease } })),
-    'neutral infant controls preserve the separate infant portrait at both sampling densities');
+  const naturalBaby = looks.build({ ...recipe, face: { ...recipe.face, style: 'natural' } });
+  assert.deepEqual(digests(naturalBaby), digests(looks.build({ ...recipe, packs: { 'pine-core': looks.infantNapeRelease } })),
+    'natural ink preserves the separate infant portrait at both sampling densities');
+  assert.notDeepEqual(digests(infant), digests(naturalBaby));
   const adult = { ...archived, base: 'adult', face: { ...recipe.face, facialHair: 'beard', complexion: 'fine-lines' } };
   const converted = looks.withBodyProfile(adult, 'baby');
   assert.equal(converted.packs['pine-core'], looks.release);
@@ -430,15 +432,17 @@ const skull = vm.runInContext('pineHeadShape', context);
   const pairings = new Set(), expressHair = new Set(), naturalHair = new Set();
   function checkSpacing(doc) {
     const s = doc.shape, eyes = styles.eyes[doc.face.eyes], brows = styles.brows[doc.face.brows];
-    const fit = styles.proportions[doc.base === 'baby' ? 'baby' : 'standard'];
-    if (eyes) assert.ok(fit.eyeCenter * s.eyeSpacing - eyes[1] * fit.eyeWidth * (1 + 0.23 * (s.eyeWidth || 0)) >= 0.145 - 1e-8);
-    if (eyes && brows) {
+    const portrait = looks.portraitStyleOf(doc), drawn = portrait !== 'natural' && styles.illustratedEyeShape(doc.face.eyes, portrait);
+    const brow = drawn ? styles.illustratedBrow(doc.face.brows) : brows, fit = styles.proportionsFor(doc.base, portrait);
+    if (drawn || eyes) assert.ok(fit.eyeCenter * s.eyeSpacing - (drawn ? drawn.width : eyes[1]) * fit.eyeWidth * (1 + 0.23 * (s.eyeWidth || 0)) >= 0.145 - 1e-8);
+    if ((drawn || eyes) && brow) {
       // Sample the real pigment brushes at the pupil axis with the eye open.
       let upperLid = 0, lowerBrow = Infinity;
       for (let i = 0; i <= 230; i++) {
         const h = i / 500;
-        if (styles.eye(eyes, 0, h / (fit.eyeOpen * (1 + 0.42 * (s.eyeOpening || 0))), 0, 1, ink)) upperLid = h;
-        if (styles.brow(brows, 0, (h - 0.092 * (s.browHeight || 0)) / fit.browHeight, ink)) lowerBrow = Math.min(lowerBrow, h);
+        const z = h / (fit.eyeOpen * (1 + 0.42 * (s.eyeOpening || 0)));
+        if (drawn ? styles.illustratedEye(drawn, 0, z, 0, 1, ink, 0.018, portrait) : styles.eye(eyes, 0, z, 0, 1, ink)) upperLid = h;
+        if (styles.brow(brow, 0, (h - 0.092 * (s.browHeight || 0)) / fit.browHeight, ink)) lowerBrow = Math.min(lowerBrow, h);
       }
       const gap = lowerBrow - upperLid;
       assert.ok(gap >= 0.034 && gap < 0.146, doc.face.eyes + '/' + doc.face.brows + ' brow gap ' + gap);
@@ -460,6 +464,44 @@ const skull = vm.runInContext('pineHeadShape', context);
   const base = JSON.stringify(seed), colors = new Set(), ages = new Set(), ids = new Set(), outlines = new Set();
   const lowCheeks = [];
   const babySeed = looks.templateById.get('look_workshop_baby');
+  const archive = { ...seed, packs: { 'pine-core': looks.lipJawRelease } };
+  assert.equal(looks.portraitStyleOf(archive), 'natural');
+  assert.equal(looks.portraitStyleOf(seed), 'game');
+  assert.throws(() => looks.prepare({ ...archive, face: { ...seed.face, style: 'manga' } }));
+  assert.throws(() => looks.randomFace(seed, { portrait: 'unknown' }));
+  assert.throws(() => looks.randomFace(seed, { family: 'unknown' }));
+  // In all three drawing styles, check actual pigment clearance across every age
+  // and variation setting. A family is never selected from the character's skin dye.
+  for (const portrait of Object.keys(looks.portraitStyles)) {
+    for (const id of ['look_ridge', 'look_fern', 'look_workshop_toddler', 'look_workshop_baby']) {
+      const source = looks.templateById.get(id), roll = seeded(441);
+      for (const style of ['natural', 'expressive']) {
+        for (const family of Object.keys(looks.portraitFamilies)) {
+          const face = looks.randomFace(source, { portrait, style, family, random: roll });
+          checkSpacing(face);
+          assert.equal(looks.prepare(face).recipe.face.style, portrait);
+        }
+      }
+    }
+  }
+  const drawings = new Set();
+  const archivedCharacter = looks.build(archive);
+  for (const portrait of ['natural', 'game', 'manga']) {
+    const doc = looks.setPortraitStyle(clone(seed), portrait);
+    const character = looks.build(doc), pose = motion.rig.pose(character.rig), model = character.body.makePose(pose);
+    const normal = motion.faceLayers(character, pose, model)[1];
+    const close = motion.closePortraitLayers(character, pose, model)[1];
+    assert.ok(normal.model.colors.length <= 480000 && close.model.colors.length <= 1152000);
+    if (portrait === 'natural') assert.equal(hash(model.colors), hash(archivedCharacter.body.makePose(pose).colors));
+    else assert.ok(close.body.density > normal.body.density, portrait + ' acquires more detail in the still editor');
+    for (const key of ['headPivot', 'leftEarCanal', 'leftJawJoint', 'rightJawJoint', 'chinTip'])
+      assert.deepEqual(character.sockets[key], archivedCharacter.sockets[key], portrait + ' ' + key);
+    drawings.add(hash(close.model.colors));
+    const restored = looks.prepare(JSON.parse(JSON.stringify(doc))).recipe;
+    assert.equal(looks.portraitStyleOf(restored), portrait);
+    assert.deepEqual(restored.colors, looks.prepare(seed).recipe.colors);
+  }
+  assert.equal(drawings.size, 3, 'all art directions visibly redraw the same authored features');
   for (const style of ['natural', 'expressive']) {
     const babyRandom = seeded(17603), combinations = new Set();
     for (let i = 0; i < 64; i++) {
@@ -510,7 +552,7 @@ const skull = vm.runInContext('pineHeadShape', context);
       const vertical = (actor.sockets.leftEye.point[2] - actor.sockets.mouth.point[2]) / radius;
       const nose = styles.noses[expressive.face.nose] || styles.basicNoses[expressive.face.nose];
       const lip = styles.mouths[expressive.face.mouth]?.[2] ?? (expressive.face.mouth === 'full' ? 0.092 : 0.061);
-      const fit = styles.proportions[expressive.base === 'baby' ? 'baby' : 'standard'];
+      const fit = styles.proportionsFor(expressive.base, looks.portraitStyleOf(expressive));
       const underside = styles.noseUnderside(nose, expressive.base !== 'baby');
       assert.ok(vertical - (nose[3] + underside) * fit.noseLength - lip * fit.lipHeight * (1 + 0.54 * (expressive.shape.upperLipFullness || 0)) >= 0.0399,
         'nose and upper lip need space on the ' + expressive.base + ' rig');
@@ -719,7 +761,8 @@ function sideProfile(actor) {
   }
   for (const shape of [{ headDepth: 0.8, occiput: 1.2 }, { headDepth: 1.2, occiput: 0.8 }]) {
     const proportions = { ...baby.shape, ...shape };
-    const a = looks.build({ ...oldDoc, shape: proportions }), b = looks.build({ ...baby, shape: proportions });
+    const a = looks.build({ ...oldDoc, shape: proportions });
+    const b = looks.build({ ...baby, face: { ...baby.face, style: 'natural' }, shape: proportions });
     assert.deepEqual(b.sockets, a.sockets, 'face and motion anchors at both ends of the depth sliders');
   }
   const before = skull.reshape('baby', baby.shape, 1, true), after = skull.reshape('baby', baby.shape, 1, true, true);

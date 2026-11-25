@@ -182,6 +182,7 @@
       bearing,
       view,
       detail: $('fine-face').checked,
+      still: !playing,
       landmarks: showJawPoints && tab === 'face'
     });
   }
@@ -230,6 +231,7 @@
     lastSample = -1;
     $('play-look').textContent = playing ? '暂停' : '播放';
     $('play-look').setAttribute('aria-pressed', String(playing));
+    if (!playing) show();
     schedule();
   }
   function setView(next) {
@@ -246,6 +248,7 @@
     }
     previousEdit = readEdit();
     $('mirror-name').textContent = draft.label || '未命名形象';
+    $('portrait-style').value = looks.portraitStyleOf(draft);
     measurements();
     $('save-state').textContent = dirty ? '有未保存的修改' : saved ? '已保存' : '新形象';
     $('save-state').dataset.dirty = String(dirty);
@@ -270,6 +273,11 @@
     $('action').value = action;
   }
   function changed() {
+    const candidates = $('face-candidates');
+    if (candidates?.childElementCount) {
+      candidates.replaceChildren();
+      $('choose-faces').textContent = '挑一组脸';
+    }
     dirty = true;
     draft.packs[looks.core] = looks.editingRelease(draft);
     const upgrade = $('update-head');
@@ -476,6 +484,7 @@
   }
   function upgradeLabel() {
     if (draft.packs[looks.core] === looks.release) return '';
+    if (draft.packs[looks.core] === looks.lipJawRelease) return '试用游戏立绘';
     if (draft.packs[looks.core] === looks.naturalProfileRelease) return '试用嘴唇与下颌线';
     if (looks.hasInfantHead(draft))
       return draft.packs[looks.core] === looks.infantRelease ? '试用婴儿后脑曲线' : '试用嘴唇与下颌线';
@@ -522,8 +531,9 @@
     }
     return el;
   }
-  function faceFields(area) {
+  function faceFields(area, candidates) {
     figureUpgrade(area);
+    area.append(candidates || faceAudition());
     const contours = document.createElement('fieldset'), title = document.createElement('legend');
     contours.className = 'jaw-controls';
     title.textContent = '嘴唇与下颌线';
@@ -651,11 +661,6 @@
       panel.append(title, ...keys.map(slider));
       return panel;
     });
-    const random = document.createElement('button');
-    random.type = 'button';
-    random.id = 'random-face';
-    random.textContent = '随机五官';
-    random.onclick = () => randomize(false);
     if (actor.rig.jawPivot) {
       const trial = document.createElement('button');
       trial.type = 'button';
@@ -701,9 +706,63 @@
     }
     if (actor.rig.headPivot) jaw.append(inspect);
     jaw.append(...looks.jawControls.map(slider), slider('jaw'));
-    area.append(random, grid, featureComparison(), ...tabKeys.face.filter(k => k !== 'jaw').map(slider),
+    area.append(grid, featureComparison(), ...tabKeys.face.filter(k => k !== 'jaw').map(slider),
       ...facialControls, ...[cheeks, jaw, profile, more].map(foldFields));
     markPresets();
+  }
+  function faceAudition() {
+    const group = document.createElement('div'), actions = document.createElement('div'), cards = document.createElement('div');
+    actions.className = 'category-buttons';
+    cards.className = 'face-candidates';
+    cards.id = 'face-candidates';
+    const roll = document.createElement('button'), choose = document.createElement('button');
+    roll.type = choose.type = 'button';
+    roll.id = 'random-face';
+    roll.textContent = '随机五官';
+    roll.onclick = () => randomize(false);
+    choose.id = 'choose-faces';
+    choose.textContent = '挑一组脸';
+    choose.setAttribute('aria-controls', cards.id);
+    actions.append(roll, choose);
+    group.append(actions, cards);
+    let batch = 0;
+    choose.onclick = () => {
+      const token = ++batch;
+      const portrait = $('portrait-style').value, style = $('random-style').value;
+      const remaining = Object.keys(looks.portraitFamilies);
+      cards.replaceChildren();
+      choose.textContent = '换一组候选脸';
+      const queue = [];
+      for (let i = 0; i < 4; i++) {
+        const family = remaining.splice(Math.floor(Math.random() * remaining.length), 1)[0];
+        const doc = looks.randomFace(draft, { portrait, style, family });
+        const button = document.createElement('button'), canvas = document.createElement('canvas');
+        button.type = 'button';
+        button.dataset.faceCandidate = String(i);
+        button.setAttribute('aria-pressed', 'false');
+        canvas.setAttribute('aria-hidden', 'true');
+        button.append(canvas, portrait === 'natural' ? '方案 ' + (i + 1) : looks.portraitFamilies[family].label);
+        button.onclick = () => {
+          if (button.getAttribute('aria-pressed') === 'true') return;
+          for (const option of cards.children) option.setAttribute('aria-pressed', String(option === button));
+          randomize(false, doc);
+          button.focus({ preventScroll: true });
+        };
+        cards.append(button);
+        queue.push([canvas, doc]);
+      }
+      function paint() {
+        if (token !== batch || !group.isConnected || !queue.length) return;
+        const [canvas, doc] = queue.shift();
+        if (!canvas.isConnected) return;
+        const sample = looks.build({ ...doc, label: doc.label.trim() || '候选脸' });
+        thumbnails.set(canvas, { actor: sample, bearing: 18, view: 'face' });
+        paintThumbnail(canvas);
+        if (queue.length) requestAnimationFrame(paint);
+      }
+      requestAnimationFrame(paint);
+    };
+    return group;
   }
   function featureComparison() {
     const panel = document.createElement('details'),
@@ -979,7 +1038,7 @@
     orientation();
     markPresets();
   }
-  function fields() {
+  function fields(candidates) {
     const area = $('editor-fields');
     area.replaceChildren();
     area.setAttribute('aria-labelledby', 'tab-' + tab);
@@ -994,7 +1053,7 @@
       return;
     }
     if (tab === 'face') {
-      faceFields(area);
+      faceFields(area, candidates);
       return;
     }
     if (tab === 'hair') {
@@ -1237,18 +1296,25 @@
     if (!looks.hasFacialMorphs(draft)) draft.packs[looks.core] = looks.morphRelease;
     changed();
   }
-  function randomize(whole) {
+  function randomize(whole, candidate) {
     const origin = randomOrigin || { doc: clone(draft), key: cardKey, saved, dirty };
-    const style = $('random-style').value;
+    const style = $('random-style').value, portrait = $('portrait-style').value;
     if (whole) {
       const locks = [...document.querySelectorAll('[data-random-lock]:checked')].map((el) => el.dataset.randomLock);
       const prior = readEdit();
-      activate(looks.randomCharacter({ source: draft, style, locks }), '', false, true, false);
+      activate(looks.randomCharacter({ source: draft, style, portrait, locks }), '', false, true, false);
       edits.record(prior);
     } else {
-      draft = looks.randomFace(draft, { style });
+      const gallery = candidate ? $('face-candidates').parentElement : null;
+      if (candidate) {
+        // Keep the same four faces available for comparison while the editor rebuilds the sliders.
+        gallery.remove();
+        const body = Object.fromEntries(tabKeys.shape.map(key => [key, draft.shape[key]]));
+        draft = { ...draft, face: clone(candidate.face), shape: { ...candidate.shape, ...body },
+          packs: { ...draft.packs, [looks.core]: looks.release } };
+      } else draft = looks.randomFace(draft, { style, portrait });
       changed();
-      fields();
+      fields(gallery);
     }
     randomOrigin = origin;
     $('undo-random').hidden = false;
@@ -1256,6 +1322,11 @@
     heading();
   }
   $('random-character').onclick = () => randomize(true);
+  $('portrait-style').onchange = () => {
+    looks.setPortraitStyle(draft, $('portrait-style').value);
+    changed();
+    fields();
+  };
   $('undo-random').onclick = () => {
     if (!randomOrigin) return;
     const origin = randomOrigin;
@@ -1782,6 +1853,12 @@
     (b) => b.dataset.tab === query.get('tab')
   );
   if (openingTab) changeTab(openingTab);
+  const requestedPortrait = query.get('portrait');
+  if (Object.hasOwn(looks.portraitStyles, requestedPortrait) && requestedPortrait !== looks.portraitStyleOf(draft)) {
+    looks.setPortraitStyle(draft, requestedPortrait);
+    changed();
+    fields();
+  }
   if (query.get('random') === '1') randomize(true);
   const cheekExample = query.get('cheeks');
   if (Object.hasOwn(looks.cheekPresets, cheekExample)) {
@@ -1848,6 +1925,7 @@
       if (dirty) note('已恢复本标签页的未保存草稿。');
     }
   } catch {}
+  if (query.get('candidates') === '1' && tab === 'face') $('choose-faces').click();
   if (skipped) note('有 ' + skipped + ' 个无效的本地存档，其他形象已载入。', true);
   if (location.protocol !== 'file:')
     fetch('packs/creek-hats.json')

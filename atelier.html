@@ -132,7 +132,12 @@
             </div>
             <small id="legacy-body" hidden>原版成人体型</small>
           </div>
-          <div class="category-buttons random-actions"><button type="button" id="random-character">随机人物</button><button type="button" id="undo-random" hidden>撤销随机</button></div>
+          <div class="category-buttons random-actions">
+            <label class="portrait-style">画风
+              <select id="portrait-style"><option value="game">游戏立绘</option><option value="manga">漫画</option><option value="natural">自然</option></select>
+            </label>
+            <button type="button" id="random-character">随机人物</button><button type="button" id="undo-random" hidden>撤销随机</button>
+          </div>
           <details class="random-settings">
             <summary>随机设置</summary>
             <label class="random-style">变化幅度

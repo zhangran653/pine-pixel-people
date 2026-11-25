@@ -23,7 +23,7 @@ const PineLooks = (() => {
     infantNapeRelease = '1.13.1',
     naturalProfileRelease = '1.14.0',
     lipJawRelease = '1.15.0',
-    release = lipJawRelease;
+    release = pinePortraitStyles.illustratedRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -46,6 +46,7 @@ const PineLooks = (() => {
     infantRelease,
     infantNapeRelease,
     naturalProfileRelease,
+    lipJawRelease,
     release
   ];
   function hasRoundedHead(recipe) {
@@ -283,6 +284,15 @@ SOFTWARE.`;
   for (const [slot, options] of Object.entries(pinePortraitStyles.features))
     Object.assign(features[slot], options);
   const faceDetails = pinePortraitStyles.details;
+  const portraitStyles = pinePortraitStyles.portraitStyles;
+  const portraitStyleOf = pinePortraitStyles.portraitStyle;
+  function setPortraitStyle(recipe, style) {
+    requireThat(typeof style === 'string' && Object.hasOwn(portraitStyles, style), '未知人物画风');
+    if (portraitStyleOf(recipe) === style) return recipe;
+    recipe.face = { ...(recipe.face || facePresets.classic.face), style };
+    recipe.packs[core] = release;
+    return recipe;
+  }
   const wearables = { ...pineWorkshopWear.wearables };
   for (const [slot, options] of Object.entries(pineEverydayStyles.wearables))
     wearables[slot] = { ...wearables[slot], ...options };
@@ -453,7 +463,8 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (profileKeys.some((key) => (recipe.shape[key] ?? 0) !== 0)) needed = lipJawRelease;
+    if (recipe.face?.style !== undefined) needed = release;
+    else if (profileKeys.some((key) => (recipe.shape[key] ?? 0) !== 0)) needed = lipJawRelease;
     else if (morphKeys.some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 0))
       needed = morphRelease;
     else if (['headDepth', 'faceRelief'].some((key) => recipe.shape[key] !== undefined && recipe.shape[key] !== 1))
@@ -712,7 +723,7 @@ SOFTWARE.`;
     let face;
     if (pin !== originalRelease) {
       const selected = raw.face === undefined ? facePresets.classic.face : raw.face;
-      fields(selected, Object.keys(features), Object.keys(faceDetails));
+      fields(selected, Object.keys(features), [...Object.keys(faceDetails), 'style']);
       face = {};
       for (const [key, values] of Object.entries({ ...features, ...faceDetails })) {
         if (Object.hasOwn(faceDetails, key) && !Object.hasOwn(selected, key)) continue;
@@ -721,6 +732,10 @@ SOFTWARE.`;
           '未知五官款式 · ' + key
         );
         face[key] = selected[key];
+      }
+      if (selected.style !== undefined) {
+        requireThat(typeof selected.style === 'string' && Object.hasOwn(portraitStyles, selected.style), '未知人物画风');
+        face.style = selected.style;
       }
     }
     if (owner !== core) {
@@ -1086,11 +1101,10 @@ SOFTWARE.`;
   function between(min, max, random) {
     return Math.round(100 * (min + (max - min) * random())) / 100;
   }
-  const eyePairs = [
-    ...Object.values(facePresets),
-    ...[['double-lid', 'fine'], ['deep-set', 'arched'], ['crescent', 'lifted'],
-      ['sleepy', 'descending'], ['soft-oval', 'brow-slit']].map(([eyes, brows]) => ({ face: { eyes, brows } }))
-  ];
+  const eyePairings = { ...facePresets };
+  for (const [eyes, brows] of [['double-lid', 'fine'], ['deep-set', 'arched'], ['crescent', 'lifted'],
+    ['sleepy', 'descending'], ['soft-oval', 'brow-slit']]) eyePairings[eyes] = { face: { eyes, brows } };
+  const eyePairs = Object.values(eyePairings);
   const nosePairs = [
     ...Object.values(facePresets),
     { face: { nose: 'long', mouth: 'thin' } }, { face: { nose: 'upturned', mouth: 'pursed' } }
@@ -1103,6 +1117,29 @@ SOFTWARE.`;
     ['button', 'small'], ['short', 'relaxed'], ['rounded', 'bow'], ['classic', 'soft-smile'],
     ['wide', 'lower-full'], ['broad', 'small'], ['upturned', 'classic']
   ].map(([nose, mouth]) => ({ face: { nose, mouth } }));
+  // Each family couples silhouette, expression and soft tissue. Colors and body
+  // profiles are selected separately, so every family works on every complexion.
+  const portraitFamilies = {
+    dawn: { label: '柔和杏眼', eyes: ['almond', 'warm', 'open-soft', 'classic', 'double-lid'], youngEyes: ['almond', 'soft-oval', 'doe-eye'],
+      noses: ['warm', 'mellow', 'gentle', 'open-soft', 'level-full', 'clear'], outlines: ['oval', 'heart', 'pear'],
+      shape: { cheekHeight: -0.54, cheekFullness: 0.09, eyeOpening: 0.14, chinRoundness: 0.28, jawDefinition: -0.12 } },
+    ranger: { label: '清朗长眼', eyes: ['clear', 'mellow', 'level-full', 'almond'], youngEyes: ['level-eye', 'monolid', 'almond'],
+      noses: ['clear', 'sharp', 'deep-wide', 'classic', 'warm', 'bold'], outlines: ['oval', 'long', 'square'],
+      shape: { cheekHeight: 0.15, cheekProjection: -0.10, eyeTilt: 0.07, chinProjection: 0.08, jawDefinition: 0.20 } },
+    lark: { label: '明快圆眼', eyes: ['bright', 'cheerful', 'gentle', 'level-full', 'soft-oval'], youngEyes: ['round', 'doe-eye', 'soft-oval'],
+      noses: ['bright', 'cheerful', 'open-soft', 'calm', 'almond', 'mellow'], outlines: ['round', 'heart', 'oval'],
+      shape: { cheekHeight: -0.31, cheekFullness: 0.12, eyeOpening: 0.18, chinHeight: 0.17, chinRoundness: 0.45 } },
+    ember: { label: '英气眉峰', eyes: ['sharp', 'clear', 'bold', 'deep-wide', 'deep-set'], youngEyes: ['almond', 'level-eye', 'crescent'],
+      noses: ['calm', 'almond', 'sharp', 'level-full', 'bright', 'clear'], outlines: ['square', 'diamond', 'oval'],
+      shape: { cheekHeight: 0.24, cheekFullness: -0.14, browHeight: 0.14, chinRoundness: -0.15, jawDefinition: 0.24 } },
+    sage: { label: '沉静柔眉', eyes: ['calm', 'classic', 'deep-wide', 'mellow'], youngEyes: ['monolid', 'soft-oval', 'level-eye'],
+      noses: ['level-full', 'low-narrow', 'warm', 'classic', 'clear', 'bright'], outlines: ['pear', 'oval', 'square'],
+      shape: { cheekHeight: -0.57, cheekFullness: -0.12, eyeDepth: 0.17, mouthWidth: 0.08, chinRoundness: 0.22 } },
+    breeze: { label: '舒展浅笑', eyes: ['warm', 'open-soft', 'almond', 'bright', 'crescent'], youngEyes: ['crescent', 'almond', 'round'],
+      noses: ['cheerful', 'warm', 'bold', 'mellow', 'open-soft', 'classic'], outlines: ['heart', 'oval', 'round'],
+      shape: { cheekHeight: -0.20, cheekProjection: -0.24, eyeWidth: 0.09, lowerLipFullness: 0.16, jawDefinition: 0.06 } }
+  };
+  const familyIds = Object.keys(portraitFamilies);
   const naturalHairDyes = ['墨黑', '深棕', '栗棕', '铜红', '蜜金', '银灰', '乌木黑', '巧克力',
     '焦糖棕', '栗红', '亚麻金', '浅铂金', '赤铜', '浅灰白'].map((name) => hairColors[name]);
   const babyHair = ['bald', 'crop', 'curly', 'crew'];
@@ -1138,15 +1175,24 @@ SOFTWARE.`;
   // Limit the generated pigment footprints in head radii, using the painter's selected feature styles.
   function fitRandomFace(doc) {
     const { eyes, brows, nose, mouth, outline } = doc.face, s = doc.shape;
-    const fit = pinePortraitStyles.proportions[doc.base === 'baby' ? 'baby' : 'standard'];
-    const eye = pinePortraitStyles.eyes[eyes], brow = pinePortraitStyles.brows[brows];
-    const eyeHalf = eye?.[1] ?? ({ round: 0.24, almond: 0.272 }[eyes] || 0.251);
-    const upperLid = eye ? eye[2] + Math.max(0.021, eye[6] + 0.014)
+    const style = portraitStyleOf(doc), illustrated = style !== 'natural';
+    const fit = pinePortraitStyles.proportionsFor(doc.base, style);
+    const drawn = illustrated && pinePortraitStyles.illustratedEyeShape(eyes, style);
+    const eye = pinePortraitStyles.eyes[eyes], brow = illustrated ? pinePortraitStyles.illustratedBrow(brows) : pinePortraitStyles.brows[brows];
+    const eyeHalf = drawn ? drawn.width : eye?.[1] ?? ({ round: 0.24, almond: 0.272 }[eyes] || 0.251);
+    const upperLid = drawn ? drawn.up + Math.max(drawn.lash * 0.52, drawn.crease && drawn.crease + 0.011)
+      : eye ? eye[2] + Math.max(0.021, eye[6] + 0.014)
       : ({ round: 0.135, narrow: 0.061 }[eyes] || 0.101) + 0.025;
     const browBase = brow
       ? brow[2] + brow[3] * (1 - (brow[7] === 'peak' ? 0.85 * Math.abs(brow[6]) : 0.77 * brow[6] ** 2)) - brow[5]
       : 0.209 + (brows === 'arched' ? 0.096 : brows === 'straight' ? 0.025 : 0.055) * (1 - 0.12 ** 2)
         - (brows === 'thick' ? 0.077 : 0.049);
+    if (illustrated) {
+      // Large manga eyes on a small forehead can exceed even the highest brow.
+      // Fit their opening inside the available space before moving the brow.
+      const maxOpen = (browBase * fit.browHeight + 0.092 - 0.038) / (upperLid * fit.eyeOpen);
+      s.eyeOpening = Math.min(s.eyeOpening, Math.max(-1, Math.floor(100 * (maxOpen - 1) / 0.42) / 100));
+    }
     const lidTop = upperLid * fit.eyeOpen * (1 + 0.42 * s.eyeOpening);
     const minBrow = Math.ceil(100 * (lidTop + 0.035 - browBase * fit.browHeight) / 0.092) / 100;
     const maxBrow = Math.floor(100 * (lidTop + 0.14 - browBase * fit.browHeight) / 0.092) / 100;
@@ -1163,17 +1209,23 @@ SOFTWARE.`;
     if (s.cheekHeight > 0.32 && s.cheekProjection > 0.32) s.cheekFullness = Math.max(-0.12, s.cheekFullness);
   }
   function randomFace(recipe, input) {
-    const { random = Math.random, style = 'natural' } = generationOptions(input);
+    const { random = Math.random, style = 'natural', portrait = recipe.face?.style || 'game', family } = generationOptions(input);
+    requireThat(typeof portrait === 'string' && Object.hasOwn(portraitStyles, portrait), '未知人物画风');
+    requireThat(family === undefined || (typeof family === 'string' && Object.hasOwn(portraitFamilies, family)), '未知五官组合');
     const expressive = style === 'expressive';
     const doc = structuredClone(recipe);
     doc.packs[core] = release;
     const infant = doc.base === 'baby';
-    const eyePair = pick(infant ? infantEyes : eyePairs, random), nosePair = pick(infant ? infantNoses : nosePairs, random);
-    const cheeks = pick(cheekChoices, random);
-    doc.face = { ...doc.face, eyes: eyePair.face.eyes, brows: eyePair.face.brows,
+    const design = portrait !== 'natural' && portraitFamilies[family || pick(familyIds, random)];
+    const young = infant || (design && doc.base === 'toddler');
+    const eyePair = young ? pick(design ? infantEyes.filter(p => design.youngEyes.includes(p.face.eyes)) : infantEyes, random)
+      : design ? eyePairings[pick(design.eyes, random)] : pick(eyePairs, random);
+    const nosePair = young ? pick(infantNoses, random) : design ? facePresets[pick(design.noses, random)] : pick(nosePairs, random);
+    const cheeks = design || pick(cheekChoices, random);
+    doc.face = { ...doc.face, style: portrait, eyes: eyePair.face.eyes, brows: eyePair.face.brows,
       nose: nosePair.face.nose, mouth: nosePair.face.mouth };
-    if (infant) clearAdultFaceDetails(doc.face);
-    const outline = pick(infant ? ['', 'oval', 'round', 'pear'] : ['', ...Object.keys(faceDetails.outline)], random);
+    if (young) clearAdultFaceDetails(doc.face);
+    const outline = pick(young ? ['', 'oval', 'round', 'pear'] : design ? design.outlines : ['', ...Object.keys(faceDetails.outline)], random);
     if (outline) doc.face.outline = outline;
     else delete doc.face.outline;
     const ageFullness = { baby: 0.12, toddler: 0.06 }[doc.base] || 0;
@@ -1182,31 +1234,44 @@ SOFTWARE.`;
       // The hand-sculpted low-cheek preset has full cheeks. Roll that soft tissue
       // separately so a low cheekbone can also belong to a lean or neutral face.
       let center = (group.shape?.[key] || 0) * (expressive ? 1 : 0.82);
-      if (key === 'cheekFullness') center = Math.min(0, center) + ageFullness;
-      const offset = (random() + random() - 1) * (expressive ? 0.52 : 0.28);
+      if (design) center = design.shape[key] ?? center * 0.48;
+      if (key === 'cheekFullness') center = (design ? center : Math.min(0, center)) + ageFullness;
+      const spread = design ? (expressive ? 0.30 : 0.16) : (expressive ? 0.52 : 0.28);
+      const offset = (random() + random() - 1) * spread;
       const value = (center + offset) * (infant ? 0.65 : 1);
       doc.shape[key] = Math.round(100 * Math.max(-1, Math.min(1, value))) / 100;
     }
     doc.shape.eyeSpacing = expressive ? between(0.87, 1.13, random) : between(0.94, 1.06, random);
     doc.shape.faceWidth = expressive ? between(0.89, 1.11, random) : between(0.94, 1.06, random);
-    doc.shape.mouthHeight = between(-0.25, 0.25, random);
+    doc.shape.mouthHeight = design ? between(-0.06, 0.19, random) : between(-0.25, 0.25, random);
+    if (design) {
+      const age = young ? 0.45 : 1;
+      for (const key of pineHeadShape.controls)
+        doc.shape[key] = Math.round(100 * age * ((design.shape[key] || 0) + between(-0.12, 0.12, random))) / 100;
+      doc.shape.jaw = between(young ? 0.97 : 0.91, 1.04, random);
+      doc.shape.headDepth = between(0.97, 1.04, random);
+      doc.shape.faceRelief = between(0.87, 1.07, random);
+    }
     fitRandomFace(doc);
     Object.assign(doc.shape, cheekAdjustment(doc, expressive ? 'expressive' : 'natural'));
     const spread = expressive ? 0.70 : 0.36;
     for (const key of profileKeys) {
-      doc.shape[key] = Math.round(100 * (random() + random() - 1) * spread) / 100;
+      const center = design ? design.shape[key] ?? (key === 'lipProjection' ? -0.13 : 0) : 0;
+      const jitter = design ? Math.min(spread * 0.60, spread - Math.abs(center)) : spread;
+      doc.shape[key] = Math.round(100 * (center + (random() + random() - 1) * jitter)) / 100;
     }
     return doc;
   }
   function randomCharacter(input) {
-    const { random = Math.random, style, source, locks = [] } = generationOptions(input);
+    const { random = Math.random, style, portrait, family, source, locks = [] } = generationOptions(input);
     const keep = new Set(source ? locks : []);
     const profiles = keep.has('hair') && !babyHair.includes(source.parts.hair)
       ? profileDraws.filter((key) => key !== 'baby') : profileDraws;
     const profile = keep.has('body') ? source : bodyProfiles[pick(profiles, random)];
     const donor = pick(templates.filter((doc) => doc.base === profile.base), random);
     const outfit = keep.has('wear') ? source : donor;
-    const doc = randomFace({ ...outfit, base: profile.base, shape: donor.shape, face: {} }, { random, style });
+    const doc = randomFace({ ...outfit, base: profile.base, shape: donor.shape, face: {} },
+      { random, style, portrait: portrait || source?.face?.style || 'game', family });
     doc.id = newId();
     doc.label = '新人物 ' + doc.id.slice(-5).toUpperCase();
     doc.gender = profile.gender || 'unspecified';
@@ -1248,6 +1313,8 @@ SOFTWARE.`;
     infantRelease,
     infantNapeRelease,
     naturalProfileRelease,
+    lipJawRelease,
+    portraitStyles, portraitStyleOf, setPortraitStyle, portraitFamilies,
     morphs: pinePortraitStyles.morphs,
     profileControls: pinePortraitStyles.profileControls,
     cheekPresets,

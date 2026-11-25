@@ -228,9 +228,10 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     const maximum = Math.min(Math.floor(desired), Math.cbrt(limit / volume));
     // A broad pose can just miss the next integer density. Keep the fine art
     // and fit a substep between it and the base grid within the same budget.
-    let d = maximum >= density + 1 ? Math.floor(maximum) : Math.floor(maximum * 4) / 4;
+    const quarterSteps = upper && art.illustratedPortrait;
+    let d = !quarterSteps && maximum >= density + 1 ? Math.floor(maximum) : Math.floor(maximum * 4) / 4;
     let w, h, layers;
-    for (; d > density; d -= d > density + 1 ? 1 : 0.25) {
+    for (; d > density; d -= !quarterSteps && d > density + 1 ? 1 : 0.25) {
       w = Math.ceil(xMax * d) - Math.floor(xMin * d);
       h = Math.ceil(yMax * d) - Math.floor(yMin * d);
       layers = Math.ceil(height * d);
@@ -248,12 +249,14 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     return { x, y, z, body: createSliceProjector(w, h, layers, d), model: fine };
   }
 
-  function faceLayers(pose, model, height, desiredDensity, bodyDensity = 0) {
+  function faceLayers(pose, model, height, desiredDensity, bodyDensity = 0, close = false) {
     const b = model.bounds, plane = nx * ny;
     if (art.portraitFloor) height = Math.min(height, art.portraitFloor(pose));
     const cut = Math.max(b[2] + 1, Math.floor(height * density));
     if (cut >= b[5]) return null;
-    const upper = refineBand(pose, model, cut, b[5], desiredDensity, 480000, true);
+    const magnified = close && art.illustratedPortrait;
+    const upper = refineBand(pose, model, cut, b[5], magnified ? desiredDensity * 1.5 : desiredDensity,
+      magnified ? 1152000 : 480000, true);
     const lower = bodyDensity > density
       ? refineBand(pose, model, Math.max(0, b[2] - 2), cut, bodyDensity, 800000, false) : null;
     if (!upper && !lower) return null;

@@ -8,6 +8,21 @@ const pinePortraitStyles = (() => {
     baby: { outlineStrength: 0.46, eyeCenter: 0.456, eyeWidth: 1.035, eyeOpen: 1.12, browWidth: 0.80, browHeight: 0.84,
       noseWidth: 0.84, noseLength: 0.68, noseReach: 0.65, lipWidth: 0.78, lipHeight: 0.86 }
   };
+  const illustratedRelease = '1.16.0';
+  const portraitStyles = { game: '游戏立绘', manga: '漫画', natural: '自然' };
+  function portraitStyle(recipe) {
+    return recipe.packs?.['pine-core'] === illustratedRelease ? recipe.face?.style || 'game' : 'natural';
+  }
+  function proportionsFor(base, style) {
+    const infant = base === 'baby', p = proportions[infant ? 'baby' : 'standard'];
+    if (style === 'natural') return p;
+    const manga = style === 'manga', young = base !== 'adult';
+    return { ...p, eyeWidth: p.eyeWidth * (manga ? 1.17 : 1.07), eyeOpen: p.eyeOpen * (manga ? 1.25 : 1.12),
+      browWidth: p.browWidth * (manga ? 0.95 : 0.98), noseWidth: p.noseWidth * (manga ? 0.89 : 0.97),
+      noseLength: p.noseLength * (manga ? 0.91 : 0.98), noseReach: p.noseReach * (manga ? 0.80 : 0.94),
+      lipWidth: p.lipWidth * (manga ? (young ? 0.98 : 0.94) : 1),
+      lipHeight: p.lipHeight * (manga ? (young ? 1 : 0.88) : 0.97) };
+  }
   const morphs = {
     cheekHeight: ['颧骨高低', '低', '高'], cheekWidth: ['颧部宽度', '窄', '宽'],
     cheekProjection: ['颧骨前凸', '平缓', '突出'], cheekFullness: ['下颊丰满度', '清瘦', '饱满'],
@@ -86,6 +101,81 @@ const pinePortraitStyles = (() => {
     diamond: ['菱形脸', 0.142, -0.123, -0.077],
     pear: ['梨形脸', -0.05, 0.122, -0.068]
   };
+  const basicEyes = {
+    classic: ['', 0.255, 0.108, 0.067, 0.018, 0.85, 0],
+    almond: ['', 0.276, 0.109, 0.067, 0.050, 0.92, 0.034],
+    round: ['', 0.243, 0.147, 0.10, 0.015, 0.68, 0],
+    narrow: ['', 0.265, 0.075, 0.052, 0.036, 1.02, 0]
+  };
+  const basicBrows = {
+    classic: ['', 0.29, 0.210, 0.055, 0.021, 0.048, 0.12, 'plain'],
+    straight: ['', 0.305, 0.207, 0.028, 0.007, 0.047, 0.15, 'plain'],
+    arched: ['', 0.285, 0.218, 0.095, 0.025, 0.045, 0.21, 'plain'],
+    thick: ['', 0.30, 0.215, 0.049, 0.034, 0.069, 0.17, 'plain']
+  };
+  // The aperture, lid weight and brow clearance are shared with the character generator.
+  function illustratedEyeShape(name, style) {
+    const [, width, up, down, tilt, curve, crease] = eyes[name] || basicEyes[name];
+    const manga = style === 'manga';
+    return { width, up: (manga ? 0.069 : 0.050) + up * 0.72, down: 0.022 + down * 0.75,
+      tilt: tilt * (manga ? 0.64 : 0.73), curve: 0.35 + curve * 0.45,
+      crease: !manga && crease > 0.068 ? 0.041 : 0, lash: manga ? 0.032 : 0.023 };
+  }
+  function illustratedEye(shape, v, h, blink, side, k, pixel, style) {
+    const q = v / shape.width, a = Math.abs(q);
+    if (a >= 1.055) return 0;
+    const curve = Math.max(0, 1 - q * q) ** shape.curve;
+    const open = 1 - blink, mid = shape.tilt * q - 0.044 * blink;
+    const top = mid + shape.up * curve * open, bottom = mid - shape.down * curve * open;
+    const weight = (shape.lash + pixel * 0.26) * (0.67 + 0.34 * q + 0.26 * curve);
+    if (blink > 0.88) return a < 1 && Math.abs(h - mid + 0.018 * curve) < weight ? k.lash : 0;
+    if (q > 0.71 && h >= top - weight && h < top + weight * (1.08 - q) * 2.8) return k.lash;
+    if (a >= 1) return 0;
+    if (shape.crease && open > 0.7 && a < 0.62 && Math.abs(h - top - shape.crease) < 0.011) return k.browSoft;
+    if (h > top + weight * 0.48 || h < bottom - 0.009) return 0;
+    if (h >= top - weight) return k.lash;
+    if (q > 0.43 && h < bottom + 0.012) return k.browSoft;
+    // Clip the iris with the lids. Both catchlights face the same world-space light.
+    const manga = style === 'manga', irisWidth = manga ? 0.62 : 0.53;
+    const ix = (q + 0.045) / irisWidth, iz = (h - 0.012) / (shape.up * 0.74 + shape.down * 0.63);
+    const radius = ix * ix + iz * iz;
+    if (radius > 1) return k.sclera;
+    const highlight = Math.min(0.30, (manga ? 0.23 : 0.18) + pixel * 1.7);
+    if (((ix * side + 0.28) / highlight) ** 2 + ((iz - 0.32) / (highlight * 1.08)) ** 2 < 1) return k.glint;
+    if (radius < (manga ? 0.25 : 0.26) || iz > 0.47 || radius > 0.90) return k.pupil;
+    return iz < -0.15 ? k.irisLight : k.eyes;
+  }
+  function illustratedBrow(name) {
+    const row = [...(brows[name] || basicBrows[name])];
+    row[4] *= 0.76;
+    row[5] *= 0.76;
+    return row;
+  }
+  function illustratedColors(m, colors, tint, style, infant) {
+    const manga = style === 'manga', skin = colors.skin.slice(1), iris = colors.eyes.slice(1);
+    const hair = (colors.brow || colors.hair).slice(1);
+    const lip = colors.lip?.slice(1) || tint(skin, 'a75260', manga ? 0.39 : 0.46);
+    m.lash = tint(tint(hair, '292332', 0.76), skin, infant ? 0.43 : manga ? 0.10 : 0.20);
+    m.browDeep = tint(tint(hair, '47323a', colors.brow ? 0.10 : 0.24), skin, infant ? 0.60 : 0.23);
+    m.browSoft = tint(m.browDeep, skin, 0.38);
+    m.sclera = tint(m.faceLight, 'fff5e7', infant ? 0.56 : manga ? 0.71 : 0.65);
+    m.glint = 'fff8e9';
+    m.pupil = tint(iris, '211d30', 0.77);
+    m.irisLight = tint(iris, 'e5b887', manga ? 0.52 : 0.41);
+    m.faceEdge = tint(skin, '815766', manga ? 0.15 : 0.11);
+    m.templeSkin = tint(m.faceEdge, m.faceMid, 0.57);
+    m.foreheadSkin = tint(m.faceMid, m.faceLight, 0.62);
+    m.cheekWarm = tint(m.foreheadSkin, tint(skin, 'c97972', 0.46), infant ? 0.28 : 0.24);
+    m.cheekVeil = tint(m.foreheadSkin, m.cheekWarm, 0.54);
+    m.noseLight = tint(m.faceLight, 'ffe4ca', manga ? 0.10 : 0.19);
+    m.noseShade = tint(m.faceMid, '8b595c', manga ? 0.27 : 0.38);
+    m.bridgeSkin = tint(m.faceLight, m.faceMid, 0.34);
+    m.wingSkin = tint(m.faceMid, m.faceEdge, 0.42);
+    m.lipLine = tint(lip, '69434b', infant ? 0.17 : 0.27);
+    m.upperLip = tint(m.faceMid, lip, 0.73);
+    m.lowerLip = tint(m.faceLight, lip, manga ? 0.24 : 0.44);
+    m.lips = m.lipLine;
+  }
   const labels = (profiles) => Object.fromEntries(Object.entries(profiles).map(([id, row]) => [id, row[0]]));
   const features = { eyes: labels(eyes), brows: labels(brows), nose: labels(noses), mouth: labels(mouths) };
   const details = {
@@ -218,7 +308,7 @@ const pinePortraitStyles = (() => {
   function noseUnderside(row, shapedTip) {
     return Math.max(0.105, shapedTip ? 1.25 * row[6] : Math.min(0.11, row[6]));
   }
-  function nose(row, b, k, fit, eyeZ, front, widthScale = 1, bridgeScale = 1, reachScale = 1, shapedTip = false) {
+  function nose(row, b, k, fit, eyeZ, front, widthScale = 1, bridgeScale = 1, reachScale = 1, shapedTip = false, style = 'natural') {
     const [, baseWidth, baseReach, length, start, wingStrength, tipHeight] = row,
       { x: cx, rx, ry, rz } = fit;
     const reach = baseReach * reachScale * (shapedTip ? 0.92 : 1);
@@ -242,6 +332,13 @@ const pinePortraitStyles = (() => {
       const offset = Math.max(bridge * bridgeScale, bulb, wing * wingStrength),
         surface = front(y, z);
       if (offset < 0.045 || x < surface - 0.12 * rx || x > surface + reach * rx * offset) return 0;
+      if (style !== 'natural') {
+        if (h < -0.033 && wing > 0.38 && Math.abs(q) > 0.45 && Math.abs(q) < 0.78) return k.noseShade;
+        if (h < -0.028) return k.wingSkin;
+        if (bulb > 0.59 && h > 0.008 && q > -0.38 && q < 0.15) return k.noseLight;
+        if (t > 0.56 && q > 0.48) return k.wingSkin;
+        return q > 0.22 && t > 0.36 ? k.faceMid : k.bridgeSkin;
+      }
       if (shapedTip && h < -0.029 && h > -0.085 && Math.abs(q) > 0.47 && Math.abs(q) < 0.91 && wing > 0.16)
         return k.noseShade;
       if (wing > 0.25 && h < -0.024 && Math.abs(q) > 0.38 && Math.abs(q) < 0.75) return k.noseShade;
@@ -380,6 +477,8 @@ const pinePortraitStyles = (() => {
   }
   return {
     proportions,
+    illustratedRelease, portraitStyles, portraitStyle, proportionsFor,
+    illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors,
     morphs,
     profileControls,
     basicNoses,

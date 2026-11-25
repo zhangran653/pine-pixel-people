@@ -962,6 +962,15 @@ dialog p {
   font-size: 0.83rem;
 }
 .random-actions { margin: 10px 0 2px; }
+.portrait-style { display: inline-flex; align-items: center; gap: 6px; margin-right: 5px; font-size: .85rem; }
+.portrait-style select { width: auto; min-height: 32px; }
+.face-candidates { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.face-candidates:not(:empty) { margin-top: 6px; }
+.face-candidates button { min-width: 0; padding: 2px 2px 5px; font-size: .76rem; }
+.face-candidates canvas { display: block; width: 100%; aspect-ratio: 1; height: auto; image-rendering: pixelated; }
+@media (max-width: 600px) {
+  .face-candidates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .random-settings { margin: 5px 0 12px; color: #435d4a; font-size: .83rem; }
 .random-settings summary { width: fit-content; cursor: pointer; }
 .random-style, .random-settings fieldset { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
@@ -973,6 +982,7 @@ dialog p {
 .random-settings input { margin: 0; accent-color: #48674e; }
 .jaw-controls > summary { cursor: pointer; font-weight: 650; }
 .category-buttons button[aria-pressed='true'],
+.face-candidates button[aria-pressed='true'],
 .feature-cards button[aria-pressed='true'] {
   background: #e4ecdc;
   border-color: #516d55;

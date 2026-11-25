@@ -700,9 +700,50 @@ function checkEditor() {
     const sculpted = PineWardrobe.saved.get(original.id);
     expect(sculpted.packs['pine-core'] === PineLooks.release && sculpted.shape.lipProjection === -0.45 &&
       sculpted.shape.jawDefinition === 0.65, 'persist both profile settings on the character');
+    const oldArt = PineWardrobe.importCharacter({
+      ...PineLooks.templateById.get('look_relay'), id: 'look_prior_art_direction',
+      packs: { 'pine-core': PineLooks.lipJawRelease }
+    }).recipe;
+    byId('look-query').value = oldArt.id;
+    byId('look-query').dispatchEvent(new Event('input'));
+    document.querySelector('[data-key="saved:' + oldArt.id + '"]').click();
+    byId('tab-face').click();
+    const styleSelect = byId('portrait-style'), legacyFrame = byId('mirror').toDataURL();
+    expect(styleSelect.value === 'natural' && byId('update-head')?.textContent === '试用游戏立绘', 'original drawing style of a 1.15 save');
+    styleSelect.value = 'manga'; styleSelect.dispatchEvent(new Event('change'));
+    const mangaFrame = byId('mirror').toDataURL();
+    expect(mangaFrame !== legacyFrame && byId('edit-eyes').value === oldArt.face.eyes, 'redraw the same eye style');
+    byId('choose-faces').click();
+    const candidates = () => [...document.querySelectorAll('[data-face-candidate]')];
+    expect(candidates().length === 4 && new Set(candidates().map(card => card.textContent)).size === 4,
+      'offer four separate designs for the same actor');
+    const firstCard = candidates()[0];
+    byId('choose-faces').click();
+    expect(candidates().length === 4 && !firstCard.isConnected, 'reroll the four face cards');
+    candidates()[1].click();
+    expect(candidates().length === 4 && candidates()[1].getAttribute('aria-pressed') === 'true' &&
+      styleSelect.value === 'manga' && byId('look-name').value === oldArt.label &&
+      !byId('undo-random').hidden, 'apply just the chosen face');
+    const secondFrame = byId('mirror').toDataURL();
+    candidates()[2].click();
+    expect(candidates()[1].getAttribute('aria-pressed') === 'false' && byId('mirror').toDataURL() !== secondFrame,
+      'audition another face from the same four at the current angle');
+    byId('random-character').click();
+    expect(styleSelect.value === 'manga', 'whole-person randomization respects the selected style');
+    byId('undo-random').click();
+    expect(byId('mirror').toDataURL() === mangaFrame, 'undo to the exact original manga portrait');
+    byId('choose-faces').click();
+    candidates()[0].click();
+    expect(PineWardrobe.saved.get(oldArt.id).packs['pine-core'] === PineLooks.lipJawRelease, 'preview keeps the archived art intact');
+    byId('save-look').click();
+    const selected = PineWardrobe.saved.get(oldArt.id);
+    expect(selected.face.style === 'manga' && ['parts', 'colors'].every(key =>
+      JSON.stringify(selected[key]) === JSON.stringify(oldArt[key])) &&
+      ['height', 'shoulders', 'arms', 'legs'].every(key => selected.shape[key] === oldArt.shape[key]),
+      'save a reusable face with the same body, wardrobe and colors');
     target.dataset.state = 'pass';
     target.textContent =
-      'Body profiles, legacy saves, head upgrades, facial morphs, guided random portraits, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';
+      'Body profiles, legacy saves, head upgrades, facial morphs, portrait styles, face auditions, independent locks, round-trip saves, studio outfits, style search and portrait detail passed';
   } catch (err) {
     target.dataset.state = 'fail';
     target.textContent = err.stack || err.message;

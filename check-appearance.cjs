@@ -970,6 +970,11 @@ for (const base of ['child', 'adult']) {
       assert.equal(silhouettes.size, 1, base + ' lips add volume to the face');
       assert.equal(fineSilhouettes.size, 1, base + ' close-up lips add volume to the face');
       assert.equal(contactPoints.size, 1, base + ' lip style moved the bottle contact');
+      const mangaLips = new Set(Object.keys(choices).map(mouth => {
+        const actor = a.l.build({ ...current, base, face: { ...classic, style: 'manga', mouth } });
+        return digest(actor, a.m);
+      }));
+      assert.equal(mangaLips.size, Object.keys(choices).length, base + ' manga lips remain distinct at figure scale');
     }
   }
   for (const [slot, choices] of Object.entries(a.l.slots)) {
