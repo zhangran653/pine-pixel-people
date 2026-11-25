@@ -58,11 +58,13 @@ const activityMotion = (() => {
       if (
         !key ||
         typeof key !== 'object' ||
-        Object.keys(key).some((k) => !['at', 'blink', 'jawOpen'].includes(k) && !Object.hasOwn(defaults, k))
+        Object.keys(key).some((k) => !['at', 'blink', 'jawOpen', 'gaze'].includes(k) && !Object.hasOwn(defaults, k))
       )
         throw Error('无效的手势关键帧字段');
       if (!Number.isFinite(key.at) || (i && key.at <= keys[i - 1].at)) throw Error('关键帧时间须严格递增');
-      const next = { at: key.at, blink: key.blink ?? 0, jawOpen: key.jawOpen ?? 0 };
+      const next = { at: key.at, blink: key.blink ?? 0, jawOpen: key.jawOpen ?? 0, gaze:key.gaze ?? [0,0] };
+      if (!Array.isArray(next.gaze) || next.gaze.length !== 2 || !next.gaze.every(v => Number.isFinite(v) && Math.abs(v) <= 1))
+        throw Error('手势视线需要两个 -1 至 1 的数值');
       for (const name of ['blink', 'jawOpen']) {
         if (!Number.isFinite(next[name]) || next[name] < 0 || next[name] > 1)
           throw Error('面部动作通道须在 0 至 1 · ' + name);
@@ -96,6 +98,7 @@ const activityMotion = (() => {
       ch.hipOffset = (ch.hipOffset || zero).map((p, i) => p + shift[i] * r.height);
       ch.blink = Math.max(blink(u), mix(first.blink, last.blink, w));
       ch.jawOpen = mix(first.jawOpen, last.jawOpen, w);
+      if (r.facialActing) ch.faceCue = { gaze:channel('gaze') };
       const rest = pose(r, ch);
       ch.hands = [hand(r, rest, 0, channel('right')), hand(r, rest, 1, channel('left'))];
       return [entry(a, pose(r, ch))];
@@ -178,10 +181,10 @@ const gestureActions = (() => {
     3.7,
     everyone,
     [
-      [0.2, { head: [0.56, -0.055, 0], body: [0.1, 0, 0] }],
-      [0.39, { head: [0.53, 0.05, 0], body: [0.1, 0, 0] }],
-      [0.65, { head: [-0.61, -0.04, 0.05], body: [-0.13, 0, 0] }],
-      [0.79, { head: [-0.56, -0.08, 0.05], body: [-0.13, 0, 0] }]
+      [0.2, { gaze:[.82,.18], head: [0.56, -0.055, 0], body: [0.1, 0, 0] }],
+      [0.39, { gaze:[.38,-.15], head: [0.53, 0.05, 0], body: [0.1, 0, 0] }],
+      [0.65, { gaze:[-.86,.12], head: [-0.61, -0.04, 0.05], body: [-0.13, 0, 0] }],
+      [0.79, { gaze:[-.38,.21], head: [-0.56, -0.08, 0.05], body: [-0.13, 0, 0] }]
     ],
     '寻找 观察 环顾'
   );

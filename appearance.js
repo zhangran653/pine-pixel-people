@@ -35,7 +35,8 @@ const PineLooks = (() => {
     baseFaceRelease = pinePortraitStyles.baseFaceRelease,
     clothingStudyRelease = pinePortraitStyles.clothingStudyRelease,
     featureStudyRelease = pinePortraitStyles.featureStudyRelease,
-    figureRatioRelease = pinePortraitStyles.figureRatioRelease;
+    figureRatioRelease = pinePortraitStyles.figureRatioRelease,
+    expressionRelease = pinePortraitStyles.expressionRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -64,7 +65,7 @@ const PineLooks = (() => {
     facePlaneRelease,
     pixelRelease,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease, expressionRelease
   ];
   function figurePin(recipe) {
     const pin = recipe?.packs?.[core];
@@ -129,6 +130,7 @@ const PineLooks = (() => {
     trunkLength:[.82,1.28,1], noseLipSpacing:[.76,1.68,1]
   };
   const ratioKeys = Object.keys(figureRatioRanges);
+  const restExpressions = { calm:'安静', curious:'好奇', warm:'含笑' };
   const ageRatios = {
     adult:   { headScale:1.045, crownHeight:.97, trunkLength:1.035, noseLipSpacing:1.46 },
     child:   { headScale:1.015, crownHeight:.91, trunkLength:1.06,  noseLipSpacing:1.25 },
@@ -137,6 +139,7 @@ const PineLooks = (() => {
   };
   function clearFigureRatios(doc) {
     for (const key of ratioKeys) delete doc.shape[key];
+    if (doc.face) delete doc.face.restExpression;
   }
   function fittedFigureRatios(doc) {
     const base = ageRatios[doc.base], form = doc.face?.form ?? doc.anatomyParts?.skull;
@@ -150,7 +153,20 @@ const PineLooks = (() => {
       noseLipSpacing: round(base.noseLipSpacing + .38 * (nose[3] - .30) + .06 * (doc.shape.upperLipFullness || 0))
     };
   }
+  function withoutExpressionStudy(recipe) {
+    const next = structuredClone(recipe);
+    if (next.face) delete next.face.restExpression;
+    next.packs[core] = figureRatioRelease;
+    return next;
+  }
+  function withExpressionStudy(recipe) {
+    if (recipe.packs[core] === expressionRelease) return structuredClone(recipe);
+    const next = withFigureRatios(recipe);
+    next.packs[core] = expressionRelease;
+    return next;
+  }
   function withFigureRatios(recipe) {
+    if (recipe.packs[core] === expressionRelease) return withoutExpressionStudy(recipe);
     if (recipe.packs[core] === figureRatioRelease) return structuredClone(recipe);
     const next = pinePortraitStyles.hasPaintedFeatures(recipe.packs[core]) ? structuredClone(recipe) : withFeatureStudy(recipe);
     next.packs[core] = figureRatioRelease;
@@ -289,7 +305,7 @@ SOFTWARE.`;
       next.packs[core] = figurePin(recipe);
       clearAdultFaceDetails(next.face);
     } else next.packs[core] = editingRelease(next);
-    if (base !== recipe.base && next.packs[core] === figureRatioRelease)
+    if (base !== recipe.base && pinePortraitStyles.hasFigureRatios(next.packs[core]))
       Object.assign(next.shape, fittedFigureRatios(next));
     return next;
   }
@@ -585,7 +601,8 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (ratioKeys.some(key => recipe.shape[key] !== undefined)) needed = figureRatioRelease;
+    if (recipe.face?.restExpression !== undefined) needed = expressionRelease;
+    else if (ratioKeys.some(key => recipe.shape[key] !== undefined)) needed = figureRatioRelease;
     else if (recipe.clothingCut !== undefined) needed = featureStudyRelease;
     else if (recipe.bodyFinish !== undefined || recipe.face?.form !== undefined || recipe.face?.formMix !== undefined) needed = gameFaceRelease;
     else if (recipe.anatomyParts !== undefined) needed = structureStudyRelease;
@@ -864,7 +881,7 @@ SOFTWARE.`;
     let face;
     if (pin !== originalRelease) {
       const selected = raw.face === undefined ? facePresets.classic.face : raw.face;
-      fields(selected, Object.keys(features), [...Object.keys(faceDetails), 'style', 'form', 'formMix']);
+      fields(selected, Object.keys(features), [...Object.keys(faceDetails), 'style', 'form', 'formMix', 'restExpression']);
       face = {};
       for (const [key, values] of Object.entries({ ...features, ...faceDetails })) {
         if (Object.hasOwn(faceDetails, key) && !Object.hasOwn(selected, key)) continue;
@@ -873,6 +890,10 @@ SOFTWARE.`;
           '未知五官款式 · ' + key
         );
         face[key] = selected[key];
+      }
+      if (selected.restExpression !== undefined) {
+        requireThat(typeof selected.restExpression === 'string' && Object.hasOwn(restExpressions, selected.restExpression), '未知的平时神情');
+        face.restExpression = selected.restExpression;
       }
       if (selected.form !== undefined) {
         requireThat(typeof selected.form === 'string' && Object.hasOwn(pineGameFace.forms, selected.form), '未知美术脸型');
@@ -1509,7 +1530,8 @@ SOFTWARE.`;
     doc.packs[core] = pin;
     if (!pinePortraitStyles.hasGameFace(pin)) delete doc.bodyFinish;
     if (!pinePortraitStyles.hasPaintedFeatures(pin)) delete doc.clothingCut;
-    if (pin !== figureRatioRelease) clearFigureRatios(doc);
+    if (!pinePortraitStyles.hasFigureRatios(pin)) clearFigureRatios(doc);
+    else if (pin !== expressionRelease && doc.face) delete doc.face.restExpression;
     if (!pinePortraitStyles.hasStructureStudy(pin)) delete doc.anatomyParts;
     if (doc.face) {
       delete doc.face.formMix;
@@ -1583,7 +1605,7 @@ SOFTWARE.`;
         if (doc.face.mouth === 'relaxed') doc.face.mouth = 'soft-smile';
       }
     }
-    if (pin === figureRatioRelease) {
+    if (pinePortraitStyles.hasFigureRatios(pin)) {
       const ratios = fittedFigureRatios(doc);
       doc.shape.crownHeight = ratios.crownHeight;
       doc.shape.noseLipSpacing = ratios.noseLipSpacing;
@@ -1635,7 +1657,7 @@ SOFTWARE.`;
     }
     if (bodyFinish) doc.bodyFinish = bodyFinish;
     if (pinePortraitStyles.hasPaintedFeatures(pin) && source?.clothingCut === 'original') doc.clothingCut = 'original';
-    if (pin === figureRatioRelease) {
+    if (pinePortraitStyles.hasFigureRatios(pin)) {
       const ratios = fittedFigureRatios(doc);
       for (const key of ['headScale','trunkLength']) {
         if (!keep.has('body')) doc.shape[key] = ratios[key];
@@ -1650,7 +1672,7 @@ SOFTWARE.`;
   return {
     core,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease,
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease, expressionRelease, restExpressions, withExpressionStudy, withoutExpressionStudy,
     withFigureStudy, withGameFace, withBaseFace, withClothingStudy, withFeatureStudy, withoutFeatureStudy, withFigureRatios, withoutFigureRatios, usesClothingCut,
     originalRelease,
     styleRelease,

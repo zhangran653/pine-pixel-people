@@ -21,6 +21,12 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 1.19.8 眼神与坐姿试作
+
+打开创作室的「五官 → 五官与比例 → 动作眼神与神情」。同一张脸可以选安静、好奇或含笑。让婴儿够球、追看摇铃，或让成人读书、看手机，眼睛会随手里的目标移动。坐着的婴儿把颏尖收回肩前，向下够球时上身跟过去，双脚仍支在地面。默认人物继续使用 1.18.0。[创作室试用](http://127.0.0.1:8000/atelier.html?figure=acting&model=baby&tab=face) · [双人追视动图](studies/pixel-structure/rattle-gaze.webp) · [同一婴儿的三视图](studies/pixel-structure/acting-faces.webp)
+
+「造型对照」可在同配方下旋转、拖动动作进度并回到任一版本继续编辑。四个年龄各有八组独立盲评。[八个连续样本](studies/pixel-structure/acting-random.webp) · [32 组盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=acting&size=128) · [稳定版至本次试作的全身对照](studies/pixel-structure/whole-1.19.8.webp)
+
 ### 1.19.7 分龄头身比例试作
 
 在创作室的「五官 → 五官与比例」选「分龄笔触与可调比例」。转到婴儿侧面，在「侧面轮廓」拖动「眉上颅顶高度」，可以观察额头、后脑和帽子一起变化。在「体型」拖动「头部整体大小」和「肩到骨盆的长度」，可以直接比较坐姿里头、肩、手和膝盖的位置。成人的立体动画脸还可以拉开鼻底与上唇。四项都能存入形象配方。普通新建人物仍使用 1.18.0。[试调坐姿婴儿](http://127.0.0.1:8000/atelier.html?figure=ratios&model=baby&tab=face&bearing=270) · [旋转同一婴儿的前后对照](http://127.0.0.1:8000/figure-study.html?before=ratios&subject=baby-face-1&size=128&bearing=270) · [配方接口](appearance-standard.html#figure-ratios)

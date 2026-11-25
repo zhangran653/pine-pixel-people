@@ -243,13 +243,22 @@ const socialActions = (() => {
       eye = studioRig.socket(baby, neutral, 'rightEye');
     bc.headYaw = clamp(Math.atan2(goal[1], Math.max(1, goal[0])), -0.6, 0.6);
     bc.headPitch = clamp(-Math.atan2(goal[2] - eye[2], Math.max(1, goal[0] - eye[0])), -0.47, 0.31);
+    if (b.facialActing) {
+      // The eyes cover the last part of the turn while the head faces the caregiver.
+      bc.headYaw *= .54;
+      bc.headPitch *= .82;
+    }
     bc.blink = blink((u + 0.22) % 1);
     const look = pose(b, bc);
     bc.hands = [
       between(look.arms[0].hand, goal, 0.34 + 0.16 * w),
       between(look.arms[1].hand, goal, 0.33 - 0.16 * w)
     ];
-    return [placed(adult, mr, mp, { toy: target }), placed(baby, br, pose(b, bc))];
+    const bp = pose(b,bc);
+    if (b.facialActing) bp.faceCue = { gaze:studioRig.lookAt(baby,bp,goal), smile:.35 + .12*beat };
+    if (m.facialActing)
+      mp.faceCue = { gaze:studioRig.lookAt(adult,mp,local(mr,world(br,studioRig.socket(baby,bp,'leftEye')))), smile:.36 };
+    return [placed(adult, mr, mp, { toy: target }), placed(baby, br, bp)];
   }
   function rollBall(u, first, second) {
     const cast = [first, second],

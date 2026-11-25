@@ -226,6 +226,91 @@ function checkFigureRatios(cast) {
   }
 }
 
+function checkFacialActing(cast) {
+  const {core,figureRatioRelease,expressionRelease} = looks;
+  const close = (v,w) => Math.abs(v-w) < 1e-7;
+  const fine = (actor,pose) => motion.figureLayers(actor,pose,actor.body.makePose(pose)).at(-1).model.colors;
+  const rig = motion.rig;
+  for (const base of ['adult','child','toddler','baby']) {
+    const docs = [];
+    for (let seed=0; seed<32; seed++) {
+      const old = looks.randomCharacter({base,seed,release:figureRatioRelease,bodyFinish:'painted'});
+      const next = looks.randomCharacter({base,seed,release:expressionRelease,bodyFinish:'painted'});
+      const restored=looks.withoutExpressionStudy(next);
+      assert.deepEqual(toPlain(restored),toPlain({...old,id:next.id,label:next.label}));
+      assert.deepEqual(toPlain(looks.withExpressionStudy(restored)),toPlain(next));
+      docs.push(next);
+    }
+    const doc = docs[4], original = looks.withoutExpressionStudy(doc);
+    doc.face.restExpression = 'curious';
+    assert.equal(looks.prepare(toPlain(doc)).recipe.face.restExpression,'curious');
+    assert.throws(()=>looks.prepare({...doc,packs:original.packs}));
+    assert.throws(()=>looks.prepare({...doc,face:{...doc.face,restExpression:'missing'}}));
+    assert.deepEqual(toPlain(looks.withFigureRatios(doc)),toPlain(original));
+    assert.equal(looks.randomFace(doc,{seed:8}).face.restExpression,'curious');
+    assert.equal(looks.randomFace(doc,{seed:8,release:figureRatioRelease}).face.restExpression,undefined);
+    const actor=looks.build(doc), old=looks.build(original);
+    const channels={headYaw:.37,headPitch:-.15,hipOffset:[.63,-.32,.27]};
+    const still=rig.pose(actor.rig,channels);
+    assert.throws(()=>rig.pose(actor.rig,{faceCue:{gaze:[Infinity,0]}}));
+    assert.deepEqual(toPlain(rig.pose(actor.rig,{faceCue:{gaze:[2,-3],smile:-1}}).faceCue),{gaze:[1,-1],smile:0});
+    assert.ok(!rig.pose(old.rig,{faceCue:{gaze:[1,0]}}).faceCue);
+    const midpoint=actor.sockets.leftEye.point.map((v,i)=>(v+actor.sockets.rightEye.point[i])*.5);
+    for (const [offset,expected] of [[[10,0,0],[0,0]],[[0,8,0],[1,0]],[[0,0,-6],[0,-1]]]) {
+      const target=rig.point(still.head,midpoint.map((v,i)=>v+offset[i]));
+      const gaze=rig.lookAt(actor,still,target);
+      assert.ok(gaze.every((v,i)=>close(v,expected[i])));
+    }
+    const gazes=[-1,0,1].map(x=>fine(actor,rig.pose(actor.rig,{...channels,faceCue:{gaze:[x,0]}})));
+    assert.equal(new Set(gazes.map(digest)).size,3,base+' lost gaze pixels');
+    assert.equal(new Set(gazes.map(mask)).size,1,base+' gaze changed the head silhouette');
+    const closed=x=>digest(fine(actor,rig.pose(actor.rig,{...channels,blink:1,faceCue:{gaze:[x,0]}})));
+    assert.equal(closed(-1),closed(1),base+' drew the moving iris through closed lids');
+    const moods=new Set(Object.keys(looks.restExpressions).map(restExpression =>
+      digest(fine(looks.build({...doc,face:{...doc.face,restExpression}}),still))));
+    assert.equal(moods.size,3,base+' resting attitudes are identical');
+    const dyed=looks.build({...doc,face:{...doc.face,iris:'two-tone'},colors:{...doc.colors,eyes:'#50808a',leftEye:'#987348'}});
+    const change=fine(dyed,still);
+    assert.equal(mask(change),mask(gazes[1]));
+    assert.notEqual(digest(change),digest(gazes[1]),base+' custom eye pigments were lost');
+    const manga={...original,face:{...original.face,style:'manga'}};
+    const priorManga=looks.build(manga),nextManga=looks.build(looks.withExpressionStudy(manga));
+    const mangaPose=motion.actions.get('idle').sample(.17,priorManga)[0].pose;
+    assert.equal(digest(fine(priorManga,mangaPose)),digest(fine(nextManga,mangaPose)));
+    const action=motion.actions.get(['baby','toddler'].includes(base)?'baby-reach':'phone');
+    const sample=action.sample(.49,actor);
+    assert.ok(sample[0].pose.faceCue.gaze[1]<0,base+' lost the prop target');
+    assert.deepEqual(sample[0].pose.feet,action.sample(.49,old)[0].pose.feet);
+    motion.characters.set(actor.id,actor); cast.setFrame(sample);
+    assert.ok(cast.group.getObjectByName(actor.id+'/face').geometry.drawRange.count>0);
+    if (base === 'baby') {
+      const adult=looks.build(looks.withExpressionStudy(examples.adult));
+      const clip=motion.actions.get('follow-rattle');
+      for(const phase of [.08,.23,.56,.73]) {
+        const [giver,baby]=clip.sample(phase,adult,actor);
+        const expected=rig.lookAt(actor,baby.pose,rig.local(baby,giver.contacts.toy));
+        assert.deepEqual(baby.pose.faceCue.gaze,expected);
+      }
+    }
+    assert.equal(doc.packs[core],expressionRelease);
+  }
+  // Read the indexed pigment in head coordinates, on each side of the face.
+  const style=styles.illustratedEyeShape('level-eye','animation',true);
+  const ink={pupil:1,eyes:2,irisShadow:3,irisLight:4,sclera:5,scleraShade:6,lash:7,lidSkin:8,glint:9};
+  for (const side of [-1,1]) {
+    function pupilX(direction) {
+      const acting=surfaces.expression('baby',{}, {gaze:[direction,0]},0);
+      let total=0,count=0;
+      for(let x=-45;x<=45;x++) for(let y=-28;y<=28;y++) {
+        const pigment=surfaces.paintedEye(surfaces.featureGuides.baby,style,side*x/128,y/128,0,side,ink,1/64,acting);
+        if(pigment===ink.pupil){total+=x;count++;}
+      }
+      assert.ok(count>8); return total/count;
+    }
+    assert.ok(pupilX(1)>pupilX(-1)+12,'left and right pupils must track the same world direction');
+  }
+}
+
 function checkFeatureStudy(cast) {
   const release=looks.featureStudyRelease;
   for (const base of ['adult','child','toddler','baby']) {
@@ -398,6 +483,8 @@ async function check() {
   checkClothing(cast);
   checkFeatureStudy(cast);
   checkFigureRatios(cast);
+  checkFacialActing(cast);
+  console.log('Four ages, 128 reversible acting recipes, bilateral gaze, closed lids, prop tracking, planted feet and Three.js passed');
   console.log('Four ages, 128 reproducible ratio fits, independent head and trunk controls, neutral archived meshes, locks and Three.js passed');
   console.log('Four painted ages, both clothing cuts, archived styles, 96 seeded pairs, blinks, lip/eye/skin dyes, drinking contacts and Three.js passed');
   cast.dispose();

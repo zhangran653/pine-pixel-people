@@ -171,7 +171,8 @@
   function studyLens() {
     if (!draft) return;
     const paintedFace = draft.bodyFinish === 'painted' && looks.portraitStyleOf(draft) === 'animation';
-    const before = draft.packs[looks.core] === looks.figureRatioRelease ? 'ratios' :
+    const before = draft.packs[looks.core] === looks.expressionRelease ? 'acting' :
+      draft.packs[looks.core] === looks.figureRatioRelease ? 'ratios' :
       draft.packs[looks.core] === looks.featureStudyRelease ? 'features' :
       draft.packs[looks.core] === looks.clothingStudyRelease ? 'cut' :
       draft.packs[looks.core] === looks.baseFaceRelease && looks.portraitStyleOf(draft) === 'animation' ? 'bases' :
@@ -224,7 +225,7 @@
   function centimeters(doc, scale = doc.shape.height) {
     return Math.round(
       pineDesignerBody.standingHeight(doc.base, scale, looks.hasSculptedHead(doc),
-        doc.packs[looks.core] === looks.figureRatioRelease ? doc.shape : undefined) *
+        pinePortraitStyles.hasFigureRatios(doc.packs[looks.core]) ? doc.shape : undefined) *
         PineMotion.rig.centimetersPerUnit
     );
   }
@@ -582,13 +583,20 @@
     figureUpgrade(area);
     const gameFace = pinePortraitStyles.hasGameFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation';
     const drawn = gameFace && pinePortraitStyles.hasBaseFace(draft.packs[looks.core]);
-    const ratioFit = draft.packs[looks.core] === looks.figureRatioRelease;
+    const ratioFit = pinePortraitStyles.hasFigureRatios(draft.packs[looks.core]);
+    const acting = draft.packs[looks.core] === looks.expressionRelease;
     const painted = gameFace && pinePortraitStyles.hasPaintedFeatures(draft.packs[looks.core]);
-    area.append(picker('五官与比例', 'feature-paint', [['original','原有笔触'], ['painted','分龄像素笔触 · 1.19.6'], ['ratios','分龄笔触与可调比例 · 1.19.7']],
-      ratioFit ? 'ratios' : painted ? 'painted' : 'original', value => {
-        if (value === 'ratios') draft = looks.withFigureRatios(draft);
+    area.append(picker('五官与比例', 'feature-paint', [['original','原有笔触'], ['painted','分龄像素笔触 · 1.19.6'], ['ratios','分龄笔触与可调比例 · 1.19.7'], ['acting','动作眼神与神情 · 1.19.8']],
+      acting ? 'acting' : ratioFit ? 'ratios' : painted ? 'painted' : 'original', value => {
+        if (value === 'acting') draft = looks.withExpressionStudy(draft);
+        else if (value === 'ratios') draft = looks.withFigureRatios(draft);
         else if (value === 'painted') draft = looks.withFeatureStudy(draft);
         else draft = looks.withoutFeatureStudy(draft);
+      }));
+    if (acting && gameFace) area.append(picker('平时神情', 'rest-expression',
+      [['','随五官'], ...Object.entries(looks.restExpressions)], draft.face.restExpression || '', value => {
+        if (value) draft.face.restExpression = value;
+        else delete draft.face.restExpression;
       }));
     if (!drawn) {
       const button = document.createElement('button');
@@ -616,7 +624,7 @@
     if (pinePortraitStyles.hasPixelFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation') {
       guide.dataset.art = 'pixel';
       const comparison = guide.querySelector('.guide-comparison');
-      comparison.href = ratioFit ? 'studies/pixel-structure/figure-ratios.webp' : painted ? 'studies/pixel-structure/painted-features.webp' : drawn ? 'studies/pixel-structure/drawn-faces.webp' : gameFace ? 'studies/pixel-structure/game-faces.webp' : 'pixel-face-before-after.webp';
+      comparison.href = acting ? 'studies/pixel-structure/acting-faces.webp' : ratioFit ? 'studies/pixel-structure/figure-ratios.webp' : painted ? 'studies/pixel-structure/painted-features.webp' : drawn ? 'studies/pixel-structure/drawn-faces.webp' : gameFace ? 'studies/pixel-structure/game-faces.webp' : 'pixel-face-before-after.webp';
       comparison.textContent = '同一角色的两版实机对照';
     }
     guide.open = expandedFields.get('turnaround') === true;
@@ -1199,7 +1207,7 @@
         area.append(section);
       }
       area.append(...tabKeys.shape.map(slider));
-      if (draft.packs[looks.core] === looks.figureRatioRelease) area.append(slider('headScale'), slider('trunkLength'));
+      if (pinePortraitStyles.hasFigureRatios(draft.packs[looks.core])) area.append(slider('headScale'), slider('trunkLength'));
       return;
     }
     if (tab === 'face') {
@@ -1482,10 +1490,11 @@
     fields();
   }
   function tryBaseFace(form) {
-    const pin = draft.packs[looks.core], cut = draft.clothingCut, shape = draft.shape;
+    const pin = draft.packs[looks.core], cut = draft.clothingCut, shape = draft.shape, rest = draft.face?.restExpression;
     draft = looks.withBaseFace(draft, form);
     if (pinePortraitStyles.hasClothingStudy(pin)) draft.packs[looks.core] = pin;
-    if (pin === looks.figureRatioRelease) draft.shape = shape;
+    if (pinePortraitStyles.hasFigureRatios(pin)) draft.shape = shape;
+    if (pin === looks.expressionRelease && rest) draft.face.restExpression = rest;
     if (cut) draft.clothingCut = cut;
     changed();
     fields();
@@ -2042,8 +2051,8 @@
     changed();
     fields();
   }
-  if (query.get('figure') === 'ratios') {
-    draft = looks.withFigureRatios(draft);
+  if (['ratios','acting'].includes(query.get('figure'))) {
+    draft = query.get('figure') === 'acting' ? looks.withExpressionStudy(draft) : looks.withFigureRatios(draft);
     changed();
     fields();
   }

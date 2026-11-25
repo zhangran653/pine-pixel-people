@@ -3,7 +3,7 @@ const pineDesignerBody = (() => {
   // The first three sculpt releases added the scalp, layered short hair and fitted jaw in order.
   const sculptedReleases = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1',
     '1.12.0', '1.13.0', '1.13.1', '1.14.0', '1.15.0', pinePortraitStyles.illustratedRelease,
-    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease, pinePortraitStyles.clothingStudyRelease, pinePortraitStyles.featureStudyRelease, pinePortraitStyles.figureRatioRelease];
+    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease, pinePortraitStyles.clothingStudyRelease, pinePortraitStyles.featureStudyRelease, pinePortraitStyles.figureRatioRelease, pinePortraitStyles.expressionRelease];
   // Relative to the selected body. The editor, recipe validator and painter share these limits.
   const shapeRanges = {
     height: [0.75, 1.3, 1],
@@ -607,7 +607,8 @@ const pineDesignerBody = (() => {
     const drawnFace = gameFace && pinePortraitStyles.hasBaseFace(pin);
     const clothingStudy = pinePortraitStyles.hasClothingStudy(pin) && recipe.clothingCut !== 'original';
     const paintedFeatures = gameFace && pinePortraitStyles.hasPaintedFeatures(pin);
-    const fittedRatios = pin === pinePortraitStyles.figureRatioRelease;
+    const fittedRatios = pinePortraitStyles.hasFigureRatios(pin);
+    const facialActing = gameFace && pin === pinePortraitStyles.expressionRelease;
     const featureGuide = paintedFeatures && pineGameFace.featureGuides[recipe.base];
     const faceForm = recipe.face?.form ?? recipe.anatomyParts?.skull ?? 'balanced';
     const drawnMix = drawnFace && faceForm !== 'balanced' ? recipe.face?.formMix ?? 1 : 0;
@@ -698,7 +699,7 @@ const pineDesignerBody = (() => {
     const articulatedJaw = fittedDepth || recipe.packs?.['pine-core'] === '1.10.1';
     const adjustableJaw = articulatedJaw || recipe.packs?.['pine-core'] === '1.10.0';
     const skinShape = gameFace
-      ? pineGameFace.model(recipe.base, shape, recipe.face || {}, faceForm, headShape, eyeLevel, mouthH, noseRow, drawnFace, paintedFeatures)
+      ? pineGameFace.model(recipe.base, shape, recipe.face || {}, faceForm, headShape, eyeLevel, mouthH, noseRow, drawnFace, paintedFeatures, facialActing && infant)
       : adjustableJaw
       ? pineHeadShape.reshape(headKind, shape, fittedDepth ? measure(shape, 'faceRelief') : 0, individual, refitNape, skinPlanes)
       : fittedJaw
@@ -720,6 +721,8 @@ const pineDesignerBody = (() => {
       ? { adult: 0.925, child: 0.935, toddler: 0.97, baby: 1 }[recipe.base] : 1;
     const hipBreadth = base.hip[1] * s * (1 + 0.17 * (shoulders - 1)) * cut.hipSpan;
     const rig = {
+      ...(facialActing ? { facialActing: true } : {}),
+      ...(facialActing && infant ? { seatedHeadOffset:[-.158*rx*s,0,-.245*rz*s] } : {}),
       ...(pixelStructure && infant ? { infantFloorSupport: true } : {}),
       ...(pinePortraitStyles.hasGameFace(pin) && infant ? { infantLapRest: true, headOffset: [-.043*rx*s,0,-.095*rz*s] } : {}),
       height: (base.height + trunkLift) * s,
@@ -1090,8 +1093,12 @@ const pineDesignerBody = (() => {
       materials.browSoft = tint(materials.browSoft, materials.faceMid, .7 * soften);
     }
     if (paintedFeatures && infant) {
-      materials.throatMid = tint(materials.neckTone1, materials.skinPlane4, .28);
-      materials.throatPad = tint(materials.neckTone1, materials.skinPlane4, .59);
+      if (facialActing) for (let i=0; i<4; i++) {
+        const tone = 'neckTone' + i;
+        materials[tone] = tint(materials[tone], materials['skinPlane' + (3+i)], .52);
+      }
+      materials.throatMid = tint(materials.neckTone1, materials.skinPlane4, facialActing ? .42 : .28);
+      materials.throatPad = tint(materials.neckTone1, materials.skinPlane4, facialActing ? .72 : .59);
     }
     if (paintedBody) pineFigurePaint.skinPalette(materials);
     if (infantFace && !animated) {
@@ -2359,6 +2366,7 @@ const pineDesignerBody = (() => {
         lipStyle = pinePortraitStyles.mouths[mouth];
       const skinDetails = face.complexion || face.facialHair || face.makeup;
       const drawnEye = animationEye || (illustrated && pinePortraitStyles.illustratedEyeShape(eyes, style, infantFace));
+      const acting = facialActing && pineGameFace.expression(recipe.base, face, pose.faceCue, pose.jawOpen);
       const drawnBrow = illustrated && pinePortraitStyles.illustratedBrow(brows, style, infantFace);
       const eyePixel = 0.5 / (b.density * rz * eyeOpen);
       // Allow more than a single cell of pigment on the turned surface.
@@ -2368,7 +2376,7 @@ const pineDesignerBody = (() => {
         dyeEye = !!recipe.colors.leftEye;
       function eyebrowInk(off, z) {
         if (pixelPortrait) return pinePixelPortrait.brow(drawnBrow, off / ry,
-          (z - eyeZ) / rz - (featureGuide ? (1 - featureGuide.brow) * .072 : 0), k, infant,
+          (z - eyeZ) / rz - (featureGuide ? (1 - featureGuide.brow) * .072 : 0) - (acting?.brow || 0), k, infant,
           0.5 / (b.density * rz), featureGuide ? featureGuide.brow : 1);
         if (illustrated) return pinePortraitStyles.brow(drawnBrow, off / ry, (z - eyeZ) / rz, k,
           animated && !b.faceDetail ? 0.5 / (b.density * rz) : 0);
@@ -2409,7 +2417,7 @@ const pineDesignerBody = (() => {
         return brows === 'thick' && d > half * 0.42 ? k.hair : k.hairShade;
       }
       function eyeInk(off, z, side) {
-        if (featureGuide) return pineGameFace.paintedEye(featureGuide, drawnEye, off / ry, (z-eyeZ) / rz, blink, side, k, eyePixel);
+        if (featureGuide) return pineGameFace.paintedEye(featureGuide, drawnEye, off / ry, (z-eyeZ) / rz, blink, side, k, eyePixel, acting);
         if (gameFace) return pineGameFace.eye(drawnEye, off / ry, (z-eyeZ) / rz, blink, side, k, eyePixel);
         if (pixelPortrait && pixelStructure)
           return pinePixelPortrait.structureEye(drawnEye, off / ry, (z - eyeZ) / rz, blink, side, k, eyePixel);
@@ -2473,7 +2481,7 @@ const pineDesignerBody = (() => {
         const radius = rz * (z >= mouthZ ? upperLipScale : lowerLipScale);
         const h = (z - mouthZ) / radius;
         if (featureGuide) return pineGameFace.paintedMouth(featureGuide, mouth, drawnMouth,
-          (y-mouthY)/(ry*lipSpan), (z-mouthZ)/rz, k, .5/(b.density*rz), upperLipScale, lowerLipScale);
+          (y-mouthY)/(ry*lipSpan), (z-mouthZ)/rz, k, .5/(b.density*rz), upperLipScale, lowerLipScale, acting);
         if (gameFace) return pineGameFace.lip(mouth,drawnMouth,(y-mouthY)/(ry*lipSpan),h,infant,k,.5/(b.density*rz),drawnMix);
         if (pixelPortrait && tailored)
           return pinePixelPortrait.modelMouth(mouth, drawnMouth, (y - mouthY) / (ry * lipSpan), h, infant && !pixelStructure, k, 0.5 / (b.density * rz));
@@ -2712,7 +2720,8 @@ const pineDesignerBody = (() => {
             color = eyeInk(eyeOff, lidZ, side);
           if (color)
             return face.iris || dyeEye
-              ? pinePortraitStyles.iris(face.iris, color, eyeOff / ry, (lidZ - eyeZ) / rz, side, dyeEye, k)
+              ? pinePortraitStyles.iris(face.iris, color, eyeOff / ry - (acting ? side*acting.across*1.06*drawnEye.width : 0),
+                  (lidZ - eyeZ) / rz - (acting ? acting.up*drawnEye.up : 0), side, dyeEye, k)
               : color;
         }
         if (u > lipFrontLimit) {
@@ -2739,7 +2748,7 @@ const pineDesignerBody = (() => {
         }
         if (!surfaceDetails && (roundedHead ? h > 0.72 : h > 0.63 || (u < -0.52 && h > -0.6))) return k.hair;
         if (headShape) {
-          if (gameFace) return pineGameFace.skin(skinShape,section,localX,lateral,h,eyeLevel,infant,k,planeMaterials,paintedFeatures);
+          if (gameFace) return pineGameFace.skin(skinShape,section,localX,lateral,h,eyeLevel,infant,k,planeMaterials,paintedFeatures,facialActing);
           const dx = localX - section.axis;
           if (skinPlanes?.form?.pixelStructure) {
             const index = dx <= 0 ? headShape.lateralSteps : Math.min(headShape.lateralSteps,
@@ -3335,13 +3344,14 @@ const pineDesignerBody = (() => {
       const radius = 0.73 * Math.max(fit.rx, fit.ry);
       const babyChin = paintedFeatures && infant && studioRig.point(pose.jaw || pose.head, sockets.chinTip.point);
       let throat;
+      const settled = facialActing && pose.floorSeat;
       if (babyChin) {
         const fore = [0, 4, 8].map(i => pose.head[i]);
         const side = [1, 5, 9].map(i => pose.head[i]);
         const up = [2, 6, 10].map(i => pose.head[i]);
         // The neck turns almost horizontal during a crawl. Keep its start on
         // the moving throat and draw the underside in the jaw's facing direction.
-        const start = a.map((v, i) => v + .30 * delta[i] + .27 * neutralRx * forward[i] - .067 * fit.rz * up[i]);
+        const start = a.map((v, i) => v + .30 * delta[i] + (settled ? .19 : .27) * neutralRx * forward[i] - .067 * fit.rz * up[i]);
         const reach = babyChin.map((v, i) => v - .15 * fit.rx * fore[i] - .10 * fit.rz * up[i] - start[i]);
         const span = dot(reach, fore);
         if (span > .18 * fit.rx)
@@ -3384,9 +3394,13 @@ const pineDesignerBody = (() => {
         const v = (side - u * throat.drift) / (fit.ry * (.37 - .16 * u));
         if (Math.abs(v) >= 1) return 0;
         const floor = throat.rise * u * (.72 + .28 * u) + .085 * fit.rz * v * v;
+        // Round the underside while keeping its upper surface inside the jaw.
+        const pad = facialActing ? (settled ? .054 : .036) * fit.rz * (1 - v*v) * Math.sin(Math.PI*u) : 0;
         const height = px * throat.up[0] + py * throat.up[1] + pz * throat.up[2] - floor;
-        if (height >= 0 && height < .27 * fit.rz * (1 - v * v))
-          return u < .34 ? k.neckTone1 : u < .67 ? k.throatMid : k.throatPad;
+        if (height >= -pad && height < .27 * fit.rz * (1 - v * v)) {
+          const turn = facialActing ? u + .20*v*v + .62*height/fit.rz : u;
+          return turn < .34 ? k.neckTone1 : turn < .67 ? k.throatMid : k.throatPad;
+        }
         return 0;
       });
     }

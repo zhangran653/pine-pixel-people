@@ -59,6 +59,10 @@ const dailyActions = (() => {
       ];
     }
     const p = pose(r, ch);
+    if (r.facialActing) {
+      const target = writing ? contact(pen,[.4,0,-1.94]) : contact(book,[0,2.8*(1-2*turn),.85]);
+      p.faceCue = { gaze:studioRig.lookAt(a,p,target) };
+    }
     p.props = [seatProp(r, ch), book];
     if (writing) p.props.push(atGrip('pen', p.arms[0].hand, [0, 0, 0], s, 0, 0.18, -0.21));
     return [entry(a, p)];
@@ -313,6 +317,11 @@ const dailyActions = (() => {
       phase = 0.5 - 0.5 * Math.cos(tau * u),
       ch = studioRig.seated(r, true);
     ch.headPitch = id === 'reach' ? -0.19 * phase : 0.12 + 0.04 * w;
+    if (r.facialActing && ch.floorSeat && id === 'reach') {
+      // Bring the shoulders over the toy, keeping seat and both heels planted.
+      ch.pitch += .10*phase;
+      ch.headPitch += .14*phase;
+    }
     ch.roll = 0.042 * w;
     ch.blink = blink(u);
     if (id === 'kick') {
@@ -357,6 +366,10 @@ const dailyActions = (() => {
       ];
     if (drum) p.props = [drum];
     if (id === 'reach') p.props = [prop('ball', toyCenter, s)];
+    if (r.facialActing && p.props.length) {
+      const item = p.props[0], target = contact(item,[0,0,id === 'rattle' ? 2.1 : 0]);
+      p.faceCue = { gaze:studioRig.lookAt(a,p,target), smile:id === 'reach' ? .48*phase : .22 };
+    }
     return [entry(a, p)];
   }
   return [

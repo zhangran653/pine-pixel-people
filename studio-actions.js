@@ -70,7 +70,7 @@ const soloClips = (() => {
       off[2] - breath * (1 - Math.cos(tau * u))
     ];
     ch.headYaw = 0.13 * Math.sin(u * tau) ** 3;
-    const structured = ['1.19.2','1.19.3','1.19.4','1.19.5','1.19.6','1.19.7'].includes(a.figureRelease);
+    const structured = ['1.19.2','1.19.3','1.19.4','1.19.5','1.19.6','1.19.7','1.19.8'].includes(a.figureRelease);
     if (structured || a.figureRelease === '1.19.0' || a.figureRelease === '1.19.1') {
       if (a.tags.includes('baby')) {
         if (!ch.floorSeat) infantFloorPose(r, ch);
@@ -91,6 +91,17 @@ const soloClips = (() => {
         ch.hands = stance.hands.map(([front, out, down], i) => point(torso, [
           r.shoulder[0] + reach * front, sides[i] * (r.shoulder[1] + reach * out), r.shoulder[2] - reach * down
         ]));
+      }
+    }
+    if (r.facialActing) {
+      const first = ramp(u,.04,.13) * (1-ramp(u,.28,.38));
+      const second = ramp(u,.53,.65) * (1-ramp(u,.84,.98));
+      const across = .60*first - .53*second, up = .16*first - .10*second;
+      ch.faceCue = { gaze:[across,up], smile:.15*first };
+      if (ch.floorSeat) {
+        ch.roll = (ch.roll || 0) + .022*across;
+        ch.headYaw += .075*across;
+        ch.headPitch -= .032*up;
       }
     }
     ch.blink = blink(u);
@@ -320,6 +331,7 @@ const soloClips = (() => {
     ]);
     ch.hands = [blend(rest.arms[0].hand, tapping, raised), gripping];
     const p = pose(r, ch);
+    if (r.facialActing) p.faceCue = { gaze:studioRig.lookAt(a,p,tapping).map(v => raised*v) };
     p.props = [{ kind: 'phone', frame: screen, scale: s }];
     return entry(a, p);
   }
@@ -352,6 +364,10 @@ const soloClips = (() => {
       ]);
     });
     const p = pose(r, ch);
+    if (r.facialActing) {
+      const screen = point(keyboard,[4.8*s,0,3.9*s]);
+      p.faceCue = { gaze:studioRig.lookAt(a,p,screen) };
+    }
     p.props = [
       { kind: 'stool', scale: s, frame: frame(zero, [ch.hipOffset[0], 0, h * 0.16], 0, 0, 0) },
       { kind: 'laptop', frame: keyboard, scale: s, rise }

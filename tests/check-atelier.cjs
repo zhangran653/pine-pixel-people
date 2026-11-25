@@ -938,7 +938,15 @@ function checkRatioEditor() {
     expect(JSON.stringify(draft().shape)===JSON.stringify(edited.shape) && draft().packs['pine-core']===PineLooks.figureRatioRelease,
       'undo failed to restore the edited proportions');
     target.dataset.state='pass';
-    target.textContent='Four independent figure proportions, the comparison handoff, original recipe and undo passed';
+    set('feature-paint','acting'); set('rest-expression','curious');
+    const acting=draft();
+    expect(acting.face.restExpression==='curious' && JSON.stringify(acting.shape)===JSON.stringify(edited.shape) &&
+      new URL(byId('figure-link').href).searchParams.get('before')==='acting','the editable attitude lost the figure or handoff');
+    set('rest-expression','');
+    expect(!('restExpression' in draft().face),'automatic expression was not restored');
+    set('feature-paint','ratios');
+    expect(JSON.stringify(draft())===JSON.stringify(edited) && !byId('edit-rest-expression'),'trial downgrade changed proportions or old controls');
+    target.textContent='Four independent figure proportions, editable resting expression, handoff, downgrade and undo passed';
   } catch (err) {
     target.dataset.state='fail'; target.textContent=err.stack || err.message;
   }

@@ -86,6 +86,7 @@ PineMotion.registerAction({
   ])
 });</code></pre>
         <p><code>right / left</code> 从各自肩关节起算，三个数依次指向前、向身体外侧、向上，单位为这只手臂的可达长度。<code>head / body</code> 依次为偏航、俯仰、侧倾的弧度。<code>shift</code> 以身高为单位移动骨盆，<code>blink</code> 从 0（睁眼）到 1（闭眼）。<code>jawOpen</code> 从 0（闭口）到 1（最大张口）。使用 <code>roles: [['mandible']]</code> 可筛选具有可动下颌的人物。每一帧省略的通道取自然姿势。<a href="motion-gestures.js">手势定义与实例</a></p>
+        <p id="gaze">1.19.8 的立体动画人物会读取 <code>pose.faceCue</code>。其中 <code>gaze: [横向, 高低]</code> 的两个数都在 −1 至 1 之间，正值朝人物自身的左方、上方。<code>smile</code> 为加在平时神情上的笑意，范围 0 至 1。关键帧手势可直接写 <code>gaze: [0.6, 0.1]</code>。道具动作可用 <code>PineMotion.rig.lookAt(actor, pose, target)</code> 从双眼中点计算视线，目标点使用人物局部坐标。双人动作先用 <code>rig.local(root, worldPoint)</code> 把目标换到观察者坐标，再调用 <code>lookAt</code>。<a href="social-clips.js">查看追看摇铃的实现</a> · <a href="studies/pixel-structure/rattle-gaze.webp">观看双人动作</a></p>
         <p>带物品的动作可在 <code>pose.props</code> 中放入带 <code>kind / frame / scale</code> 的物品。先在道具坐标系声明握点、笔尖或壶嘴，再把它们换算到人物坐标。写字时，一手托住本子，另一手的笔尖沿纸页移动。浇花时，水流从壶嘴落到花土。<a href="daily-clips.js">人和道具的接触</a> · <a href="activity-props.js">物品画法</a></p>
       </section>
       <section id="contact">

@@ -9,6 +9,12 @@ const { pathToFileURL } = require('node:url');
 
 function loadDraft(pack) {
   const query = new URLSearchParams(location.search);
+  if (query.has('acting-draft')) {
+    const doc=PineLooks.randomCharacter({base:'baby',seed:12,release:PineLooks.expressionRelease,bodyFinish:'painted'});
+    doc.face.restExpression='warm'; doc.shape.crownHeight=.76; doc.clothingCut='original';
+    const url=new URL(location.href);url.hash=new URLSearchParams({character:JSON.stringify(doc)});
+    history.replaceState(null,'',url); return;
+  }
   if (query.has('ratio-draft')) {
     const doc=PineLooks.randomCharacter({base:'baby', seed:12, release:PineLooks.figureRatioRelease});
     Object.assign(doc.shape,{headScale:.96, crownHeight:.76, trunkLength:1.24, noseLipSpacing:1.13});
@@ -19,7 +25,7 @@ function loadDraft(pack) {
     return;
   }
   if (query.has('feature-seed')) {
-    const release=query.has('ratio-test') || query.has('ratio-profile') ? PineLooks.figureRatioRelease : PineLooks.featureStudyRelease;
+    const release=query.has('acting-profile') ? PineLooks.expressionRelease : query.has('ratio-test') || query.has('ratio-profile') ? PineLooks.figureRatioRelease : PineLooks.featureStudyRelease;
     const base=query.get('sample-age') || 'baby';
     let h = 2166136261;
     for (const c of 'pine/figure-holdout/'+release+'/'+base+'/'+query.get('feature-seed')) h=Math.imul(h^c.charCodeAt(0),16777619);
@@ -147,6 +153,24 @@ function check(studyBench) {
   const linkedRecipe = side => JSON.parse(new URLSearchParams(new URL($('edit-' + side).href).hash.slice(1)).get('character'));
   try {
     const query = new URLSearchParams(location.search);
+    if (query.has('acting-draft')) {
+      const full = linkedRecipe('b'), old = linkedRecipe('a');
+      expect(full.face.restExpression==='warm' && full.shape.crownHeight===.76 && $('action').value==='follow-rattle' &&
+        JSON.stringify(PineLooks.withoutExpressionStudy(full))===JSON.stringify(old), 'actual expression draft did not survive the handoff');
+      const frame=picture();
+      $('phase').value=73; $('phase').dispatchEvent(new Event('input'));
+      expect(picture()!==frame,'rattle frame did not advance');
+      choose('before','whole-1.19.8');
+      expect(linkedRecipe('a').packs[PineLooks.core]===PineLooks.release && JSON.stringify(linkedRecipe('b'))===JSON.stringify(full),
+        'stable-to-trial comparison refitted an authored face');
+      choose('before','whole-1.19.7');
+      expect(JSON.stringify(linkedRecipe('b'))===JSON.stringify(old), 'old review leaked expression edits');
+      document.querySelector('[data-mode="blind"]').click(); choose('review-kind','acting');
+      expect($('title-a').textContent==='A' && !$('edit-b').hasAttribute('href') && $('results').hidden,'premature blind identity reveal');
+      for (let i=0;i<32;i++) document.querySelector('[data-vote="tie"]').click();
+      expect(!$('results').hidden && $('progress').textContent.includes('32 / 32'),'acting review did not finish');
+      $('qa').textContent='Custom expression and wardrobe handoff, rattle and earlier editions, 32 isolated trial pairs'; return;
+    }
     if (query.has('ratio-draft')) {
       const source=JSON.parse(new URLSearchParams(location.hash.slice(1)).get('character'));
       const left=linkedRecipe('a'), right=linkedRecipe('b');
@@ -202,10 +226,10 @@ function check(studyBench) {
       $('qa').textContent=JSON.stringify({subject:query.has('feature-seed')?'adult/'+query.get('feature-seed'):$('subject').value,rows});
       return;
     }
-    if (query.has('feature-test') || query.has('ratio-test')) {
-      const ratios = query.has('ratio-test');
-      const newer = ratios ? PineLooks.figureRatioRelease : PineLooks.featureStudyRelease;
-      const undo = ratios ? PineLooks.withoutFigureRatios : PineLooks.withoutFeatureStudy;
+    if (query.has('feature-test') || query.has('ratio-test') || query.has('acting-profile')) {
+      const ratios = query.has('ratio-test'), acting = query.has('acting-profile');
+      const newer = acting ? PineLooks.expressionRelease : ratios ? PineLooks.figureRatioRelease : PineLooks.featureStudyRelease;
+      const undo = acting ? PineLooks.withoutExpressionStudy : ratios ? PineLooks.withoutFigureRatios : PineLooks.withoutFeatureStudy;
       const pair = [linkedRecipe('a'),linkedRecipe('b')];
       const reference = !query.has('feature-seed');
       expect($('subject').value === (reference?'baby-face-1':'draft') && pair[1].packs['pine-core'] === newer &&
@@ -245,14 +269,14 @@ function check(studyBench) {
           choose('sample-size',String(size)); $('bearing').value=bearing; $('bearing').dispatchEvent(new Event('input'));
           const gaps=actors.map((a,i)=>scan($(i?'canvas-b':'canvas-a'),a,poses[i],size,bearing));
           if(reference) expect(gaps[1].pixels===0, 'open throat pixels at '+[action,size,bearing,JSON.stringify(gaps)]);
-          if(reference && !ratios && size===128 && bearing===270 && action==='idle')
+          if(reference && !ratios && !acting && size===128 && bearing===270 && action==='idle')
             expect(gaps[0].rows>=2 && gaps[1].pixels===0, 'the infant profile still has a notch under the chin: '+JSON.stringify(gaps));
           results.push([action,size,bearing,gaps.map(g=>g.pixels)]);
         }
       }
       expect(new URL($('edit-b').href).searchParams.get('tab')==='face', 'feature comparison did not return to the face editor');
       if (query.has('measure')) {
-        const baby=ratios && reference ? '1.19.6 / 01' : Number(query.get('feature-seed') || 0)+1;
+        const baby=(ratios || acting) && reference ? '1.19.6 / 01' : Number(query.get('feature-seed') || 0)+1;
         const crownToEye128=actors.map((a,i)=>{
           const eyes=['leftEye','rightEye'].map(k=>PineMotion.rig.socket(a,rests[i],k)[2]);
           return Math.round(1280*(bounds[i].top-(eyes[0]+eyes[1])/2)/heights[i])/10;
@@ -354,12 +378,12 @@ function check(studyBench) {
       return;
     }
     const resume = query.get('resume');
-    if (['bases','cut','features','ratios'].includes(resume)) {
-      const cut = resume==='cut', features = resume==='features', ratios=resume==='ratios';
-      const target = ratios ? PineLooks.figureRatioRelease : features ? PineLooks.featureStudyRelease : cut ? PineLooks.clothingStudyRelease : PineLooks.baseFaceRelease;
-      const previous = ratios ? PineLooks.featureStudyRelease : features ? PineLooks.clothingStudyRelease : cut ? PineLooks.baseFaceRelease : PineLooks.gameFaceRelease;
+    if (['bases','cut','features','ratios','acting'].includes(resume)) {
+      const cut = resume==='cut', features = resume==='features', ratios=resume==='ratios', acting=resume==='acting';
+      const target = acting ? PineLooks.expressionRelease : ratios ? PineLooks.figureRatioRelease : features ? PineLooks.featureStudyRelease : cut ? PineLooks.clothingStudyRelease : PineLooks.baseFaceRelease;
+      const previous = acting ? PineLooks.figureRatioRelease : ratios ? PineLooks.featureStudyRelease : features ? PineLooks.clothingStudyRelease : cut ? PineLooks.baseFaceRelease : PineLooks.gameFaceRelease;
       const sides = [linkedRecipe('a'),linkedRecipe('b')].sort((a,b)=>a.packs['pine-core'].localeCompare(b.packs['pine-core']));
-      const matched = ratios ? JSON.stringify(PineLooks.withoutFigureRatios(sides[1])) === JSON.stringify(sides[0]) : features ? JSON.stringify(PineLooks.withoutFeatureStudy(sides[1]))===JSON.stringify(sides[0]) :
+      const matched = acting ? JSON.stringify(PineLooks.withoutExpressionStudy(sides[1]))===JSON.stringify(sides[0]) : ratios ? JSON.stringify(PineLooks.withoutFigureRatios(sides[1])) === JSON.stringify(sides[0]) : features ? JSON.stringify(PineLooks.withoutFeatureStudy(sides[1]))===JSON.stringify(sides[0]) :
         cut ? JSON.stringify(PineLooks.withClothingStudy(sides[0]))===JSON.stringify(sides[1]) : JSON.stringify(sides[0])===JSON.stringify(PineLooks.withGameFace(sides[1]));
       expect($('review-kind').value===resume && !$('results').hidden && matched,
         'resumed base review lost the actual control');
@@ -376,6 +400,13 @@ function check(studyBench) {
       const actual=PineLooks.randomCharacter({base:age,seed:pair.seed,release:target,bodyFinish:'painted'});
       expect(JSON.stringify(actual)===JSON.stringify(sides[1]) && [pair.a,pair.b].sort().join('/')===[previous,target].join('/'),
         'base review seed, versions or actual clothing did not replay');
+      if (acting) for (const row of report.pairs) {
+        const base={base:row.base,seed:row.seed,bodyFinish:'painted'};
+        const revised=PineLooks.randomCharacter({...base,release:target});
+        const original=PineLooks.randomCharacter({...base,release:previous});
+        expect(JSON.stringify(PineLooks.withoutExpressionStudy(revised))===JSON.stringify({...original,id:revised.id,label:revised.label}),
+          'reported seed changed the appearance on downgrade '+row.base+'/'+row.number);
+      }
       $('qa').textContent='Restored and independently replayed the ' + target + ' age review and its hidden-side export';
       return;
     }
@@ -581,15 +612,19 @@ function check(studyBench) {
     if (studyBench) {
       const doc = structuredClone(pineFigureModels.adult);
       doc.packs[PineLooks.core] = PineLooks.structureStudyRelease;
-      const base = studyBench === 'ratios' ? {...PineLooks.withFeatureStudy(PineLooks.withClothingStudy(PineLooks.withBaseFace(doc,'long'))),bodyFinish:'painted'} :
+      const base = studyBench === 'acting' ? PineLooks.randomCharacter({base:'adult',seed:42,release:PineLooks.figureRatioRelease,bodyFinish:'painted'}) :
+        studyBench === 'ratios' ? {...PineLooks.withFeatureStudy(PineLooks.withClothingStudy(PineLooks.withBaseFace(doc,'long'))),bodyFinish:'painted'} :
         studyBench === 'features' ? {...PineLooks.withClothingStudy(PineLooks.withBaseFace(doc,'long')),bodyFinish:'painted'} :
         studyBench === 'cut' ? {...PineLooks.withBaseFace(doc,'long'),bodyFinish:'painted'} : studyBench === 'body' ? PineLooks.randomCharacter({ base:'child', seed:3418494998, release:PineLooks.gameFaceRelease }) :
         studyBench === 'bases' ? PineLooks.withGameFace(PineLooks.withBaseFace(doc,'long')) : doc;
-      const candidate = studyBench === 'ratios' ? PineLooks.withFigureRatios(base) : studyBench === 'features' ? PineLooks.withFeatureStudy(base) :
+      const candidate = studyBench === 'acting' ? PineLooks.withExpressionStudy(base) : studyBench === 'ratios' ? PineLooks.withFigureRatios(base) : studyBench === 'features' ? PineLooks.withFeatureStudy(base) :
         studyBench === 'cut' ? PineLooks.withClothingStudy(base) : studyBench === 'body' ? { ...base, bodyFinish:'painted' } :
         studyBench === 'bases' ? PineLooks.withBaseFace(base) : PineLooks.withGameFace(base);
       result[studyBench === 'body' ? 'walkingChild' : 'walkingAdult'] = measureClip(base,candidate,'walk');
-      if (studyBench === 'features' || studyBench === 'ratios') {
+      if (studyBench === 'acting') {
+        const baby = PineLooks.randomCharacter({base:'baby',seed:42,release:PineLooks.figureRatioRelease,bodyFinish:'painted'});
+        result.seatedReach=measureClip(baby,PineLooks.withExpressionStudy(baby),'baby-reach');
+      } else if (studyBench === 'features' || studyBench === 'ratios') {
         const ratios = studyBench === 'ratios';
         const baby = PineLooks.randomCharacter({base:'baby',seed:42,release:ratios ? PineLooks.featureStudyRelease : PineLooks.clothingStudyRelease,bodyFinish:'painted'});
         result.seatedReach = measureClip(baby, ratios ? PineLooks.withFigureRatios(baby) : PineLooks.withFeatureStudy(baby), 'baby-reach');
@@ -605,7 +640,7 @@ try {
   const measureCut = process.argv.includes('--measure-cut');
   const measureBases = process.argv.includes('--measure-bases');
   const measureForms = measureBases || process.argv.includes('--measure-forms');
-  const bench = process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
+  const bench = process.argv.includes('--bench-acting') ? 'acting' : process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
   const setup = join(dir, 'draft-fixture.js');
   writeFileSync(setup, '(' + loadDraft.toString() + ')(' + readFileSync(join(root,'packs/creek-hats.json'),'utf8') + ');');
   const page = readFileSync(join(root, 'figure-study.html'), 'utf8')
@@ -622,7 +657,12 @@ try {
   const featureCase = '?feature-test=1&subject=baby-face-1&before=features&size=128&bearing=270';
   const ratioCase = '?ratio-test=1&subject=baby-face-1&before=ratios&size=128&bearing=270';
   const profileCase = '?ratio-profile=1&before=ratios&phase=17&bearing=270&subject=';
-  const cases = process.argv.includes('--measure-ratio-profiles') ? [profileCase+'adult',profileCase+'chef',
+  const actingCases = ['?acting-draft=1&before=acting&action=follow-rattle&bearing=270&phase=23&size=128','?mode=blind&review=acting&case=baby%2F0&resume=acting','?acting-profile=1&before=acting&subject=baby-face-1&measure=1'];
+  const actingProfile = '?acting-profile=1&before=acting&size=128&bearing=270&measure=1&subject=';
+  const cases = process.argv.includes('--measure-acting') ? [actingProfile+'baby-face-1',...Array.from({length:8},(_,i)=>actingProfile+'draft&feature-seed='+i)] :
+    process.argv.includes('--bench-acting') ? ['?subject=baby&bearing=270&before=1.19.0'] :
+    process.argv.includes('--check-acting') ? actingCases :
+    process.argv.includes('--measure-ratio-profiles') ? [profileCase+'adult',profileCase+'chef',
     ...Array.from({length:8},(_,i)=>profileCase+'draft&sample-age=adult&feature-seed='+i)]
     : process.argv.includes('--measure-ratios') ? [ratioCase+'&measure=1',
     ...Array.from({length:8},(_,i)=>'?ratio-test=1&measure=1&subject=draft&before=ratios&feature-seed='+i)]
@@ -634,7 +674,7 @@ try {
     '?clothing-test=1&subject=baseline-4&before=cut&action=walk&phase=43', '?mode=blind&review=cut&case=baby%2F0&resume=cut',
     featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
     ratioCase, '?mode=blind&review=ratios&case=baby%2F0&resume=ratios', profileCase+'chef',
-    '?ratio-draft=1&before=whole-1.19.7&action=baby-reach&bearing=270&phase=43&size=128'];
+    '?ratio-draft=1&before=whole-1.19.7&action=baby-reach&bearing=270&phase=43&size=128',...actingCases];
   for (const query of cases) {
     const args = [...flags.slice(0,-1), flags.at(-1) + query];
     const r = spawnSync(chrome, args, { encoding:'utf8', maxBuffer:4000000, timeout:120000 });

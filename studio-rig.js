@@ -168,6 +168,19 @@ const studioRig = (() => {
     if (!anchor) throw new Error('未知接触点 · ' + name);
     return point(pose[anchor.frame], anchor.point);
   }
+  // Targets use actor-local coordinates. Express the ray in the moving head frame
+  // so eye motion stays attached when the root or the camera turns.
+  function lookAt(actor, pose, target) {
+    const left = socket(actor, pose, 'leftEye'), right = socket(actor, pose, 'rightEye');
+    const [x,y,z] = target.map((v,i) => v - (left[i] + right[i]) * .5);
+    if (Math.hypot(x,y,z) < 1e-6) return [0,0];
+    const m = pose.head;
+    const front = m[0]*x + m[4]*y + m[8]*z;
+    const side = m[1]*x + m[5]*y + m[9]*z;
+    const up = m[2]*x + m[6]*y + m[10]*z;
+    const horizontal = Math.hypot(front,side);
+    return [horizontal < 1e-6 ? 0 : clamp(Math.atan2(side,front) / .82,-1,1), clamp(Math.atan2(up,horizontal) / .78,-1,1)];
+  }
   function mandibleFrame(rig, open) {
     const reach = Math.hypot(rig.mouth[0] - rig.jawPivot[0], rig.mouth[2] - rig.jawPivot[2]);
     const glide = reach * 0.075 * open * open;
@@ -200,7 +213,7 @@ const studioRig = (() => {
       torso,
       frame(
         rig.headPivot || rig.neck,
-        rig.headOffset || origin,
+        (channels.floorSeat && rig.seatedHeadOffset) || rig.headOffset || origin,
         channels.headYaw || 0,
         channels.headPitch || 0,
         channels.headRoll || 0
@@ -247,6 +260,12 @@ const studioRig = (() => {
       return { side, shoulder, elbow, wrist, hand };
     });
     const result = { torso, head, feet, legs, arms, blink: channels.blink || 0, props: [], bottle: null, bob: 0 };
+    if (rig.facialActing && channels.faceCue) {
+      const { gaze = [0,0], smile = 0 } = channels.faceCue;
+      if (!Array.isArray(gaze) || gaze.length !== 2 || !gaze.every(Number.isFinite) || !Number.isFinite(smile))
+        throw Error('视线需要两个有限数值，笑意需要一个有限数值');
+      result.faceCue = { gaze: gaze.map(v => clamp(v,-1,1)), smile: clamp(smile) };
+    }
     if (channels.floorSeat) result.floorSeat = true;
     if (rig.jawPivot) {
       const open = clamp(channels.jawOpen || 0);
@@ -270,6 +289,7 @@ const studioRig = (() => {
     validate,
     bindSockets,
     socket,
+    lookAt,
     mandibleFrame,
     clearFootSurfaces,
     pose,
