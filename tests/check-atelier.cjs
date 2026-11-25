@@ -912,6 +912,38 @@ function checkEditor() {
   }
 }
 
+function checkRatioEditor() {
+  const byId = id => document.getElementById(id), target=byId('qa-result');
+  const draft = () => JSON.parse(new URLSearchParams(new URL(byId('figure-link').href).hash.slice(1)).get('character'));
+  const expect = (ok, message) => { if (!ok) throw Error(message); };
+  function set(fieldName, value) {
+    const field=byId('edit-'+fieldName);
+    field.value=String(value);
+    field.dispatchEvent(new Event(field.type==='range' ? 'input' : 'change'));
+  }
+  try {
+    const original=draft();
+    set('feature-paint','ratios');
+    expect(draft().packs['pine-core']===PineLooks.figureRatioRelease && new URL(byId('figure-link').href).searchParams.get('before')==='ratios',
+      'the proportion editor lost its comparison');
+    set('crownHeight',.83); set('noseLipSpacing',1.56);
+    byId('tab-shape').click();
+    set('headScale',1.10); set('trunkLength',1.19);
+    const edited=PineLooks.prepare(draft()).recipe;
+    expect(edited.shape.headScale===1.10 && edited.shape.crownHeight===.83 && edited.shape.trunkLength===1.19 && edited.shape.noseLipSpacing===1.56,
+      'proportion edits must be independent');
+    byId('tab-face').click(); set('feature-paint','painted');
+    expect(JSON.stringify(draft())===JSON.stringify(original), 'returning to the original proportions changed another part of the recipe');
+    byId('edit-undo').click();
+    expect(JSON.stringify(draft().shape)===JSON.stringify(edited.shape) && draft().packs['pine-core']===PineLooks.figureRatioRelease,
+      'undo failed to restore the edited proportions');
+    target.dataset.state='pass';
+    target.textContent='Four independent figure proportions, the comparison handoff, original recipe and undo passed';
+  } catch (err) {
+    target.dataset.state='fail'; target.textContent=err.stack || err.message;
+  }
+}
+
 function checkWorldEditor() {
   const get = (id) => document.getElementById(id),
     check = (ok, msg) => {
@@ -1170,6 +1202,7 @@ try {
       : 'google-chrome');
   for (const [name, check, query] of [
     ['atelier', checkEditor, '?bearing=90'],
+    ['atelier', checkRatioEditor, '?figure=features&model=baby&tab=face'],
     ['studio', checkStudioMotions, '?demo=custom'],
     ['studio', checkCharacterTransfer, '?board=character&person=look_guide#score=' + encodeURIComponent(JSON.stringify({
       version: 1, steps: [{ action: 'drink', actors: ['look_guide'] }]

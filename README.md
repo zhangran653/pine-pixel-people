@@ -21,9 +21,15 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 1.19.7 分龄头身比例试作
+
+在创作室的「五官 → 五官与比例」选「分龄笔触与可调比例」。转到婴儿侧面，在「侧面轮廓」拖动「眉上颅顶高度」，可以观察额头、后脑和帽子一起变化。在「体型」拖动「头部整体大小」和「肩到骨盆的长度」，可以直接比较坐姿里头、肩、手和膝盖的位置。成人的立体动画脸还可以拉开鼻底与上唇。四项都能存入形象配方。普通新建人物仍使用 1.18.0。[试调坐姿婴儿](http://127.0.0.1:8000/atelier.html?figure=ratios&model=baby&tab=face&bearing=270) · [旋转同一婴儿的前后对照](http://127.0.0.1:8000/figure-study.html?before=ratios&subject=baby-face-1&size=128&bearing=270) · [配方接口](appearance-standard.html#figure-ratios)
+
+每组左为 1.19.6，右为 1.19.7，穿搭、肤色、动作进度和机位都相同。实拍包含光头和戴帽婴儿、幼儿、儿童，以及全身只有 64 像素高的成人正侧面。随机盲评按四个年龄各取八人。[同人实拍](studies/pixel-structure/figure-ratios.webp) · [连续随机八人](studies/pixel-structure/ratio-random.webp) · [32 组分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=ratios&size=128)
+
 ### 1.19.6 分龄五官与婴儿下颌试作
 
-在人物创作室的「五官 → 五官笔触」选「分龄像素笔触」。眼睑、虹膜、笑嘴和下巴按年龄画进人物切片，可以转身、眨眼、张嘴和染色。婴儿坐下、前伸和爬行时，颏下的皮肤从颈前随下巴一起动。衣物剪裁可以单独选择。普通新建人物仍使用 1.18.0。[试调婴儿的脸](http://127.0.0.1:8000/atelier.html?figure=features&model=baby&tab=face) · [四个年龄的五官及婴儿动作实拍](studies/pixel-structure/painted-features.webp) · [配方接口](appearance-standard.html#painted-features)
+在人物创作室的「五官 → 五官与比例」选「分龄像素笔触」。眼睑、虹膜、笑嘴和下巴按年龄画进人物切片，可以转身、眨眼、张嘴和染色。婴儿坐下、前伸和爬行时，颏下的皮肤从颈前随下巴一起动。衣物剪裁可以单独选择。普通新建人物仍使用 1.18.0。[试调婴儿的脸](http://127.0.0.1:8000/atelier.html?figure=features&model=baby&tab=face) · [四个年龄的五官及婴儿动作实拍](studies/pixel-structure/painted-features.webp) · [配方接口](appearance-standard.html#painted-features)
 
 对照台两边使用同一份人物配方和同一动作帧。样本「婴儿随机 01」曾在正侧面露出颏下缺口，可以直接旋转并切换坐姿、伸手和爬行。盲评的四个年龄各有八人，每组的发型、肤色、帽子和衣服都随原始随机结果保留。[重看婴儿随机 01](http://127.0.0.1:8000/figure-study.html?subject=baby-face-1&before=features&bearing=270&size=128) · [连续随机的八人实拍](studies/pixel-structure/feature-random.webp) · [32 组分龄盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=features&size=128)
 

@@ -161,6 +161,71 @@ function checkClothing(cast) {
   for (const hat of ['none','pine-core/cotton-cap','pine-core/sunhat']) assert.ok(toddlerHats.has(hat));
 }
 
+function checkFigureRatios(cast) {
+  const keys = ['headScale','crownHeight','trunkLength','noseLipSpacing'];
+  const close = (a,b) => Math.abs(a-b) < 1e-8;
+  for (const base of ['adult','child','toddler','baby']) {
+    const options = {base, release:looks.featureStudyRelease, bodyFinish:'painted'};
+    const source = looks.randomCharacter({...options,seed:21});
+    source.clothingCut = 'original';
+    const doc = looks.withFigureRatios(source), previous = looks.build(source);
+    assert.deepEqual(toPlain(looks.withoutFigureRatios(doc)),toPlain(source));
+    assert.deepEqual(toPlain(looks.withFigureRatios(doc)),toPlain(doc));
+    assert.deepEqual(looks.prepare(toPlain(doc)).recipe.shape,looks.prepare(doc).recipe.shape);
+    assert.throws(()=>looks.prepare({...doc,packs:source.packs}));
+    const neutral = {...doc,shape:{...source.shape}};
+    const reference = looks.build(neutral), clip = motion.actions.get(base==='baby'?'baby-reach':'walk');
+    const pose = clip.sample(.43,previous)[0].pose;
+    assert.deepEqual(reference.sockets,previous.sockets);
+    assert.equal(digest(reference.body.makePose(pose).colors),digest(previous.body.makePose(pose).colors));
+    const facePixels = a=>motion.figureLayers(a,pose,a.body.makePose(pose)).at(-1).model.colors;
+    assert.equal(digest(facePixels(reference)),digest(facePixels(previous)));
+    const head = looks.build({...neutral,shape:{...neutral.shape,headScale:.85}});
+    assert.ok(head.rig.headPivot.every((v,i)=>close(v,previous.rig.headPivot[i])), 'resizing shifted the skull joint');
+    const manga = {...neutral,face:{...neutral.face,style:'manga'},anatomyParts:{...neutral.anatomyParts,skull:'long'}};
+    const originalPivot=looks.build(manga).rig.headPivot;
+    const resizedPivot=looks.build({...manga,shape:{...manga.shape,headScale:1.16}}).rig.headPivot;
+    assert.ok(resizedPivot.every((v,i)=>close(v,originalPivot[i])), 'an alternate scalp moved the neck socket');
+    const taller = looks.build({...neutral,shape:{...neutral.shape,trunkLength:1.2}});
+    assert.deepEqual(taller.rig.pelvis,previous.rig.pelvis);
+    assert.deepEqual(taller.rig.hip,previous.rig.hip);
+    const lift = taller.rig.neck[2]-previous.rig.neck[2];
+    assert.ok(lift>0 && close(lift,taller.rig.shoulder[2]-previous.rig.shoulder[2]));
+    assert.ok(close(lift,taller.sockets.leftEye.point[2]-previous.sockets.leftEye.point[2]));
+    const shortCrown = looks.build({...neutral,shape:{...neutral.shape,crownHeight:.70}});
+    assert.deepEqual(shortCrown.sockets,previous.sockets);
+    const gap = looks.build({...neutral,shape:{...neutral.shape,noseLipSpacing:1.5}});
+    assert.ok(gap.sockets.upperLip.point[2]<previous.sockets.upperLip.point[2]);
+    assert.deepEqual(gap.sockets.leftEye,previous.sockets.leftEye);
+    const variations = new Set();
+    for (let seed=0; seed<32; seed++) {
+      const old = looks.randomCharacter({...options,seed});
+      const next = looks.randomCharacter({...options,release:looks.figureRatioRelease,seed});
+      assert.deepEqual(next,looks.randomCharacter({...options,release:looks.figureRatioRelease,seed}));
+      const restored = looks.withoutFigureRatios(next);
+      for (const field of ['parts','face','shape','colors','anatomyParts']) assert.deepEqual(toPlain(restored[field]),toPlain(old[field]));
+      variations.add(keys.map(k=>next.shape[k]).join('/'));
+    }
+    assert.ok(variations.size>=6,base+' repeats the same proportions');
+    const locked = looks.randomCharacter({source:doc,seed:3,locks:['body','skin','wear','hair']});
+    assert.equal(locked.shape.headScale,doc.shape.headScale);
+    assert.equal(locked.shape.trunkLength,doc.shape.trunkLength);
+    assert.deepEqual(toPlain(locked.parts),toPlain(doc.parts)); assert.equal(locked.clothingCut,'original');
+    const portrait = looks.randomFace(doc,{seed:3,release:looks.figureRatioRelease});
+    assert.equal(portrait.shape.trunkLength,doc.shape.trunkLength);
+    assert.equal(portrait.shape.headScale,doc.shape.headScale);
+    const actor = looks.build(doc);
+    if (base!=='baby') {
+      const sip=motion.actions.get('drink').sample(.5,actor)[0].pose;
+      const lip=motion.rig.socket(actor,sip,'mouth');
+      assert.ok(Math.hypot(...lip.map((v,i)=>v-sip.bottle.lip[i]))<1e-7, 'resizing broke drinking contact');
+    }
+    motion.characters.set(actor.id,actor);
+    cast.setFrame(clip.sample(.43,actor));
+    assert.ok(cast.group.getObjectByName(actor.id+'/face').geometry.drawRange.count>0);
+  }
+}
+
 function checkFeatureStudy(cast) {
   const release=looks.featureStudyRelease;
   for (const base of ['adult','child','toddler','baby']) {
@@ -332,6 +397,8 @@ async function check() {
   }
   checkClothing(cast);
   checkFeatureStudy(cast);
+  checkFigureRatios(cast);
+  console.log('Four ages, 128 reproducible ratio fits, independent head and trunk controls, neutral archived meshes, locks and Three.js passed');
   console.log('Four painted ages, both clothing cuts, archived styles, 96 seeded pairs, blinks, lip/eye/skin dyes, drinking contacts and Three.js passed');
   cast.dispose();
   assert.equal(distinct.size, 4);

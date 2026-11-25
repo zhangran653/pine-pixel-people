@@ -205,6 +205,19 @@ for (const [id, stable, firstStudy] of [
   assert.throws(() => looks.randomCharacter({ source: external, base: 'adult', locks: ['body'] }));
 }
 const shapeSchema = json('character-v1.schema.json').properties.shape.properties;
+for (const [key, range] of Object.entries(a.l.figureRatioRanges)) {
+  const { minimum, maximum, default: normal } = shapeSchema[key];
+  assert.deepEqual([...range], [minimum,maximum,normal], key+' trial schema differs');
+  assert.ok(!Object.hasOwn(a.l.shape,key), 'stable shape enumeration included a trial field');
+  assert.throws(()=>a.l.prepare({...current,shape:{...current.shape,[key]:1}}));
+  const doc=a.l.withFigureRatios(current);
+  for (const limit of [minimum,maximum]) {
+    doc.shape[key]=limit;
+    assert.equal(a.l.prepare(doc).recipe.shape[key],limit);
+  }
+  doc.shape[key]=maximum+.01;
+  assert.throws(()=>a.l.prepare(doc));
+}
 for (const [key, values] of Object.entries(a.l.shape)) {
   const { minimum, maximum, default: normal } = shapeSchema[key];
   assert.deepEqual([...values], [minimum, maximum, normal], key + ' schema and renderer ranges differ');

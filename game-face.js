@@ -231,7 +231,10 @@ const pineGameFace = (() => {
     );
     const value = (key) => shape[key] || 0;
     const mouthDepth = amount * 0.075 * value('lipProjection');
-    const tipAt = clamp(0.58 + (noseRow[3] - 0.3) * 0.83, 0.48, 0.7);
+    const noseLength = clamp(0.58 + (noseRow[3] - 0.3) * 0.83, 0.48, 0.7);
+    // Give the philtrum room between the returning nasal base and the upper lip.
+    // The mouth takes part of the change, so a long nose retains its character.
+    const tipAt = noseLength - (1 - noseLength) * .72 * ((shape.noseLipSpacing ?? 1) - 1);
     const reach =
       (infant ? 0.132 : base === 'adult' ? 0.205 : 0.166) *
       clamp(noseRow[2] / 0.19 + 0.32 * value('noseBridge'), 0.58, 1.5) *

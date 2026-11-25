@@ -7,12 +7,13 @@
   const originals = { hoodie: 'look_programmer', chef: 'look_chef' };
   const stableRelease = '1.18.0', previousStudy = looks.structureStudyRelease, currentStudy = looks.gameFaceRelease;
   const reviews = { face:[previousStudy,currentStudy], cast:[stableRelease,currentStudy], bases:[currentStudy,looks.baseFaceRelease],
-    cut:[looks.baseFaceRelease,looks.clothingStudyRelease], features:[looks.clothingStudyRelease,looks.featureStudyRelease] };
+    cut:[looks.baseFaceRelease,looks.clothingStudyRelease], features:[looks.clothingStudyRelease,looks.featureStudyRelease],
+    ratios:[looks.featureStudyRelease,looks.figureRatioRelease] };
   const seedFor = (release, id) => hash('pine/figure-holdout/' + release + '/' + id);
   const search = new URLSearchParams(location.search);
   let reviewKind = Object.hasOwn(reviews, search.get('review')) ? search.get('review') : 'face';
   function storageKey() {
-    const versions = reviews[reviewKind].join('-') + ({face:'', cast:'.painted.cast', bases:'.bases', cut:'.clothing', features:'.features'}[reviewKind]);
+    const versions = reviews[reviewKind].join('-') + ({face:'', cast:'.painted.cast', bases:'.bases', cut:'.clothing', features:'.features', ratios:'.ratios'}[reviewKind]);
     return 'pine.figureStudy.' + versions + '.v1';
   }
   const stages = [$('canvas-a'), $('canvas-b')];
@@ -117,7 +118,7 @@
     const options = { base, seed, portrait: 'animation', style: 'natural', release };
     const cast = reviewKind === 'cast';
     const revised = looks.randomCharacter({ ...options, bodyFinish: reviewKind === 'face' ? undefined : 'painted' });
-    const old = reviewKind === 'features' ? looks.withoutFeatureStudy(revised) : reviewKind === 'cut' ? beforeClothing(revised) : cast ? looks.randomCharacter({ ...options, release:stableRelease }) :
+    const old = reviewKind === 'ratios' ? looks.withoutFigureRatios(revised) : reviewKind === 'features' ? looks.withoutFeatureStudy(revised) : reviewKind === 'cut' ? beforeClothing(revised) : cast ? looks.randomCharacter({ ...options, release:stableRelease }) :
       reviewKind === 'bases' ? looks.withGameFace(revised) : looks.withFigureStudy(revised);
     return flipped(session.current) ? [revised, old] : [old, revised];
   }
@@ -153,11 +154,16 @@
   function modelPair() {
     const subject = $('subject').value;
     const sample = randomSubjects[subject];
-    const doc = subject === 'draft' ? submitted : sample
+    const source = subject === 'draft' ? submitted : sample
       ? looks.randomCharacter({ base: sample[1].split('/')[0], seed: seedFor(...sample), release:sample[0],
           bodyFinish:sample[0] === looks.featureStudyRelease ? 'painted' : undefined })
       : pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
     const before = $('before').value;
+    if (before === 'ratios') {
+      const trial = looks.withFigureRatios(subject === 'draft' ? source : paintedFigure(source));
+      return [looks.withoutFigureRatios(trial), trial];
+    }
+    const doc = source.packs[looks.core] === looks.figureRatioRelease && before !== 'current' ? looks.withoutFigureRatios(source) : source;
     if (before === 'whole-1.19.6') {
       const baseline = looks.withFigureStudy(doc);
       baseline.packs[looks.core] = stableRelease;
@@ -225,21 +231,23 @@
     const before = $('before').value, finish = before === 'finish', whole = before === 'whole' || before === 'current';
     const bases = !blind && before === 'bases', clothing = !blind && before === 'cut', features = !blind && before === 'features';
     const completeFigure = !blind && before === 'whole-1.19.6';
+    const ratios = !blind && before === 'ratios';
     $('face-gallery').hidden = blind;
-    $('face-gallery').href = 'studies/pixel-structure/' + (completeFigure ? 'whole-1.19.6.webp' : features ? 'painted-features.webp' : clothing ? 'garment-cuts.webp' : bases ? 'drawn-faces.webp' : 'game-faces.webp');
-    $('face-gallery').textContent = completeFigure ? '稳定版与完整试作实拍' : features ? '五官与坐姿侧面实拍' : clothing ? '衣物与动作实拍' : bases ? '分龄基础脸三视图' : '新旧脸型实拍';
+    $('face-gallery').href = 'studies/pixel-structure/' + (ratios ? 'figure-ratios.webp' : completeFigure ? 'whole-1.19.6.webp' : features ? 'painted-features.webp' : clothing ? 'garment-cuts.webp' : bases ? 'drawn-faces.webp' : 'game-faces.webp');
+    $('face-gallery').textContent = ratios ? '头身与侧脸比例实拍' : completeFigure ? '稳定版与完整试作实拍' : features ? '五官与坐姿侧面实拍' : clothing ? '衣物与动作实拍' : bases ? '分龄基础脸三视图' : '新旧脸型实拍';
     $('form-field').hidden = !bases && !(features && looks.portraitStyleOf(recipes[1])==='animation');
     const names = looks.baseFaceForms(recipes[1].base);
     if (!$('form-field').hidden) for (const opt of $('drawn-form').options) if (opt.value) opt.textContent = names[opt.value];
     const baselineTitle = features ? recipes[0].packs[looks.core] + ' · 原有五官' : clothing ? looks.baseFaceRelease + ' · 原有衣物' : bases ? currentStudy + ' · 原有脸型' : before === 'whole' || completeFigure ? stableRelease + ' · 稳定版' :
       before === 'current' ? recipes[0].packs[looks.core] + ' · 草稿原版' : $('before').selectedOptions[0].textContent;
-    $('title-a').textContent = blind ? 'A' : baselineTitle;
-    $('title-b').textContent = blind ? 'B' : completeFigure ? looks.featureStudyRelease + ' · 完整试作' : features ? looks.featureStudyRelease + ' · 五官与下颌' : clothing ? looks.clothingStudyRelease + ' · 分龄衣物剪裁' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
+    $('title-a').textContent = blind ? 'A' : ratios ? looks.featureStudyRelease + ' · 原有比例' : baselineTitle;
+    $('title-b').textContent = blind ? 'B' : ratios ? looks.figureRatioRelease + ' · 分龄比例' : completeFigure ? looks.featureStudyRelease + ' · 完整试作' : features ? looks.featureStudyRelease + ' · 五官与下颌' : clothing ? looks.clothingStudyRelease + ' · 分龄衣物剪裁' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
       currentStudy + (whole ? ' · 全身试作' : finish ? ' · 四肢与衣边色块' : ' · 美术基础脸');
     $('prompt').textContent = blind
       ? reviewKind === 'cast'
         ? '稳定版与试作各自随机生成一人。年龄、种子、镜头与动作帧相同，比较整体搭配和造型。'
         : '本批比较 ' + reviews[reviewKind].join(' 与 ') + '。两侧共用同一张随机配方、同一动作和机位。'
+      : ratios ? '两侧共用人物、服饰和机位。比较眉上到头顶的弧线、鼻底到上唇的留白，以及肩膀和骨盆之间的长度。'
       : completeFigure ? '同一人物、穿搭、机位和动作进度。正面看头肩与四肢的比例，侧面看脸、下颌和身体的姿态。'
       : features ? (looks.portraitStyleOf(recipes[1]) === 'animation' ? '同一配方和动作帧。看笑嘴在正面是否连贯，转到侧面比较下唇、颏尖和衣领。' : '当前草稿采用其他五官画风。两边保留草稿画风，五官笔触试作使用立体动画。')
       : clothing ? '同一人物、穿搭和动作帧。转动观察肩线、领口和裤管，切到走路或伸手看弯曲处的衣料。'
@@ -418,7 +426,7 @@
       link.hidden = !visible;
       if (visible) {
         const options = new URLSearchParams({ action: $('action').value, bearing: $('bearing').value, phase: $('phase').value });
-        if ($('framing').value === 'head' || (mode === 'model' && $('before').value === 'features')) options.set('tab', 'face');
+        if ($('framing').value === 'head' || (mode === 'model' && ['features','ratios'].includes($('before').value))) options.set('tab', 'face');
         else if (mode === 'model' && $('before').value === 'cut') options.set('tab', 'shape');
         const data = new URLSearchParams({ character: JSON.stringify(recipes[i]) });
         if (partner()) data.set('partner', JSON.stringify(companion));

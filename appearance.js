@@ -34,7 +34,8 @@ const PineLooks = (() => {
     gameFaceRelease = pinePortraitStyles.gameFaceRelease,
     baseFaceRelease = pinePortraitStyles.baseFaceRelease,
     clothingStudyRelease = pinePortraitStyles.clothingStudyRelease,
-    featureStudyRelease = pinePortraitStyles.featureStudyRelease;
+    featureStudyRelease = pinePortraitStyles.featureStudyRelease,
+    figureRatioRelease = pinePortraitStyles.figureRatioRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -63,7 +64,7 @@ const PineLooks = (() => {
     facePlaneRelease,
     pixelRelease,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease
   ];
   function figurePin(recipe) {
     const pin = recipe?.packs?.[core];
@@ -74,6 +75,7 @@ const PineLooks = (() => {
     next.packs[core] = structureStudyRelease;
     delete next.bodyFinish;
     delete next.clothingCut;
+    clearFigureRatios(next);
     if (next.face?.form) {
       next.anatomyParts = { ...next.anatomyParts, skull: next.face.form };
       delete next.face.form;
@@ -85,6 +87,7 @@ const PineLooks = (() => {
     const next = structuredClone(recipe);
     next.packs[core] = gameFaceRelease;
     delete next.clothingCut;
+    clearFigureRatios(next);
     next.face = { ...facePresets.classic.face, ...next.face, style: 'animation' };
     return next;
   }
@@ -103,6 +106,7 @@ const PineLooks = (() => {
     const next = structuredClone(recipe);
     next.packs[core] = clothingStudyRelease;
     delete next.clothingCut;
+    clearFigureRatios(next);
     return next;
   }
   function usesClothingCut(recipe) {
@@ -117,6 +121,46 @@ const PineLooks = (() => {
   function withoutFeatureStudy(recipe) {
     const next = withClothingStudy(recipe);
     if (!usesClothingCut(recipe)) next.packs[core] = baseFaceRelease;
+    return next;
+  }
+  // Existing consumers enumerate PineLooks.shape when constructing a stable recipe.
+  const figureRatioRanges = {
+    headScale:[.80,1.20,1], crownHeight:[.66,1.18,1],
+    trunkLength:[.82,1.28,1], noseLipSpacing:[.76,1.68,1]
+  };
+  const ratioKeys = Object.keys(figureRatioRanges);
+  const ageRatios = {
+    adult:   { headScale:1.045, crownHeight:.97, trunkLength:1.035, noseLipSpacing:1.46 },
+    child:   { headScale:1.015, crownHeight:.91, trunkLength:1.06,  noseLipSpacing:1.25 },
+    toddler: { headScale:.99,   crownHeight:.87, trunkLength:1.09,  noseLipSpacing:1.14 },
+    baby:    { headScale:.92,   crownHeight:.80, trunkLength:1.17,  noseLipSpacing:1.04 }
+  };
+  function clearFigureRatios(doc) {
+    for (const key of ratioKeys) delete doc.shape[key];
+  }
+  function fittedFigureRatios(doc) {
+    const base = ageRatios[doc.base], form = doc.face?.form ?? doc.anatomyParts?.skull;
+    const nose = pinePortraitStyles.noses[doc.face?.nose] || pinePortraitStyles.basicNoses[doc.face?.nose] || pinePortraitStyles.basicNoses.classic;
+    const amount = doc.face?.formMix ?? 1;
+    const round = value => Math.round(value * 100) / 100;
+    return {
+      headScale: round(base.headScale + .17 * (1 - (doc.shape.height ?? 1))),
+      crownHeight: round(base.crownHeight + (form === 'long' ? .035 : form === 'round' ? -.018 : 0) * amount),
+      trunkLength: round(base.trunkLength + .24 * ((doc.shape.legs ?? 1) - 1)),
+      noseLipSpacing: round(base.noseLipSpacing + .38 * (nose[3] - .30) + .06 * (doc.shape.upperLipFullness || 0))
+    };
+  }
+  function withFigureRatios(recipe) {
+    if (recipe.packs[core] === figureRatioRelease) return structuredClone(recipe);
+    const next = pinePortraitStyles.hasPaintedFeatures(recipe.packs[core]) ? structuredClone(recipe) : withFeatureStudy(recipe);
+    next.packs[core] = figureRatioRelease;
+    Object.assign(next.shape, fittedFigureRatios(next));
+    return next;
+  }
+  function withoutFigureRatios(recipe) {
+    const next = structuredClone(recipe);
+    clearFigureRatios(next);
+    next.packs[core] = featureStudyRelease;
     return next;
   }
   function hasRoundedHead(recipe) {
@@ -138,7 +182,7 @@ const PineLooks = (() => {
   const morphKeys = Object.keys(pinePortraitStyles.morphs);
   const profileKeys = Object.keys(pinePortraitStyles.profileControls);
   const featureShapeKeys = morphKeys.filter((key) => !key.startsWith('cheek'));
-  const optionalShape = ['occiput', 'headDepth', 'faceRelief', ...pineHeadShape.controls, ...morphKeys, ...profileKeys];
+  const optionalShape = ['occiput', 'headDepth', 'faceRelief', ...ratioKeys, ...pineHeadShape.controls, ...morphKeys, ...profileKeys];
   const cheekPresets = {
     balanced: { label: '柔和平衡', shape: {} },
     low: { label: '低颧饱颊', shape: { cheekHeight: -0.75, cheekProjection: -0.35, cheekFullness: 0.72 } },
@@ -245,6 +289,8 @@ SOFTWARE.`;
       next.packs[core] = figurePin(recipe);
       clearAdultFaceDetails(next.face);
     } else next.packs[core] = editingRelease(next);
+    if (base !== recipe.base && next.packs[core] === figureRatioRelease)
+      Object.assign(next.shape, fittedFigureRatios(next));
     return next;
   }
   const originalSlots = {
@@ -539,7 +585,8 @@ SOFTWARE.`;
   function editingRelease(recipe) {
     const pin = recipe.packs[core];
     let needed = originalRelease;
-    if (recipe.clothingCut !== undefined) needed = featureStudyRelease;
+    if (ratioKeys.some(key => recipe.shape[key] !== undefined)) needed = figureRatioRelease;
+    else if (recipe.clothingCut !== undefined) needed = featureStudyRelease;
     else if (recipe.bodyFinish !== undefined || recipe.face?.form !== undefined || recipe.face?.formMix !== undefined) needed = gameFaceRelease;
     else if (recipe.anatomyParts !== undefined) needed = structureStudyRelease;
     else if (recipe.face?.style === 'animation') needed = facePlaneRelease;
@@ -749,7 +796,7 @@ SOFTWARE.`;
     for (const key of requiredShape) sizes[key] = bounded(raw.shape[key], shape[key][0], shape[key][1]);
     for (const key of optionalShape) {
       if (!Object.hasOwn(raw.shape, key)) continue;
-      const [lo, hi, normal] = shape[key],
+      const [lo, hi, normal] = figureRatioRanges[key] ?? shape[key],
         value = bounded(raw.shape[key], lo, hi);
       if (value !== normal) sizes[key] = value;
     }
@@ -794,7 +841,7 @@ SOFTWARE.`;
     const pin = raw.packs[core];
     requireThat(releases.includes(pin), '不支持的基础部件版本');
     requireThat(raw.bodyFinish === undefined || raw.bodyFinish === 'painted', '未知身体着色方式');
-    requireThat(raw.clothingCut === undefined || (pin === featureStudyRelease && raw.clothingCut === 'original'),
+    requireThat(raw.clothingCut === undefined || (pinePortraitStyles.hasPaintedFeatures(pin) && raw.clothingCut === 'original'),
       '所选基础部件版本不支持这项衣物剪裁');
     const required = editingRelease(raw);
     requireThat(pin === required, '所选形象需要 pine-core ' + required);
@@ -1461,7 +1508,8 @@ SOFTWARE.`;
     const doc = structuredClone(recipe);
     doc.packs[core] = pin;
     if (!pinePortraitStyles.hasGameFace(pin)) delete doc.bodyFinish;
-    if (pin !== featureStudyRelease) delete doc.clothingCut;
+    if (!pinePortraitStyles.hasPaintedFeatures(pin)) delete doc.clothingCut;
+    if (pin !== figureRatioRelease) clearFigureRatios(doc);
     if (!pinePortraitStyles.hasStructureStudy(pin)) delete doc.anatomyParts;
     if (doc.face) {
       delete doc.face.formMix;
@@ -1535,6 +1583,11 @@ SOFTWARE.`;
         if (doc.face.mouth === 'relaxed') doc.face.mouth = 'soft-smile';
       }
     }
+    if (pin === figureRatioRelease) {
+      const ratios = fittedFigureRatios(doc);
+      doc.shape.crownHeight = ratios.crownHeight;
+      doc.shape.noseLipSpacing = ratios.noseLipSpacing;
+    }
     return doc;
   }
   function randomCharacter(input) {
@@ -1581,7 +1634,15 @@ SOFTWARE.`;
         arms: pick(['balanced', build], random), legs: pick(['balanced', build], random) };
     }
     if (bodyFinish) doc.bodyFinish = bodyFinish;
-    if (pin === featureStudyRelease && source?.clothingCut === 'original') doc.clothingCut = 'original';
+    if (pinePortraitStyles.hasPaintedFeatures(pin) && source?.clothingCut === 'original') doc.clothingCut = 'original';
+    if (pin === figureRatioRelease) {
+      const ratios = fittedFigureRatios(doc);
+      for (const key of ['headScale','trunkLength']) {
+        if (!keep.has('body')) doc.shape[key] = ratios[key];
+        else if (source.shape[key] === undefined) delete doc.shape[key];
+        else doc.shape[key] = source.shape[key];
+      }
+    }
     doc.id = seed === undefined ? newId() : seededLookId(doc, seed);
     doc.label = '新人物 ' + doc.id.slice(-5).toUpperCase();
     return doc;
@@ -1589,8 +1650,8 @@ SOFTWARE.`;
   return {
     core,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease,
-    withFigureStudy, withGameFace, withBaseFace, withClothingStudy, withFeatureStudy, withoutFeatureStudy, usesClothingCut,
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease,
+    withFigureStudy, withGameFace, withBaseFace, withClothingStudy, withFeatureStudy, withoutFeatureStudy, withFigureRatios, withoutFigureRatios, usesClothingCut,
     originalRelease,
     styleRelease,
     profileRelease,
@@ -1649,7 +1710,7 @@ SOFTWARE.`;
     hairGroups: pineHairStyles.groups,
     applyOutfit,
     needsNewCore,
-    shape,
+    shape, figureRatioRanges,
     slots,
     colors,
     hairColors,

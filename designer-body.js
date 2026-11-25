@@ -3,7 +3,7 @@ const pineDesignerBody = (() => {
   // The first three sculpt releases added the scalp, layered short hair and fitted jaw in order.
   const sculptedReleases = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1',
     '1.12.0', '1.13.0', '1.13.1', '1.14.0', '1.15.0', pinePortraitStyles.illustratedRelease,
-    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease, pinePortraitStyles.clothingStudyRelease, pinePortraitStyles.featureStudyRelease];
+    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease, pinePortraitStyles.clothingStudyRelease, pinePortraitStyles.featureStudyRelease, pinePortraitStyles.figureRatioRelease];
   // Relative to the selected body. The editor, recipe validator and painter share these limits.
   const shapeRanges = {
     height: [0.75, 1.3, 1],
@@ -125,6 +125,28 @@ const pineDesignerBody = (() => {
     const { eye, mouth, head } = dimensions[base];
     return infant ? { eye: head[1] + head[4] * pineInfantLandmarks.eye,
       mouth: head[1] + head[4] * pineInfantLandmarks.mouth } : { eye, mouth };
+  }
+  function trunkOffset(base, ratio) {
+    return (base.shoulder[2] - base.pelvis[2]) * (ratio - 1);
+  }
+  // A lower vault keeps the brow in place and retains the thickness of a hat
+  // above the crown. The same inverse maps hair, skin and hats into the loft.
+  function fitCrown(original, ratio) {
+    if (!original || ratio === 1) return original;
+    const brow = .16, bend = .53, top = original.raise(1);
+    const delta = (top - brow) * (ratio - 1);
+    const newBend = bend + .27 * delta, newTop = top + delta;
+    function remap(z, middle, end, movedMiddle, movedEnd) {
+      if (z <= brow) return z;
+      if (z >= end) return z + (movedEnd - end);
+      if (z < middle) return brow + (z - brow) * (movedMiddle - brow) / (middle - brow);
+      return movedMiddle + (z - middle) * (movedEnd - movedMiddle) / (end - middle);
+    }
+    return {
+      rise: original.rise + delta,
+      raise: h => remap(original.raise(h), bend, top, newBend, newTop),
+      lower: z => original.lower(remap(z, newBend, newTop, bend, top))
+    };
   }
   function mouthTravel(base, detailed, infant) {
     const { eye, mouth } = faceHeights(base, infant);
@@ -584,7 +606,8 @@ const pineDesignerBody = (() => {
     const gameFace = pinePortraitStyles.hasGameFace(pin) && style === 'animation';
     const drawnFace = gameFace && pinePortraitStyles.hasBaseFace(pin);
     const clothingStudy = pinePortraitStyles.hasClothingStudy(pin) && recipe.clothingCut !== 'original';
-    const paintedFeatures = gameFace && pin === pinePortraitStyles.featureStudyRelease;
+    const paintedFeatures = gameFace && pinePortraitStyles.hasPaintedFeatures(pin);
+    const fittedRatios = pin === pinePortraitStyles.figureRatioRelease;
     const featureGuide = paintedFeatures && pineGameFace.featureGuides[recipe.base];
     const faceForm = recipe.face?.form ?? recipe.anatomyParts?.skull ?? 'balanced';
     const drawnMix = drawnFace && faceForm !== 'balanced' ? recipe.face?.formMix ?? 1 : 0;
@@ -609,14 +632,24 @@ const pineDesignerBody = (() => {
     const animationEye = animated && pinePortraitStyles.illustratedEyeShape(recipe.face?.eyes || 'classic', style, infant);
     const heights = faceHeights(recipe.base, infant);
     const { up, down } = mouthTravel(recipe.base, surfaceDetails, infant);
-    const [cx, cz, rx, ry, rz] = measures.head;
-    const mouthLevel = heights.mouth + mouthOffset * (mouthOffset > 0 ? up : down) +
-      (drawnFace ? rz * pineGameFace.lipLift(recipe.base, faceForm, recipe.face?.formMix) : 0);
-    const mouthZ = mouthLevel * s;
-    const eyeLevel = (heights.eye - cz) / rz;
-    const mouthH = (mouthLevel - cz) / rz;
+    const [baseX, baseZ, baseRx, baseRy, baseRz] = measures.head;
+    const headScale = fittedRatios ? shape.headScale ?? 1 : 1;
+    const [pivotX, pivotZ] = pineHeadPivots[headKind];
+    // Resize around the base of the skull so the neck still meets a nodding
+    // head. The local coordinates are shared by hair, hats and face sockets.
+    const cx = baseX + (1 - headScale) * baseRx * (1 + .12 * (width - 1)) * pivotX;
+    const headZ = baseZ + (1 - headScale) * baseRz * pivotZ;
+    const rx = baseRx * headScale, ry = baseRy * headScale, rz = baseRz * headScale;
+    const trunkLift = fittedRatios ? trunkOffset(base, shape.trunkLength ?? 1) : 0;
+    const eyeLevel = (heights.eye - baseZ) / baseRz;
     const chinH = (infant ? (animated ? -0.746 : -0.81) : -0.755) + (infant ? 0.035 : 0.062) * (shape.chinHeight || 0) +
       (drawnMix ? .8 * pineGameFace.chinShift(recipe.base, faceForm, drawnMix) : 0);
+    const neutralMouth = heights.mouth + mouthOffset * (mouthOffset > 0 ? up : down) +
+      (drawnFace ? baseRz * pineGameFace.lipLift(recipe.base, faceForm, recipe.face?.formMix) : 0);
+    const originalMouth = headScale === 1 ? neutralMouth : headZ + (neutralMouth - baseZ) * headScale;
+    const lipRoom = clamp((originalMouth - headZ) / rz - chinH - .15, 0, .17);
+    const mouthLevel = originalMouth - (gameFace && fittedRatios ? (shape.noseLipSpacing ?? 1) - 1 : 0) * lipRoom * rz;
+    const mouthH = (mouthLevel - headZ) / rz;
     const profileStrength = { adult: 1, child: 0.82, toddler: 0.60, baby: 0.42 }[recipe.base];
     const planes = naturalProfile && !infant ? {
       eye: eyeLevel,
@@ -655,6 +688,8 @@ const pineDesignerBody = (() => {
     const skullDriver = pixelStructure && !gameFace
       ? pineSkull.proportions(recipe.base, shape, skullForm, recipe.anatomyParts?.skull)
       : null;
+    const headLift = trunkLift + (1 - headScale) * baseRz * pivotZ * ((skullDriver?.vaultHeight ?? 1) - 1);
+    const mouthZ = (mouthLevel + headLift) * s;
     if (skinPlanes?.form?.pixelStructure) skinPlanes.form.bones = skullDriver;
     const headShape = sculptedHead ? pineHeadShape.scalp(headKind, refitNape) : null;
     const individual = pin === '1.12.0' || infantHeadVersion;
@@ -672,8 +707,9 @@ const pineDesignerBody = (() => {
     const posterior = headShape
       ? pineHeadShape.posterior(measure(shape, 'occiput'), softenedOcciput ? headShape : undefined)
       : null;
-    const crownHeight = (h) => (headShape ? headShape.crown.raise(h) : h);
-    const sliceHeight = (h) => (headShape ? headShape.crown.lower(h) : h);
+    const crown = fitCrown(headShape?.crown, fittedRatios ? shape.crownHeight ?? 1 : 1);
+    const crownHeight = (h) => (crown ? crown.raise(h) : h);
+    const sliceHeight = (h) => (crown ? crown.lower(h) : h);
     const downHair = infant && ['crop', 'crew', 'curly'].includes(parts.hair);
     const modelHair = tailored && !hasHat && !infant && pineShortHair.modelCut(parts.hair, headKind);
     const shortHair = modelHair || (sculptedHead && !downHair
@@ -686,16 +722,16 @@ const pineDesignerBody = (() => {
     const rig = {
       ...(pixelStructure && infant ? { infantFloorSupport: true } : {}),
       ...(pinePortraitStyles.hasGameFace(pin) && infant ? { infantLapRest: true, headOffset: [-.043*rx*s,0,-.095*rz*s] } : {}),
-      height: base.height * s,
+      height: (base.height + trunkLift) * s,
       ankle,
       hip: [base.hip[0] * s, hipBreadth, base.hip[2] * s + legChange],
       pelvis: [base.pelvis[0] * s, 0, base.pelvis[2] * s + legChange],
       shoulder: [
         base.shoulder[0] * s,
         base.shoulder[1] * s * shoulders * cut.shoulderSpan * (bodyStudy ? bodyStudy.shoulderFit : shoulderFit),
-        base.shoulder[2] * s + 0.14 * legChange + cut.shoulderLift * s
+        (base.shoulder[2] + trunkLift) * s + 0.14 * legChange + cut.shoulderLift * s
       ],
-      neck: base.neck.map((v) => v * s),
+      neck: [base.neck[0] * s, base.neck[1] * s, (base.neck[2] + trunkLift) * s],
       mouth: null,
       thigh: base.thigh * s * legs,
       shin: base.shin * s * legs,
@@ -714,9 +750,9 @@ const pineDesignerBody = (() => {
     const fit = Object.freeze({
       x: neutralX + pineHeadShape.earPlane * (neutralRx - fittedRx),
       posterior,
-      crown: headShape?.crown,
+      crown,
       y: 0,
-      z: cz * s,
+      z: (headZ + headLift) * s,
       rx: fittedRx,
       ry: ry * s * width * (feature.headWidth ?? 1) * (skullDriver?.vaultWidth ?? 1),
       rz: rz * s * (skullDriver?.vaultHeight ?? 1)
@@ -744,7 +780,7 @@ const pineDesignerBody = (() => {
       rig.jawPivot = [neutralX + forward * neutralRx, 0, fit.z + height * fit.rz];
     }
     const eyeY = fit.ry * feature.eyeCenter * spacing * (gameFace ? (infant ? .91 : .94) : 1),
-      eyeZ = heights.eye * s;
+      eyeZ = ((headScale === 1 ? heights.eye : headZ + eyeLevel * rz) + headLift) * s;
     const eyeSpan = feature.eyeWidth * (1 + 0.23 * (shape.eyeWidth || 0));
     const eyeOpen = feature.eyeOpen * (1 + 0.42 * (shape.eyeOpening || 0));
     const eyeCant = (shape.eyeTilt || 0) * 0.091 * fit.rz;
@@ -3497,8 +3533,18 @@ const pineDesignerBody = (() => {
     return { rig, art, sockets, box, ...(anatomy ? {anatomy} : {}), density: 2, tags: articulatedJaw ? [recipe.base, 'mandible'] : [recipe.base] };
   }
 
-  function standingHeight(kind, scale = 1, sculpted = false) {
+  function standingHeight(kind, scale = 1, sculpted = false, ratios) {
     const [, centerZ, , , radiusZ] = dimensions[kind].head;
+    if (ratios) {
+      const base = modelBodies[kind]?.rig || studioRig.profiles[kind];
+      const headKind = kind === 'baby' ? 'baby' : kind === 'adult' ? 'adult' : 'child';
+      const scalp = pineHeadShape.scalp(headKind, true);
+      const crown = fitCrown(scalp.crown, ratios.crownHeight ?? 1);
+      const headScale = ratios.headScale ?? 1;
+      const pivotHeight = pineHeadPivots[headKind][1];
+      return (centerZ + trunkOffset(base, ratios.trunkLength ?? 1) +
+        radiusZ * (pivotHeight + headScale * (crown.raise(1) - pivotHeight))) * scale;
+    }
     return (
       (centerZ +
         radiusZ * (sculpted ? pineHeadShape[kind === 'adult' ? 'adult' : 'child'].crown.raise(1) : 1)) *

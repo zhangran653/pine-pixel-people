@@ -61,7 +61,7 @@
           一个形象文件记录人体基型、体型与五官、穿搭、配色和依赖版本。动作通过共同的骨架和接触点驱动角色。创作室、动作工坊和
           Three.js 场景读取同一份形象。
         </p>
-        <p><a href="#painted-features">1.19.6 分龄五官笔触</a> · <a href="#clothing-cut">1.19.5 分龄衣物剪裁</a> · <a href="#base-faces">1.19.4 分龄基础脸</a> · <a href="#game-face">1.19.3 美术基础脸</a> · <a href="#anatomy-parts">1.19.2 人体结构与可换部件</a> · <a href="#figure-art">全身像素造型与配色样张</a> · <a href="#portrait-art">五官画风</a></p>
+        <p><a href="#figure-ratios">1.19.7 分龄头身比例</a> · <a href="#painted-features">1.19.6 分龄五官笔触</a> · <a href="#clothing-cut">1.19.5 分龄衣物剪裁</a> · <a href="#base-faces">1.19.4 分龄基础脸</a> · <a href="#game-face">1.19.3 美术基础脸</a> · <a href="#anatomy-parts">1.19.2 人体结构与可换部件</a> · <a href="#figure-art">全身像素造型与配色样张</a> · <a href="#portrait-art">五官画风</a></p>
         <h2>形象文件</h2>
         <p>
           用创作室的「导入角色」打开下面的任一示例。编辑后可以保持 ID 保存，也可以另存为独立形象。导入相同
@@ -219,6 +219,22 @@
         </p>
         <h2>从参数到 360° 像素</h2>
         <h2 id="figure-art">全身像素造型</h2>
+        <h3 id="figure-ratios">1.19.7 分龄头身比例</h3>
+        <p><code>PineLooks.withFigureRatios(doc)</code> 返回一份可编辑的副本，锁定 <code>pine-core</code> 为 1.19.7。四个可选字段写在 <code>shape</code> 中，1 表示沿用 1.19.6 的比例。转换已有的 1.19.7 配方会保留手工调整。<code>PineLooks.withoutFigureRatios(doc)</code> 移除四个比例字段，返回相同五官、衣物剪裁和选色的 1.19.6 副本。<a href="studies/pixel-structure/figure-ratios.webp">看原始像素对照</a></p>
+        <p>接入编辑器时可从 <code>PineLooks.figureRatioRanges</code> 读取各项的最小值、最大值和中性值。<code>PineLooks.shape</code> 继续提供普通形象的字段。</p>
+        <ul>
+          <li><code>headScale</code>（0.80–1.20）让整颗头连同五官、耳朵和穿戴绕颅底一起缩放。</li>
+          <li><code>crownHeight</code>（0.66–1.18）只调眉线以上的高度。额头、头发和帽沿使用同一条高度曲线。</li>
+          <li><code>trunkLength</code>（0.82–1.28）调整肩到骨盆的距离。颈和头随肩移动，髋和四肢各段长度各自保留。</li>
+          <li><code>noseLipSpacing</code>（0.76–1.68）在立体动画脸上调节鼻底至上唇的间距，嘴部道具接点随唇面移动。</li>
+        </ul>
+        <p>初次套用时，接口按成人、儿童、幼儿、婴儿分别取基础比例，再依原配方的身高、腿长、脸型和鼻唇款式做小幅调整。使用 <code>randomCharacter</code> 或 <code>randomFace</code> 时，相同种子可复现。单独随机五官会保留身躯和整头大小，整人随机的体型锁也保护这两项。使用旧衣片的角色可以继续写入 <code>clothingCut: 'original'</code>。<a href="atelier.html?figure=ratios&amp;model=baby&amp;tab=face">在创作室调整</a> · <a href="figure-study.html?mode=blind&amp;review=ratios&amp;size=128">按年龄盲评</a></p>
+        <pre><code>const baby = PineLooks.randomCharacter({
+  base: 'baby', seed: 42, release: PineLooks.figureRatioRelease, bodyFinish: 'painted'
+});
+baby.shape.headScale = 0.94;
+baby.shape.crownHeight = 0.83;
+const actor = PineLooks.build(baby);</code></pre>
         <h3 id="painted-features">1.19.6 分龄五官笔触</h3>
         <p><code>PineLooks.withFeatureStudy(doc)</code> 复制人物配方，选择 <code>face.style = 'animation'</code> 并将 <code>pine-core</code> 锁定为 1.19.6。已有的脸型、强度、五官款式、配色与穿搭随副本保存。成人、儿童、幼儿和婴儿分别使用各自的眼睑和唇部形状，婴儿还使用随动作变化的颏下和颈前轮廓。动作工坊、世界编辑器和 Three.js 从同一份切片构建人物。<a href="studies/pixel-structure/painted-features.webp">查看四龄和动作实拍</a></p>
         <p>在这个版本里，省略 <code>clothingCut</code> 会使用 1.19.5 的分龄剪裁，写入 <code>clothingCut: 'original'</code> 则使用此前的衣物轮廓。从已有形象开启笔触时，接口会保留人物穿着的剪裁。<code>PineLooks.withoutFeatureStudy(doc)</code> 返回使用原五官笔触的副本，按当前衣物剪裁选择 1.19.5 或 1.19.4。可在编辑器分别切换五官笔触和衣物轮廓，再保存一份可移植的 JSON。<a href="atelier.html?figure=features&amp;model=baby&amp;tab=face">打开婴儿五官编辑</a></p>
@@ -254,7 +270,7 @@ look.shape.chinProjection = 0.14;
 const actor = PineLooks.build(look);
 const baby = PineLooks.randomCharacter({ base: 'baby', seed: 42, release: PineLooks.gameFaceRelease });</code></pre>
         <h3 id="body-finish">身体着色与衣边</h3>
-        <p>在 1.19.3 至 1.19.6 配方中写入 <code>bodyFinish: 'painted'</code>，手臂、手掌和小腿会使用分区像素笔触。短袖、短裤和七分裤的衣边按覆盖的肢体长度取截面，转身时仍包在皮肤外面。删除这个可选字段即可恢复原有画法。<code>randomCharacter</code> 接受同名参数，也会沿用来源人物的身体着色。导出的配方可在动作工坊、世界与 Three.js 中使用。<a href="figure-study.html?subject=child-6&amp;before=finish&amp;size=128">旋转同配方的儿童对照</a> · <a href="studies/pixel-structure/painted-figure.webp">四向与动作实拍</a></p>
+        <p>在 1.19.3 至 1.19.7 配方中写入 <code>bodyFinish: 'painted'</code>，手臂、手掌和小腿会使用分区像素笔触。短袖、短裤和七分裤的衣边按覆盖的肢体长度取截面，转身时仍包在皮肤外面。删除这个可选字段即可恢复原有画法。<code>randomCharacter</code> 接受同名参数，也会沿用来源人物的身体着色。导出的配方可在动作工坊、世界与 Three.js 中使用。<a href="figure-study.html?subject=child-6&amp;before=finish&amp;size=128">旋转同配方的儿童对照</a> · <a href="studies/pixel-structure/painted-figure.webp">四向与动作实拍</a></p>
         <h3 id="anatomy-parts">1.19.2 人体结构与可换部件</h3>
         <p>人体建模台把同一角色的结构和穿衣外观放在同一机位。选「独立头骨」可转动颅骨和下颌，观察眼窝、颧弓及耳前下方的下颌关节。换到「骨架」「肌肉」「无衣体表」可以检查肩、肘、髋、膝和踝在动作中的位置。成人女性、成人男性、儿童和婴儿有各自的基础比例，另提供幼儿。<a href="anatomy-study.html">打开人体建模台</a> · <a href="anatomy-study.html?base=baby&amp;layer=skeleton&amp;bearing=270">查看婴儿坐姿的骨架</a></p>
         <table>
