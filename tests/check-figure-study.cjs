@@ -9,6 +9,19 @@ const { pathToFileURL } = require('node:url');
 
 function loadDraft(pack) {
   const query = new URLSearchParams(location.search);
+  if (query.has('garment-hem')) {
+    const doc=PineLooks.withGarmentStudy(pineFigureModels.adult), top=query.get('garment-hem');
+    Object.assign(doc.parts,{top:'oxford',bottom:'trousers',shoes:'loafers',neck:'none',hat:'none'});
+    doc.bodyFinish='painted';doc.garmentFit={top,legs:{tucked:'tapered',bloused:'straight',straight:'wide'}[top]};
+    const url=new URL(location.href);url.hash=new URLSearchParams({character:JSON.stringify(doc)});
+    history.replaceState(null,'',url);return;
+  }
+  if (query.has('garment-draft')) {
+    const doc=PineLooks.randomCharacter({base:'child',seed:12,release:PineLooks.garmentRelease,bodyFinish:'painted'});
+    doc.parts.bottom='trousers'; doc.garmentFit={top:'bloused',legs:'wide'}; doc.face.restExpression='warm';
+    const url=new URL(location.href);url.hash=new URLSearchParams({character:JSON.stringify(doc)});
+    history.replaceState(null,'',url);return;
+  }
   if (query.has('acting-draft')) {
     const doc=PineLooks.randomCharacter({base:'baby',seed:12,release:PineLooks.expressionRelease,bodyFinish:'painted'});
     doc.face.restExpression='warm'; doc.shape.crownHeight=.76; doc.clothingCut='original';
@@ -153,6 +166,45 @@ function check(studyBench) {
   const linkedRecipe = side => JSON.parse(new URLSearchParams(new URL($('edit-' + side).href).hash.slice(1)).get('character'));
   try {
     const query = new URLSearchParams(location.search);
+    if (query.has('garment-hem')) {
+      const doc=linkedRecipe('b');
+      expect(doc.garmentFit.top===query.get('garment-hem') && $('sample-size').value==='64','incorrect native garment sample');
+      const {width,height}=canvas, pixels=canvas.getContext('2d').getImageData(0,0,width,height).data;
+      const widths=[], centralShirt=[], limit=Math.ceil(height*.94);
+      let first=height,last=0;
+      for(let y=0;y<=limit;y++) {
+        let widthAtRow=0, green=0;
+        for(let x=0;x<width;x++) {
+          const i=4*(y*width+x);
+          if(pixels[i+3]<128)continue;
+          widthAtRow++;
+          if(Math.abs(x-width/2)<=3 && pixels[i+1]>pixels[i] && pixels[i+1]>pixels[i+2]+6)green++;
+        }
+        widths[y]=widthAtRow;
+        if(widthAtRow){first=Math.min(first,y);last=y;}
+        if(green>=2)centralShirt.push(y);
+      }
+      expect(centralShirt.length>0 && last>first,'missing shirt or feet');
+      const cuffY=last-Math.floor(.13*(last-first+1));
+      const widthAtCuffs=widths.slice(cuffY,cuffY+3).sort((a,b)=>a-b)[1];
+      $('qa').textContent=JSON.stringify({hem:doc.garmentFit.top,aboveSole:last-centralShirt.at(-1),widthAtCuffs});
+      return;
+    }
+    if (query.has('garment-draft')) {
+      const original=linkedRecipe('b'), prior=linkedRecipe('a');
+      expect(original.garmentFit.legs==='wide' && original.face.restExpression==='warm' &&
+        JSON.stringify(PineLooks.withoutGarmentStudy(original))===JSON.stringify(prior),'garment handoff lost its fit');
+      choose('before','whole-1.19.9');
+      expect(linkedRecipe('a').packs[PineLooks.core]===PineLooks.release && JSON.stringify(linkedRecipe('b'))===JSON.stringify(original),
+        'full-figure comparison changed manual tailoring');
+      choose('before','acting');
+      expect(JSON.stringify(linkedRecipe('b'))===JSON.stringify(prior),'garment shape leaked into the earlier edition');
+      document.querySelector('[data-mode="blind"]').click();choose('review-kind','garments');
+      expect($('title-a').textContent==='A' && !$('edit-b').hasAttribute('href') && $('results').hidden,'wardrobe identity revealed early');
+      for (let i=0;i<32;i++) document.querySelector('[data-vote="tie"]').click();
+      expect(!$('results').hidden && $('progress').textContent.includes('32 / 32'),'garment review did not finish');
+      $('qa').textContent='Manual garment fits survived handoff, cumulative and component views, and 32 isolated blind pairs';return;
+    }
     if (query.has('acting-draft')) {
       const full = linkedRecipe('b'), old = linkedRecipe('a');
       expect(full.face.restExpression==='warm' && full.shape.crownHeight===.76 && $('action').value==='follow-rattle' &&
@@ -378,12 +430,13 @@ function check(studyBench) {
       return;
     }
     const resume = query.get('resume');
-    if (['bases','cut','features','ratios','acting'].includes(resume)) {
+    if (['bases','cut','features','ratios','acting','garments'].includes(resume)) {
       const cut = resume==='cut', features = resume==='features', ratios=resume==='ratios', acting=resume==='acting';
-      const target = acting ? PineLooks.expressionRelease : ratios ? PineLooks.figureRatioRelease : features ? PineLooks.featureStudyRelease : cut ? PineLooks.clothingStudyRelease : PineLooks.baseFaceRelease;
-      const previous = acting ? PineLooks.figureRatioRelease : ratios ? PineLooks.featureStudyRelease : features ? PineLooks.clothingStudyRelease : cut ? PineLooks.baseFaceRelease : PineLooks.gameFaceRelease;
+      const garments = resume==='garments';
+      const target = garments ? PineLooks.garmentRelease : acting ? PineLooks.expressionRelease : ratios ? PineLooks.figureRatioRelease : features ? PineLooks.featureStudyRelease : cut ? PineLooks.clothingStudyRelease : PineLooks.baseFaceRelease;
+      const previous = garments ? PineLooks.expressionRelease : acting ? PineLooks.figureRatioRelease : ratios ? PineLooks.featureStudyRelease : features ? PineLooks.clothingStudyRelease : cut ? PineLooks.baseFaceRelease : PineLooks.gameFaceRelease;
       const sides = [linkedRecipe('a'),linkedRecipe('b')].sort((a,b)=>a.packs['pine-core'].localeCompare(b.packs['pine-core']));
-      const matched = acting ? JSON.stringify(PineLooks.withoutExpressionStudy(sides[1]))===JSON.stringify(sides[0]) : ratios ? JSON.stringify(PineLooks.withoutFigureRatios(sides[1])) === JSON.stringify(sides[0]) : features ? JSON.stringify(PineLooks.withoutFeatureStudy(sides[1]))===JSON.stringify(sides[0]) :
+      const matched = garments || acting ? JSON.stringify((garments ? PineLooks.withoutGarmentStudy : PineLooks.withoutExpressionStudy)(sides[1]))===JSON.stringify(sides[0]) : ratios ? JSON.stringify(PineLooks.withoutFigureRatios(sides[1])) === JSON.stringify(sides[0]) : features ? JSON.stringify(PineLooks.withoutFeatureStudy(sides[1]))===JSON.stringify(sides[0]) :
         cut ? JSON.stringify(PineLooks.withClothingStudy(sides[0]))===JSON.stringify(sides[1]) : JSON.stringify(sides[0])===JSON.stringify(PineLooks.withGameFace(sides[1]));
       expect($('review-kind').value===resume && !$('results').hidden && matched,
         'resumed base review lost the actual control');
@@ -400,11 +453,11 @@ function check(studyBench) {
       const actual=PineLooks.randomCharacter({base:age,seed:pair.seed,release:target,bodyFinish:'painted'});
       expect(JSON.stringify(actual)===JSON.stringify(sides[1]) && [pair.a,pair.b].sort().join('/')===[previous,target].join('/'),
         'base review seed, versions or actual clothing did not replay');
-      if (acting) for (const row of report.pairs) {
+      if (acting || garments) for (const row of report.pairs) {
         const base={base:row.base,seed:row.seed,bodyFinish:'painted'};
         const revised=PineLooks.randomCharacter({...base,release:target});
         const original=PineLooks.randomCharacter({...base,release:previous});
-        expect(JSON.stringify(PineLooks.withoutExpressionStudy(revised))===JSON.stringify({...original,id:revised.id,label:revised.label}),
+        expect(JSON.stringify((garments ? PineLooks.withoutGarmentStudy : PineLooks.withoutExpressionStudy)(revised))===JSON.stringify({...original,id:revised.id,label:revised.label}),
           'reported seed changed the appearance on downgrade '+row.base+'/'+row.number);
       }
       $('qa').textContent='Restored and independently replayed the ' + target + ' age review and its hidden-side export';
@@ -612,16 +665,20 @@ function check(studyBench) {
     if (studyBench) {
       const doc = structuredClone(pineFigureModels.adult);
       doc.packs[PineLooks.core] = PineLooks.structureStudyRelease;
-      const base = studyBench === 'acting' ? PineLooks.randomCharacter({base:'adult',seed:42,release:PineLooks.figureRatioRelease,bodyFinish:'painted'}) :
+      const base = studyBench === 'garments' ? PineLooks.randomCharacter({base:'adult',seed:42,release:PineLooks.expressionRelease,bodyFinish:'painted'}) :
+        studyBench === 'acting' ? PineLooks.randomCharacter({base:'adult',seed:42,release:PineLooks.figureRatioRelease,bodyFinish:'painted'}) :
         studyBench === 'ratios' ? {...PineLooks.withFeatureStudy(PineLooks.withClothingStudy(PineLooks.withBaseFace(doc,'long'))),bodyFinish:'painted'} :
         studyBench === 'features' ? {...PineLooks.withClothingStudy(PineLooks.withBaseFace(doc,'long')),bodyFinish:'painted'} :
         studyBench === 'cut' ? {...PineLooks.withBaseFace(doc,'long'),bodyFinish:'painted'} : studyBench === 'body' ? PineLooks.randomCharacter({ base:'child', seed:3418494998, release:PineLooks.gameFaceRelease }) :
         studyBench === 'bases' ? PineLooks.withGameFace(PineLooks.withBaseFace(doc,'long')) : doc;
-      const candidate = studyBench === 'acting' ? PineLooks.withExpressionStudy(base) : studyBench === 'ratios' ? PineLooks.withFigureRatios(base) : studyBench === 'features' ? PineLooks.withFeatureStudy(base) :
+      const candidate = studyBench === 'garments' ? PineLooks.withGarmentStudy(base) : studyBench === 'acting' ? PineLooks.withExpressionStudy(base) : studyBench === 'ratios' ? PineLooks.withFigureRatios(base) : studyBench === 'features' ? PineLooks.withFeatureStudy(base) :
         studyBench === 'cut' ? PineLooks.withClothingStudy(base) : studyBench === 'body' ? { ...base, bodyFinish:'painted' } :
         studyBench === 'bases' ? PineLooks.withBaseFace(base) : PineLooks.withGameFace(base);
       result[studyBench === 'body' ? 'walkingChild' : 'walkingAdult'] = measureClip(base,candidate,'walk');
-      if (studyBench === 'acting') {
+      if (studyBench === 'garments') {
+        const baby = PineLooks.randomCharacter({base:'baby',seed:42,release:PineLooks.expressionRelease,bodyFinish:'painted'});
+        result.seatedReach=measureClip(baby,PineLooks.withGarmentStudy(baby),'baby-reach');
+      } else if (studyBench === 'acting') {
         const baby = PineLooks.randomCharacter({base:'baby',seed:42,release:PineLooks.figureRatioRelease,bodyFinish:'painted'});
         result.seatedReach=measureClip(baby,PineLooks.withExpressionStudy(baby),'baby-reach');
       } else if (studyBench === 'features' || studyBench === 'ratios') {
@@ -640,7 +697,7 @@ try {
   const measureCut = process.argv.includes('--measure-cut');
   const measureBases = process.argv.includes('--measure-bases');
   const measureForms = measureBases || process.argv.includes('--measure-forms');
-  const bench = process.argv.includes('--bench-acting') ? 'acting' : process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
+  const bench = process.argv.includes('--bench-garments') ? 'garments' : process.argv.includes('--bench-acting') ? 'acting' : process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
   const setup = join(dir, 'draft-fixture.js');
   writeFileSync(setup, '(' + loadDraft.toString() + ')(' + readFileSync(join(root,'packs/creek-hats.json'),'utf8') + ');');
   const page = readFileSync(join(root, 'figure-study.html'), 'utf8')
@@ -658,9 +715,13 @@ try {
   const ratioCase = '?ratio-test=1&subject=baby-face-1&before=ratios&size=128&bearing=270';
   const profileCase = '?ratio-profile=1&before=ratios&phase=17&bearing=270&subject=';
   const actingCases = ['?acting-draft=1&before=acting&action=follow-rattle&bearing=270&phase=23&size=128','?mode=blind&review=acting&case=baby%2F0&resume=acting','?acting-profile=1&before=acting&subject=baby-face-1&measure=1'];
+  const garmentCases = ['?garment-draft=1&before=garments&subject=draft&action=walk&phase=43&size=64','?mode=blind&review=garments&case=child%2F0&resume=garments'];
+  for (const top of ['tucked','bloused','straight'])
+    garmentCases.push('?subject=draft&before=garments&size=64&garment-hem='+top);
   const actingProfile = '?acting-profile=1&before=acting&size=128&bearing=270&measure=1&subject=';
   const cases = process.argv.includes('--measure-acting') ? [actingProfile+'baby-face-1',...Array.from({length:8},(_,i)=>actingProfile+'draft&feature-seed='+i)] :
-    process.argv.includes('--bench-acting') ? ['?subject=baby&bearing=270&before=1.19.0'] :
+    process.argv.includes('--bench-acting') || process.argv.includes('--bench-garments') ? ['?subject=baby&bearing=270&before=1.19.0'] :
+    process.argv.includes('--check-garments') ? garmentCases :
     process.argv.includes('--check-acting') ? actingCases :
     process.argv.includes('--measure-ratio-profiles') ? [profileCase+'adult',profileCase+'chef',
     ...Array.from({length:8},(_,i)=>profileCase+'draft&sample-age=adult&feature-seed='+i)]
@@ -674,12 +735,22 @@ try {
     '?clothing-test=1&subject=baseline-4&before=cut&action=walk&phase=43', '?mode=blind&review=cut&case=baby%2F0&resume=cut',
     featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
     ratioCase, '?mode=blind&review=ratios&case=baby%2F0&resume=ratios', profileCase+'chef',
-    '?ratio-draft=1&before=whole-1.19.7&action=baby-reach&bearing=270&phase=43&size=128',...actingCases];
+    '?ratio-draft=1&before=whole-1.19.7&action=baby-reach&bearing=270&phase=43&size=128',...actingCases,...garmentCases];
+  const garmentPixels = {};
   for (const query of cases) {
     const args = [...flags.slice(0,-1), flags.at(-1) + query];
     const r = spawnSync(chrome, args, { encoding:'utf8', maxBuffer:4000000, timeout:120000 });
     const msg = r.stdout?.match(/<output id="qa">([^<]*)<\/output>/)?.[1];
     assert.ok(r.status === 0 && msg && !msg.startsWith('FAIL'), msg || r.error?.message || r.stderr?.slice(-1500));
+    if (query.includes('garment-hem=')) {
+      const row=JSON.parse(msg);garmentPixels[row.hem]=row;
+    }
     console.log('Figure study passed', msg);
+  }
+  if (garmentPixels.tucked) {
+    const {tucked, bloused, straight} = garmentPixels;
+    assert.ok(tucked.aboveSole-bloused.aboveSole>=3,'raised waist must read at 64 pixels');
+    assert.ok(bloused.widthAtCuffs>tucked.widthAtCuffs && straight.widthAtCuffs-bloused.widthAtCuffs>=2,
+      'the three trouser openings must read at 64 pixels');
   }
 } finally { rmSync(dir, { recursive:true, force:true, maxRetries:3 }); }

@@ -946,7 +946,20 @@ function checkRatioEditor() {
     expect(!('restExpression' in draft().face),'automatic expression was not restored');
     set('feature-paint','ratios');
     expect(JSON.stringify(draft())===JSON.stringify(edited) && !byId('edit-rest-expression'),'trial downgrade changed proportions or old controls');
-    target.textContent='Four independent figure proportions, editable resting expression, handoff, downgrade and undo passed';
+    byId('tab-wear').click();
+    set('clothing-cut','patterns');set('bottom','trousers');set('fit-top','bloused');set('fit-legs','wide');
+    expect(draft().garmentFit.top==='bloused' && draft().garmentFit.legs==='wide' &&
+      new URL(byId('figure-link').href).searchParams.get('before')==='garments','editable garment fit and study handoff');
+    set('bottom','skirt');
+    expect(!byId('edit-fit-legs') && draft().garmentFit.legs==='wide','skirt must preserve the stored trouser setting');
+    set('bottom','trousers'); expect(byId('edit-fit-legs').value==='wide','trouser opening lost on outfit change');
+    byId('tab-face').click();set('rest-expression','warm');
+    expect(draft().garmentFit.legs==='wide' && draft().packs['pine-core']===PineLooks.garmentRelease,'editing eyes must preserve tailoring');
+    byId('tab-shape').click();set('fit-top','');set('fit-legs','');
+    expect(!draft().garmentFit,'automatic cut should omit the override');
+    set('clothing-cut','cut');
+    expect(!byId('edit-fit-top') && draft().packs['pine-core']===PineLooks.expressionRelease && draft().face.restExpression==='warm','restore previous cut with authored expression');
+    target.textContent='Independent proportions, expression, garments, shirt and trouser fits, undo and studio handoff passed';
   } catch (err) {
     target.dataset.state='fail'; target.textContent=err.stack || err.message;
   }

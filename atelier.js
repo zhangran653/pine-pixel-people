@@ -171,7 +171,8 @@
   function studyLens() {
     if (!draft) return;
     const paintedFace = draft.bodyFinish === 'painted' && looks.portraitStyleOf(draft) === 'animation';
-    const before = draft.packs[looks.core] === looks.expressionRelease ? 'acting' :
+    const before = draft.packs[looks.core] === looks.garmentRelease ? 'garments' :
+      draft.packs[looks.core] === looks.expressionRelease ? 'acting' :
       draft.packs[looks.core] === looks.figureRatioRelease ? 'ratios' :
       draft.packs[looks.core] === looks.featureStudyRelease ? 'features' :
       draft.packs[looks.core] === looks.clothingStudyRelease ? 'cut' :
@@ -431,7 +432,8 @@
       const pin = draft.packs[looks.core];
       apply(field.value);
       changed();
-      if (id === 'feature-paint' || ((tab === 'wear' || tab === 'shape') && pin !== draft.packs[looks.core])) {
+      if (id === 'feature-paint' || id === 'clothing-cut' || (id === 'bottom' && pin === looks.garmentRelease) ||
+          ((tab === 'wear' || tab === 'shape') && pin !== draft.packs[looks.core])) {
         fields();
         $('edit-' + id)?.focus({ preventScroll: true });
       }
@@ -584,7 +586,7 @@
     const gameFace = pinePortraitStyles.hasGameFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation';
     const drawn = gameFace && pinePortraitStyles.hasBaseFace(draft.packs[looks.core]);
     const ratioFit = pinePortraitStyles.hasFigureRatios(draft.packs[looks.core]);
-    const acting = draft.packs[looks.core] === looks.expressionRelease;
+    const acting = pinePortraitStyles.hasFacialActing(draft.packs[looks.core]);
     const painted = gameFace && pinePortraitStyles.hasPaintedFeatures(draft.packs[looks.core]);
     area.append(picker('五官与比例', 'feature-paint', [['original','原有笔触'], ['painted','分龄像素笔触 · 1.19.6'], ['ratios','分龄笔触与可调比例 · 1.19.7'], ['acting','动作眼神与神情 · 1.19.8']],
       acting ? 'acting' : ratioFit ? 'ratios' : painted ? 'painted' : 'original', value => {
@@ -1165,6 +1167,36 @@
     orientation();
     markPresets();
   }
+  function garmentFields(area) {
+    const pin = draft.packs[looks.core];
+    const cut = looks.usesClothingCut(draft);
+    const current = !cut ? 'original' : pin === looks.garmentRelease ? 'patterns' : 'cut';
+    area.append(picker('衣物轮廓', 'clothing-cut', [
+      ['original','原有剪裁'], ['cut','分龄剪裁 · 1.19.5'], ['patterns','分款剪裁 · 1.19.9 试作']
+    ], current, value => {
+      if (value === 'patterns') draft = looks.withGarmentStudy(draft);
+      else {
+        if (pin === looks.garmentRelease) draft = looks.withoutGarmentStudy(draft);
+        if (pinePortraitStyles.hasPaintedFeatures(draft.packs[looks.core])) {
+          if (value === 'cut') delete draft.clothingCut;
+          else draft.clothingCut = 'original';
+        } else if (value === 'cut') draft = looks.withClothingStudy(draft);
+        else draft.packs[looks.core] = looks.baseFaceRelease;
+      }
+    }));
+    if (current !== 'patterns') return;
+    for (const [slot, choices] of Object.entries(looks.garmentFits)) {
+      if (slot === 'legs' && !pineFigurePaint.longPants.has(draft.parts.bottom)) continue;
+      area.append(picker(slot === 'top' ? '上衣版型' : '裤腿版型', 'fit-'+slot,
+        [['','随衣物'], ...Object.entries(choices)], draft.garmentFit?.[slot] || '', value => {
+          if (value) (draft.garmentFit ??= {})[slot] = value;
+          else if (draft.garmentFit) {
+            delete draft.garmentFit[slot];
+            if (!Object.keys(draft.garmentFit).length) delete draft.garmentFit;
+          }
+        }));
+    }
+  }
   function fields(candidates) {
     const area = $('editor-fields');
     area.replaceChildren();
@@ -1176,15 +1208,7 @@
     }
     if (tab === 'shape') {
       figureUpgrade(area);
-      const clothing = looks.usesClothingCut(draft);
-      area.append(picker('衣物轮廓', 'clothing-cut', [['original', '原有剪裁'], ['cut', '分龄剪裁 · 1.19.5']],
-        clothing ? 'cut' : 'original', value => {
-          if (pinePortraitStyles.hasPaintedFeatures(draft.packs[looks.core])) {
-            if (value === 'cut') delete draft.clothingCut;
-            else draft.clothingCut = 'original';
-          } else if (value === 'cut') draft = looks.withClothingStudy(draft);
-          else draft.packs[looks.core] = looks.baseFaceRelease;
-        }));
+      garmentFields(area);
       if (pinePortraitStyles.hasStructureStudy(draft.packs[looks.core])) {
         const section = $('anatomy-fields').content.cloneNode(true);
         const grid = section.querySelector('.wardrobe-grid');
@@ -1353,6 +1377,7 @@
       return grid;
     }
     const clothing = group('服装与鞋帽');
+    garmentFields(clothing);
     for (const [slot, options] of Object.entries(looks.slots)) {
       clothing.append(
         picker(names[slot], slot, Object.entries(options), draft.parts[slot], (v) => {
@@ -1491,10 +1516,12 @@
   }
   function tryBaseFace(form) {
     const pin = draft.packs[looks.core], cut = draft.clothingCut, shape = draft.shape, rest = draft.face?.restExpression;
+    const fit = draft.garmentFit;
     draft = looks.withBaseFace(draft, form);
     if (pinePortraitStyles.hasClothingStudy(pin)) draft.packs[looks.core] = pin;
     if (pinePortraitStyles.hasFigureRatios(pin)) draft.shape = shape;
-    if (pin === looks.expressionRelease && rest) draft.face.restExpression = rest;
+    if (pinePortraitStyles.hasFacialActing(pin) && rest) draft.face.restExpression = rest;
+    if (fit) draft.garmentFit = fit;
     if (cut) draft.clothingCut = cut;
     changed();
     fields();
@@ -2051,8 +2078,9 @@
     changed();
     fields();
   }
-  if (['ratios','acting'].includes(query.get('figure'))) {
-    draft = query.get('figure') === 'acting' ? looks.withExpressionStudy(draft) : looks.withFigureRatios(draft);
+  if (['ratios','acting','garments'].includes(query.get('figure'))) {
+    const upgrade = {ratios:looks.withFigureRatios, acting:looks.withExpressionStudy, garments:looks.withGarmentStudy};
+    draft = upgrade[query.get('figure')](draft);
     changed();
     fields();
   }

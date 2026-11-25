@@ -161,6 +161,59 @@ function checkClothing(cast) {
   for (const hat of ['none','pine-core/cotton-cap','pine-core/sunhat']) assert.ok(toddlerHats.has(hat));
 }
 
+function checkGarmentFits(cast) {
+  const families = new Set(), previous = looks.expressionRelease, release = looks.garmentRelease;
+  for (const base of ['adult','child','toddler','baby']) {
+    for (let seed=0; seed<32; seed++) {
+      const input = {base,seed,bodyFinish:'painted'};
+      const prior = looks.randomCharacter({...input,release:previous});
+      const next = looks.randomCharacter({...input,release});
+      assert.deepEqual(next,looks.randomCharacter({...input,release}));
+      assert.deepEqual(toPlain(looks.withoutGarmentStudy(next)),toPlain({...prior,id:next.id,label:next.label}));
+      if (next.garmentFit) families.add(JSON.stringify(next.garmentFit));
+    }
+    const doc = looks.randomCharacter({base,seed:43,release,bodyFinish:'painted'});
+    doc.parts.bottom = 'trousers';
+    doc.garmentFit = {top:'bloused',legs:'wide'};
+    doc.face.restExpression = 'curious';
+    const old = looks.withoutGarmentStudy(doc);
+    const fixed = looks.randomCharacter({source:doc,seed:9,base,locks:['wear']});
+    assert.deepEqual(toPlain(fixed.garmentFit),toPlain(doc.garmentFit));
+    assert.deepEqual(toPlain(looks.randomFace(doc,{seed:8}).garmentFit),toPlain(doc.garmentFit));
+    assert.deepEqual(toPlain(looks.prepare(toPlain(doc)).recipe.garmentFit),toPlain(doc.garmentFit));
+    assert.deepEqual(toPlain(looks.withExpressionStudy(doc)),toPlain(old));
+    assert.ok(!looks.withFigureRatios(doc).garmentFit && !looks.withFigureStudy(doc).garmentFit);
+    assert.throws(()=>looks.prepare({...old,garmentFit:doc.garmentFit}));
+    assert.throws(()=>looks.prepare({...doc,garmentFit:{legs:'other'}}));
+    assert.throws(()=>looks.prepare({...doc,clothingCut:'original'}));
+    const prior = looks.build(old), current = looks.build(doc);
+    assert.deepEqual(current.sockets,prior.sockets);
+    const clip = motion.actions.get(base==='baby' ? 'baby-reach' : 'walk');
+    const sample = clip.sample(.43,current), pose = sample[0].pose;
+    const pixels = actor=>actor.body.makePose(pose).colors;
+    const normal = pixels(current);
+    assert.notEqual(mask(normal),mask(pixels(prior)),base+' sewn outline in motion');
+    const tint = looks.build({...doc,colors:{...doc.colors,top:'#983357',bottom:'#426866'}});
+    assert.equal(mask(normal),mask(pixels(tint)),base+' garment dyes preserve volume');
+    // Face/hair are compared on the exact same pose; adults and children have a new idle stance.
+    const rest = motion.actions.get('idle').sample(.17,current)[0].pose;
+    const at = Math.ceil((motion.rig.socket(current,rest,'mouth')[2]+1)*current.body.density)*current.body.nx*current.body.ny;
+    assert.equal(digest(current.body.makePose(rest).colors.subarray(at)),digest(prior.body.makePose(rest).colors.subarray(at)));
+    for (const foot of rest.feet) assert.equal(foot[2],current.rig.ankle);
+    const narrow = looks.build({...doc,garmentFit:{top:'bloused',legs:'tapered'}});
+    assert.notEqual(mask(normal),mask(pixels(narrow)));
+    for (const bottom of ['shorts','plaid-skirt','capris']) {
+      const short = {...doc,parts:{...doc.parts,bottom}};
+      const images = ['wide','tapered'].map(legs=>pixels(looks.build({...short,garmentFit:{top:'bloused',legs}})));
+      assert.equal(digest(images[0]),digest(images[1]),bottom+' leaves skin, socks and hem intact');
+    }
+    motion.characters.set(current.id,current);
+    cast.setFrame(sample);
+    assert.ok(cast.group.getObjectByName(current.id).geometry.drawRange.count>0);
+  }
+  assert.ok(families.size>=3,'everyday outfits have repeatable sewn variants');
+}
+
 function checkFigureRatios(cast) {
   const keys = ['headScale','crownHeight','trunkLength','noseLipSpacing'];
   const close = (a,b) => Math.abs(a-b) < 1e-8;
@@ -484,6 +537,8 @@ async function check() {
   checkFeatureStudy(cast);
   checkFigureRatios(cast);
   checkFacialActing(cast);
+  checkGarmentFits(cast);
+  console.log('Four garment ages, 128 reproducible wardrobes, fits and wear locks, shared face pixels, short hems, dyes, floor contacts and Three.js passed');
   console.log('Four ages, 128 reversible acting recipes, bilateral gaze, closed lids, prop tracking, planted feet and Three.js passed');
   console.log('Four ages, 128 reproducible ratio fits, independent head and trunk controls, neutral archived meshes, locks and Three.js passed');
   console.log('Four painted ages, both clothing cuts, archived styles, 96 seeded pairs, blinks, lip/eye/skin dyes, drinking contacts and Three.js passed');

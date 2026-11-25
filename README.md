@@ -21,6 +21,12 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 1.19.9 上衣和裤腿版型试作
+
+在「体型 → 衣物轮廓」选「分款剪裁」。同一个人穿同一件衬衫，可以把衣摆束进腰头、放宽再收口，或让下摆直落。长裤可以收脚、直筒或阔腿。「随衣物」会使用该款衣服自己的剪裁。成人和儿童站立时双脚分别承重，手边留出一点空隙。普通新人物继续使用 1.18.0。[编辑人物](http://127.0.0.1:8000/atelier.html?model=adult&figure=garments&tab=shape) · [站立、走路与 64 像素剪影](studies/pixel-structure/garment-fits.webp)
+
+四个年龄各有八组同配方盲评。完成后可揭晓两边的版本并编辑其中任一人。[八个实拍样本](studies/pixel-structure/garment-fit-random.webp) · [32 组盲评](http://127.0.0.1:8000/figure-study.html?mode=blind&review=garments&size=64) · [稳定版到本次试作](studies/pixel-structure/whole-1.19.9.webp)
+
 ### 1.19.8 眼神与坐姿试作
 
 打开创作室的「五官 → 五官与比例 → 动作眼神与神情」。同一张脸可以选安静、好奇或含笑。让婴儿够球、追看摇铃，或让成人读书、看手机，眼睛会随手里的目标移动。坐着的婴儿把颏尖收回肩前，向下够球时上身跟过去，双脚仍支在地面。默认人物继续使用 1.18.0。[创作室试用](http://127.0.0.1:8000/atelier.html?figure=acting&model=baby&tab=face) · [双人追视动图](studies/pixel-structure/rattle-gaze.webp) · [同一婴儿的三视图](studies/pixel-structure/acting-faces.webp)

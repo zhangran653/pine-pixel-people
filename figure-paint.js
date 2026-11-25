@@ -422,14 +422,64 @@ const pineFigurePaint = (() => {
       [.57,1.035,1.06,.965,.025],[.73,.995,.975,.985,0],[.84,.915,.875,.945,-.018],
       [.92,.72,.69,.77,-.016],[.974,.52,.52,.57,0],[1,.375,.415,.455,0]]
   }).map(([base, rows]) => [base, cutRings(rows)]));
-  function garmentCut(style, base, drawn = false) {
+  // The pattern is measured over the finished body. Bodice rows start at the
+  // cloth hem, sleeves at the shoulder and elbow. Cloth keeps its own shape
+  // between joints; the wristband and the neck return to the wearer's size.
+  const topPatterns = {
+    tucked: {
+      hem:.37,
+      bodice:cutRings([[0,.87,.90],[.13,.99,1.025],[.28,1.03,1.04],[.55,1.015,1.025],[.80,.99,.99],[1,1,1]]),
+      upperArm:cutRings([[0,.84,.93],[.26,1.03,1.035],[.64,.98,1.04],[1,1.02,1.01]]),
+      forearm:cutRings([[0,1.02,1.01],[.25,1.055,1.065],[.58,.97,.99],[.85,.91,.94],[1,.86,.89]])
+    },
+    bloused: {
+      hem:.085,
+      bodice:cutRings([[0,.955,.95],[.075,.985,1.00],[.22,1.16,1.14],[.52,1.17,1.13],[.73,1.105,1.06],[.88,.975,1.00],[1,1,1]]),
+      upperArm:cutRings([[0,.95,1.01],[.26,1.19,1.15],[.60,1.25,1.19],[1,1.18,1.13]]),
+      forearm:cutRings([[0,1.18,1.13],[.28,1.26,1.20],[.58,1.32,1.22],[.76,1.29,1.19],[.90,.93,.95],[1,.87,.90]])
+    },
+    straight: {
+      hem:.125,
+      bodice:cutRings([[0,1.12,1.09],[.25,1.105,1.065],[.50,1.085,1.065],[.70,1.025,1.035],[.88,1.015,1.01],[1,1,1]]),
+      upperArm:cutRings([[0,.93,.99],[.25,1.09,1.10],[.66,1.075,1.07],[1,1.055,1.065]]),
+      forearm:cutRings([[0,1.055,1.065],[.32,1.07,1.08],[.72,1.11,1.08],[.89,1.14,1.09],[1,1.07,1.03]])
+    }
+  };
+  // Thigh breadth follows the body; the shin and hem are measured from the
+  // knee. A straight seam can therefore hang past a narrow ankle.
+  const legPatterns = {
+    tapered: {
+      thigh:cutRings([[0,1.03,1.05],[.32,1.08,1.10],[.68,1.035,1.06],[1,1.02,1.04]]),
+      shin:cutRings([[0,1.02,1.04],[.27,1.02,1.08],[.58,.89,.93],[.77,.86,.86],[.91,.68,.73],[1,.65,.69]])
+    },
+    straight: {
+      thigh:cutRings([[0,1.02,1.05],[.30,1.055,1.08],[.70,1.075,1.065],[1,1.085,1.055]]),
+      shin:cutRings([[0,1.085,1.055],[.30,1.08,1.09],[.64,1.045,1.025],[.84,1.09,1.055],[1,1.025,.99]])
+    },
+    wide: {
+      thigh:cutRings([[0,1.035,1.055],[.30,1.10,1.105],[.69,1.155,1.105],[1,1.20,1.12]]),
+      shin:cutRings([[0,1.20,1.12],[.31,1.23,1.175],[.64,1.30,1.20],[.85,1.39,1.24],[1,1.35,1.195]])
+    }
+  };
+  const longPants = new Set(['trousers','joggers','pinstripe','wide-leg','cuffed-denim','cargo','bib-overalls','knee-pants']);
+  function patternFor(style, bottom, base, fit) {
+    const top = topPatterns[fit.top || (highWaists.has(style) && style !== 'blazer' ? 'tucked' :
+      knitwear.has(style) || style === 'snap-knit' ? 'bloused' : 'straight')];
+    const leg = longPants.has(bottom) ? legPatterns[fit.legs ||
+      (bottom === 'wide-leg' || bottom === 'bib-overalls' ? 'wide' :
+        bottom === 'joggers' || bottom === 'knee-pants' ? 'tapered' : 'straight')] : null;
+    const strength = {adult:1, child:.93, toddler:.68, baby:.46}[base];
+    const hemline = longCoats.has(style) ? 0 : mix(hem(style,base,true),top.hem*({adult:1,child:.94,toddler:.72,baby:.54}[base]),strength);
+    return {top, leg, strength, hemline};
+  }
+  function garmentCut(style, base, drawn = false, pattern = null) {
     const nursery = base === 'baby' || base === 'toddler';
     const knit = knitwear.has(style) || style === 'snap-knit';
     const coat = workCoats.has(style);
     return {
       rings: nursery ? nurseryCut : knit ? knitCut : coat ? coatCut : shirtCut,
       drawing: drawn ? panelDrawings[base] : null,
-      knit, coat, nursery, fold: base === 'baby' ? .24 : base === 'toddler' ? .45 : base === 'child' ? .78 : 1
+      knit, coat, nursery, pattern, fold: base === 'baby' ? .24 : base === 'toddler' ? .45 : base === 'child' ? .78 : 1
     };
   }
   function bodyPanels(garment, anatomy, shoulder, chest, hipDepth) {
@@ -442,9 +492,17 @@ const pineFigurePaint = (() => {
       const middle = 1 - smooth(Math.abs(t-.43), .02, .30);
       const hem = 1 - smooth(t,.05,.37);
       const loose = garment.knit ? .095 : garment.coat ? .075 : .016;
-      const width = mix(hip.width,ribWidth,chestWeight) * span *
+      let width = mix(hip.width,ribWidth,chestWeight) * span *
         (1 + (waistRatio - .87) * middle + loose * (.79*middle+.42*hem));
-      const depth = mix(hipDepth, rib.front, chestWeight) * (1 + .53*loose*middle);
+      let depth = mix(hipDepth, rib.front, chestWeight) * (1 + .53*loose*middle);
+      if (garment.pattern) {
+        const {top, strength, hemline} = garment.pattern;
+        const h = clamp((t-hemline)/(1-hemline));
+        const [w,d] = top.bodice[Math.round(h*96)];
+        const seam = strength * smooth(t,hemline-.065,hemline+.022);
+        width *= mix(1,w,seam);
+        depth *= mix(1,d,seam);
+      }
       const belly = 1 - smooth(Math.abs(t-.33),.03,.43);
       const blade = 1 - smooth(Math.abs(t-.65),.035,.34);
       return {width, front:depth*front, back:depth*back, axis:offset*chest,
@@ -485,6 +543,28 @@ const pineFigurePaint = (() => {
     const level = 3.63 + key + bias[value] - 1.36 * pit -
       garment.fold * (garment.coat ? .71 : 1.28) * pull - .76 * hem;
     if (!garment.drawing || group !== 'cloth') return swatch(set[group], level);
+    if (garment.pattern) {
+      const {top, strength} = garment.pattern;
+      const front = smooth(u,-.2,.65);
+      const chestLight = front * (1-smooth(Math.abs(v+.27),.25,.52)) *
+        smooth(h,.24,.47) * (1-smooth(h,.72+.08*v,.90+.08*v));
+      const sideTurn = smooth(flank,.51,.92) * (1-smooth(h,.73,.94));
+      let seam;
+      if (top === topPatterns.bloused) {
+        const band = .095 + .045*v*v - .015*v;
+        const lip = 1-smooth(Math.abs(h-band),.015,.047);
+        const fullness = smooth(h,band,band+.10) * (1-smooth(h,.27,.42));
+        seam = .74*fullness*front - 1.26*lip - .68*(1-smooth(h,0,band));
+      } else if (top === topPatterns.tucked) {
+        const pleat = .12 + .39*(flank-.32);
+        seam = -1.42*front*smooth(flank,.26,.56)*(1-smooth(Math.abs(h-pleat),.016,.075));
+      } else {
+        const facing = 1-smooth(Math.abs(h-.055-.02*v*v),.012,.043);
+        seam = -.98*facing - .48*sideTurn;
+      }
+      return swatch(set.cloth,3.85+key+bias[value]-1.12*pit-.43*sideTurn +
+        strength*(1.08*chestLight + seam));
+    }
     // Paint the turn below the shoulder, the lit chest panel and one drag fold
     // over the waistband. Their boundaries run across the fabric as it turns.
     const forward = smooth(u,-.05,.64);
@@ -582,7 +662,17 @@ const pineFigurePaint = (() => {
     const coverage = (paint.paintedBody || fabric) && end && end !== b
       ? clamp(length / Math.hypot(end[0] - a[0], end[1] - a[1], end[2] - a[2])) : 1;
     const shortHem = coverage < 1;
-    const pad = Math.max(r0, r1) * Math.max(width, 1) * (belly ? 1.58 : 1.43);
+    const pattern = garment.pattern;
+    const fitted = pattern && (sleeve ? pattern.top : pattern.leg)?.[region];
+    // Sewn leg openings are independent of the item's original ankle taper.
+    // Only those two leg segments need a conversion to local radius.
+    const legScale = fitted && !sleeve && fitted.map((_, index) => {
+      const t = index/96;
+      return (upper ? mix(paint.thighRadius,paint.kneeRadius,t) : paint.kneeRadius) / mix(r0,r1,t);
+    });
+    const fullPattern = fitted && pattern.strength === 1;
+    const limit = Math.max(r0, r1, fitted && !sleeve ? paint.kneeRadius : 0);
+    const pad = limit * Math.max(width, 1) * (fitted || belly ? 1.58 : 1.43);
     brush.stamp(Math.min(a[0], b[0]) - pad, Math.max(a[0], b[0]) + pad,
       Math.min(a[1], b[1]) - pad, Math.max(a[1], b[1]) + pad,
       Math.min(a[2], b[2]) - pad, Math.max(a[2], b[2]) + pad, (x, y, z) => {
@@ -594,7 +684,8 @@ const pineFigurePaint = (() => {
         const coreRadius = mix(r0, r1, onLimb);
         const muscleRadius = coreRadius * (belly ? belly[index] : 1);
         const bound = fabric ? Math.max(muscleRadius,coreRadius) : muscleRadius;
-        if (cx * cx + cy * cy + cz * cz > (fabric ? 2.45 : 2.1) * bound * bound) return 0;
+        const envelope = fitted ? Math.max(bound, !sleeve ? paint.kneeRadius : 0) : bound;
+        if (cx * cx + cy * cy + cz * cz > (fitted ? 2.84 : fabric ? 2.45 : 2.1) * envelope * envelope) return 0;
         const material = pigment(t, cx, cy / width, cz);
         if (!material) return 0;
         const skin = types[material] === 'flesh';
@@ -611,23 +702,30 @@ const pineFigurePaint = (() => {
         const cap = along < 0 ? along / (r * nearCap) : along > length ? (along - length) / (r * farCap) : 0;
         if (Math.abs(cap) > 1) return 0;
         const band = 1 - smooth(Math.abs(t - (rolled ? .26 : .87)), .048, .13);
-        const loft = skin ? 0 : sleeve ? (garment.knit ? .11 : garment.coat ? .06 : .035) :
-          wide ? .18 : gathered || straight ? .12 : .045;
         const hemBreak = !upper && !sleeve && !garment.nursery && !skin
           ? 1 - smooth(Math.abs(t - .77 + .12 * outer), .035, .16) : 0;
-        const hem = !upper && !skin
-          ? (rolled ? .245 : gathered ? -.045 : wide ? .09 : 0) * band +
-            (straight ? .29 * t * t : 0) + .115 * hemBreak : 0;
-        const ease = loft * (upper ? smooth(t, .07, .52) : 1 - .3 * t);
-        // Straight cloth falls from the knee, knits gather at the wrist and
-        // ankle. Use the outer cut to carry the broad plane through the joint.
-        const fall = dressed && !sleeve ? (wide ? .10 : straight ? .13 : gathered ? -.035 : .025) * (upper ? .55*t : 1-.28*t) : 0;
-        const excess = ease + (dressed && !sleeve ? .38*hem : hem) + fall;
-        const gatheredCotton = dressed && garment.nursery && sleeve
-          ? (upper ? -.06*(1-t) : .072*(1-smooth(t,.42,.85)) - .066*smooth(t,.78,1)) : 0;
         const lap = dressed && region === 'thigh' ? seated*(1-smooth(Math.abs(t-.41),.12,.55)) : 0;
-        const span = dressed ? row[0]+excess+gatheredCotton+.15*lap : row[0]+ease+hem;
-        const depth = dressed ? row[1]+excess+gatheredCotton-.055*lap : row[1]+ease+hem;
+        let span = row[0], depth = row[1];
+        if (!fullPattern || !dressed) {
+          const loft = skin ? 0 : sleeve ? (garment.knit ? .11 : garment.coat ? .06 : .035) :
+            wide ? .18 : gathered || straight ? .12 : .045;
+          const hem = !upper && !skin
+            ? (rolled ? .245 : gathered ? -.045 : wide ? .09 : 0) * band +
+              (straight ? .29 * t * t : 0) + .115 * hemBreak : 0;
+          const ease = loft * (upper ? smooth(t, .07, .52) : 1 - .3 * t);
+          const fall = dressed && !sleeve ? (wide ? .10 : straight ? .13 : gathered ? -.035 : .025) * (upper ? .55*t : 1-.28*t) : 0;
+          const excess = ease + (dressed && !sleeve ? .38*hem : hem) + fall;
+          const gatheredCotton = dressed && garment.nursery && sleeve
+            ? (upper ? -.06*(1-t) : .072*(1-smooth(t,.42,.85)) - .066*smooth(t,.78,1)) : 0;
+          span = dressed ? row[0]+excess+gatheredCotton+.15*lap : row[0]+ease+hem;
+          depth = dressed ? row[1]+excess+gatheredCotton-.055*lap : row[1]+ease+hem;
+        }
+        if (dressed && fitted) {
+          const [w,d] = fitted[index], scale = legScale ? legScale[index] : 1, turn = rolled ? .17*band : 0;
+          const cutWidth = w*scale + turn + .15*lap, cutDepth = d*scale + turn - .055*lap;
+          span = fullPattern ? cutWidth : mix(span,cutWidth,pattern.strength);
+          depth = fullPattern ? cutDepth : mix(depth,cutDepth,pattern.strength);
+        }
         const across = (lateral - side * row[3]) / (width * span);
         const front = (towards - row[2]) / depth;
         if (across * across + front * front + cap * cap > 1) return 0;
@@ -660,11 +758,11 @@ const pineFigurePaint = (() => {
           (1 - smooth(t, .62, .96)) : 0;
         const cuff = !upper && !skin && (rolled || gathered || style === 'cuffed-denim');
         const edge = cuff ? 1 - smooth(Math.abs(t - (rolled ? .35 : .91) + .025 * outer), .014, .045) : 0;
-        const creaseWeight = dressed ? .48+1.91*bend : 1.25+1.35*bend;
+        const creaseWeight = dressed ? (fitted ? .24+1.54*bend : .48+1.91*bend) : 1.25+1.35*bend;
         const outerPlane = dressed ? smooth(front,.20,.76) *
           (1-smooth(Math.abs(across+.17-.14*t),.19,.57)) * (.82-.24*bend) : 0;
         return swatch(set[group], 3.9 + key - occlusion + .78 * bias[material] -
-          garment.fold * (creaseWeight * jointFold + 1.58 * pressing) - rim -
+          garment.fold * (creaseWeight * jointFold + (fitted ? .85 : 1.58) * pressing) - rim -
           1.88 * lapFold + (cuff ? .46 * band - 1.37 * edge : 0) + outerPlane);
       });
   }
@@ -948,6 +1046,8 @@ const pineFigurePaint = (() => {
     palette,
     skinPalette,
     bodyPanels,
+    patternFor,
+    longPants,
     panelDetail,
     garmentCut,
     cutLink,

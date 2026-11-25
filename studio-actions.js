@@ -59,6 +59,11 @@ const soloClips = (() => {
     stride: .026, feet: [1.18,1.12], shift: .13, roll: .006, headRoll: -.004, yaw: .012,
     hands: [[.035,.16,.976], [.19,.16,.944]]
   };
+  const garmentStances = {
+    adult: { ...plantedStance, feet:[1.34,1.08], hands:[[.081,.150,.961],[.19,.105,.942]] },
+    child: { ...plantedStance, feet:[1.38,1.18], shift:.18, roll:.017,
+      hands:[[.095,.162,.953],[.16,.135,.945]] }
+  };
   function idle(u, a) {
     const r = a.rig,
       ch = waist(r, a),
@@ -70,7 +75,7 @@ const soloClips = (() => {
       off[2] - breath * (1 - Math.cos(tau * u))
     ];
     ch.headYaw = 0.13 * Math.sin(u * tau) ** 3;
-    const structured = ['1.19.2','1.19.3','1.19.4','1.19.5','1.19.6','1.19.7','1.19.8'].includes(a.figureRelease);
+    const structured = ['1.19.2','1.19.3','1.19.4','1.19.5','1.19.6','1.19.7','1.19.8','1.19.9'].includes(a.figureRelease);
     if (structured || a.figureRelease === '1.19.0' || a.figureRelease === '1.19.1') {
       if (a.tags.includes('baby')) {
         if (!ch.floorSeat) infantFloorPose(r, ch);
@@ -78,7 +83,8 @@ const soloClips = (() => {
         // One planted leg takes the weight. The free foot is slightly forward
         // and its sleeve opens away from the body at a different elbow angle.
         ch.standing = 1;
-        const stance = structured ? (a.tags.includes('toddler') ? toddlerStance : plantedStance) : archivedStance;
+        const stance = garmentStances[r.garmentStance] ||
+          (structured ? (a.tags.includes('toddler') ? toddlerStance : plantedStance) : archivedStance);
         ch.feet = [[r.height * stance.stride, -stance.feet[0] * r.hip[1], r.ankle],
           [-r.height * .014, stance.feet[1] * r.hip[1], r.ankle]];
         ch.hipOffset[1] += stance.shift * (structured ? r.hip[1] : r.height);

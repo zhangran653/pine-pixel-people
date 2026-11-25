@@ -3,7 +3,7 @@ const pineDesignerBody = (() => {
   // The first three sculpt releases added the scalp, layered short hair and fitted jaw in order.
   const sculptedReleases = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1',
     '1.12.0', '1.13.0', '1.13.1', '1.14.0', '1.15.0', pinePortraitStyles.illustratedRelease,
-    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease, pinePortraitStyles.clothingStudyRelease, pinePortraitStyles.featureStudyRelease, pinePortraitStyles.figureRatioRelease, pinePortraitStyles.expressionRelease];
+    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease, pinePortraitStyles.clothingStudyRelease, pinePortraitStyles.featureStudyRelease, pinePortraitStyles.figureRatioRelease, pinePortraitStyles.expressionRelease, pinePortraitStyles.garmentRelease];
   // Relative to the selected body. The editor, recipe validator and painter share these limits.
   const shapeRanges = {
     height: [0.75, 1.3, 1],
@@ -608,13 +608,15 @@ const pineDesignerBody = (() => {
     const clothingStudy = pinePortraitStyles.hasClothingStudy(pin) && recipe.clothingCut !== 'original';
     const paintedFeatures = gameFace && pinePortraitStyles.hasPaintedFeatures(pin);
     const fittedRatios = pinePortraitStyles.hasFigureRatios(pin);
-    const facialActing = gameFace && pin === pinePortraitStyles.expressionRelease;
+    const facialActing = gameFace && pinePortraitStyles.hasFacialActing(pin);
     const featureGuide = paintedFeatures && pineGameFace.featureGuides[recipe.base];
     const faceForm = recipe.face?.form ?? recipe.anatomyParts?.skull ?? 'balanced';
     const drawnMix = drawnFace && faceForm !== 'balanced' ? recipe.face?.formMix ?? 1 : 0;
     const paintedBody = recipe.bodyFinish === 'painted';
     const wholeFigure = pin === pinePortraitStyles.figureRelease || tailored;
-    const garment = tailored && pineFigurePaint.garmentCut(parts.top, recipe.base, clothingStudy);
+    const pattern = clothingStudy && pin === pinePortraitStyles.garmentRelease
+      ? pineFigurePaint.patternFor(parts.top, parts.bottom, recipe.base, recipe.garmentFit || {}) : null;
+    const garment = tailored && pineFigurePaint.garmentCut(parts.top, recipe.base, clothingStudy, pattern);
     const pixelPortrait = pinePortraitStyles.hasPixelFace(pin) && style === 'animation';
     const fittedFace = pin === pinePortraitStyles.facePlaneRelease || pinePortraitStyles.hasPixelFace(pin);
     const infantFace = fittedFace && recipe.base === 'baby';
@@ -722,6 +724,7 @@ const pineDesignerBody = (() => {
     const hipBreadth = base.hip[1] * s * (1 + 0.17 * (shoulders - 1)) * cut.hipSpan;
     const rig = {
       ...(facialActing ? { facialActing: true } : {}),
+      ...(pattern && (recipe.base === 'adult' || recipe.base === 'child') ? { garmentStance:recipe.base } : {}),
       ...(facialActing && infant ? { seatedHeadOffset:[-.158*rx*s,0,-.245*rz*s] } : {}),
       ...(pixelStructure && infant ? { infantFloorSupport: true } : {}),
       ...(pinePortraitStyles.hasGameFace(pin) && infant ? { infantLapRest: true, headOffset: [-.043*rx*s,0,-.095*rz*s] } : {}),
@@ -1214,9 +1217,9 @@ const pineDesignerBody = (() => {
           { hip, knee } = pose.legs[i];
         const bend = tailored ? jointCompression(hip, knee, foot) : 0;
         const thighLink = softContours ? contouredLink(b, pose.torso, limbContours.thigh,
-          wholeFigure && { k, side, tailored, bend, garment, anatomy, paintedBody, end: knee, base: recipe.base, region: 'thigh', seated, style: parts.bottom }) : b.link;
+          wholeFigure && { k, side, tailored, bend, garment, anatomy, paintedBody, thighRadius:thigh, kneeRadius, end: knee, base: recipe.base, region: 'thigh', seated, style: parts.bottom }) : b.link;
         const shinLink = softContours ? contouredLink(b, pose.torso, limbContours.shin,
-          wholeFigure && { k, side, tailored, bend, garment, anatomy, paintedBody, end: foot, base: recipe.base, region: 'shin', style: parts.bottom }) : b.link;
+          wholeFigure && { k, side, tailored, bend, garment, anatomy, paintedBody, kneeRadius, end: foot, base: recipe.base, region: 'shin', style: parts.bottom }) : b.link;
         if (collectionBottom && !skirt) {
           pineEverydayStyles.pants(
             parts.bottom,
@@ -1580,7 +1583,7 @@ const pineDesignerBody = (() => {
       const back = selectedCut ? -fittedDepth : -1.14 * chestDepth;
       const front = selectedCut ? fittedDepth : 1.19 * chestDepth;
       const paint = wholeFigure && pineFigurePaint;
-      const standingHem = wholeFigure ? paint.hem(parts.top, recipe.base, modelAnatomy) : 0;
+      const standingHem = pattern ? pattern.hemline : wholeFigure ? paint.hem(parts.top, recipe.base, modelAnatomy) : 0;
       // Cloth bunches at the hip when seated; leave the lap visible in front,
       // including on a matching set. Long coats still hang below the hips.
       const waistline = pixelStructure && standingHem > 0 ? standingHem + .16 * seated : standingHem;
