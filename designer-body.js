@@ -564,7 +564,8 @@ const pineDesignerBody = (() => {
       mouthOffset = measure(shape, 'mouthHeight');
     const jeans = parts.bottom === 'trousers',
       boots = parts.shoes === 'boots';
-    const skirt = parts.bottom === 'skirt' || parts.bottom === 'plaid-skirt',
+    const skirtPattern=pinePatternWardrobe.skirts[parts.bottom];
+    const skirt = !!skirtPattern || parts.bottom === 'skirt' || parts.bottom === 'plaid-skirt',
       cargo = parts.bottom === 'cargo';
     const highTops = parts.shoes === 'high-tops',
       flats = parts.shoes === 'flats';
@@ -734,9 +735,10 @@ const pineDesignerBody = (() => {
     const sliceHeight = (h) => (crown ? crown.lower(h) : h);
     const nurseryStyle = infant && pineInfantHair.styles[parts.hair];
     const downHair = infant && (nurseryStyle || ['crop', 'crew', 'curly'].includes(parts.hair));
-    const modelHair = tailored && !hasHat && !infant && pineShortHair.modelCut(parts.hair, headKind);
+    const croppedId=hairStyle?.cropBase || parts.hair;
+    const modelHair = tailored && !hasHat && !infant && pineShortHair.modelCut(croppedId, headKind);
     const shortHair = modelHair || (sculptedHead && !downHair
-      ? pineShortHair.get(parts.hair, headKind, hasHat, layeredHair, refitNape, !!planes) : null);
+      ? pineShortHair.get(croppedId, headKind, hasHat, layeredHair, refitNape, !!planes) : null);
     const ankle = base.ankle * s;
     const legChange = (base.hip[2] - base.ankle) * (legs - 1) * s;
     const shoulderFit = tailored
@@ -1246,10 +1248,11 @@ const pineDesignerBody = (() => {
       const left = [torso[1], torso[5], torso[9]];
       const kneeDrop = chains.reduce((sum, { hip, knee }) => sum + hip[2] - knee[2], 0) / (2 * rig.thigh);
       const seated = clamp((0.6 - kneeDrop) / 0.56, 0, 1);
-      const hemReach = 0.86 + 0.16 * seated,
+      const hemReach = (skirtPattern ? skirtPattern[1] : .86) + .16 * seated,
         drape = (0.15 + 0.13 * seated) * rig.thigh;
-      const hem = chains.map(({ hip, knee }) =>
-        hip.map((n, i) => n + hemReach * (knee[i] - n) - (i === 2 ? drape : 0))
+      const hem = chains.map(({ hip, knee },leg) =>
+        hip.map((n, i) => n + hemReach * (knee[i] - n) - (i === 2 ? drape : 0) +
+          (skirtPattern ? skirtPattern[2] * (1-.76*seated) * (pose.feet[leg][i]-knee[i]) : 0))
       );
       const root = chains[0].hip.map((n, i) => (n + chains[1].hip[i]) * 0.5 + up[i] * 0.52 * thigh);
       const towardHem = hem[0].map((n, i) => (n + hem[1][i]) * 0.5 - root[i]);
@@ -1269,7 +1272,7 @@ const pineDesignerBody = (() => {
       const tilt = dot(gap, front),
         drop = dot(gap, down);
       const halfHips = hipHalf * 0.98;
-      const halfHem = Math.max(hipHalf * 1.34, dot(gap, side) + 1.28 * thigh);
+      const halfHem = Math.max(hipHalf * (skirtPattern ? skirtPattern[3] : 1.34), dot(gap, side) + 1.28 * thigh);
       const depthAtWaist = hipThickness * 0.96,
         depthAtHem = Math.max(1.24 * thigh, hipThickness * 1.04);
       const pad = Math.max(halfHem, depthAtHem) + 0.45 * s;
@@ -1291,9 +1294,10 @@ const pineDesignerBody = (() => {
         const u = (dx * front[0] + dy * front[1] + dz * front[2] - tilt * weight * along) / depth;
         const v = across / (halfHips + (halfHem - halfHips) * along);
         if (Math.abs(u) > 1 || Math.abs(v) > 1) return 0;
-        const fold = Math.cos(12 * Math.atan2(v, u) + 0.2 * along);
+        const fold = Math.cos((skirtPattern ? skirtPattern[4] : 12) * Math.atan2(v, u) + 0.2 * along);
         const rim = 1 - 0.048 * along * (1 + fold);
         if (Math.abs(u) ** 2.8 + Math.abs(v) ** 2.8 > rim ** 2.8 || along > 1 - 0.021 * (1 + fold)) return 0;
+        if (skirtPattern) return pinePatternWardrobe.skirtFabric(parts.bottom,along,u,v,fold,k);
         if (parts.bottom === 'plaid-skirt') {
           if (along < 0.12 || along > 0.95) return k.bottomShade;
           if (Math.abs(Math.sin(12 * v)) < 0.2 || Math.abs(Math.sin(along * 14)) < 0.19) return k.accent;
@@ -3467,7 +3471,7 @@ const pineDesignerBody = (() => {
       if (pixelKnot) {
         pinePixelPortrait.sweptBun(b, k, fit);
         pinePixelPortrait.templeLocks(b,k,fit,faceFront);
-      } else if (hairStyle && !shortHair) {
+      } else if (hairStyle && (!shortHair || hairStyle.cropBase)) {
         if (hairStyle.length) drawLooseHair(pose, b, k);
         b.frame(pose.head);
         pineHairStyles.draw(hairStyle, b, k, fit, hasHat, (u, v, h) => lockPoint(pose, u, v, h), animated);

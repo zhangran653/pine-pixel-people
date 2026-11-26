@@ -999,7 +999,7 @@ function checkLibrary() {
     check(!$('person-library').hidden, 'gallery link did not open the shelf');
     filter('shelf-source','preset');
     const count = () => Number($('shelf-count').textContent.match(/\d+/)[0]);
-    check(count() === PineLooks.templates.length && count() >= 144 && keys().length === 12, 'paginated character count');
+    check(count() === PineLooks.templates.length && count() >= 500 && keys().length === 12, 'paginated character count');
     const all = new Set();
     while (true) {
       for (const key of keys()) {
@@ -1013,7 +1013,7 @@ function checkLibrary() {
     check(all.size===PineLooks.templates.length, 'last page loses entries');
     document.querySelector('[data-shelf-view=face]').click();
     check(keys().length===(all.size%12 || 12) && $('look-shelf').dataset.framing==='face', 'framing must keep the page');
-    filter('shelf-source','new'); check(count()===PineLooks.library.newIds.size, 'new additions filter');
+    filter('shelf-source','new'); check(count()===PineLooks.library.almanacIds.size, 'current release filter');
     $('shelf-next').click();
     const pageKeys=keys().join(), range=$('shelf-range').textContent;
     const related=$('look-shelf').querySelector('[data-related]'), group=related.dataset.related;
@@ -1023,6 +1023,9 @@ function checkLibrary() {
     $('shelf-family-back').click();
     check(keys().join()===pageKeys && $('shelf-range').textContent===range && $('shelf-source').value==='new' &&
       $('look-shelf').dataset.framing==='face','return from a series must restore the original result page and view');
+    filter('shelf-series','firstyear'); filter('shelf-hair','infant');
+    check(count()===8 && keys().every(key=>PineLooks.library.almanacIds.has(key.slice(7))), 'nursery hair in the new collection');
+    filter('shelf-series',''); filter('shelf-hair',''); filter('shelf-source','earlier');
     document.querySelector('[data-realm=fantasy]').click(); filter('shelf-age','child');
     filter('shelf-setting','wild'); filter('shelf-gear','bags');
     check(keys().sort().join() === 'preset:look_firefly_child,preset:look_moon_post_child','four dimensions must combine');
@@ -1069,7 +1072,23 @@ function checkLibrary() {
     filter('shelf-source','saved'); filter('shelf-series','pottery'); filter('shelf-garment','cloaks'); filter('shelf-gear','tools');
     check(keys().join()==='saved:'+selected.id,'newly worn garment or edited identity was not searchable');
     out.dataset.state = 'pass';
-    out.textContent = 'Paginated gallery, series navigation, nine facets, named item search, outfits and editable saved metadata passed';
+    $('look-shelf').querySelector('[data-key]').click(); $('tab-wear').click();
+    const wearer=recipe();
+    $('borrow-outfit').click(); $('clear-looks').click(); filter('shelf-source','new'); filter('shelf-order','name');
+    const sorted=PineLooks.templates.filter(d=>PineLooks.library.almanacIds.has(d.id))
+      .sort((a,b)=>new Intl.Collator('zh-Hans-CN',{numeric:true}).compare(a.label,b.label));
+    check(!$('shelf-borrow').hidden && !keys().includes('preset:'+sorted.at(-1).id),'outfit picking mode and first page');
+    const draw=Math.random;
+    try { Math.random=()=>.999999; $('shelf-draw').click(); } finally { Math.random=draw; }
+    const borrowed=recipe(), donor=sorted.at(-1);
+    check(!$('person-edit').hidden && $('shelf-borrow').hidden && borrowed.id===wearer.id &&
+      JSON.stringify(borrowed.face)===JSON.stringify(wearer.face) && borrowed.parts.hair===wearer.parts.hair &&
+      borrowed.colors.skin===wearer.colors.skin, 'borrowing a costume must preserve the active person');
+    for(const [slot,value] of Object.entries(PineLooks.outfitFrom(donor).parts))
+      check(borrowed.parts[slot]===value,'off-page random outfit: '+slot);
+    $('borrow-outfit').click(); $('shelf-borrow-back').click();
+    check(JSON.stringify(recipe())===JSON.stringify(borrowed),'cancelled borrowing changed the person');
+    out.textContent = '500-person gallery, scoped random selection, editable filters, outfit borrowing and pagination passed';
   } catch (error) { out.dataset.state = 'fail'; out.textContent = error.stack; }
 }
 function checkInfantHair() {

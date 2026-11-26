@@ -342,7 +342,10 @@
             "box-braids",
             "locs",
             "crown-braid",
-            "baby-sprout", "baby-comma", "baby-sweep", "baby-cloud", "baby-whorl", "baby-puffs"
+            "baby-sprout", "baby-comma", "baby-sweep", "baby-cloud", "baby-whorl", "baby-puffs",
+            "feather-crop", "page-crop", "brushed-crop", "petal-bob", "swing-bob", "shoulder-shag", "cascade-part",
+            "ripple-lob", "willow-wave", "cloud-puffs", "looped-knot", "ribbon-fall", "side-loop", "loop-braid", "ribbon-plait",
+            "temple-braids"
           ]
         },
         "top": {
@@ -380,7 +383,10 @@
             "argyle",
             "kimono",
             "kiln-smock", "utility-gilet", "deck-jumper", "quilt-jacket",
-            "frog-coat", "festival-bolero", "moth-cape", "thermal-shell"
+            "frog-coat", "festival-bolero", "moth-cape", "thermal-shell",
+            "orchard-pinafore", "barista-apron", "atelier-coat", "field-vest", "running-shell", "ridge-fleece", "shell-parka",
+            "cable-knit", "fairisle-knit", "petal-cardigan", "lullaby-smock", "sunday-blouse", "patch-pullover", "station-jacket",
+            "double-vest", "camp-shirt", "reed-robe", "loom-jacket", "bell-tabard", "leaf-mantle", "orbit-liner", "relay-shell"
           ]
         },
         "bottom": {
@@ -398,7 +404,9 @@
             "joggers",
             "plaid-skirt",
             "track-shorts",
-            "panel-culottes", "banded-trousers"
+            "panel-culottes", "banded-trousers",
+            "gusset-slacks", "sailor-pants", "knee-cargos", "ribbon-joggers", "loom-pants", "balloon-pants", "patch-tights",
+            "flight-trousers", "folk-gather", "harbour-wrap", "bell-skirt", "petal-skirt"
           ]
         },
         "shoes": {
@@ -417,7 +425,8 @@
             "sandals",
             "runners",
             "oxfords",
-            "deck-shoes", "wrap-boots"
+            "deck-shoes", "wrap-boots",
+            "gum-plimsolls", "court-sneakers", "tassel-loafers", "gaiter-boots", "petal-slippers", "cabin-boots"
           ]
         },
         "neck": {
@@ -449,7 +458,9 @@
             "briefcase",
             "tote",
             "pouch",
-            "reed-creel", "tube-case"
+            "reed-creel", "tube-case",
+            "doctor-case", "map-folio", "market-basket", "dancer-duffel", "flap-ruck", "crescent-bag", "tool-roll",
+            "capsule-pack"
           ]
         },
         "attachment": {
@@ -480,7 +491,9 @@
             "drop",
             "bar",
             "huggies",
-            "star"
+            "star",
+            "daisy-drops", "ginkgo-drops", "koi-drops", "moth-drops", "berry-drops", "starfall-drops", "moon-drops",
+            "prism-drops", "swallow-drops", "bell-drops", "spool-drops", "planet-drops"
           ]
         },
         "wrist": {
@@ -524,7 +537,9 @@
             "flower",
             "pins",
             "tiara",
-            "scrunchie"
+            "scrunchie",
+            "daisy-comb", "ginkgo-comb", "koi-comb", "moth-comb", "berry-comb", "starfall-comb", "moon-comb", "prism-comb",
+            "swallow-comb", "bell-comb", "spool-comb", "planet-comb"
           ]
         },
         "audio": {
@@ -549,7 +564,9 @@
             "rosette",
             "badge",
             "star",
-            "nameplate"
+            "nameplate",
+            "daisy-pin", "ginkgo-pin", "koi-pin", "moth-pin", "berry-pin", "starfall-pin", "moon-pin", "prism-pin",
+            "swallow-pin", "bell-pin", "spool-pin", "planet-pin"
           ]
         },
         "gloves": {
@@ -889,12 +906,18 @@
           "software","managers","guides","retail","nurses","cooks","pottery","dance","painters","scholars",
           "boatmen","lamplight","starmages","alchemists","rangers","pilots","mechanics","geology","household",
           "nursery","playgroup","pupils","sports","trekkers","post","stage","garden","books","makers",
-          "technical","shops","transport","press","vets","oracles"
+          "technical","shops","transport","press","vets","oracles",
+            "veloclub", "tram", "airfield", "coffee", "bakery", "bookfair", "museumcrew", "dyeworks", "chamber", "ballet",
+            "architecture", "clinicteam", "coastguard", "weatherdesk", "horticulture", "broadcast", "artclub", "rockpools",
+            "toddlerplay", "firstyear", "petrescue", "indiegames", "trailkids", "silkloom", "blockprint", "caravan",
+            "canallock", "shadowplay", "herbhall", "clockguild", "courtschool", "cloudpost", "gladecrew", "pearlbay",
+            "teagrove", "skychoir", "aurorakids", "gemarchive", "orbitfarm", "eva", "deepsignal", "habitatlab", "lunarkitchen",
+            "starschool", "cradleship"
         ] },
-        "field": { "enum": ["home","learning","craft","trade","arts","travel","nature","science","service","lore"] },
+        "field": { "enum": ["home","learning","craft","trade","arts","travel","nature","science","service","lore","food","health","sport","design","heritage","media","habitat"] },
         "settings": {
-          "type": "array", "minItems": 1, "maxItems": 9, "uniqueItems": true,
-          "items": { "enum": ["home","town","school","workshop","stage","wild","coast","transit","station"] }
+          "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true,
+          "items": { "enum": ["home","town","school","workshop","stage","wild","coast","transit","station","kitchen","clinic","museum","garden","arena","playground","observatory"] }
         },
         "role": {
           "type": "string",
@@ -945,10 +968,14 @@
     },
     {
       "if": { "properties": { "parts": { "anyOf": [
-        { "required":["top"], "properties":{ "top":{ "enum":["kiln-smock","utility-gilet","deck-jumper","quilt-jacket","frog-coat","festival-bolero","moth-cape","thermal-shell"] } } },
-        { "required":["bottom"], "properties":{ "bottom":{ "enum":["panel-culottes","banded-trousers"] } } },
-        { "required":["shoes"], "properties":{ "shoes":{ "enum":["deck-shoes","wrap-boots"] } } },
-        { "required":["bag"], "properties":{ "bag":{ "enum":["reed-creel","tube-case"] } } },
+        { "required":["hair"], "properties":{ "hair":{ "enum":["feather-crop","page-crop","brushed-crop","petal-bob","swing-bob","shoulder-shag","cascade-part","ripple-lob","willow-wave","cloud-puffs","looped-knot","ribbon-fall","side-loop","loop-braid","ribbon-plait","temple-braids"] } } },
+        { "required":["top"], "properties":{ "top":{ "enum":["kiln-smock","utility-gilet","deck-jumper","quilt-jacket","frog-coat","festival-bolero","moth-cape","thermal-shell","orchard-pinafore","barista-apron","atelier-coat","field-vest","running-shell","ridge-fleece","shell-parka","cable-knit","fairisle-knit","petal-cardigan","lullaby-smock","sunday-blouse","patch-pullover","station-jacket","double-vest","camp-shirt","reed-robe","loom-jacket","bell-tabard","leaf-mantle","orbit-liner","relay-shell"] } } },
+        { "required":["bottom"], "properties":{ "bottom":{ "enum":["panel-culottes","banded-trousers","gusset-slacks","sailor-pants","knee-cargos","ribbon-joggers","loom-pants","balloon-pants","patch-tights","flight-trousers","folk-gather","harbour-wrap","bell-skirt","petal-skirt"] } } },
+        { "required":["shoes"], "properties":{ "shoes":{ "enum":["deck-shoes","wrap-boots","gum-plimsolls","court-sneakers","tassel-loafers","gaiter-boots","petal-slippers","cabin-boots"] } } },
+        { "required":["bag"], "properties":{ "bag":{ "enum":["reed-creel","tube-case","doctor-case","map-folio","market-basket","dancer-duffel","flap-ruck","crescent-bag","tool-roll","capsule-pack"] } } },
+        { "required":["brooch"], "properties":{ "brooch":{ "enum":["daisy-pin","ginkgo-pin","koi-pin","moth-pin","berry-pin","starfall-pin","moon-pin","prism-pin","swallow-pin","bell-pin","spool-pin","planet-pin"] } } },
+        { "required":["hairAccessory"], "properties":{ "hairAccessory":{ "enum":["daisy-comb","ginkgo-comb","koi-comb","moth-comb","berry-comb","starfall-comb","moon-comb","prism-comb","swallow-comb","bell-comb","spool-comb","planet-comb"] } } },
+        { "required":["ears"], "properties":{ "ears":{ "enum":["daisy-drops","ginkgo-drops","koi-drops","moth-drops","berry-drops","starfall-drops","moon-drops","prism-drops","swallow-drops","bell-drops","spool-drops","planet-drops"] } } },
         { "required":["charm"], "properties":{ "charm":{ "enum":["shell-token","signal-tag"] } } }
       ] } } },
       "then": { "properties": { "packs": { "properties": { "pine-core": { "enum": [

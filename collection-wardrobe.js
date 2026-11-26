@@ -9,9 +9,13 @@ const pineCollectionWardrobe = (() => {
   const shoes = { 'deck-shoes': '白边甲板鞋', 'wrap-boots': '绕带长靴' };
   const bags = { 'reed-creel': '藤编挎篮', 'tube-case': '圆筒图匣' };
   const charms = { 'shell-token': '扇贝挂坠', 'signal-tag': '双片讯号牌' };
+  const pattern = pinePatternWardrobe;
+  Object.assign(tops,pattern.choices.top); Object.assign(bottoms,pattern.choices.bottom);
+  Object.assign(shoes,pattern.choices.shoes); Object.assign(bags,pattern.choices.bag);
   const choices = { top: tops, bottom: bottoms, shoes, bag: bags, charm: charms };
+  const currentChoices=Object.entries({...pattern.choices,...choices});
   function needsCurrentParts(parts) {
-    return Object.entries(choices).some(([slot, options]) => Object.hasOwn(options, parts[slot]));
+    return currentChoices.some(([slot, options]) => Object.hasOwn(options, parts[slot]));
   }
   const fabrics = {
     'kiln-smock'(u,v,t,k) {
@@ -67,7 +71,9 @@ const pineCollectionWardrobe = (() => {
       return t < .22 ? k.topShade : k.top;
     }
   };
+  for (const id of Object.keys(pattern.tops)) fabrics[id]=(u,v,t,k)=>pattern.fabric(id,u,v,t,k);
   function sleeve(style,t,u,v,side,r,fore,k) {
+    if (Object.hasOwn(pattern.tops,style)) return pattern.sleeve(style,t,u,v,side,r,fore,k);
     if (style === 'utility-gilet' || style === 'kiln-smock') return fore && t > .76 ? k.skinLight : k.lining;
     if (style === 'moth-cape' && !fore) return t < .64 ? k.accent : t < .77 ? k.trimLight : k.top;
     if (style === 'thermal-shell' && !fore && t > .32 && t < .57) return k.accent;
@@ -76,6 +82,7 @@ const pineCollectionWardrobe = (() => {
     return side*v < -.46*r ? k.topShade : k.top;
   }
   function bag(kind,b,k,d,w,low,h) {
+    if (Object.hasOwn(pattern.bags,kind)) return pattern.luggage(kind,b,k,d,w,low,h);
     const x = -.57*d, y = w*1.08, z = low+.28*h;
     const line = (a,c,r,color) => b.link(a,c,r,r,1,()=>color);
     if (kind === 'reed-creel') {

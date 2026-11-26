@@ -63,9 +63,9 @@
         </p>
         <p><a href="#lip-contour">1.19.12 唇颏轮廓与唇线</a> · <a href="#garment-fit">1.19.9 上衣与裤腿版型</a> · <a href="#facial-acting">1.19.8 平时神情与视线</a> · <a href="#figure-ratios">1.19.7 分龄头身比例</a> · <a href="#painted-features">1.19.6 分龄五官笔触</a> · <a href="#clothing-cut">1.19.5 分龄衣物剪裁</a> · <a href="#base-faces">1.19.4 分龄基础脸</a> · <a href="#game-face">1.19.3 美术基础脸</a> · <a href="#anatomy-parts">1.19.2 人体结构与可换部件</a> · <a href="#figure-art">全身像素造型与配色样张</a> · <a href="#portrait-art">五官画风</a></p>
         <h2 id="character-library">内置人物</h2>
-        <p><code>PineLooks.templates</code> 提供 144 份可单独保存的标准人物配方。通过 <code>PineLooks.templateById.get('look_programmer')</code> 取得程序员，传给 <code>PineLooks.build</code> 即可生成演员。要创建个人版本，复制配方并用 <code>PineLooks.newId()</code> 分配新的 ID。形象库选中人物时会自动创建副本。已导出的完整人物按自己的五官、部件、颜色和版本还原。<a href="atelier.html?tool=person-library">浏览形象库</a> · <a href="studies/pixel-structure/character-series.webp">同系列造型对照</a></p>
-        <p>35 个系列均可在「身份资料」里选择。<code>PineLooks.library.series</code>、<code>fields</code> 和 <code>settings</code> 提供系列、领域和活动场景的枚举，分别对应 <code>identity.series</code>、<code>identity.field</code> 与 <code>identity.settings</code>。<code>PineLooks.library.facets(recipe)</code> 根据配方当前的部件返回上衣款式 <code>garment</code> 与已佩戴的配件类别数组 <code>gear</code>。例如把上衣换成 <code>kiln-smock</code> 后，服装筛选会归入工装与罩衫。<a href="atelier.html?tool=person-library&amp;series=pottery">陶艺师系列</a></p>
-        <p>形象库的六套穿搭收录在 <code>PineLooks.collectionOutfits</code>。对现有人物调用 <code>PineLooks.applyOutfit(recipe, PineLooks.collectionOutfits.moth_keeper)</code>，会换上披领、靴子、兜帽和提灯，保留脸、发型和个人电子设备。四款新帽子由随库的 <code>pine-outfitter@1.0.0</code> 提供。使用其中一顶的配方经 <code>PineLooks.prepare(recipe)</code> 导出时会附上素材包和 MIT 声明。</p>
+        <p><code>PineLooks.templates</code> 提供 500 份可单独保存的标准人物配方。通过 <code>PineLooks.templateById.get('look_programmer')</code> 取得程序员，传给 <code>PineLooks.build</code> 即可生成演员。要创建个人版本，复制配方并用 <code>PineLooks.newId()</code> 分配新的 ID。形象库选中人物时会自动创建副本。已导出的完整人物按自己的五官、部件、颜色和版本还原。<a href="atelier.html?tool=person-library">浏览形象库</a> · <a href="studies/pixel-structure/character-series.webp">同系列造型对照</a></p>
+        <p>80 个系列均可在「身份资料」里选择。<code>PineLooks.library.series</code>、<code>fields</code> 和 <code>settings</code> 提供系列、领域和活动场景的枚举，分别对应 <code>identity.series</code>、<code>identity.field</code> 与 <code>identity.settings</code>。<code>PineLooks.library.facets(recipe)</code> 根据配方当前的部件返回上衣款式 <code>garment</code>、发型类别 <code>hair</code> 和配件类别数组 <code>gear</code>。例如把上衣换成 <code>kiln-smock</code> 后，服装筛选会归入工装与罩衫。<a href="atelier.html?tool=person-library&amp;series=pottery">陶艺师系列</a></p>
+        <p><code>PineLooks.outfitFrom(donor)</code> 可从任意标准人物中提取衣服、鞋帽、随身物及对应的染色。创作室的「从形象库借穿衣服与配饰」将它套到当前人物上。六套快捷穿搭收录在 <code>PineLooks.collectionOutfits</code>。对现有人物调用 <code>PineLooks.applyOutfit(recipe, PineLooks.collectionOutfits.moth_keeper)</code>，会换上披领、靴子、兜帽和提灯，保留脸、发型和个人电子设备。四款新帽子由随库的 <code>pine-outfitter@1.0.0</code> 提供。使用其中一顶的配方经 <code>PineLooks.prepare(recipe)</code> 导出时会附上素材包和 MIT 声明。</p>
         <h2>形象文件</h2>
         <p>
           用创作室的「导入角色」打开下面的任一示例。编辑后可以保持 ID 保存，也可以另存为独立形象。导入相同
@@ -157,7 +157,7 @@
         <p>使用 <code>PineLooks.hairOptions(base)</code> 获取该年龄可选的发型，<code>PineLooks.nurseryHair</code> 给出六款专属造型的 ID 和名称。<code>parts.hair</code> 可取 <code>baby-sprout</code>（头顶小软翘）、<code>baby-comma</code>（额前逗号卷）、<code>baby-sweep</code>（偏分细软刘海）、<code>baby-cloud</code>（云朵短卷）、<code>baby-whorl</code>（旋儿胎发）或 <code>baby-puffs</code>（双簇小绒团）。它们使用 <code>base: "baby"</code>、<code>pine-core</code> 1.18.0 或更新的绘制版本和共用色槽 <code>colors.hair</code>。</p>
         <p>普通随机婴儿可以抽到六种造型。锁定这类发型时会同时限定婴儿年龄，传入明确的旧版 <code>release</code> 可以重放原先的随机发型池。发束在头部坐标中取样，播放爬行、抱起或转头时随头移动。编辑器的摘帽预览只改变镜子，导出的配方记录实际穿戴的帽子。<a href="atelier.html?preset=look_dawn_baby&amp;tab=hair">试穿婴儿发型</a> · <a href="studies/pixel-structure/infant-hairstyles.webp">多角度与发色样张</a></p>
         <p>
-          「发型」面板提供 42 款通用发型、6 款婴儿专属发型、20 种预设发色与自定义取色器，可按短发、中长发、束发、卷发、编发筛选。披肩长发等款式从 pine-core 1.4.0 起可用。
+          「发型」面板提供 58 款通用发型、6 款婴儿专属发型、20 种预设发色与自定义取色器，可按短发、中长发、束发、卷发、编发筛选。披肩长发等款式从 pine-core 1.4.0 起可用。
           披肩长发（<code>shoulder-length</code>）、长波浪（<code>long-waves</code>）、半扎长发（<code>half-up</code>）、
           双麻花辫（<code>twin-braids</code>）与偏分短发（<code>side-part</code>）均可用于成人和儿童。单独修改发色可沿用存档的基础部件版本。
           <a href="atelier.html?preset=look_body_female&amp;tab=hair&amp;hair=shoulder-length"

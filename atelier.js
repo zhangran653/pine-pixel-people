@@ -1437,6 +1437,10 @@
   function wearFields(area) {
     figureUpgrade(area);
     const apply = (outfit) => looks.applyOutfit(draft, outfit);
+    const borrow=document.createElement('button');
+    borrow.type='button'; borrow.id='borrow-outfit'; borrow.textContent='从形象库借穿衣服与配饰';
+    borrow.onclick=()=>gallery.pickOutfit(draft.label);
+    area.append(borrow);
     const featured = presetGroup('工坊同款', looks.workshopOutfits, 'outfit', apply);
     area.append(featured);
     paintThumbnails(featured);
@@ -1669,6 +1673,12 @@
       shelfVisibility.observe(canvas);
     },
     resetImages() { shelfVisibility.disconnect(); visibleShelfCards.clear(); },
+    borrowOutfit(doc) {
+      looks.applyOutfit(draft,looks.outfitFrom(doc));
+      changed(); fields();
+      PineWorkspace.openTool('person-edit',true);
+      note('已借穿「'+doc.label+'」的衣服与配饰。');
+    },
     select(doc,key) {
       switchTo(() => {
         activate(doc,key,key.startsWith('saved:'));

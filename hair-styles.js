@@ -45,6 +45,7 @@ const pineHairStyles = (() => {
     locs: { label: '绳状锁发', group: '编发', base: 'bun', tail: 'locs' },
     'crown-braid': { label: '环绕冠辫', group: '编发', base: 'bun', bun: 'crown' }
   };
+  Object.assign(styles,pinePatternWardrobe.hair);
   const groups = {
     crop: '短发',
     'side-part': '短发',
@@ -255,7 +256,7 @@ const pineHairStyles = (() => {
       const vx = Math.cos(theta),
         vy = Math.sin(theta),
         lean = style === 'side' ? 0.91 : 0;
-      const z0 = hat ? -0.09 : style === 'side' ? 0.13 : many ? 0.27 : -0.29;
+      const z0 = hat ? -0.09 : p.tieHeight ?? (style === 'side' ? 0.13 : many ? 0.27 : -0.29);
       const segments = style === 'fish' ? 10 : style === 'bubble' ? 5 : many ? 6 : 5;
       const root = (t, i) => {
         const wave =
@@ -264,8 +265,8 @@ const pineHairStyles = (() => {
           Math.sin(t * Math.PI);
         return worldPoint(
           vx * (0.89 + 0.3 * Math.sin(Math.PI * t * 0.76)) - 0.15 * t,
-          vy * (0.92 + 0.18 * Math.sin(t * 4)) + lean * (0.63 + 0.49 * t) + wave,
-          z0 - t * (many ? 1.75 + 0.22 * Math.cos(3 * theta) : 1.73)
+          vy * (0.92 + 0.18 * Math.sin(t * 4)) + lean * (0.63 + 0.49 * t) + wave + (p.tailWave || 0)*Math.sin(7*t),
+          z0 - t * (p.tailLength ?? (many ? 1.75 + 0.22 * Math.cos(3 * theta) : 1.73))
         );
       };
       for (let i = 0; i < segments; i++) {

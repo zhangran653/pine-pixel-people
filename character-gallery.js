@@ -3,15 +3,16 @@ const pineCharacterGallery = (() => {
   const $ = id => document.getElementById(id);
   const ages = {adult:'成人',child:'儿童',toddler:'幼儿',baby:'婴儿'};
   const profiles = {female:'女性体型',male:'男性体型',unspecified:'中性／未指定'};
-  const sources = {new:'本次新增',preset:'内置预设',saved:'我的形象'};
+  const sources = {new:'本次新增',earlier:'此前收录',preset:'内置预设',saved:'我的形象'};
   const realms = PineWorld.realms, catalogue = PineLooks.library;
   const dimensions = {
     era:['时代',realms], field:['职业领域',catalogue.fields], setting:['活动场景',catalogue.settings], series:['人物系列',catalogue.series],
-    age:['年龄',ages], garment:['服装款式',catalogue.garments], gear:['随身配件',catalogue.gear],
+    age:['年龄',ages], hair:['发型类别',catalogue.hairFamilies], garment:['服装款式',catalogue.garments], gear:['随身配件',catalogue.gear],
     profile:['体型',profiles], source:['形象来源',sources]
   };
-  const featured = ['kiln_potter','moth_keeper','lunar_geologist','rain_pupil','reed_ferryman','star_moss_baby',
-    'stage_rigger','orbit_tailor','woodblock_printer','porthole_toddler','cloud_boater','harbour_pilot'];
+  const featured = ['coffee_brewer','cloudpost_kite','veloclub_leader','firstyear_autumn','silkloom_weft','deepsignal_dish',
+    'kiln_potter','artclub_clay','clinicteam_optician','gladecrew_moth','cradleship_lune','orbitfarm_hive',
+    'moth_keeper','lunar_geologist','rain_pupil','reed_ferryman','star_moss_baby','harbour_pilot'];
   const featureOrder = new Map(featured.map((key,i)=>['look_'+key,i]));
   const collator = new Intl.Collator('zh-Hans-CN',{numeric:true});
   function button(label) {
@@ -25,11 +26,11 @@ const pineCharacterGallery = (() => {
   const normalize = value => value.normalize('NFKC').trim().toLowerCase();
   function entry(key, doc) {
     const id = doc.identity || {}, actual = catalogue.facets(doc);
-    const saved = key.startsWith('saved:'), fresh = !saved && catalogue.newIds.has(doc.id);
+    const saved = key.startsWith('saved:'), fresh = !saved && catalogue.almanacIds.has(doc.id);
     const facets = {
       era:[id.era || 'modern'], field:[id.field], series:id.series ? [id.series] : [], setting:id.settings || [], age:[doc.base],
-      garment:[actual.garment], gear:actual.gear, profile:[doc.gender || 'unspecified'],
-      source:saved ? ['saved'] : fresh ? ['preset','new'] : ['preset']
+      hair:[actual.hair], garment:[actual.garment], gear:actual.gear, profile:[doc.gender || 'unspecified'],
+      source:saved ? ['saved'] : fresh ? ['preset','new'] : ['preset','earlier']
     };
     const [pack,hat] = doc.parts.hat.split('/');
     const hatName = hat && PineLooks.catalog.get(pack+'@'+doc.packs[pack])?.parts.find(p=>p.id===hat)?.label;
@@ -41,13 +42,17 @@ const pineCharacterGallery = (() => {
     const priority = saved ? -1 : featureOrder.get(doc.id) ?? (fresh ? featured.length : featured.length+1);
     return {key,doc,facets,text:normalize(text.filter(Boolean).join(' ')),priority};
   }
-  function create({getEntries, observe, resetImages, select}) {
+  function create({getEntries, observe, resetImages, select, borrowOutfit}) {
     const pane = $('person-library'), grid = $('look-shelf'), pager = $('shelf-pages');
     const selectIds = Object.keys(dimensions).filter(k=>k!=='era');
     const controls = Object.fromEntries(selectIds.map(id=>[id,$('shelf-'+id)]));
     for (const [id,ctrl] of Object.entries(controls)) addOptions(ctrl,dimensions[id][1]);
     const cached = new WeakMap();
-    let currentKey = '', era = '', page = 1, framing = 'body';
+    let currentKey = '', era = '', page = 1, framing = 'body', borrowing=false;
+    function choose(item) {
+      if (borrowing) borrowOutfit(item.doc); else select(item.doc,item.key);
+    }
+    $('shelf-borrow-back').onclick=()=>PineWorkspace.openTool('person-edit',true);
     const initial = new URL(location.href);
     const linked = initial.searchParams.get('tool') === 'person-library';
     const params = linked ? initial.searchParams : new URLSearchParams(history.state?.pineCatalogue || '');
@@ -98,6 +103,7 @@ const pineCharacterGallery = (() => {
     }
     pane.closest('[data-desk]').addEventListener('pine-tool',e=>{
       if (e.detail === pane.id) { remember(); return; }
+      borrowing=false; $('shelf-borrow').hidden=true;
       const url = new URL(location.href);
       if (url.searchParams.get('tool') !== 'person-library') return;
       for (const key of ['tool',...urlFields]) url.searchParams.delete(key);
@@ -140,8 +146,8 @@ const pineCharacterGallery = (() => {
       copy.append(title,meta); b.append(c,copy);
       b.dataset.key=key; b.dataset.era=facets.era[0];
       b.setAttribute('aria-pressed',String(currentKey===key));
-      b.title='编辑'+doc.label; c.setAttribute('aria-hidden','true');
-      b.onclick=()=>select(doc,key);
+      b.title=(borrowing ? '借穿' : '编辑')+doc.label; c.setAttribute('aria-hidden','true');
+      b.onclick=()=>choose(item);
       observe(c,doc,framing);
       tile.append(b);
       const group=facets.series[0], count=seriesCounts.get(group);
@@ -215,6 +221,13 @@ const pineCharacterGallery = (() => {
       $('shelf-family-back').hidden=priorResults===null;
       $('shelf-filter-count').textContent=chosen.length ? ' · '+chosen.length : '';
       if($('shelf-order').value==='name') matches.sort((a,b)=>collator.compare(a.doc.label,b.doc.label));
+      const drawPerson=$('shelf-draw');
+      drawPerson.disabled=matches.length===0;
+      drawPerson.onclick=()=>{
+        const others=matches.filter(item=>item.key!==currentKey);
+        const pool=others.length ? others : matches;
+        if(pool.length) choose(pool[Math.floor(Math.random()*pool.length)]);
+      };
       const size=Number($('shelf-size').value), pages=Math.ceil(matches.length/size);
       page=Math.max(1,Math.min(page,pages || 1));
       const start=(page-1)*size, end=Math.min(start+size,matches.length);
@@ -242,7 +255,11 @@ const pineCharacterGallery = (() => {
     const filterPanel=$('shelf-filter-panel'), small=matchMedia('(max-width: 720px)');
     filterPanel.open=!small.matches;
     small.addEventListener('change',()=>{filterPanel.open=!small.matches;});
-    return {refresh(selected) {
+    return {pickOutfit(name) {
+      borrowing=true; $('shelf-borrow-name').textContent='为「'+name+'」选择衣服与配饰';
+      $('shelf-borrow').hidden=false;
+      PineWorkspace.openTool('person-library',true); draw();
+    },refresh(selected) {
       currentKey=selected; draw();
     }};
   }

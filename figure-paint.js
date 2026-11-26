@@ -19,6 +19,8 @@ const pineFigurePaint = (() => {
     'breton',
     'rugby', 'quilt-jacket', 'deck-jumper'
   ]);
+  const newCuts = silhouette => Object.keys(pinePatternWardrobe.tops).filter(id=>pinePatternWardrobe.tops[id][2]===silhouette);
+  for (const style of newCuts('knit')) knitwear.add(style);
   const fasteners = ['brass', 'brassShade', 'lensGlint', 'steel', 'spout'];
   const tones = {
     cloth: { shadow: [0.3, 0.34, 0.38], lit: [235, 225, 183], lift: 0.44 },
@@ -224,6 +226,7 @@ const pineFigurePaint = (() => {
   const tucked = new Set(['oxford', 'knit-vest', 'polo', 'blazer', 'tee', 'rugby', 'breton']);
   const longCoats = new Set(['trench', 'cross-robe', 'brocade', 'lab-coat', 'apron', 'mantle', 'kimono', 'tunic', 'moth-cape', 'kiln-smock']);
   const highWaists = new Set(['oxford', 'polo', 'blazer', 'knit-vest']);
+  for (const style of newCuts('long')) longCoats.add(style);
   function hem(style, base, proportionStudy = false) {
     if (longCoats.has(style)) return 0;
     const lift = tucked.has(style) ? 0.24 : knitwear.has(style) ? 0.17 : 0.115;
@@ -473,6 +476,8 @@ const pineFigurePaint = (() => {
     }
   };
   const longPants = new Set(['trousers','joggers','pinstripe','wide-leg','cuffed-denim','cargo','bib-overalls','knee-pants','panel-culottes','banded-trousers']);
+  for (const style of newCuts('coat')) workCoats.add(style);
+  for (const style of Object.keys(pinePatternWardrobe.bottoms)) longPants.add(style);
   function patternFor(style, bottom, base, fit) {
     const top = topPatterns[fit.top || (highWaists.has(style) && style !== 'blazer' ? 'tucked' :
       knitwear.has(style) || style === 'snap-knit' ? 'bloused' : 'straight')];

@@ -628,6 +628,7 @@ SOFTWARE.`;
     Object.assign(slots[slot], options);
   Object.assign(slots.hair, pineHairStyles.choices);
   const sharedHair = {...slots.hair};
+  const archivedHair = Object.keys(sharedHair).filter(id=>!Object.hasOwn(pinePatternWardrobe.hair,id));
   Object.assign(slots.hair, pineInfantHair.choices);
   const hairGroups = {...pineHairStyles.groups};
   for (const id of Object.keys(pineInfantHair.choices)) hairGroups[id]=pineInfantHair.group;
@@ -1583,21 +1584,30 @@ SOFTWARE.`;
     return doc;
   });
   const templateById = new Map(templates.map((doc) => [doc.id, doc]));
-  const collectionOutfits = {};
-  for (const [id,label] of Object.entries({
-    kiln_potter:'陶房围裙', harbour_pilot:'港湾水手服', woodblock_printer:'年画坊对襟衫',
-    moth_keeper:'夜林灯蛾斗篷', lunar_geologist:'月面勘测服', dawn_baby:'晨光小棉衣'
-  })) {
-    const doc = templateById.get('look_'+id);
+  function outfitFrom(doc,label=doc.label) {
     const outfit = {label, parts:{}, colors:{}};
-    const hatOwner = doc.parts.hat.split('/')[0];
-    if (hatOwner !== 'none' && hatOwner !== core) outfit.packs = { [hatOwner]:doc.packs[hatOwner] };
+    const owner = doc.parts.hat.split('/')[0];
+    if (owner !== 'none' && owner !== core) {
+      outfit.packs = { [owner]:doc.packs[owner] };
+      const pack=doc.embeddedPacks?.find(p=>p.id===owner && p.release===doc.packs[owner]);
+      if(pack) outfit.embeddedPacks=[structuredClone(pack)];
+    }
     for (const part of ['top','bottom','shoes','neck','hat',...carriedSlots])
       if (doc.parts[part]) outfit.parts[part]=doc.parts[part];
     for (const dye of ['top','bottom','shoes','accent',...outfitDyes])
       if (doc.colors[dye]) outfit.colors[dye]=doc.colors[dye];
-    collectionOutfits[id]=outfit;
+    return outfit;
   }
+  // A roll borrows only the authored costume. The facial generator receives
+  // its own age and edition, even when the costume donor uses a newer study.
+  const catalogueWardrobes={adult:[],child:[],toddler:[],baby:[]};
+  for (const {format,version,id,label,base,identity,packs,parts,colors} of templates)
+    catalogueWardrobes[base].push({format,version,id,label,base,identity,packs,parts,colors});
+  const collectionOutfits = {};
+  for (const [id,label] of Object.entries({
+    kiln_potter:'陶房围裙', harbour_pilot:'港湾水手服', woodblock_printer:'年画坊对襟衫',
+    moth_keeper:'夜林灯蛾斗篷', lunar_geologist:'月面勘测服', dawn_baby:'晨光小棉衣'
+  })) collectionOutfits[id]=outfitFrom(templateById.get('look_'+id),label);
   Object.assign(outfits,collectionOutfits);
   const pick = (items, random) => items[Math.floor(random() * items.length)];
   function between(min, max, random) {
@@ -1770,17 +1780,21 @@ SOFTWARE.`;
     ['bun','low-bun','top-knot','crown-braid','space-buns'],
     ['ponytail','twin-tails','low-pony','side-pony','braid','twin-braids','fishtail','bubble-pony','box-braids','locs']
   ];
-  function randomHair(base, hat, tailored, random, ink, previousHair, modernNursery) {
-    if (base==='baby' && modernNursery) {
+  const expandedHairSilhouettes=hairSilhouettes.map((ids,i)=>[...ids,...[
+    ['feather-crop','page-crop','brushed-crop'], [], ['petal-bob','swing-bob'], ['shoulder-shag','cascade-part'],
+    ['ripple-lob','willow-wave','cloud-puffs'], ['looped-knot'], ['ribbon-fall','side-loop','loop-braid','ribbon-plait','temple-braids']
+  ][i]]);
+  function randomHair(base, hat, tailored, random, ink, previousHair, currentPool) {
+    if (base==='baby' && currentPool) {
       const pool=hat==='none' ? babyHair : ['bald','crop','baby-sweep','baby-cloud','baby-whorl'];
       const available=pool.filter(id=>id!==previousHair);
       return pick(available,random);
     }
-    let choices = base === 'baby' ? legacyBabyHair : Object.keys(sharedHair);
-    if (tailored && base === 'toddler') choices = toddlerHair;
+    let choices = base === 'baby' ? legacyBabyHair : currentPool ? Object.keys(sharedHair) : archivedHair;
+    if ((tailored || currentPool) && base === 'toddler') choices = toddlerHair;
     if (tailored && hat !== 'none') choices = choices.filter(id => brimHair.has(id));
     if (ink) {
-      const groups = hairSilhouettes.filter(group => group.some(id => choices.includes(id)));
+      const groups = (currentPool ? expandedHairSilhouettes : hairSilhouettes).filter(group => group.some(id => choices.includes(id)));
       const available = groups.filter(group => !group.includes(previousHair));
       choices = pick(available.length ? available : groups, random).filter(id => choices.includes(id));
     }
@@ -2044,8 +2058,14 @@ SOFTWARE.`;
     if (base !== undefined) profiles = profiles.filter(key => bodyProfiles[key].base === base);
     const profile = keep.has('body') ? source : bodyProfiles[pick(profiles, random)];
     const donor = pick(seedWardrobe.filter((doc) => doc.base === profile.base), random);
-    const outfit = keep.has('wear') ? source : tailored
-      ? tailoredOutfit(donor, keep.has('hair') && source.parts.hair, random, pinePortraitStyles.hasClothingStudy(pin)) : donor;
+    const currentPool=options.release===undefined && (!source || !!source.bodyFinish);
+    const lockedHair=keep.has('hair') && source.parts.hair;
+    let outfit=donor;
+    if (keep.has('wear')) outfit=source;
+    else if (currentPool && random()<.44) {
+      const choices=catalogueWardrobes[profile.base];
+      outfit=pick(lockedHair && !brimHair.has(lockedHair) ? choices.filter(d=>d.parts.hat==='none') : choices, random);
+    } else if (tailored) outfit=tailoredOutfit(donor, lockedHair, random, pinePortraitStyles.hasClothingStudy(pin));
     const faceSource = { ...outfit, base: profile.base, shape: donor.shape, face: {} };
     if (ink && pin === infantNoseRelease) faceSource.packs = {...outfit.packs,[core]:pin};
     const doc = randomFace(faceSource,
@@ -2062,7 +2082,7 @@ SOFTWARE.`;
     const nurseryPool = profile.base==='baby' && options.release===undefined;
     const canUncover = nurseryPool && !tailored && !keep.has('wear') && doc.parts.hat!=='none';
     doc.parts.hair = keep.has('hair') ? source.parts.hair : randomHair(profile.base, canUncover ? 'none' : doc.parts.hat,
-      tailored, random, doc.portraitInk, source?.parts.hair, nurseryPool);
+      tailored, random, doc.portraitInk, source?.parts.hair, nurseryPool || currentPool);
     doc.colors.skin = keep.has('skin') ? source.colors.skin : pick(skinDyes, random);
     doc.colors.eyes = pick(Object.values(colorPresets.eyes), random);
     doc.colors.hair = keep.has('hair') ? source.colors.hair
@@ -2169,7 +2189,7 @@ SOFTWARE.`;
     featureShapeKeys,
     outfits,
     workshopOutfits: pineWorkshopWear.outfits,
-    collectionOutfits,
+    collectionOutfits, outfitFrom,
     wearables,
     carriedSlots,
     outfitDyes,

@@ -252,11 +252,11 @@ const pineCharacterCollection = (() => {
   const fields = {
     home:'家庭与日常', learning:'教育与学习', craft:'手艺与制作', trade:'餐饮与商贸',
     arts:'文艺与表演', travel:'交通与远行', nature:'自然与田野', science:'科学与工程',
-    service:'社区与服务', lore:'典籍与秘术'
+    service:'社区与服务', lore:'典籍与秘术', ...pineCharacterAlmanac.fields
   };
   const settings = {
     home:'居家', town:'街区市集', school:'学校书馆', workshop:'工作室', stage:'舞台节庆',
-    wild:'户外山林', coast:'水岸海洋', transit:'途中驿站', station:'星际舱站'
+    wild:'户外山林', coast:'水岸海洋', transit:'途中驿站', station:'星际舱站', ...pineCharacterAlmanac.settings
   };
   // Role and setting are editorial choices. A costume change only changes the garment and gear facets.
   function indexGroups(groups) {
@@ -297,6 +297,9 @@ const pineCharacterCollection = (() => {
     robes:['交领与礼服','cross-robe brocade kimono frog-coat festival-bolero'],
     cloaks:['披肩与斗篷','mantle moth-cape'], flight:['航行与隔温服','flightsuit thermal-shell']
   };
+  for (const [id,[,group]] of Object.entries(pinePatternWardrobe.tops)) garments[group][1]+=' '+id;
+  const hairFamilies={short:'短发',long:'中长发',curly:'卷发',tied:'束发',braided:'编发',infant:pineInfantHair.group};
+  const hairFamily=new Map(Object.entries(hairFamilies).map(([id,label])=>[label,id]));
   const cuts = indexGroups(Object.fromEntries(Object.entries(garments).map(([id, pair])=>[id,pair[1]])));
   const gear = {
     head:['帽子与发饰',['hat','hairAccessory']], eyewear:['眼镜',['glasses']], bags:['包袋与背具',['bag','attachment']],
@@ -308,7 +311,8 @@ const pineCharacterCollection = (() => {
     const p = doc.parts;
     const worn = Object.entries(gear).filter(([, [,slots]]) => slots.some(slot => p[slot] && p[slot] !== 'none')).map(([key]) => key);
     if (['pendant','pearls','choker'].includes(p.neck) && !worn.includes('jewelry')) worn.push('jewelry');
-    return { garment: cuts.get(p.top)?.[0], gear: worn };
+    const group=pineHairStyles.groups[p.hair] || (Object.hasOwn(pineInfantHair.choices,p.hair) && pineInfantHair.group);
+    return { garment: cuts.get(p.top)?.[0], gear: worn, hair:hairFamily.get(group) };
   }
   const sources = [], newIds = new Set();
   function add(era,id,label,profile,field,places,art,role=label) {
@@ -624,6 +628,14 @@ const pineCharacterCollection = (() => {
       {top:'frog-coat',bottom:'banded-trousers',shoes:'wrap-boots',neck:'pendant',implement:'prism'},{brows:'straight'}]
   ]);
 
+  const almanacIds=new Set();
+  Object.assign(series,pineCharacterAlmanac.series);
+  pineCharacterAlmanac.generate((scene,id,label,profile,art)=>{
+    add(scene.era,id,label,profile,scene.field,scene.places,art);
+    membership.set(id,scene.id);
+    almanacIds.add('look_'+id);
+  },palette);
+
   function assemble(source, core, edition, neutralShape) {
     const key = source.id.slice(5), art = people[key];
     const identity = { era: 'modern', role: source.label, ...source.identity };
@@ -656,7 +668,7 @@ const pineCharacterCollection = (() => {
       ...(source.base === 'baby' ? { infantNose: 'nursery', infantChin: 'round' } : {})
     };
   }
-  return { assemble, sources, newIds, fields, settings, series, facets,
+  return { assemble, sources, newIds, almanacIds, fields, settings, series, hairFamilies, facets,
     garments: Object.fromEntries(Object.entries(garments).map(([key, [label]]) => [key,label])),
     gear: Object.fromEntries(Object.entries(gear).map(([key, [label]]) => [key,label])) };
 })();

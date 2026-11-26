@@ -120,3 +120,5 @@
   .gallery-display { justify-content:space-between; }
   .gallery-quick-pages button { min-height:36px; min-width:36px; }
 }
+
+.gallery-borrow:not([hidden]) { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:8px 0; padding:8px 12px; background:#e7eddf; color:#244431; border-radius:6px; }

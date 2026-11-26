@@ -29,13 +29,13 @@ const sources = [
   'pixel-headwear',
   'pixel-portrait',
   'portrait-styles',
-  'hair-styles', 'infant-hair',
+  'wardrobe-patterns', 'hair-styles', 'infant-hair',
   'head-sections',
   'skull-core', 'head-shape', 'game-face',
   'short-hair',
   'collection-wardrobe', 'everyday-styles',
   'workshop-wear',
-  'world-wardrobe', 'character-collection',
+  'world-wardrobe', 'character-almanac', 'character-collection',
   'figure-paint',
   'anatomy-core', 'designer-body',
   'appearance',
@@ -752,10 +752,8 @@ for (const id of ['look_body_male', 'look_relay']) {
   const old = a.l.sculptRelease,
     cut = upperHead(recipe('crop')),
     bald = upperHead(recipe('bald'));
-  const trims = Object.keys(a.l.hairGroups).filter(
-    (hair) => a.l.hairGroups[hair] === '短发' && hair !== 'bald'
-  );
-  assert.equal(trims.length, 9);
+  // These nine short cuts shipped in both editions compared by this volume test.
+  const trims = ['crop','side-part','buzz','fade','crew','pixie','quiff','undercut','slick-back'];
   for (const hair of trims) {
     const current = hair === 'crop' ? cut : upperHead(recipe(hair));
     assert.ok(current.cells > 1.055 * upperHead(recipe(hair, old)).cells, id + ' ' + hair + ' volume');

@@ -74,6 +74,7 @@ const pineEverydayStyles = (() => {
     brooch: { rosette: '花形胸针', badge: '圆徽章', star: '星形胸针', nameplate: '长方姓名牌' },
     gloves: { fingerless: '露指手套', mittens: '连指手套', leather: '皮手套', knit: '针织手套' }
   };
+  for (const slot of ['ears','brooch','hairAccessory']) Object.assign(wearables[slot],pinePatternWardrobe.choices[slot]);
   const dyes = {
     hairAccessory: '发饰色',
     audio: '耳机与耳罩色',
@@ -228,6 +229,13 @@ const pineEverydayStyles = (() => {
     return fore && t > 0.81 ? k.topLight : side * v < -0.51 * r ? k.topShade : k.top;
   }
   function pants(style, b, thighLink, shinLink, k, hip, knee, foot, side, r, kr, ar) {
+    const pattern = pinePatternWardrobe.bottoms[style];
+    if (pattern) {
+      const pigment=shin=>(t,u,v)=>pinePatternWardrobe.trouser(style,t,u/kr,v/kr,side,shin,k);
+      thighLink(hip,knee,r,kr*pattern[1],.96,pigment(false));
+      shinLink(knee,foot,kr*pattern[1],ar*pattern[2],.98,pigment(true));
+      return;
+    }
     const short = style === 'track-shorts',
       capri = style === 'capris',
       wide = style === 'wide-leg' || style === 'panel-culottes',
@@ -273,11 +281,12 @@ const pineEverydayStyles = (() => {
     const [x, y, z] = foot,
       floor = z - ankle,
       toe = x + 0.24 * sx * forward;
-    const boot = style === 'chelsea' || style === 'wrap-boots',
+    const pattern=pinePatternWardrobe.shoes[style];
+    const boot = pattern ? pattern[2]>0 : style === 'chelsea' || style === 'wrap-boots',
       sandal = style === 'sandals',
       mary = style === 'mary-janes',
       run = style === 'runners';
-    const h = ankle * (boot ? 0.72 : sandal ? 0.39 : mary ? 0.51 : 0.58);
+    const h = ankle * (pattern ? pattern[1] : boot ? 0.72 : sandal ? 0.39 : mary ? 0.51 : 0.58);
     if (mary || sandal)
       b.blob(toe, y, floor + 0.58 * ankle, 0.84 * sx, 0.78 * sy, 0.48 * ankle, k.skinLight, 2.7);
     b.blob(
@@ -291,6 +300,7 @@ const pineEverydayStyles = (() => {
         const f = ((px - toe) * forward) / sx,
           a = (py - y) / sy,
           v = (pz - floor) / h;
+        if (pattern) return pinePatternWardrobe.footwear(style,f,a,v,k);
         if (v < 0.31) return k.outsole;
         if (style === 'deck-shoes') {
           if (v < .57 || (f > .28 && Math.abs(a) > .56 && v < 1.03)) return k.rubber;
@@ -315,11 +325,12 @@ const pineEverydayStyles = (() => {
     if (boot)
       b.link(
         foot,
-        foot.map((v, i) => v + 0.46 * (knee[i] - v)),
+        foot.map((v, i) => v + (pattern ? pattern[2] : .46) * (knee[i] - v)),
         1.18 * r,
         1.23 * r,
         1,
         (t, u, v) => {
+          if (pattern && (Math.abs(t-.33)<.09 || Math.abs(t-.78)<.07)) return pattern[3]==='gaiter' ? k.brass : k.rubber;
           if (style === 'wrap-boots' && Math.cos(17*t+v/r*2.6) > .24) return k.accent;
           return t > 0.85 ? k.shoeLight : Math.abs(v) > 0.62 * r && t > 0.25 ? k.shoeShade : k.shoes;
         }
@@ -337,6 +348,15 @@ const pineEverydayStyles = (() => {
       shade = k[slot + 'Shade'];
     const oval = (u, v, h, a, c, d, ink = main) => b.blob(...at(u, v, h), a * rx, c * ry, d * rz, ink);
     const line = (a, c, r, color = main) => b.link(at(...a), at(...c), r * rx, r * rx, 1, () => color);
+    if (slot==='hairAccessory' && Object.hasOwn(pinePatternWardrobe.choices.hairAccessory,style)) {
+      const h=hat ? .16 : .49;
+      line([.37,-.95,h-.17],[.27,-1.06,h+.13],.047,shade);
+      pinePatternWardrobe.ornament(style,(x,z,r,tone)=>{
+        oval(.36+x*.079,-1.035+x*.021,h+z*.079,r*.083,.088,.054,
+          tone==='l' ? light : tone==='g' ? k.brass : main);
+      });
+      return;
+    }
     if (slot === 'audio') {
       if (style === 'hearing-aid') {
         for (const side of [-1, 1]) {
@@ -445,6 +465,13 @@ const pineEverydayStyles = (() => {
       pz = z - 0.23 * rz;
     const bead = (dx, dy, dz, a, c, d, ink) =>
       b.blob(px + dx * rx, py + side * dy * ry, pz + dz * rz, a * rx, c * ry, d * rz, ink);
+    if (Object.hasOwn(pinePatternWardrobe.choices.ears,style)) {
+      bead(0,.045,-.082,.044,.052,.122,k.earsShade);
+      pinePatternWardrobe.ornament(style,(x,z,r,tone)=>{
+        bead(x*.062,.072,-.30+z*.065,r*.068,.078,.049,tone==='l' ? k.earsLight : tone==='g' ? k.brass : k.earsMain);
+      });
+      return;
+    }
     if (style === 'pearl' || style === 'drop' || style === 'bar') {
       const bar = style === 'bar',
         offset = bar ? 0.08 : 0;
@@ -558,7 +585,12 @@ const pineEverydayStyles = (() => {
       const [bx,by,bz] = mount ? mount(.72,.5) : [.97*d,.5*w,z(.72)],
         r = 0.12 * w,
         style = parts.brooch;
-      if (style === 'nameplate') b.blob(bx, by, bz, 0.17 * d, 0.24 * w, 0.038 * tall, k.broochLight, 4);
+      if (Object.hasOwn(pinePatternWardrobe.choices.brooch,style)) {
+        pinePatternWardrobe.ornament(style,(x,z,span,tone)=>{
+          b.blob(bx+.038*d,by+x*r*.59,bz+z*r*.59,.13*d,r*.64*span,.38*r,
+            tone==='l' ? k.broochLight : tone==='g' ? k.brass : k.broochMain);
+        });
+      } else if (style === 'nameplate') b.blob(bx, by, bz, 0.17 * d, 0.24 * w, 0.038 * tall, k.broochLight, 4);
       else {
         if (style !== 'badge')
           for (let i = 0; i < 5; i++) {

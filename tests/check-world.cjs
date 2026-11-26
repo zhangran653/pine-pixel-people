@@ -287,6 +287,26 @@ const shapeDefs = JSON.parse(read('character-v1.schema.json')).properties.shape.
 assert.ok(looks.library.newIds.size >= 83);
 assert.equal(looks.templateById.size, looks.archivedTemplates.size + looks.library.newIds.size);
 for (const id of [...looks.archivedTemplates.keys(),...looks.library.newIds]) assert.ok(looks.templateById.has(id),id);
+const newest=looks.templates.filter(doc=>looks.library.almanacIds.has(doc.id));
+assert.ok(looks.templateById.size>=500 && newest.length>=356);
+assert.equal(new Set(looks.templates.map(doc=>doc.label)).size,looks.templates.length);
+const shapes=new Set(newest.map(doc=>JSON.stringify([doc.base,doc.parts,doc.face,doc.shape])));
+assert.equal(shapes.size,newest.length,'colour alone cannot distinguish characters');
+assert.ok(new Set(newest.filter(d=>d.base==='adult').map(d=>[d.face.eyes,d.face.brows,d.face.nose,d.face.mouth].join('/'))).size>=50);
+const swatches=vm.runInContext('pinePatternWardrobe.choices',context);
+const randomTops=new Set(Array.from({length:96},(_,seed)=>looks.prepare(looks.randomCharacter({base:'adult',seed})).recipe.parts.top));
+assert.ok([...randomTops].some(id=>Object.hasOwn(swatches.top,id)),'ordinary random wardrobe must reach the new clothing');
+for(const [slot,parts] of Object.entries(swatches)){
+  const worn=new Set(newest.map(doc=>doc.parts[slot]));
+  for(const id of Object.keys(parts)) assert.ok(worn.has(id),slot+'/'+id+' missing from the catalogue');
+}
+for(const doc of newest){
+  assert.ok(looks.library.facets(doc).hair);
+  if(doc.base==='baby'){
+    assert.ok(Object.hasOwn(looks.nurseryHair,doc.parts.hair));
+    assert.ok(!doc.parts.ears && !doc.parts.charm && !doc.parts.implement);
+  }
+}
 const faces = new Set();
 for (const doc of looks.templates) {
   const original = looks.archivedTemplates.get(doc.id);
@@ -510,7 +530,7 @@ const skull = vm.runInContext('pineHeadShape', context);
     return [parts, dyes].map((v) => Object.entries(v).sort(([a], [b]) => a.localeCompare(b)));
   };
   const wardrobes = new Set();
-  for (const doc of looks.archivedTemplates.values()) {
+  for (const doc of [...looks.archivedTemplates.values(),...looks.templates]) {
     wardrobes.add(JSON.stringify([doc.base, clothing(doc)]));
     if (doc.base === 'baby') {
       const bareheaded = { ...doc, parts: { ...doc.parts, hat: 'none' } };

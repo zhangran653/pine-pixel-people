@@ -30,6 +30,7 @@
     <script defer src="pixel-headwear.js"></script>
     <script defer src="pixel-portrait.js"></script>
     <script defer src="portrait-styles.js"></script>
+    <script defer src="wardrobe-patterns.js"></script>
     <script defer src="hair-styles.js"></script>
     <script defer src="infant-hair.js"></script>
     <script defer src="head-sections.js"></script>
@@ -41,6 +42,7 @@
     <script defer src="everyday-styles.js"></script>
     <script defer src="workshop-wear.js"></script>
     <script defer src="world-wardrobe.js"></script>
+    <script defer src="character-almanac.js"></script>
     <script defer src="character-collection.js"></script>
     <script defer src="figure-paint.js"></script>
     <script defer src="anatomy-core.js"></script>
@@ -244,6 +246,7 @@
               <label class="gallery-search"><span aria-hidden="true"></span><input type="search" id="look-query" aria-label="搜索人物" placeholder="搜索人物、职业、衣物或配件"></label>
             </div>
           </div>
+          <div id="shelf-borrow" class="gallery-borrow" hidden><strong id="shelf-borrow-name"></strong><button id="shelf-borrow-back" type="button">返回编辑</button></div>
           <div class="gallery-realms" id="shelf-realms" role="group" aria-label="按时代筛选"></div>
           <div class="gallery-layout">
             <details class="gallery-filters" id="shelf-filter-panel" open>
@@ -254,6 +257,7 @@
                 <label>活动场景<select id="shelf-setting"><option value="">全部场景</option></select></label>
                 <label>年龄<select id="shelf-age"><option value="">全部年龄</option></select></label>
                 <label>体型<select id="shelf-profile"><option value="">全部体型</option></select></label>
+                <label>发型类别<select id="shelf-hair"><option value="">全部发型</option></select></label>
                 <label>服装款式<select id="shelf-garment"><option value="">全部服装</option></select></label>
                 <label>随身配件<select id="shelf-gear"><option value="">全部配件</option></select></label>
               </div>
@@ -262,6 +266,7 @@
               <div class="gallery-toolbar">
                 <div class="gallery-browse">
                   <div class="gallery-total" role="status"><strong id="shelf-count"></strong><span id="shelf-range"></span></div>
+                  <button type="button" id="shelf-draw" title="从全部筛选结果中抽一位，打开后可以继续编辑">随机选一位</button>
                   <nav class="gallery-quick-pages" id="shelf-quick" aria-label="快速翻页">
                     <button type="button" id="shelf-prev" aria-label="上一页">‹</button><span id="shelf-position"></span><button type="button" id="shelf-next" aria-label="下一页">›</button>
                   </nav>
