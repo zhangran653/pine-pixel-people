@@ -79,13 +79,13 @@ function mergeStudioActors(
 
 // Cut each person at their own chin. When adults and children touch, merge the
 // shared height intervals so both faces and any intervening hands stay visible.
-function studioPortraitLayers(parts, motion, sampleLayers = motion.faceLayers) {
+function studioPortraitLayers(parts, motion, sampleLayers = motion.faceLayers, pixelsPerUnit, yaw = 0, elevation = 0) {
   const cuts = new Set(),
     volumes = [];
   for (const p of parts) {
     const layers = sampleLayers.call(motion, p.actor, p.pose, p.model);
     if (!layers) {
-      volumes.push(p);
+      volumes.push({...p});
       continue;
     }
     cuts.add(p.z + layers[1].z);
@@ -93,6 +93,9 @@ function studioPortraitLayers(parts, motion, sampleLayers = motion.faceLayers) {
   }
   if (!cuts.size) return null;
   if (parts.length === 1) return volumes;
+  // Resolve the size of each face before combining people into a shared grid.
+  for (const volume of volumes) if (volume.model.smallMouth)
+    volume.model = sliceModelAtScale(volume.model,pixelsPerUnit,yaw-volume.heading,elevation);
   const limits = [-Infinity, ...Array.from(cuts).sort((a, b) => a - b), Infinity];
   const drawings = [];
   for (let i = 1; i < limits.length; i++) {

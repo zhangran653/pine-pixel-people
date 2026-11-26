@@ -174,11 +174,17 @@ export function createPineCast(
     world = globalThis.PineWorld,
     material,
     faceDetail = false,
-    detail = faceDetail ? 'face' : undefined
+    detail = faceDetail ? 'face' : undefined,
+    pixelsPerUnit
   } = {}
 ) {
   if (![metersPerUnit, sampleRate].every((n) => Number.isFinite(n) && n > 0))
     throw new RangeError('比例与采样率须为正数');
+  function checkPixelScale(value) {
+    if (value !== undefined && !(Number.isFinite(value) && value > 0)) throw new RangeError('每单位的输出像素数须为正数');
+    return value ?? Infinity;
+  }
+  let pixelScale = checkPixelScale(pixelsPerUnit), viewYaw = 0, viewTilt = 0;
   function checkDetail(mode) {
     if (!['standard', 'face', 'figure'].includes(mode)) throw new RangeError('未知的人物精度');
     return mode;
@@ -235,6 +241,10 @@ export function createPineCast(
     });
     for (let i = placements.length; i < objectMeshes.length; i++) objectMeshes[i].visible = false;
   }
+  function writeActor(mesh, body, model, heading, offset) {
+    const visible = model.smallMouth ? body.modelAtScale(model,pixelScale,viewYaw-heading,viewTilt) : model;
+    writeSurface(THREE,mesh,body,visible,scratch,offset);
+  }
   function setFrame(entries) {
     if (disposed) throw new Error('此人物组已释放');
     const cast = entries.map((e) => {
@@ -259,19 +269,19 @@ export function createPineCast(
       const layers = detail !== 'standard' && sampleLayers?.call(motion, cast[i], e.pose, model);
       if (layers) {
         const [lower, upper] = layers;
-        writeSurface(THREE, mesh, lower.body, lower.model, scratch, lower);
+        writeActor(mesh,lower.body,lower.model,e.heading,lower);
         let head = heads[i];
         if (!head) {
           head = heads[i] = new THREE.Mesh(new THREE.BufferGeometry(), paint);
           head.castShadow = head.receiveShadow = true;
           mesh.add(head);
         }
-        writeSurface(THREE, head, upper.body, upper.model, scratch);
+        writeActor(head,upper.body,upper.model,e.heading);
         head.position.set(upper.x, upper.y, upper.z);
         head.name = e.character + '/face';
         head.visible = true;
       } else {
-        writeSurface(THREE, mesh, body, model, scratch);
+        writeActor(mesh,body,model,e.heading);
         if (heads[i]) heads[i].visible = false;
       }
       mesh.name = e.character;
@@ -327,6 +337,23 @@ export function createPineCast(
     previousEnd = end;
     return true;
   }
+  function setPixelScale(value, yaw = viewYaw, tilt = viewTilt) {
+    if (disposed) throw new Error('此人物组已释放');
+    const next = checkPixelScale(value);
+    if (![yaw,tilt].every(Number.isFinite)) throw new RangeError('视线角度须为有限数值');
+    const redraw = lastEntries?.some(e=>{
+      const level = motion.characters.get(e.character)?.body.mouthLevel;
+      return level && level(pixelScale,e.pose.head,viewYaw-e.heading,viewTilt) !== level(next,e.pose.head,yaw-e.heading,tilt);
+    });
+    pixelScale = next;
+    viewYaw = yaw;
+    viewTilt = tilt;
+    if (!redraw) return false;
+    const plan = previousPlan;
+    setFrame(lastEntries);
+    previousPlan = plan;
+    return true;
+  }
   function dispose() {
     if (disposed) return;
     disposed = true;
@@ -352,6 +379,7 @@ export function createPineCast(
     setFrame,
     setTime,
     setDetail,
+    setPixelScale,
     setFaceDetail: (enabled) => setDetail(enabled ? 'face' : 'standard'),
     dispose
   };

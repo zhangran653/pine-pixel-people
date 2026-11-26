@@ -447,11 +447,17 @@ const atelierPreview = (() => {
       const [ox, oy] = origins[i];
       for (const p of g.parts) shadows(ctx, p, camera, scale, ox, oy);
       const near = portrait && still && !compact && groups.length === 1 && g.parts.length === 1;
-      const mode = detail ? (near ? 'closePortrait' : portrait ? 'portraitLayers' : 'figureLayers') : 'standardLayers';
+      const layerMode = detail ? (near ? 'closePortrait' : portrait ? 'portraitLayers' : 'figureLayers') : 'standardLayers';
+      const lipLevels = g.parts.length > 1 ? g.parts.map(p=>p.body.mouthLevel?.(scale,p.pose.head,camera.yaw-p.heading,camera.tilt) || 0) : [];
+      const mode = lipLevels.some(Boolean) ? layerMode+lipLevels.join('') : layerMode;
       if (!g[mode]) {
         const layers =
-          detail && studioPortraitLayers(g.parts, motion, near ? motion.closePortraitLayers : portrait ? motion.faceLayers : motion.figureLayers);
-        g[mode] = layers || [(g.drawing ??= mergeStudioActors(g.parts))];
+          detail && studioPortraitLayers(g.parts, motion, near ? motion.closePortraitLayers : portrait ? motion.faceLayers : motion.figureLayers,scale,camera.yaw,camera.tilt);
+        if (layers) g[mode] = layers;
+        else if (mode !== layerMode) {
+          const parts = g.parts.map(p=>({...p,model:sliceModelAtScale(p.model,scale,camera.yaw-p.heading,camera.tilt)}));
+          g[mode] = [mergeStudioActors(parts)];
+        } else g[mode] = [(g.drawing ??= mergeStudioActors(g.parts))];
       }
       const drawings = g[mode];
       // Magnify the finished pixel image instead of repeatedly projecting each

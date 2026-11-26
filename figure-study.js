@@ -6,16 +6,17 @@
   const rows = { adult: [0, 484], child: [489, 363], baby: [868, 218] };
   const originals = { hoodie: 'look_programmer', chef: 'look_chef' };
   const stableRelease = '1.18.0', previousStudy = looks.structureStudyRelease, currentStudy = looks.gameFaceRelease;
-  const wholeEditions = new Map([['whole-1.19.6',looks.featureStudyRelease], ['whole-1.19.7',looks.figureRatioRelease], ['whole-1.19.8',looks.expressionRelease], ['whole-1.19.9',looks.garmentRelease]]);
+  const wholeEditions = new Map([['whole-1.19.6',looks.featureStudyRelease], ['whole-1.19.7',looks.figureRatioRelease], ['whole-1.19.8',looks.expressionRelease], ['whole-1.19.9',looks.garmentRelease], ['whole-1.19.12',looks.infantNoseRelease]]);
   const reviews = { face:[previousStudy,currentStudy], cast:[stableRelease,currentStudy], bases:[currentStudy,looks.baseFaceRelease],
     cut:[looks.baseFaceRelease,looks.clothingStudyRelease], features:[looks.clothingStudyRelease,looks.featureStudyRelease],
     ratios:[looks.featureStudyRelease,looks.figureRatioRelease], acting:[looks.figureRatioRelease,looks.expressionRelease],
-    garments:[looks.expressionRelease,looks.garmentRelease], ink:[looks.chinPadRelease,looks.infantNoseRelease] };
+    garments:[looks.expressionRelease,looks.garmentRelease], ink:[looks.chinPadRelease,looks.infantNoseRelease],
+    ensemble:[stableRelease,looks.infantNoseRelease] };
   const seedFor = (release, id) => hash('pine/figure-holdout/' + release + '/' + id);
   const search = new URLSearchParams(location.search);
   let reviewKind = Object.hasOwn(reviews, search.get('review')) ? search.get('review') : 'face';
   function storageKey() {
-    const versions = reviews[reviewKind].join('-') + ({face:'', cast:'.painted.cast', bases:'.bases', cut:'.clothing', features:'.features', ratios:'.ratios', acting:'.acting', garments:'.garments',ink:'.portrait-ink'}[reviewKind]);
+    const versions = reviews[reviewKind].join('-') + ({face:'', cast:'.painted.cast', bases:'.bases', cut:'.clothing', features:'.features', ratios:'.ratios', acting:'.acting', garments:'.garments',ink:'.portrait-ink',ensemble:'.ensemble'}[reviewKind]);
     return 'pine.figureStudy.' + versions + '.v1';
   }
   const stages = [$('canvas-a'), $('canvas-b')];
@@ -121,6 +122,11 @@
     const [, release] = reviews[reviewKind];
     const seed = seedFor(release, session.current);
     const options = { base, seed, portrait: 'animation', style: 'natural', release };
+    if (reviewKind === 'ensemble') {
+      const current = looks.randomCharacter({ ...options, ink:'auto', bodyFinish:'painted' });
+      const [prior, trial] = wholePortraitPair(current);
+      return flipped(session.current) ? [trial, prior] : [prior, trial];
+    }
     if (reviewKind === 'ink') {
       const prior = looks.randomCharacter({...options,release:looks.chinPadRelease,bodyFinish:'painted'});
       const names = Object.keys(looks.portraitInks);
@@ -167,6 +173,21 @@
     const clothed = looks.withClothingStudy(looks.withBaseFace(doc));
     return { ...looks.withFeatureStudy(clothed), bodyFinish:'painted' };
   }
+  function wholePortraitPair(source) {
+    const stable = looks.withFigureStudy(source);
+    stable.packs[looks.core] = stableRelease;
+    delete stable.anatomyParts;
+    // Retain authored fittings and dyes. Apply age-specific defaults when
+    // bringing an older study character into the current portrait edition.
+    let fitted = source;
+    if (source.packs[looks.core] !== looks.infantNoseRelease) {
+      const garments = pinePortraitStyles.hasFacialActing(source.packs[looks.core])
+        ? looks.withGarmentStudy(source) : looks.withGarmentStudy(paintedFigure(source));
+      fitted = looks.withInfantChin(garments,looks.chinPadRelease);
+      if (source.base === 'baby') fitted = looks.withInfantNose(fitted);
+    }
+    return [stable, {...looks.withFaceSurface(fitted,true), bodyFinish:'painted'}];
+  }
   function modelPair() {
     const subject = $('subject').value;
     const sample = randomSubjects[subject];
@@ -176,8 +197,11 @@
       : pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
     const before = $('before').value;
     if (before === 'recipes') return [companion,submitted];
+    if (before === 'whole-1.19.12') return wholePortraitPair(source);
+    if (before === 'profile-line') return [looks.withFaceSurface(source,undefined,'linked'), looks.withFaceSurface(source,undefined,'contour')];
+    if (before === 'mouth-size') return [looks.withFaceSurface(source,false), looks.withFaceSurface(source,true)];
     if (before === 'surface') {
-      const trial = looks.withFaceSurface(source);
+      const trial = looks.withFaceSurface(source,undefined,'linked');
       return [looks.withoutFaceSurface(trial),trial];
     }
     if (before === 'baby-nose') {
@@ -335,6 +359,22 @@
       $('face-gallery').href = 'studies/pixel-structure/face-surface.webp';
       $('face-gallery').textContent = '眼、鼻、唇、颏定位实拍';
     }
+    if (!blind && before === 'mouth-size') {
+      $('title-a').textContent = '常规唇色取样';
+      $('title-b').textContent = '保留唇中央一笔';
+      $('prompt').textContent = '两边是同一张脸。用 64 像素全身看转到侧面时的一两格唇色，再切到 256 像素查看原来的唇形。';
+      $('face-gallery').href = 'studies/pixel-structure/mouth-game-size.webp';
+      $('face-gallery').textContent = '游戏尺寸的正脸与两侧实拍';
+    }
+    if (!blind && before === 'profile-line') {
+      $('title-a').textContent = '原有唇线与下巴';
+      $('title-b').textContent = '唇颏连续轮廓 · 试作';
+      $('prompt').textContent = recipes[1].base === 'baby'
+        ? '婴儿沿用分龄下巴，嘴角收笔随新试作变化。'
+        : '沿下唇往下看浅凹、颏尖和下巴底的转折，再切到斜面看嘴角是否自然消失。两边是同一人物和同一帧。';
+      $('face-gallery').href = 'studies/pixel-structure/lip-chin-profile.webp';
+      $('face-gallery').textContent = '下唇、嘴角与颏尖的原色和剪影';
+    }
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     actors = recipes.map(doc => looks.build(doc));
     neutralFrames = sampleActors('idle', .17);
@@ -345,7 +385,7 @@
       return Math.max(...highs) - Math.min(...lows);
     }));
     const clipIds = new Set(['idle','walk','wave','sit','drink','crawl','baby-reach',choice]);
-    if (acting || garments || chin || (paired && actors.every(a => pinePortraitStyles.hasFacialActing(a.figureRelease))) || pinePortraitStyles.hasFacialActing(completeFigure) || (blind && ['acting','garments'].includes(reviewKind)))
+    if (acting || garments || chin || (!blind && before === 'profile-line') || (paired && actors.every(a => pinePortraitStyles.hasFacialActing(a.figureRelease))) || pinePortraitStyles.hasFacialActing(completeFigure) || (blind && ['acting','garments','ensemble'].includes(reviewKind)))
       for (const id of ['look-around','follow-rattle','rattle','read','write','phone','type','open-mouth']) clipIds.add(id);
     const clips = [...clipIds].map(id => motion.actions.get(id))
       .filter(clip => clip && (!paired || clip.roles.length === 1) && actors.every(actor => motion.castFor(clip, actor, partner())));
@@ -365,7 +405,7 @@
     // Set the two camera scales together, once per pair. Stationary babies sit close to the floor.
     const restingBaby = actors[0].tags.includes('baby') && $('action').value !== 'crawl';
     const clip = motion.actions.get($('action').value);
-    $('face-marks').hidden = mode !== 'model' || $('before').value !== 'surface' || clip.id !== 'idle';
+    $('face-marks').hidden = mode !== 'model' || !['surface','profile-line'].includes($('before').value) || clip.id !== 'idle';
     $('pose-note').hidden = clip.roles.length < 2;
     $('rattle-film').hidden = mode === 'blind' || clip.id !== 'follow-rattle' || !pinePortraitStyles.hasFacialActing(recipes[1].packs[looks.core]);
     const cast = actors.flatMap(actor => motion.castFor(clip, actor, partner()));
@@ -385,7 +425,8 @@
     return actors.map(actor => {
       const cast = motion.castFor(clip, actor, partner());
       const sample = clip.sample(phase, ...cast)[cast.indexOf(actor)];
-      const pose = action === 'idle' && mode === 'model' && $('before').value === 'surface' ? faceForward(actor,sample.pose) : sample.pose;
+      const measureFace = action === 'idle' && mode === 'model' && ['surface','mouth-size','profile-line'].includes($('before').value);
+      const pose = measureFace ? faceForward(actor,sample.pose) : sample.pose;
       const body = actor.body, model = body.makePose(pose);
       const heading = clip.roles.length === 2 || clip.previewTurn ? sample.heading : 0;
       const part = { ...sample, pose, x: 0, y: 0, heading, actor, body, model };
@@ -531,7 +572,7 @@
       link.hidden = !visible;
       if (visible) {
         const options = new URLSearchParams({ action: $('action').value, bearing: $('bearing').value, phase: $('phase').value });
-        if ($('framing').value === 'head' || (mode === 'model' && ['features','ratios','acting','ink','baby-nose','surface'].includes($('before').value))) options.set('tab', 'face');
+        if ($('framing').value === 'head' || (mode === 'model' && ['features','ratios','acting','ink','baby-nose','surface','profile-line','mouth-size'].includes($('before').value))) options.set('tab', 'face');
         else if ((mode === 'model' && ['cut','garments'].includes($('before').value)) ||
                  (mode === 'blind' && reviewKind === 'garments')) options.set('tab', 'shape');
         const data = new URLSearchParams({ character: JSON.stringify(recipes[i]) });

@@ -538,7 +538,7 @@ function checkPortraitBrushes(cast) {
     faces.add(doc.face.form); rests.add(doc.face.restExpression); finishes.add(doc.portraitInk);
   }
   assert.deepEqual([faces.size,rests.size,finishes.size],[4,3,3]);
-  const inks = {lipLine:1, upperLip:2, lipBody:3, lowerLip:4, lipGlow:5, lipPetal:6};
+  const inks = {lipLine:1, upperLip:2, lipBody:3, lowerLip:4, lipGlow:5, lipPetal:6, lipCorner:7};
   const guide = surfaces.featureBrush('adult','cel'), row = styles.mouths.relaxed;
   const mouth = (rest,jaw) => surfaces.mouthBrush('adult',guide,'relaxed',row,1,1,
     surfaces.expression('adult',{mouth:'relaxed',restExpression:rest},null,jaw,'cel'));
@@ -547,6 +547,16 @@ function checkPortraitBrushes(cast) {
   assert.equal(open.paint(0,-.030,inks,.02),inks.lipLine,'opening follows the jaw under the crease');
   assert.notEqual(closed.paint(0,-.030,inks,.02),inks.lipLine);
   assert.equal(closed.paint(.995*closed.width,-.045,inks,.02),0,'lower lip tapers away before the corner');
+  const warm = surfaces.expression('adult',{restExpression:'warm'},null,0,'cel');
+  const gentle = surfaces.mouthBrush('adult',guide,'soft-smile',row,1,1,warm,true);
+  const broad = surfaces.mouthBrush('adult',guide,'smile',row,1,1,warm,true);
+  assert.ok(gentle.seam(.94)-gentle.seam(0) < broad.seam(.94)-broad.seam(0));
+  assert.equal(gentle.paint(.85*gentle.width,gentle.seam(.85),inks,.02),inks.lipCorner);
+  assert.equal(gentle.paint(.995*gentle.width,gentle.seam(.995),inks,.02),0,'no isolated tick at the smile corner');
+  assert.equal(gentle.rim(0,0,true,inks),inks.upperLip);
+  assert.equal(gentle.rim(0,0,false,inks),inks.lowerLip);
+  assert.equal(gentle.rim(0,-.01,false,inks),0,'leave the open cavity to the jaw geometry');
+  assert.equal(gentle.rim(0,.22,false,inks),0,'the lower-lip brush must stop before the chin');
   const actorColors = new Set();
   for (const ink of Object.keys(looks.portraitInks)) {
     const doc = looks.withPortraitInk(examples.adult,ink);
@@ -574,6 +584,49 @@ function checkPortraitBrushes(cast) {
   const linked = looks.randomCharacter({base:'adult',seed:2601,ink:'auto'});
   const oldLayout = looks.withoutFaceSurface(linked);
   assert.deepEqual(toPlain(looks.withFaceSurface(oldLayout)),toPlain(linked));
+  const regular = looks.withFaceSurface(linked,false);
+  assert.throws(()=>looks.prepare({...oldLayout,spriteMouth:'accent'}));
+  assert.throws(()=>looks.prepare({...linked,spriteMouth:'unknown'}));
+  assert.equal(looks.prepare(regular).recipe.spriteMouth,undefined);
+  assert.equal(looks.randomFace(regular,{seed:27}).spriteMouth,undefined);
+  assert.equal(looks.randomCharacter({source:regular,seed:27}).spriteMouth,undefined);
+  assert.equal(looks.randomCharacter({source:linked,seed:27}).spriteMouth,'accent');
+  for (const base of ['adult','child','toddler','baby']) {
+    const previous = looks.randomCharacter({base,seed:2602,ink:'auto'});
+    const contour = looks.withFaceSurface(previous,undefined,'contour');
+    assert.deepEqual(toPlain(looks.withFaceSurface(contour,true,'linked')),toPlain(previous));
+    assert.equal(looks.randomFace(contour,{seed:29}).faceSurface,'contour');
+    assert.equal(looks.randomCharacter({source:contour,base,seed:29}).faceSurface,'contour');
+    const [a,b] = [previous,contour].map(doc=>looks.build(doc));
+    for (const key of ['noseTip','rightEye','leftEye','rightJawJoint','leftEarCanal','seat'])
+      assert.deepEqual(a.sockets[key],b.sockets[key],base+' fixed reference '+key);
+    if (base === 'baby') assert.deepEqual(a.sockets.chinTip,b.sockets.chinTip,'the infant retains its own chin cushion');
+    else assert.notDeepEqual(a.sockets.chinTip.point,b.sockets.chinTip.point,base+' chin socket follows the new pad');
+    const poses = motion.actions.get('open-mouth').sample(.43,b);
+    motion.characters.set(b.id,b);
+    cast.setFrame(poses);
+    assert.ok(cast.group.getObjectByName(b.id).geometry.drawRange.count>0);
+  }
+  const sprite = looks.build(linked), neutral = motion.actions.get('idle').sample(.17,sprite);
+  const band = motion.figureLayers(sprite,neutral[0].pose,sprite.body.makePose(neutral[0].pose)).at(-1);
+  const full = band.model, small = band.body.modelAtScale(full,.8,Math.PI/2,0);
+  assert.notEqual(small,full);
+  assert.equal(mask(small.colors),mask(full.colors),'pigment must preserve occupancy and occlusion');
+  assert.notEqual(digest(small.colors),digest(full.colors));
+  assert.equal(band.body.modelAtScale(full,8,Math.PI/2,0),full);
+  assert.equal(band.body.modelAtScale(full,.8,0,0),full);
+  motion.characters.set(sprite.id,sprite);
+  cast.setDetail('figure');
+  cast.setFrame(neutral);
+  const mesh = cast.group.getObjectByName(sprite.id+'/face');
+  const appearance = () => digest(mesh.geometry.attributes.color.array.subarray(0,mesh.geometry.drawRange.count*2));
+  const portrait = appearance();
+  assert.equal(cast.setPixelScale(.8,Math.PI/2,0),true);
+  assert.notEqual(appearance(),portrait);
+  assert.equal(cast.setPixelScale(.81,Math.PI/2,0),false);
+  assert.equal(cast.setPixelScale(undefined),true);
+  assert.equal(appearance(),portrait,'Three.js restores the exact portrait colors');
+  assert.throws(()=>cast.setPixelScale(0));
   const bake = (recipe,key,value) => {
     const a = looks.build({...recipe,shape:{...recipe.shape,[key]:value}});
     const pose = motion.actions.get('idle').sample(.17,a)[0].pose;

@@ -269,6 +269,38 @@ const pineGameFace = (() => {
     }
     return { padH, bottomH, undersideX, throatH, throatX, supported };
   }
+  // Draw one continuous profile from the upper lip, past the labiomental
+  // crease and chin pad, onto the underside. Depths follow this face's lips
+  // and existing jaw base. The ear-side hinge and lateral jaw keep their fit.
+  function sculptLipChin(rows, age, mouth, noseBase, shape) {
+    const index = h => clamp(Math.round((1+h)*rings/2),0,rings);
+    const bottomH = 2*rows.findIndex(r=>r.width>.008)/rings-1;
+    const height = mouth-bottomH;
+    if (height < .15) return null;
+    const depth = t => rows[index(mouth-t*height)].face[0];
+    const upper = depth(-.085);
+    const lower = upper-height*((age === 'adult' ? .033 : .021)-.028*(shape.lowerLipFullness || 0));
+    const chinT = (age === 'adult' ? .52 : age === 'child' ? .49 : .45)+.04*(shape.chinHeight || 0);
+    const setBack = (age === 'adult' ? .157 : age === 'child' ? .110 : .083)-.14*(shape.chinProjection || 0);
+    const pad = lower-height*setBack;
+    const crease = pad+height*((age === 'adult' ? .048 : .020)-.018*(shape.jawDefinition || 0));
+    const top = -clamp((noseBase-mouth)/height*.88,.13,.26);
+    const under = .80+.035*(shape.chinRoundness || 0);
+    const contour = curve([top,-.085,-.012,.079,.17,.34,chinT,.68,under,.92,1],
+      [depth(top),upper,upper-.016,lower,lower-.024,crease,pad,
+        pad+.58*(depth(.71)-pad),.13*pad+.87*depth(under),depth(.92),depth(1)]);
+    for (let i=index(bottomH); i<=index(mouth-top*height); i++) {
+      const row = rows[i], t = (mouth-(2*i/rings-1))/height;
+      if (t <= top || t >= 1) continue;
+      const delta = contour(t)-row.face[0];
+      for (let j=0;j<=steps;j++) {
+        const v = j/steps;
+        row.face[j] = Math.max(row.axis,row.face[j]+delta*(1-ramp(v,.22,.84)));
+      }
+      row.fore = row.face[0]-row.axis;
+    }
+    return {padH:mouth-chinT*height,creaseH:mouth-.34*height,bottomH};
+  }
   function build(base, shape, face, baseTarget, scalp, eye, mouth, noseRow, drawn, painted, infantProfile, infantChin, infantNose, ink, layout) {
     const mix = face.formMix ?? 1, drawing = drawn && drawnProfiles[base][baseTarget];
     const p = drawing && mix > 0 ? profiles[base].map((original, i) => h => {
@@ -441,6 +473,7 @@ const pineGameFace = (() => {
       return ring;
     });
     const chin = infantChin ? sculptInfantChin(rowList, mouth, shape, infantChin === pinePortraitStyles.chinPadRelease) : null;
+    const lipChin = layout?.softProfile && !infant ? sculptLipChin(rowList,base,mouth,noseBase,shape) : null;
     if (infantProfile) {
       // Carry the outline over the upper occiput into the original cap. These
       // are rear stations only. Width, brow and facial profiles stay independent.
@@ -476,7 +509,7 @@ const pineGameFace = (() => {
       }
     }
     const row = (h) => rowList[clamp(Math.round(((h + 1) * rings) / 2), 0, rings)];
-    return { row, insideSkin, frontAt, noseWidth, noseBase, infantNose, ink, mouth, chin, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
+    return { row, insideSkin, frontAt, noseWidth, noseBase, infantNose, ink, mouth, chin, lipChin, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
   }
 
   function eye(shape, off, h, blink, side, k, pitch) {
@@ -607,44 +640,69 @@ const pineGameFace = (() => {
     seam:curve(lipStations,seam), upper:curve(lipStations,upper), lower:curve(lipStations,lower), gap
   });
   const mouthDrawings = {
+    gentle:lipDrawing([-.012,-.011,-.006,.008,.022,.030],[.36,.70,.58,.26,.07,0],[.76,.86,.58,.24,.05,0],.004),
     quiet:lipDrawing([-.005,-.002,.008,.016,.020,.019],[.42,.67,.59,.29,.08,0],[.84,.91,.68,.30,.05,0],0),
     bow:lipDrawing([-.009,.004,.012,.019,.022,.021],[.57,.98,.80,.36,.11,0],[.98,.95,.72,.35,.08,0],0),
     smile:lipDrawing([-.022,-.019,-.011,.011,.043,.069],[.33,.63,.54,.25,.07,0],[.92,.94,.80,.47,.15,0],.009),
     open:lipDrawing([-.008,-.005,.003,.017,.031,.039],[.45,.75,.57,.25,.07,0],[.86,.90,.65,.25,.06,0],.018),
     bud:lipDrawing([-.008,-.003,.011,.020,.023,.020],[.57,.93,.77,.34,.11,0],[1,.98,.70,.25,.05,0],.014)
   };
-  function mouthBrush(base, guide, name, row, upperScale, lowerScale, acting) {
+  function mouthBrush(base, guide, name, row, upperScale, lowerScale, acting, softProfile = false) {
     const young = base === 'toddler' || base === 'baby';
     const smiling = name === 'smile' || name === 'soft-smile' || acting.rest === 'warm';
     const parted = acting.rest === 'curious' && ['small','relaxed','classic','lower-full'].includes(name);
     const bow = ['bow','pursed','full','upper-full','lower-full'].includes(name);
-    const drawing = smiling ? mouthDrawings.smile : young ? mouthDrawings.bud : parted ? mouthDrawings.open : bow ? mouthDrawings.bow : mouthDrawings.quiet;
+    const gentleSmile = softProfile && smiling && name !== 'smile';
+    const drawing = gentleSmile ? mouthDrawings.gentle : smiling ? mouthDrawings.smile : young ? mouthDrawings.bud : parted ? mouthDrawings.open : bow ? mouthDrawings.bow : mouthDrawings.quiet;
     const width = row[1] * (smiling ? 1.05 : 1.01);
     const top = (.013 + .72*row[2]) * upperScale, bottom = (.021 + .83*row[3]) * lowerScale;
     const gap = drawing.gap + (name === 'smile' ? .019 : 0) + .054*acting.jaw + .028*acting.smile;
     function seam(q) {
       const a = Math.min(1,Math.abs(q));
-      return drawing.seam(a) * (.72+.28*guide.brush.corner) + .061*acting.smile*a*a;
+      return drawing.seam(a) * (.72+.28*guide.brush.corner) + (softProfile ? .036 : .061)*acting.smile*a*a;
     }
     function paint(lateral, h, k, pitch) {
       const q = lateral/width, a = Math.abs(q);
       if (a >= 1 || h < -.33 || h > .26) return 0;
       const y = h-seam(q);
       const taper = 1-ramp(a,.53,1);
-      const stroke = (.015 + Math.min(.023,.56*pitch)) * (.43+.57*taper);
-      const opening = gap * (1-a*a)**1.5;
+      const end = softProfile ? 1-ramp(a,.62,.985) : 1;
+      const stroke = (.015 + Math.min(.023,.56*pitch)) * (.43+.57*taper)*end;
+      const opening = gap * (1-a*a)**1.5*end;
       if (y < .48*stroke && y > -opening-.67*stroke) {
         if (opening > .061 && y < -.66*opening) return k.lipPetal;
+        if (softProfile && a > .46) return a > .76 ? k.lipCorner : k.upperLip;
         return a > .76 ? k.upperLip : k.lipLine;
       }
-      if (y >= 0 && y < top*drawing.upper(a)) return q < -.38 || a > .72 ? k.lipBody : k.upperLip;
-      const lower = bottom*drawing.lower(a);
+      if (y >= 0 && y < top*drawing.upper(a)*end) return q < -.38 || a > .72 ? k.lipBody : k.upperLip;
+      const lower = bottom*drawing.lower(a)*end;
       if (y < -opening && y > -opening-lower) {
         const depth = -(y+opening)/lower;
         if (q > -.53 && q < .16 && depth > .40 && depth < .82) return k.lipGlow;
         return depth > .32 ? k.lowerLip : k.lipBody;
       }
       return 0;
+    }
+    // Widen the central stroke vertically when the whole mouth spans only
+    // a few screen pixels. Its ends still taper inside the same dental arch.
+    function smallAccent(lateral,h) {
+      const q = lateral/width, a = Math.abs(q);
+      if (a >= 1 || h < -.39 || h > .20) return false;
+      const y = h-seam(q), center = 1-ramp(a,.62,1);
+      const opening = gap * (1-a*a)**1.5;
+      return y > -opening-.18*center && y < .12*center;
+    }
+    // Once the jaws separate, locate each lip from its moving rim. The
+    // actual opening already supplies its dark interior and tongue.
+    function rim(q, distance, isUpper, k) {
+      const a = Math.abs(q);
+      if (a >= .99 || distance < 0) return 0;
+      const taper = 1-ramp(a,.60,.99);
+      const depth = (isUpper ? .78*top*drawing.upper(a) : .76*bottom*drawing.lower(a))*taper;
+      if (distance >= depth) return 0;
+      if (a > .75) return k.lipCorner;
+      if (isUpper) return distance < .27*depth ? k.upperLip : k.lipBody;
+      return q > -.50 && q < .18 && distance > .36*depth ? k.lipGlow : k.lowerLip;
     }
     function surroundingLight(lateral, h, noseBase) {
       const q = lateral/width;
@@ -655,9 +713,9 @@ const pineGameFace = (() => {
       const corner = bell(q,.89,.45)*bell(h,drawing.seam(.88)-.014,.090);
       const under = bell(q,.14,.67)*bell(h,-bottom-.025,.062);
       const chin = bell(q,-.13,.83)*bell(h,-bottom-.136,.088);
-      return .038*upper - .049*corner - .044*under + .036*chin;
+      return softProfile ? .032*upper-.021*corner-.020*under+.019*chin : .038*upper-.049*corner-.044*under+.036*chin;
     }
-    return {width,seam,paint,surroundingLight};
+    return {width,seam,paint,smallAccent,rim,surroundingLight};
   }
   function paintedMouth(guide, name, row, lateral, h, k, pitch, upperScale, lowerScale, acting) {
     if (h > .33 || h < -.55) return 0;

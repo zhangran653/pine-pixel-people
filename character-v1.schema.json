@@ -53,7 +53,11 @@
     },
     "faceSurface": {
       "description": "按实际眼距、眼宽和嘴角位置塑造眼眶与口周曲面。",
-      "const": "linked"
+      "enum": ["linked", "contour"]
+    },
+    "spriteMouth": {
+      "description": "在嘴宽只有几个输出像素时，加强唇中央的笔触。省略时沿用常规唇色取样。",
+      "const": "accent"
     },
     "garmentFit": {
       "description": "分款剪裁试作。未指定的部位随所选衣物。",
@@ -908,6 +912,10 @@
     }
   },
   "allOf": [
+    {
+      "if": { "required": ["spriteMouth"] },
+      "then": { "required": ["faceSurface"] }
+    },
     {
       "if": { "required": ["faceSurface"] },
       "then": { "required": ["portraitInk"] }

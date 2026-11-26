@@ -118,6 +118,7 @@ export function startClearing(motion) {
   const cast = createPineCast(THREE, motion, { detail: 'figure' });
   cast.group.rotation.y = -2.27;
   scene.add(cast.group);
+  const castBasis = cast.group.children[0], toEye = new THREE.Vector3(), basisRotation = new THREE.Quaternion();
   const choices = showcases(motion);
   for (const [value, entry] of choices) select.add(new Option(entry.label, value));
   let plan,
@@ -127,6 +128,13 @@ export function startClearing(motion) {
     request = 0;
 
   function render() {
+    const distance = toEye.subVectors(camera.position,controls.target).length();
+    if (distance > 0 && canvas.height) {
+      castBasis.getWorldQuaternion(basisRotation).invert();
+      toEye.normalize().applyQuaternion(basisRotation);
+      const span = 2*distance*Math.tan(THREE.MathUtils.degToRad(camera.getEffectiveFOV()/2));
+      cast.setPixelScale(canvas.height*castBasis.scale.x/span,Math.atan2(toEye.y,toEye.x),Math.asin(THREE.MathUtils.clamp(toEye.z,-1,1)));
+    }
     renderer.render(scene, camera);
   }
   function resize() {

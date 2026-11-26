@@ -61,7 +61,7 @@
           一个形象文件记录人体基型、体型与五官、穿搭、配色和依赖版本。动作通过共同的骨架和接触点驱动角色。创作室、动作工坊和
           Three.js 场景读取同一份形象。
         </p>
-        <p><a href="#garment-fit">1.19.9 上衣与裤腿版型</a> · <a href="#facial-acting">1.19.8 平时神情与视线</a> · <a href="#figure-ratios">1.19.7 分龄头身比例</a> · <a href="#painted-features">1.19.6 分龄五官笔触</a> · <a href="#clothing-cut">1.19.5 分龄衣物剪裁</a> · <a href="#base-faces">1.19.4 分龄基础脸</a> · <a href="#game-face">1.19.3 美术基础脸</a> · <a href="#anatomy-parts">1.19.2 人体结构与可换部件</a> · <a href="#figure-art">全身像素造型与配色样张</a> · <a href="#portrait-art">五官画风</a></p>
+        <p><a href="#lip-contour">1.19.12 唇颏轮廓与唇线</a> · <a href="#garment-fit">1.19.9 上衣与裤腿版型</a> · <a href="#facial-acting">1.19.8 平时神情与视线</a> · <a href="#figure-ratios">1.19.7 分龄头身比例</a> · <a href="#painted-features">1.19.6 分龄五官笔触</a> · <a href="#clothing-cut">1.19.5 分龄衣物剪裁</a> · <a href="#base-faces">1.19.4 分龄基础脸</a> · <a href="#game-face">1.19.3 美术基础脸</a> · <a href="#anatomy-parts">1.19.2 人体结构与可换部件</a> · <a href="#figure-art">全身像素造型与配色样张</a> · <a href="#portrait-art">五官画风</a></p>
         <h2>形象文件</h2>
         <p>
           用创作室的「导入角色」打开下面的任一示例。编辑后可以保持 ID 保存，也可以另存为独立形象。导入相同
@@ -219,6 +219,12 @@
         </p>
         <h2>从参数到 360° 像素</h2>
         <h2 id="figure-art">全身像素造型</h2>
+        <h3 id="lip-contour">1.19.12 口周曲面与小尺寸唇线</h3>
+        <p>动画像素笔触的配方使用 <code>faceSurface</code> 选择五官所依附的曲面。<code>linked</code> 使眼眶和牙弓随五官宽度变化。<code>contour</code> 还将下唇到下巴画成连续的侧面轮廓，并逐渐减淡嘴角。婴儿使用自己的颏部造型。<code>spriteMouth: 'accent'</code> 让小尺寸侧面在唇中央保留一笔。省略时使用常规取样。导入旧配方会沿用其原有选项。<a href="figure-study.html?subject=seeded&amp;age=adult&amp;seed=2602&amp;before=profile-line&amp;size=256&amp;framing=head&amp;bearing=270">实时侧面与下巴对照</a></p>
+        <pre><code>const face = PineLooks.withFaceSurface(source, true, 'contour');
+const next = PineLooks.randomCharacter({ source: face, seed: 2602 });
+const regular = PineLooks.withFaceSurface(face, false);</code></pre>
+        <p>Three.js 接入方可调用 <code>cast.setPixelScale(pixelsPerUnit, yaw, elevation)</code> 同步游戏画布的尺寸和视线。角度为弧度，采用松溪的前、左、上轴。输入首项是人物空间每单位在输出画布的像素数。传入 <code>undefined</code> 可恢复常规近景笔触。自带三维预览按镜头目标所在平面计算该比例。</p>
         <h3 id="garment-fit">1.19.9 上衣与裤腿版型</h3>
         <p><code>PineLooks.withGarmentStudy(doc)</code> 返回启用分款剪裁的副本。<code>garmentFit.top</code> 可选 <code>tucked</code>（束腰）、<code>bloused</code>（宽身收口）或 <code>straight</code>（直摆）。<code>garmentFit.legs</code> 可选 <code>tapered</code>（收脚）、<code>straight</code>（直筒）或 <code>wide</code>（阔腿）。每项均可省略，由衣物决定。长外套保留原衣长，裤腿设置在穿长裤时生效。</p>
         <pre><code>const person = PineLooks.withGarmentStudy(draft);

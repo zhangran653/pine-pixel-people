@@ -2,7 +2,8 @@
 // The first occupied cell along a screen ray gives a color and a world-space depth.
 // Empty cells reveal the other stacks behind them, including across different densities.
 function projectSceneVolume(target, part, view) {
-  const { body, model } = part, { width, height, colors, depth } = target;
+  const { body } = part, { width, height, colors, depth } = target;
+  const model = part.model.smallMouth ? sliceModelAtScale(part.model,Math.min(view.scaleX,view.scaleY),view.yaw-part.heading,view.elevation) : part.model;
   const { nx, ny, nz, density } = body, bounds = model.bounds || [0, 0, 0, nx, ny, nz];
   const [left, back, bottom, right, front, top] = bounds;
   const visibleBottom = view.floorZ === undefined ? bottom : Math.max(bottom, (view.floorZ - part.z) * density);

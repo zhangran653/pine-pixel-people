@@ -23,7 +23,11 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ### 1.19.12 随机人脸与像素表情试作
 
-在「五官 → 眼眶与口周」选择「随眼距和嘴宽塑形」，可以把同一张嘴从正面转到正侧面。种子 2602 在 256 像素全身画面中，正面嘴宽为 16 像素，朝右和朝左的侧面分别从 11 像素收至 5 和 7 像素。对照页的待机头部正对基准轴，可以显示眼、鼻、嘴角和下巴的位置。[转动同一个人](figure-study.html?subject=seeded&age=adult&seed=2602&before=surface&size=256&framing=head&bearing=270) · [两张嘴的四向实拍](studies/pixel-structure/lip-turn.webp) · [曲面结构与复测记录](studies/pixel-structure/README.md#侧面的嘴究竟该有多宽)
+在「五官 → 眼眶与口周」选择「唇到下巴的连续轮廓 · 试作」，可以比较同一个人的嘴角、下唇与颏尖。种子 2602 在 256 像素全身中的下唇下方原先有一个向前返折 4 像素的钩。新选项把这段画成连续曲线，轻笑的嘴角逐渐收笔。随机人物时可以沿用所选曲面。[转动种子 2602](figure-study.html?subject=seeded&age=adult&seed=2602&before=profile-line&size=256&framing=head&bearing=270) · [同人原色、剪影与张嘴动作](studies/pixel-structure/lip-chin-profile.webp)
+
+选择「随眼距和嘴宽塑形」，可以把同一张嘴从正面转到正侧面。种子 2602 在 256 像素全身画面中，正面嘴宽为 16 像素，朝右和朝左的侧面分别从 11 像素收至 5 和 7 像素。对照页的待机头部正对基准轴，可以显示眼、鼻、嘴角和下巴的位置。[两张嘴的四向实拍](studies/pixel-structure/lip-turn.webp) · [曲面结构与复测记录](studies/pixel-structure/README.md#侧面的嘴究竟该有多宽)
+
+「小尺寸唇线」用于全身只有约 64 像素的游戏镜头。试作可以在侧脸的唇中央保留一笔，颜色随肤色和唇色变化。可在五官面板单独切回常规取样。完整人物对照提供成人、儿童、幼儿与坐姿婴儿的同配方转面和动作。[查看小尺寸侧脸](figure-study.html?subject=seeded&age=adult&seed=2600&before=mouth-size&size=64&bearing=270&framing=head) · [四龄全身实拍](studies/pixel-structure/whole-1.19.12.webp) · [分龄盲抽](figure-study.html?mode=blind&review=ensemble&size=128)
 
 在创作室选「试用像素立绘五官」，再点「随机人物」。要保留当前人物的头发、肤色和衣服，去「五官」点「随机五官」。随机先选脸型和神情，再搭配眉眼与口型。「五官」里可以单独调嘴形、宽度、唇厚、平时神情和笔触。试作配方可以保存、导出和套用动作。[打开随机样本 2602](http://127.0.0.1:8000/atelier.html?figure=ink&age=adult&seed=2602&tab=face&bearing=315) · [三个同人前后对照](studies/pixel-structure/portrait-mouth.webp) · [连续八个种子](studies/pixel-structure/portrait-batch.webp)
 

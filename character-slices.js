@@ -18,7 +18,9 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
   }));
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const lerp = (a, b, t) => a + (b - a) * t;
-  const MaterialGrid=palette.length<=256?Uint8Array:palette.length<=65536?Uint16Array:Uint32Array;
+  const smallMouthOffset = art.smallMouthScale ? palette.length : 0;
+  const materialCount = palette.length + smallMouthOffset;
+  const MaterialGrid = materialCount<=256 ? Uint8Array : materialCount<=65536 ? Uint16Array : Uint32Array;
   const normalLength = Float64Array.from({ length: 13 }, (_, i) => Math.sqrt(i));
   const portraitLighting = new Uint8Array(palette.length);
   for (const name of art.portraitLighting?.soft || []) portraitLighting[ink[name]] = 1;
@@ -157,7 +159,7 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
           return color(t, u, v, w);
         });
     }
-    const brush = {density, faceDetail, frame(transform) {frame=transform;}, stamp, blob, link};
+    const brush = {density, faceDetail, smallMouthOffset, frame(transform) {frame=transform;}, stamp, blob, link};
     art.paint(pose, brush, ink);
     frame = null;
     if (!art.structureOnly) {
@@ -167,13 +169,18 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     }
 
     const colors = new Uint32Array(cells.length);
-    const bounds=[nx,ny,nz,0,0,0];
+    const bounds=[nx,ny,nz,0,0,0], smallLipCells = [];
     for (let z = visited[2]; z < visited[5]; z++) {
       for (let y = visited[1]; y < visited[4]; y++) {
         const row = z * pitch + y * nx;
         for (let x = visited[0]; x < visited[3]; x++) {
-          const i = row + x, material = cells[i];
+          const i = row + x;
+          let material = cells[i];
           if (!material) continue;
+          if (material >= palette.length) {
+            material -= smallMouthOffset;
+            smallLipCells.push(i);
+          }
           const dx = Number(!!cells[i-1]) - Number(!!cells[i+1]);
           const dy = Number(!!cells[i-nx]) - Number(!!cells[i+nx]);
           const dz = Number(!!cells[i-pitch]) - Number(!!cells[i+pitch]);
@@ -205,7 +212,11 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
         }
       }
     }
-    return { colors, sheets: [], bounds };
+    const model = { colors, sheets: [], bounds };
+    if (smallLipCells.length) model.smallMouth = {
+      maxScale:art.smallMouthScale, head:pose.head, cells:Uint32Array.from(smallLipCells), color:swatches[ink.upperLip][24]
+    };
+    return model;
   }
 
   function makePose(pose) {
@@ -278,6 +289,7 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
         body: createSliceProjector(nx, ny, to - from, density),
         model: {
           colors: model.colors.subarray(plane * from, plane * to),
+          smallMouth:model.smallMouth,
           bounds: [b[0], b[1], clamp(b[2] - from, 0, to - from), b[3], b[4], Math.min(to, b[5]) - from],
           sheets: []
         }
@@ -285,7 +297,52 @@ function createSliceActor(art, density = 1, accessories = null, box = [40,44,50]
     }
     return [lower || standardBand(0, cut), upper || standardBand(cut, b[5])];
   }
-  return {...createSliceProjector(nx,ny,nz,density), makePose, faceLayers};
+  return {...createSliceProjector(nx,ny,nz,density), makePose, faceLayers,
+    mouthLevel:(scale,head,yaw,tilt)=>smallMouthLevel(art.smallMouthScale,scale,head,yaw,tilt)};
+}
+
+// The transverse head axis points towards an ear. A frontal camera has no
+// component on that axis, even when the actor turns or tilts their head.
+function smallMouthLevel(maxScale, scale, head, yaw = 0, tilt = 0) {
+  if (!(scale < maxScale) || !head) return 0;
+  const across = Math.abs(Math.cos(tilt)*(Math.cos(yaw)*head[1]+Math.sin(yaw)*head[5])+Math.sin(tilt)*head[9]);
+  return across < .5 ? 0 : across < .86 ? 1 : 2;
+}
+
+// Marks survive painting only on exposed skin. A hand, scarf or other material
+// painted over the mouth replaces both colors before either view is rendered.
+function sliceModelAtScale(model, pixelsPerUnit, yaw, tilt) {
+  const small = model.smallMouth;
+  if (!small || !(pixelsPerUnit < small.maxScale)) return model;
+  const level = smallMouthLevel(small.maxScale,pixelsPerUnit,small.head,yaw,tilt);
+  if (!level) return model;
+  const views = model.smallViews ??= [];
+  if (!views[level]) {
+    // Refined bands share a buffer with their sampling halo. Cell indices
+    // belong to that buffer, including when standard bands are subarrays.
+    const offset = model.colors.byteOffset / model.colors.BYTES_PER_ELEMENT;
+    if (small.cells[0] >= offset + model.colors.length || small.cells[small.cells.length-1] < offset) return model;
+    const colors = model.colors.slice(), amount = level === 1 ? .29 : .56;
+    // Both colors are opaque here. Tint each original skin swatch separately
+    // so light and shadow continue through the few pixels around the crease.
+    const tones = new Map();
+    for (const cell of small.cells) {
+      const index = cell-offset;
+      if (index < 0 || index >= colors.length) continue;
+      const skin = colors[index];
+      if (!tones.has(skin)) {
+        let color = 0;
+        for (let shift=0;shift<32;shift+=8) {
+          const from = skin>>>shift & 255, to = small.color>>>shift & 255;
+          color |= Math.round(from+(to-from)*amount)<<shift;
+        }
+        tones.set(skin,color);
+      }
+      colors[index] = tones.get(skin);
+    }
+    views[level] = { colors,bounds:model.bounds,sheets:[] };
+  }
+  return views[level];
 }
 
 // Each refined band has its own crop origin in the actor's local frame.
@@ -344,6 +401,7 @@ function createSliceProjector(nx,ny,nz,density) {
     return (model.sheets[axis] = { image, w, h, tw, th, u0, v0, k0, count });
   }
   function draw(ctx, model, x, y, azimuth, elevation, worldScale) {
+    model = sliceModelAtScale(model,worldScale,azimuth,elevation);
     const scale=worldScale/density;
     const a = Math.cos(azimuth), b = Math.sin(azimuth), c = Math.cos(elevation), s = Math.sin(elevation);
     const axes = [[-b,s*a,c*a],[a,s*b,c*b],[0,-c,s]];
@@ -383,5 +441,5 @@ function createSliceProjector(nx,ny,nz,density) {
         atlas.h
       );
   }
-  return { draw, drawSlice, nx, ny, nz, density };
+  return { draw, drawSlice, modelAtScale:sliceModelAtScale, nx, ny, nz, density };
 }

@@ -952,6 +952,16 @@ function checkInfantProfilePair() {
     $('try-ink').click();
     const surface = JSON.parse(documentPair().get('character'));
     if (surface.faceSurface!=='linked' || $('edit-face-surface').value!=='linked') throw Error('linked face structure missing from the trial');
+    if (surface.spriteMouth!=='accent' || $('edit-sprite-mouth').value!=='accent') throw Error('small-profile brush missing');
+    choose('sprite-mouth','');
+    if (JSON.parse(documentPair().get('character')).spriteMouth || $('edit-face-surface').value!=='linked')
+      throw Error('disabling the small brush changed the face structure');
+    choose('sprite-mouth','accent');
+    if (JSON.stringify(surface)!==documentPair().get('character')) throw Error('small mouth did not round-trip');
+    choose('face-surface','contour');choose('sprite-mouth','');
+    if (JSON.parse(documentPair().get('character')).faceSurface!=='contour') throw Error('small brush changed the chosen chin');
+    choose('sprite-mouth','accent');choose('face-surface','linked');
+    if (JSON.stringify(surface)!==documentPair().get('character')) throw Error('returning from the chin trial lost the prior face');
     choose('face-surface','original');
     if (documentPair().get('character')!==JSON.stringify(PineLooks.withoutFaceSurface(surface))) throw Error('changing the surface edited the recipe');
     choose('face-surface','linked');

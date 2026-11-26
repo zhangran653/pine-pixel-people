@@ -162,6 +162,7 @@ const PineLooks = (() => {
     delete doc.infantNose;
     delete doc.portraitInk;
     delete doc.faceSurface;
+    delete doc.spriteMouth;
   }
   function clearFigureRatios(doc) {
     clearPortraitOptions(doc);
@@ -279,16 +280,22 @@ const PineLooks = (() => {
     const next = structuredClone(recipe);
     delete next.portraitInk;
     delete next.faceSurface;
+    delete next.spriteMouth;
     return next;
   }
-  function withFaceSurface(recipe) {
+  function withFaceSurface(recipe, smallAccent = recipe.faceSurface ? !!recipe.spriteMouth : true, surface = recipe.faceSurface || 'linked') {
+    requireThat(typeof smallAccent === 'boolean','小尺寸唇线需要布尔值');
+    requireThat(['linked','contour'].includes(surface),'未知口周曲面');
     const next = withPortraitInk(recipe,recipe.portraitInk || 'cel');
-    next.faceSurface = 'linked';
+    next.faceSurface = surface;
+    if (smallAccent) next.spriteMouth = 'accent';
+    else delete next.spriteMouth;
     return next;
   }
   function withoutFaceSurface(recipe) {
     const next = structuredClone(recipe);
     delete next.faceSurface;
+    delete next.spriteMouth;
     return next;
   }
   function withFigureRatios(recipe) {
@@ -909,7 +916,7 @@ SOFTWARE.`;
     fields(
       raw,
       ['format', 'version', 'id', 'label', 'base', 'packs', 'parts', 'shape', 'colors'],
-      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity', 'anatomyParts', 'bodyFinish', 'clothingCut', 'garmentFit', 'infantChin', 'infantNose', 'portraitInk', 'faceSurface']
+      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity', 'anatomyParts', 'bodyFinish', 'clothingCut', 'garmentFit', 'infantChin', 'infantNose', 'portraitInk', 'faceSurface', 'spriteMouth']
     );
     requireThat(raw.baseNotice === undefined || raw.baseNotice === baseNotice, '基础素材许可声明与版本不符');
     requireThat(
@@ -992,7 +999,8 @@ SOFTWARE.`;
     requireThat(raw.infantChin === undefined || (pin === infantNoseRelease && ['original','short','full'].includes(raw.infantChin)), '此版本不支持选择该婴儿下巴');
     requireThat(raw.infantNose === undefined || (pin === infantNoseRelease && raw.infantNose === 'nursery'), '未知婴儿鼻部造型');
     requireThat(raw.portraitInk === undefined || (pin === infantNoseRelease && typeof raw.portraitInk === 'string' && Object.hasOwn(portraitInks, raw.portraitInk)), '未知像素笔触');
-    requireThat(raw.faceSurface === undefined || (raw.portraitInk && raw.faceSurface === 'linked'), '五官联动曲面需要立绘五官');
+    requireThat(raw.faceSurface === undefined || (raw.portraitInk && ['linked','contour'].includes(raw.faceSurface)), '五官联动曲面需要立绘五官');
+    requireThat(raw.spriteMouth === undefined || (raw.faceSurface && raw.spriteMouth === 'accent'), '小尺寸唇线需要联动口周曲面');
     if (raw.garmentFit !== undefined) {
       requireThat(pinePortraitStyles.hasGarmentFits(pin) && raw.clothingCut === undefined, '衣服版型需要启用分款剪裁');
       fields(raw.garmentFit, [], Object.keys(garmentFits));
@@ -1086,6 +1094,7 @@ SOFTWARE.`;
       ...(raw.infantNose ? { infantNose:raw.infantNose } : {}),
       ...(raw.portraitInk ? { portraitInk:raw.portraitInk } : {}),
       ...(raw.faceSurface ? { faceSurface:raw.faceSurface } : {}),
+      ...(raw.spriteMouth ? { spriteMouth:raw.spriteMouth } : {}),
       ...(raw.garmentFit ? { garmentFit: { ...raw.garmentFit } } : {}),
       ...(anatomy ? { anatomyParts: anatomy } : {}),
       shape: sizes,
@@ -1730,10 +1739,11 @@ SOFTWARE.`;
     const infant = doc.base === 'baby';
     if (brushed) {
       doc.portraitInk = ink === 'auto' ? pick(Object.keys(portraitInks),random) : ink;
-      if (!recipe.portraitInk) doc.faceSurface = 'linked';
+      if (!recipe.portraitInk) { doc.faceSurface = 'linked'; doc.spriteMouth = 'accent'; }
     } else {
       delete doc.portraitInk;
       delete doc.faceSurface;
+      delete doc.spriteMouth;
     }
     let drawnForm = pinePortraitStyles.hasBaseFace(pin) && portrait === 'animation'
       ? pick(infant ? ['round','long','round','angular'] : ['round','long','angular'], random) : null;
@@ -1857,7 +1867,11 @@ SOFTWARE.`;
     if (ink && pin === infantNoseRelease) faceSource.packs = {...outfit.packs,[core]:pin};
     const doc = randomFace(faceSource,
       { random, style, portrait: portrait || source?.face?.style || 'animation', family, previousForm:source?.face?.form, release: pin, ink });
-    if (doc.portraitInk && source?.portraitInk && !source.faceSurface) delete doc.faceSurface;
+    if (doc.portraitInk && source?.portraitInk) {
+      if (source.faceSurface) doc.faceSurface = source.faceSurface;
+      else delete doc.faceSurface;
+      if (!source.spriteMouth) delete doc.spriteMouth;
+    }
     doc.gender = profile.gender || 'unspecified';
     doc.parts.hair = keep.has('hair') ? source.parts.hair : randomHair(profile.base, doc.parts.hat, tailored, random, doc.portraitInk, source?.parts.hair);
     doc.colors.skin = keep.has('skin') ? source.colors.skin : pick(skinDyes, random);

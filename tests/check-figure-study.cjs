@@ -171,6 +171,99 @@ function check(studyBench) {
   const linkedRecipe = side => JSON.parse(new URLSearchParams(new URL($('edit-' + side).href).hash.slice(1)).get('character'));
   try {
     const query = new URLSearchParams(location.search);
+    if (query.has('chin-edge')) {
+      const before = linkedRecipe('a'), after = linkedRecipe('b');
+      expect(after.faceSurface === 'contour' && JSON.stringify({...after,faceSurface:'linked'}) === JSON.stringify(before),
+        'chin and corner studies must compare one identity');
+      choose('sample-size','256');
+      const sides = [];
+      for (const angle of [270,90]) {
+        $('bearing').value=String(angle);
+        $('bearing').dispatchEvent(new Event('input'));
+        const rasters = ['a','b'].map(id=>{
+          const el = $('canvas-'+id);
+          return el.getContext('2d').getImageData(0,0,el.width,el.height);
+        });
+        $('face-marks').click();
+        const excursions = rasters.map((plain,i)=>{
+          const el = $('canvas-'+(i?'b':'a')), w = plain.width;
+          const marked = el.getContext('2d').getImageData(0,0,w,el.height).data;
+          let lipRow = -1;
+          for (let p=0;p<marked.length;p+=4) if (marked[p]===255 && marked[p+1]===114 && marked[p+2]===167)
+            lipRow = Math.max(lipRow,Math.floor(p/(4*w)));
+          expect(lipRow>=0,'missing mouth reference');
+          function forward(row) {
+            let edge = -Infinity;
+            for (let x=0;x<w;x++) if (plain.data[4*(row*w+x)+3]>=128)
+              edge = Math.max(edge,angle===270 ? x : -x);
+            return edge;
+          }
+          const underLip = Math.min(...[2,3,4,5].map(d=>forward(lipRow+d)));
+          const pad = Math.max(...[6,7,8].map(d=>forward(lipRow+d)));
+          return Math.max(0,pad-underLip);
+        });
+        $('face-marks').click();
+        sides.push(excursions);
+      }
+      if (query.get('seed')==='2602') {
+        expect(sides.every(([a,b])=>a>=2 && b<a),'hook still present in the rendered sides '+JSON.stringify(sides));
+        const rest = picture();
+        choose('action','open-mouth');
+        expect(picture()!==rest && $('face-marks').hidden,'jaw action did not reach the contour');
+      }
+      $('qa').textContent = JSON.stringify({seed:query.get('seed'),profileRebound:sides});
+      return;
+    }
+    function verifyWholePair(stable,trial,age,seed) {
+      const drawn = PineLooks.randomCharacter({base:age,seed,ink:'auto',bodyFinish:'painted'});
+      expect(stable.packs[PineLooks.core] === '1.18.0' && stable.id === trial.id &&
+        trial.faceSurface === 'linked', 'unexpected whole-figure pair');
+      const normalized = doc => JSON.stringify(PineLooks.prepare(doc).recipe);
+      expect(normalized(drawn) === normalized(trial),'candidate did not replay the editor generator');
+      expect(JSON.stringify(stable.parts) === JSON.stringify(trial.parts) &&
+        JSON.stringify(stable.colors) === JSON.stringify(trial.colors),'wardrobe or dyes changed between versions');
+    }
+    if (query.has('ensemble-pair')) {
+      const stable = linkedRecipe('a'), trial = linkedRecipe('b'), age = query.get('age');
+      verifyWholePair(stable,trial,age,Number(query.get('seed')));
+      const clip = age === 'baby' ? 'baby-reach' : 'walk';
+      if (studyBench === 'ensemble') {
+        $('qa').textContent = JSON.stringify({age,clip,...measureClip(stable,trial,clip)});
+      } else {
+        const standing = picture();
+        choose('action',clip);
+        expect(standing !== picture(),'action did not update the complete candidate');
+        $('qa').textContent = age+' complete pair reproduced seed '+query.get('seed');
+      }
+      return;
+    }
+    if (query.has('ensemble-review')) {
+      expect($('edit-b').hidden && !$('edit-b').hasAttribute('href') && $('results').hidden,'blind recipe leaked');
+      // A throwaway browser profile checks the voting/export flow, with no human votes.
+      for (let n = 0; n < 32; n++) document.querySelector('[data-vote="tie"]').click();
+      expect(!$('results').hidden && $('progress').textContent.includes('32 / 32'),'incomplete review');
+      let report;
+      const originalBlob = window.Blob, originalClick = HTMLAnchorElement.prototype.click;
+      try {
+        window.Blob = class extends originalBlob { constructor(parts,opts) { super(parts,opts); report=JSON.parse(parts[0]); } };
+        HTMLAnchorElement.prototype.click = () => {};
+        $('export').click();
+      } finally { window.Blob = originalBlob; HTMLAnchorElement.prototype.click = originalClick; }
+      expect(report.review === 'ensemble' && report.pairs.length === 32,'incomplete replay data');
+      for (const age of ['adult','child','toddler','baby']) {
+        const agePairs = report.pairs.filter(row=>row.base === age);
+        expect(agePairs.length === 8 && agePairs.filter(row=>row.a === '1.18.0').length === 4,'unbalanced sides');
+      }
+      for (const row of report.pairs.slice().reverse()) {
+        const a = linkedRecipe('a'), b = linkedRecipe('b');
+        expect(a.packs[PineLooks.core] === row.a && b.packs[PineLooks.core] === row.b,'reported sides differ');
+        const [stable,trial] = row.a === '1.18.0' ? [a,b] : [b,a];
+        verifyWholePair(stable,trial,row.base,row.seed);
+        if (!$('prev').disabled) $('prev').click();
+      }
+      $('qa').textContent = '32 full-figure seeds replayed with paired wardrobe and balanced hidden sides';
+      return;
+    }
     if (query.has('mouth-turn')) {
       const left = linkedRecipe('a'), right = linkedRecipe('b');
       expect(right.faceSurface === 'linked' && JSON.stringify(PineLooks.withoutFaceSurface(right)) === JSON.stringify(left),
@@ -181,7 +274,7 @@ function check(studyBench) {
       expect(unmarked !== picture() && !$('face-key').hidden,'missing landmark projection');
       $('face-marks').click();
       expect(unmarked === picture(),'switching off landmarks must return the original pixels');
-      const original = globalThis.createSliceActor, rows = [];
+      const original = globalThis.createSliceActor, rows = [], regular = [];
       const lips = new Set(['lipLine','lipBody','lipGlow','lipPetal','upperLip','lowerLip']);
       function width(el) {
         const w = el.width, data = el.getContext('2d').getImageData(0,0,w,el.height).data;
@@ -196,15 +289,25 @@ function check(studyBench) {
       // Keep the real painter and its occluders, using magenta to identify
       // the six lip materials independently of the character's skin and dyes.
       try {
-        globalThis.createSliceActor = (art,...args) => original({...art,materials:Object.fromEntries(
-          Object.keys(art.materials).map(k=>[k,lips.has(k)?'ff00ff':'303030']))},...args);
-        choose('subject','seeded');
-        for (const size of [64,128,256]) {
-          choose('sample-size',String(size));
-          for (const angle of [0,315,270,90]) {
-            $('bearing').value=String(angle);
-            $('bearing').dispatchEvent(new Event('input'));
-            rows.push([size,angle,width($('canvas-a')),width($('canvas-b'))]);
+        const large = new Map();
+        for (const compact of [false,true]) {
+          globalThis.createSliceActor = (art,...args) => original({...art,
+            smallMouthScale:compact ? art.smallMouthScale : undefined,
+            materials:Object.fromEntries(Object.keys(art.materials).map(k=>[k,lips.has(k)?'ff00ff':'303030']))},...args);
+          choose('subject','seeded');
+          for (const size of [64,128,256]) {
+            choose('sample-size',String(size));
+            for (const angle of [0,315,270,90]) {
+              $('bearing').value=String(angle);
+              $('bearing').dispatchEvent(new Event('input'));
+              if (compact) rows.push([size,angle,width($('canvas-a')),width($('canvas-b'))]);
+              else if (size === 64) regular.push(width($('canvas-b')));
+              if (angle === 0 || size === 256 || (size === 128 && query.get('age') === 'adult')) {
+                const key = size+'/'+angle;
+                if (compact) expect(large.get(key) === picture(),'small brush changed the larger projected image '+key);
+                else large.set(key,picture());
+              }
+            }
           }
         }
       } finally { globalThis.createSliceActor=original; choose('subject','seeded'); }
@@ -213,7 +316,7 @@ function check(studyBench) {
         expect(Math.abs(front[2]-front[3])<=1 && [sideA,sideB].every(r=>r[2]-r[3]>=2 && r[3]<front[3]*.51),
           'The front mouth must keep its span while both profiles shorten: '+JSON.stringify(rows));
       }
-      $('qa').textContent=JSON.stringify({age:query.get('age'),seed:query.get('seed'),widths:rows});
+      $('qa').textContent=JSON.stringify({age:query.get('age'),seed:query.get('seed'),regular64:regular,widths:rows});
       return;
     }
     if (query.has('recipe-pair')) {
@@ -779,7 +882,7 @@ try {
   const measureCut = process.argv.includes('--measure-cut');
   const measureBases = process.argv.includes('--measure-bases');
   const measureForms = measureBases || process.argv.includes('--measure-forms');
-  const bench = process.argv.includes('--bench-garments') ? 'garments' : process.argv.includes('--bench-acting') ? 'acting' : process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
+  const bench = process.argv.includes('--bench-ensemble') ? 'ensemble' : process.argv.includes('--bench-garments') ? 'garments' : process.argv.includes('--bench-acting') ? 'acting' : process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
   const setup = join(dir, 'draft-fixture.js');
   writeFileSync(setup, '(' + loadDraft.toString() + ')(' + readFileSync(join(root,'packs/creek-hats.json'),'utf8') + ');');
   const page = readFileSync(join(root, 'figure-study.html'), 'utf8')
@@ -790,7 +893,8 @@ try {
   writeFileSync(file, page);
   const chrome = process.env.CHROME_BIN || (process.platform === 'darwin'
     ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : 'google-chrome');
-  const flags = ['--headless','--disable-gpu','--no-first-run','--force-device-scale-factor=1','--window-size=1100,850',
+  const narrow = process.argv.includes('--narrow-mouth-turn');
+  const flags = ['--headless','--disable-gpu','--no-first-run','--force-device-scale-factor=1',narrow ? '--window-size=480,800' : '--window-size=1100,850',
     '--user-data-dir=' + join(dir,'profile'),'--dump-dom',pathToFileURL(file).href];
   if (process.env.CI === 'true' && process.platform === 'linux') flags.unshift('--no-sandbox');
   const featureCase = '?feature-test=1&subject=baby-face-1&before=features&size=128&bearing=270';
@@ -803,7 +907,13 @@ try {
     garmentCases.push('?subject=draft&before=garments&size=64&garment-hem='+top);
   const actingProfile = '?acting-profile=1&before=acting&size=128&bearing=270&measure=1&subject=';
   const mouthCase = '?mouth-turn=1&subject=seeded&before=surface&age=adult&seed=';
-  const cases = process.argv.includes('--measure-mouth-turn') ? Array.from({length:8},(_,i)=>mouthCase+(2600+i)) :
+  const ensembleCases = ['adult','child','toddler','baby'].map(age=>'?ensemble-pair=1&before=whole-1.19.12&subject=seeded&seed=2602&age='+age);
+  const ensembleReview = '?ensemble-review=1&mode=blind&review=ensemble&case=adult%2F0';
+  const chinEdge = '?chin-edge=1&before=profile-line&subject=seeded&age=adult&seed=';
+  const firstSeed = process.argv.includes('--holdout-mouth-turn') ? 2610 : 2600;
+  const cases = process.argv.includes('--measure-chin-edge') ? Array.from({length:8},(_,i)=>chinEdge+(2600+i)) :
+    bench === 'ensemble' ? ensembleCases : process.argv.includes('--check-ensemble') ? [...ensembleCases,ensembleReview] :
+    narrow || process.argv.includes('--measure-mouth-turn') || process.argv.includes('--holdout-mouth-turn') ? Array.from({length:8},(_,i)=>mouthCase+(firstSeed+i)) :
     process.argv.includes('--measure-acting') ? [actingProfile+'baby-face-1',...Array.from({length:8},(_,i)=>actingProfile+'draft&feature-seed='+i)] :
     process.argv.includes('--bench-acting') || process.argv.includes('--bench-garments') ? ['?subject=baby&bearing=270&before=1.19.0'] :
     process.argv.includes('--check-garments') ? garmentCases :
@@ -818,7 +928,7 @@ try {
     '?draft-test=1&before=current&action=follow-rattle&phase=36.25&bearing=270.5&framing=head', '?bad-test=1#character=%7B',
     '?base-test=1&subject=baby&before=bases&form=round&phase=36.25&action=baby-reach&bearing=270.5', '?mode=blind&review=bases&case=baby%2F0&resume=bases',
     '?clothing-test=1&subject=baseline-4&before=cut&action=walk&phase=43', '?mode=blind&review=cut&case=baby%2F0&resume=cut',
-    mouthCase+'2602', featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
+    mouthCase+'2602', chinEdge+'2602',ensembleCases[3],ensembleReview, featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
     ratioCase, '?mode=blind&review=ratios&case=baby%2F0&resume=ratios', profileCase+'chef',
     '?ratio-draft=1&before=whole-1.19.7&action=baby-reach&bearing=270&phase=43&size=128',...actingCases,...garmentCases];
   const garmentPixels = {};
