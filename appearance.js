@@ -1578,7 +1578,8 @@ SOFTWARE.`;
       ratios.headScale = Math.round((ratios.headScale + .09) * 100) / 100;
       ratios.noseLipSpacing = Math.round((ratios.noseLipSpacing - .10) * 100) / 100;
     } else if (doc.base === 'child') ratios.headScale = Math.round((ratios.headScale + .05) * 100) / 100;
-    Object.assign(doc.shape,ratios);
+    // Actors can have individually drawn crown heights and nose-to-lip spacing.
+    for (const [key, value] of Object.entries(ratios)) doc.shape[key] ??= value;
     return doc;
   });
   const templateById = new Map(templates.map((doc) => [doc.id, doc]));

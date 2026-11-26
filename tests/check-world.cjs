@@ -348,6 +348,8 @@ for (const key of ['hiker', 'surveyor', 'mother', 'child', 'toddler', 'baby']) {
     pose = motion.rig.pose(editable.rig);
   assert.equal(hash(legacy.body.makePose(pose).colors), hash(editable.body.makePose(pose).colors));
 }
+const surveyDownload = JSON.parse(read('packs/workshop-surveyor-current.json'));
+assert.deepEqual(clone(looks.prepare(looks.templateById.get('look_workshop_surveyor')).recipe), surveyDownload);
 for (const key of ['programmer', 'developer', 'manager', 'cashier', 'guide'])
   assert.equal(looks.templateById.get('look_' + key).identity.era, 'modern');
 for (const preset of Object.values(motion.presets)) {

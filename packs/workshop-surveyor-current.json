@@ -1,0 +1,95 @@
+{
+  "format": "pine-character",
+  "version": 1,
+  "id": "look_workshop_surveyor",
+  "label": "山野测绘员",
+  "base": "adult",
+  "identity": {
+    "era": "modern",
+    "role": "山野测绘员",
+    "field": "nature",
+    "series": "trekkers",
+    "settings": [
+      "wild",
+      "coast"
+    ]
+  },
+  "gender": "female",
+  "packs": {
+    "pine-core": "1.19.12"
+  },
+  "bodyFinish": "painted",
+  "garmentFit": {
+    "top": "straight",
+    "legs": "straight"
+  },
+  "anatomyParts": {
+    "torso": "slender",
+    "arms": "balanced",
+    "legs": "slender"
+  },
+  "shape": {
+    "height": 1.105,
+    "shoulders": 0.985,
+    "arms": 1.03,
+    "legs": 1.07,
+    "faceWidth": 0.99,
+    "eyeSpacing": 1.015,
+    "jaw": 0.985,
+    "mouthHeight": 0,
+    "headDepth": 1.02,
+    "faceRelief": 0.96,
+    "headScale": 1.12,
+    "crownHeight": 0.97,
+    "trunkLength": 1.05,
+    "noseLipSpacing": 1.2,
+    "chinHeight": -0.13,
+    "chinRoundness": 0.36,
+    "cheekHeight": -0.19,
+    "eyeDepth": 0.06,
+    "eyeOpening": 0.1,
+    "noseBridge": -0.13,
+    "noseWidth": 0.08,
+    "lipProjection": -0.02,
+    "jawDefinition": -0.05
+  },
+  "parts": {
+    "hair": "fishtail",
+    "top": "field-jacket",
+    "bottom": "cuffed-denim",
+    "shoes": "trail-boots",
+    "neck": "scarf",
+    "bag": "survey-satchel",
+    "attachment": "map-tube",
+    "wrist": "watch",
+    "hat": "pine-core/survey-hat"
+  },
+  "face": {
+    "eyes": "double-lid",
+    "brows": "fine",
+    "nose": "rounded",
+    "mouth": "relaxed",
+    "outline": "oval",
+    "complexion": "freckles",
+    "finish": "storybook-lips",
+    "restExpression": "curious",
+    "form": "balanced",
+    "formMix": 0.83,
+    "style": "animation"
+  },
+  "colors": {
+    "skin": "#a7694b",
+    "hair": "#3a2d2c",
+    "eyes": "#5b4e38",
+    "top": "#ac895b",
+    "bottom": "#496370",
+    "shoes": "#6d5142",
+    "accent": "#d8b889",
+    "hat": "#947759",
+    "bag": "#735146",
+    "attachment": "#9a7049",
+    "brow": "#654a3e",
+    "lip": "#9f6253"
+  },
+  "baseNotice": "MIT License\n\nCopyright (c) 2026 zhangran653 and contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+}

@@ -103,18 +103,54 @@ const pineCharacterCollection = (() => {
       wear:{top:'tee',bottom:'trousers',shoes:'canvas-shoes'}, traits:{mouth:'relaxed'}},
     body_male: {head:'harbor',build:'even',hair:'crew', palette:palette('copper','espresso','umber','64857c','465563','89684c','d5bf93'),
       wear:{top:'tee',bottom:'trousers',shoes:'canvas-shoes'}, traits:{nose:'straight'}},
-    workshop_hiker: {head:'hearth',build:'sturdy',hair:'quiff', palette:palette('gold','walnut','moss','457567','58513f','865c42','e3ad5f'),
-      traits:{complexion:'sunspots',mouth:'relaxed'}, dyes:{hat:'#ae5344',bag:'#a57646',attachment:'#c29b66',bottle:'#517b88'}},
-    workshop_surveyor: {head:'reed',build:'tall',hair:'fishtail', palette:palette('copper','espresso','hazel','b08c4e','475c66','6d5142','d9c087'),
-      traits:{brows:'straight',complexion:'freckles'}, dyes:{hat:'#977a55',bag:'#735146',attachment:'#9a7049'}},
-    workshop_mother: {head:'fig',build:'soft',hair:'half-up', palette:palette('amber','chestnut','umber','aa5f68','536878','947865','e3bb9a'),
-      traits:{eyes:'soft-oval',complexion:'smile-lines'}, dyes:{ears:'#d9ac64'}},
-    workshop_child: {head:'sprig',build:'growing',hair:'pixie', palette:palette('gold','chestnut','umber','497b92','545964','c4864f','e5af64'),
-      wear:{bag:'school-pack'}, traits:{eyes:'almond',mouth:'bow'}, dyes:{bag:'#b68b57'}},
-    workshop_toddler: {head:'pip',build:'small',hair:'curly', palette:palette('amber','walnut','umber','678c86','c39459','b86b54','f2dbac'),
-      traits:{eyes:'round',mouth:'relaxed'}, sculpt:{height:.99,chinRoundness:.48}},
-    workshop_baby: {head:'clover',build:'small',hair:'crew', palette:palette('gold','fawn','umber','93bcb6','677f80','c4886d','f1d9b4'),
-      wear:{hat:'none'}, sculpt:{height:.96,chinProjection:.08}},
+    workshop_hiker: {
+      head:'hearth', build:'sturdy', hair:'crop', fit:{top:'straight',legs:'tapered'},
+      palette:palette('gold','walnut','moss','527b6b','58513f','865c42','cba66d'),
+      traits:{eyes:'almond',nose:'short',mouth:'lower-full',complexion:'sunspots',formMix:.78},
+      sculpt:{faceWidth:1.005,chinHeight:-.10,chinProjection:.09,chinRoundness:.35,noseBridge:-.13,
+        noseLipSpacing:1.19,lipProjection:-.03,mouthWidth:-.05},
+      dyes:{hat:'#a44940',bag:'#95714d',attachment:'#c29b66',bottle:'#517b88',brow:'#6d503c',lip:'#ac705b'}
+    },
+    workshop_surveyor: {
+      head:'reed', build:'tall', hair:'fishtail', fit:{top:'straight',legs:'straight'},
+      palette:palette('copper','espresso','hazel','ac895b','496370','6d5142','d8b889'),
+      traits:{form:'balanced',formMix:.83,brows:'fine',nose:'rounded',mouth:'relaxed',complexion:'freckles',restExpression:'curious'},
+      sculpt:{faceWidth:.99,jaw:.985,eyeSpacing:1.015,eyeOpening:.10,cheekHeight:-.19,chinHeight:-.13,
+        chinRoundness:.36,lipProjection:-.02,noseBridge:-.13,noseWidth:.08,noseLipSpacing:1.20},
+      dyes:{hat:'#947759',bag:'#735146',attachment:'#9a7049',eyes:'#5b4e38',brow:'#654a3e',lip:'#9f6253'}
+    },
+    workshop_mother: {
+      head:'fig', build:'soft', hair:'low-bun', fit:{top:'straight',legs:'tapered'},
+      palette:palette('amber','chestnut','umber','a96871','536878','947865','e5c9a9'),
+      traits:{eyes:'soft-oval',brows:'fine',mouth:'soft-smile',complexion:'left-mole'},
+      sculpt:{faceWidth:.99,eyeSpacing:1.005,eyeOpening:.10,browHeight:.09,cheekFullness:-.04,
+        chinHeight:-.07,chinProjection:.09,chinRoundness:.34,noseBridge:-.13,noseLipSpacing:1.20,lipProjection:-.03},
+      dyes:{hair:'#674337',brow:'#755041',lip:'#ac6b59',ears:'#d9ac64'}
+    },
+    workshop_child: {
+      head:'sprig', build:'growing', hair:'side-pony', fit:{top:'bloused',legs:'straight'},
+      palette:palette('gold','chestnut','umber','4f7e90','515b66','c4864f','e3b671'),
+      wear:{bag:'school-pack'}, traits:{eyes:'almond',brows:'feathered',mouth:'bow',formMix:.79},
+      sculpt:{faceWidth:1,jaw:.985,eyeSpacing:1.005,eyeOpening:.14,cheekHeight:-.18,chinHeight:-.13,
+        chinProjection:.11,chinRoundness:.46,noseLipSpacing:1.14,lipProjection:.01},
+      dyes:{hair:'#80523f',brow:'#795340',lip:'#b87761',bag:'#b68b57'}
+    },
+    workshop_toddler: {
+      head:'pip', build:'small', hair:'side-part',
+      palette:palette('amber','walnut','umber','688b84','b48d5e','b86b54','e8cf9f'),
+      traits:{eyes:'round',brows:'fine',nose:'rounded',mouth:'smile',restExpression:'warm',formMix:.72},
+      sculpt:{height:.99,jaw:.99,eyeSpacing:1.02,eyeWidth:-.06,eyeOpening:.10,cheekFullness:.04,cheekHeight:-.22,
+        chinHeight:-.09,chinProjection:.09,chinRoundness:.49,crownHeight:.88,noseLipSpacing:1.05,lipProjection:.02},
+      dyes:{hair:'#73513e',brow:'#775740',lip:'#b47a64'}
+    },
+    workshop_baby: {
+      head:'clover', build:'small', hair:'baby-puffs',
+      palette:palette('gold','walnut','umber','90b2a0','7e8787','bf8e71','ecd2a5'),
+      wear:{hat:'none'}, traits:{eyes:'soft-oval',brows:'fine',mouth:'soft-smile',restExpression:'warm'},
+      sculpt:{height:.96,faceWidth:1,jaw:.98,crownHeight:.85,eyeWidth:-.09,eyeOpening:.02,browHeight:.07,
+        mouthWidth:-.05,lipProjection:.07,chinProjection:.18,chinRoundness:.57},
+      dyes:{hair:'#654337',eyes:'#50392f',lip:'#ba7864'}
+    },
     chestnut: {head:'acorn',build:'baby',hair:'curly', palette:palette('bronze','espresso','espresso','527e79','746958','bc9669','b9c6a2'),
       wear:{top:'snap-knit'}, traits:{eyes:'doe-eye'}, dyes:{hat:'#e3cba7'}, sculpt:{chinProjection:.10}},
     hazel: {head:'almond',build:'lean',hair:'top-knot', palette:palette('amber','silver','umber','527b73','634756','966d4f','d7b47b'),

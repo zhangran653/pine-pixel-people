@@ -213,7 +213,9 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 试穿动作工坊的衣服
 
-在动作工坊选一位演员，点「编辑穿搭」，或在创作室打开「穿搭」。点套装可以给当前人物整套换装，也能单独挑夹克、背带裤、鞋帽和背包。在「配色」里可以分别染上衣、裤子、鞋、包、镜框和水壶。[试穿山野测绘员](http://127.0.0.1:8000/atelier.html?preset=look_workshop_surveyor&tab=wear&bearing=30) · [完整角色 JSON](packs/workshop-surveyor.json)
+最早的六位工坊演员各有一份可编辑的造型。红帽徒步者戴砖红色帽子，测绘员留鱼骨辫，妈妈梳低发髻。穿蓝风衣的学童扎侧马尾，背带裤幼儿留偏分短发，坐姿宝宝头顶有两簇小绒团。家庭编排里可以看到妈妈抱起这个宝宝。[六位演员的正侧面对照与动作](studies/pixel-structure/workshop-cast.webp) · [播放妈妈轻摇宝宝](studio.html?actor=mother&action=cradle&partner=baby&play=1)
+
+在动作工坊选一位演员，点「编辑穿搭」，或在创作室打开「穿搭」。点套装可以给当前人物整套换装，也能单独挑夹克、背带裤、鞋帽和背包。在「配色」里可以分别染上衣、裤子、鞋、包、镜框和水壶。[试穿山野测绘员](atelier.html?preset=look_workshop_surveyor&tab=wear&bearing=30) · [下载当前测绘员配方](packs/workshop-surveyor-current.json)
 
 ![六套工坊穿搭的正面和后侧，展示外套、裤装、鞋帽、背包与外挂](workshop-wardrobe-preview.png)
 
