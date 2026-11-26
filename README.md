@@ -25,7 +25,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 形象库有 500 位可编辑人物，分成 80 个系列，每个系列有 3 至 8 位。比如「古城织坊」里有整经师傅、过纬织工、织锦配色师等八位，各自使用不同的脸型、发型、衣装和随身物。「摇篮舱的星星」里有四位坐姿宝宝。点卡片下的「同类」可以并排看同一系列。[打开形象库](atelier.html?tool=person-library) · [比较古城织坊](atelier.html?tool=person-library&series=silkloom) · [全身与头像实拍](studies/pixel-structure/character-almanac.webp)
 
-可以组合筛选时代、职业领域、人物系列、活动场景、年龄、体型、发型、服装、配件和来源。发型、上衣款式和随身配件取自实际穿戴。选好条件后，点「随机选一位」会从全部匹配结果中挑人。每页可选 12、24 或 48 位。「随机人物」也可以抽到当前年龄的整套衣装。已有角色在「穿搭」里可以点「从形象库借穿衣服与配饰」，再按同样的条件挑选。[本次收录的 356 位](atelier.html?tool=person-library&source=new) · [婴儿专属发型](atelier.html?tool=person-library&age=baby&hair=infant)
+可以组合筛选时代、职业领域、人物系列、活动场景、年龄、体型、发型、服装、配件和来源。发型、上衣款式和随身配件取自实际穿戴。选好条件后，点「随机选一位」会从全部匹配结果中挑人。每页可选 12、24 或 48 位。「随机人物」也可以抽到当前年龄的整套衣装。已分享的种子链接仍可复现原来的搭配。已有角色在「穿搭」里可以点「从形象库借穿衣服与配饰」，再按同样的条件挑选。[本次收录的 356 位](atelier.html?tool=person-library&source=new) · [婴儿专属发型](atelier.html?tool=person-library&age=baby&hair=infant)
 
 现代 264 位、古代 84 位、奇幻 80 位、科幻 72 位共用部件与动作。405 名成人、65 名儿童、12 名幼儿和 18 名婴儿使用各自的分龄造型。新增人物采用按系列搭配的版型、配色和职业用品，每份配方都有固定 ID，可保存到本地、导出 JSON 或带去编排动作。[早期 61 位](studies/pixel-structure/character-library.webp) · [随后收录的 83 位](studies/pixel-structure/character-catalogue-expansion.webp) · [形象与部件规范](appearance-standard.html#character-library)
 

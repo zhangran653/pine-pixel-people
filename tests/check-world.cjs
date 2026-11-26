@@ -294,7 +294,7 @@ const shapes=new Set(newest.map(doc=>JSON.stringify([doc.base,doc.parts,doc.face
 assert.equal(shapes.size,newest.length,'colour alone cannot distinguish characters');
 assert.ok(new Set(newest.filter(d=>d.base==='adult').map(d=>[d.face.eyes,d.face.brows,d.face.nose,d.face.mouth].join('/'))).size>=50);
 const swatches=vm.runInContext('pinePatternWardrobe.choices',context);
-const randomTops=new Set(Array.from({length:96},(_,seed)=>looks.prepare(looks.randomCharacter({base:'adult',seed})).recipe.parts.top));
+const randomTops=new Set(Array.from({length:96},(_,seed)=>looks.prepare(looks.randomCharacter({source:newest[0],base:'adult',seed})).recipe.parts.top));
 assert.ok([...randomTops].some(id=>Object.hasOwn(swatches.top,id)),'ordinary random wardrobe must reach the new clothing');
 for(const [slot,parts] of Object.entries(swatches)){
   const worn=new Set(newest.map(doc=>doc.parts[slot]));

@@ -2058,7 +2058,9 @@ SOFTWARE.`;
     if (base !== undefined) profiles = profiles.filter(key => bodyProfiles[key].base === base);
     const profile = keep.has('body') ? source : bodyProfiles[pick(profiles, random)];
     const donor = pick(seedWardrobe.filter((doc) => doc.base === profile.base), random);
-    const currentPool=options.release===undefined && (!source || !!source.bodyFinish);
+    // A source-free seed is also the public address of a previously shared
+    // character. Live rolls and rolls from a catalogue person use the new parts.
+    const currentPool = options.release === undefined && (source ? !!source.bodyFinish : seed === undefined);
     const lockedHair=keep.has('hair') && source.parts.hair;
     let outfit=donor;
     if (keep.has('wear')) outfit=source;
