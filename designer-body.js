@@ -1324,7 +1324,14 @@ const pineDesignerBody = (() => {
       // Keep the upper lining inside the fabric even on a horizontal thigh.
       rows.push(chains.map(({hip,knee}) => around(hip.map((v,i) => v+.36*(knee[i]-v)), .40*kneeAt, 1.04*thigh)));
       if (hemShin>.06 || hemReach>=1) rows.push(chains.map(({knee}) => around(knee, kneeAt, 1.05*kneeRadius)));
-      rows.push(hem.map(p => around(p, 1, Math.max(.90*kneeRadius, kneeRadius*(1.09-.24*hemShin)))));
+      // The free-hanging hem has no leg inside it. End the contact layer on
+      // the actual limb so a knee fold cannot add a second band below it.
+      const thighReach = hemReach + .35*drape/rig.thigh;
+      const shinReach = hemShin*(1-.76*seated) + Math.max(0,thighReach-1)*rig.thigh/rig.shin;
+      rows.push(chains.map(({hip,knee},leg) => {
+        const p = hip.map((v,i) => v + Math.min(1,thighReach)*(knee[i]-v) + shinReach*(pose.feet[leg][i]-knee[i]));
+        return around(p, 1, kneeRadius*(1-.17*shinReach));
+      }));
       const panels=[];
       for (let i=1; i<rows.length; i++) {
         const [a,b]=rows[i-1], [c,d]=rows[i];
