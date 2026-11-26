@@ -4,13 +4,23 @@
 
 ## 随机人脸的协调
 
+### 黑发人物的鼻翼和唇形
+
+这次保留了首轮评审认可的眼神，也保留黑发人物自己的宽鼻翼、丰满唇和肤色。原来的成人绘本脸把鼻子的长度按眼睛到嘴的距离计算，嘴偏低时鼻子会跟着变长。正面鼻底有一条接近等深的横线，唇缝又从中央暗到两边。斜侧面两条线很抢眼，到了正侧面，鼻尖和上唇像两个独立的凸点。[黑发人物的四向原帧对照](storybook-nose-lips.webp)
+
+成人绘本脸的鼻长现在只部分跟随嘴的位置。鼻翼从面颊逐渐隆起，鼻底经过人中连到上下唇与颏垫。抬高丰厚的上唇时，鼻底会给它留出位置。唇缝只在双唇贴合处用深色，收向嘴角时接回肤色。两排实拍来自同一待机帧，图里的左右侧脸分别由试衣镜旋转取得。转动、张嘴和调唇色都可以在同一个人物上比较。[打开黑发人物的斜侧面](../../atelier.html?model=blue-jacket&tab=face&finish=storybook&action=idle&phase=17&bearing=315)
+
+用连续种子 3601 至 3728 生成 128 个成人配方，奇数取「自然协调」，偶数取「特征鲜明」，然后切换到绘本画法。它们出现了 14 种鼻形与唇形搭配。按各自头部纵向半径归一化，鼻底与上唇定位点的高度差为 0.046 至 0.093。这个数值用来排查五官挤在一起的情况，图中保留实际光照与像素收笔供审看。
+
 ### 黄帽人物的眼神与绘本像素试作
 
-黄帽人物在原画法里有深色的虹膜、大面积的眼部高光和两处浓重的鼻翼。上次的柔和像素脸收住了鼻翼和嘴角，放大后仍能看到较大的暗色虹膜，以及静息厚下唇两端的上挑。把视线落在眼睛上会读成睁大眼，移到嘴上又像在笑。同一张配方可重放这三种画法。[试衣镜三行实拍](storybook-faces.webp) · [旋转同一张脸](../../figure-study.html?before=storybook&subject=yellow-hardhat&framing=head&bearing=0)
+黄帽人物在原画法里有深色的虹膜、大面积的眼部高光和两处浓重的鼻翼。上次的柔和像素脸收住了鼻翼和嘴角，放大后仍能看到较大的暗色虹膜，以及静息厚下唇两端的上挑。把视线落在眼睛上会读成睁大眼，移到嘴上又像在笑。首轮试衣镜保留了这张配方的三种画法，第三排是调整成人鼻唇前的绘本试作。[首轮三行实拍](storybook-faces.webp) · [旋转当前画法](../../figure-study.html?before=storybook&subject=yellow-hardhat&framing=head&bearing=0)
 
 新试作用一块原创的 11 × 11 索引图画虹膜，叠在可眨动的上下眼睑之间。高光嵌在虹膜里，瞳孔下方留出眼色。含笑时下眼睑和嘴角同时变化。鼻尖、近侧鼻翼和鼻底共用一块转折的阴影。宽帽檐的下缘与前伸距离决定额头上的阴影落点。姬发式的齐切鬓发停在颊侧，长发从耳后落下，两层头发都随头身运动。成组铺色的思路参考了 Pedro Medeiros 的像素教程，独立的眼神、眨眼、静息与微笑可参看 LPC 作者发布的表情素材。[Cluster Sketching and Painting](https://saint11.art/pixel_art_articles/article2/) · [LPC Expanded Expressions](https://opengameart.org/content/lpc-expanded-expressions)
 
 创作室可在普通全身和分龄剪裁上使用同一套画法。图中成人、儿童、幼儿和婴儿各取本批盲抽的前两位。头像直接裁自 128 像素全身，动作取自 64 像素全身。两侧共用衣物、染色和动作进度，婴儿都在坐地伸手。可运行 `node tests/check-figure-study.cjs --check-storybook` 重放四个年龄的面部对照、全身对照和 32 个随机样本。盲评将每个年龄的八对各半交换左右，单独保存本次评审。[八次随机实拍](storybook-cast.webp) · [分龄盲评](../../figure-study.html?mode=blind&review=storybook&size=128) · [婴儿侧面](../../figure-study.html?before=fitted-story&subject=seeded&age=baby&seed=1774744938&action=baby-reach&bearing=270&phase=41&size=128)
+
+在本机 Chromium 的 256 像素画布上交替采样，每种画法预热 4 帧再测 20 帧。成人行走时，柔和像素与绘本像素重建姿态和精细切片的耗时中位数分别为 75.8 和 76.1 毫秒，投影与读回为 2.4 和 2.5 毫秒。婴儿坐地伸手时，两种画法重建切片分别为 56.3 和 57.4 毫秒。可用 `node tests/check-figure-study.cjs --bench-storybook` 在自己的设备上重测。
 
 ### 创作室普通随机脸
 

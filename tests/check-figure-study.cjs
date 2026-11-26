@@ -982,7 +982,7 @@ try {
     '?draft-test=1&before=current&action=follow-rattle&phase=36.25&bearing=270.5&framing=head', '?bad-test=1#character=%7B',
     '?base-test=1&subject=baby&before=bases&form=round&phase=36.25&action=baby-reach&bearing=270.5', '?mode=blind&review=bases&case=baby%2F0&resume=bases',
     '?clothing-test=1&subject=baseline-4&before=cut&action=walk&phase=43', '?mode=blind&review=cut&case=baby%2F0&resume=cut',
-    mouthCase+'2602', chinEdge+'2602',ensembleCases[3],ensembleReview,ordinaryCases[3],ordinaryReview,...ordinaryMouths, featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
+    mouthCase+'2602', chinEdge+'2602',ensembleCases[3],ensembleReview,ordinaryCases[3],ordinaryReview,...ordinaryMouths,storyCases[0],storyCases[7], featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
     ratioCase, '?mode=blind&review=ratios&case=baby%2F0&resume=ratios', profileCase+'chef',
     '?ratio-draft=1&before=whole-1.19.7&action=baby-reach&bearing=270&phase=43&size=128',...actingCases,...garmentCases];
   const garmentPixels = {};

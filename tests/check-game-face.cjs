@@ -537,6 +537,18 @@ function checkOrdinaryFaces(cast) {
 }
 
 function checkStoryFaces(cast) {
+  const blackHair = looks.withFaceFinish(examples['blue-jacket'],'storybook');
+  const sculpt = shape => looks.build({...blackHair,shape:{...blackHair.shape,...shape}}).sockets;
+  const low = sculpt({mouthHeight:-.8}), neutral = sculpt({mouthHeight:-.5}), high = sculpt({mouthHeight:.8});
+  const mouthTravel = neutral.mouth.point[2]-low.mouth.point[2];
+  const tipTravel = neutral.noseTip.point[2]-low.noseTip.point[2];
+  assert.ok(mouthTravel > 0 && tipTravel > 0 && tipTravel < .5*mouthTravel,
+    'a low-set mouth should not stretch the whole nose');
+  assert.ok(sculpt({noseBridge:.5}).noseTip.point[0] > sculpt({noseBridge:-.5}).noseTip.point[0],
+    'nose projection must still be editable');
+  assert.ok(high.noseBase.point[2]-high.upperLip.point[2] > .04*5.82*blackHair.shape.height,
+    'raising a full upper lip must leave space below the nasal base');
+  for (const name of ['leftEye','rightEye','leftEarCanal']) assert.deepEqual(low[name],high[name]);
   for (const base of ['adult','child','toddler','baby']) {
     const ordinary = looks.randomCharacter({base,seed:131});
     const story = looks.withFaceFinish(ordinary,'storybook'), fitted = looks.withFittedPortrait(story);

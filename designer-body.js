@@ -795,7 +795,7 @@ const pineDesignerBody = (() => {
       eyeCenter:eyeY/fit.ry, eyeHalf:1.06*animationEye.width*eyeSpan,
       lidTop:animationEye.up*eyeOpen, lidBottom:animationEye.down*eyeOpen,
       mouthHalf:restingMouth.width*lipSpan, lateralDepth:fit.ry/fit.rx, ...(softProfile ? {softProfile:true} : {}),
-      ...(softPixels ? {softPixels:true} : {}), ...(storybook ? {storybook:true} : {}),
+      ...(softPixels ? {softPixels:true} : {}), ...(storybook ? {storybook:true,upperLipHeight:restingMouth.upperHeight} : {}),
       ...(brim ? {brimEdge:[brim.center[2]-brim.size[2],brim.center[0]+brim.size[0]]} : {})
     } : null;
     const skinShape = gameFace
@@ -1162,6 +1162,14 @@ const pineDesignerBody = (() => {
       materials.glint = tint(materials.sclera,'fff7db',.88);
       materials.nasalBase = tint(materials.skinPlane16,materials.nasalFold,.60);
       materials.nasalPlane = tint(materials.skinPlane18,materials.nasalBase,.42);
+      if (recipe.base === 'adult' && !recipe.colors.lip) {
+        materials.lipBody = tint(materials.skinPlane18,materials.lipBody,.67);
+        materials.lowerLip = tint(materials.lowerLip,tint(materials.skinPlane19,'c97d7c',.31),.46);
+        materials.lipLine = tint(materials.upperLip,materials.lipLine,.72);
+        materials.upperLip = tint(materials.upperLip,materials.lipLine,.27);
+        materials.lipGlow = tint(materials.skinPlane19,materials.lowerLip,.56);
+        materials.lipCorner = tint(materials.skinPlane18,materials.upperLip,.32);
+      }
     }
     if (featureGuide && !recipe.colors.brow) {
       const soften = (1 - featureGuide.brow);

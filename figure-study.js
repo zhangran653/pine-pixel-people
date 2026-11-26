@@ -425,8 +425,9 @@
       $('title-b').textContent = body ? '绘本像素 · 分龄全身' : looks.faceFinishes.storybook;
       $('prompt').textContent = body ? '两边共用面部画法、穿搭和染色。转到侧面，可以看婴儿伸手时的头颈，也可以看行走时的肩线与衣摆。'
         : '两侧沿用同一张人物配方。先看待机时眼睛和嘴的神情，再转到侧面看鼻尖与下颌。';
-      $('face-gallery').href = 'studies/pixel-structure/' + (body ? 'storybook-cast.webp' : 'storybook-faces.webp');
-      $('face-gallery').textContent = body ? '四龄全身动作实拍' : '黄帽与黑发人物实拍';
+      const noseLips = subject === 'blue-jacket';
+      $('face-gallery').href = 'studies/pixel-structure/' + (body ? 'storybook-cast.webp' : noseLips ? 'storybook-nose-lips.webp' : 'storybook-faces.webp');
+      $('face-gallery').textContent = body ? '四龄全身动作实拍' : noseLips ? '黑发人物鼻唇调整前后的四向实拍' : '黄帽与黑发人物的首轮评审实拍';
     }
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     actors = recipes.map(doc => looks.build(doc));

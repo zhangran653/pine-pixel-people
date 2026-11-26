@@ -570,7 +570,7 @@ const skull = vm.runInContext('pineHeadShape', context);
       assert.equal(store.readScoreFile(clone(portable)).score.steps[0].actors[0], doc.id);
     }
     if (i < 32) {
-      const actor = looks.build(expressive);
+      const actor = looks.build(looks.withFaceFinish(expressive,'original'));
       const radius = { adult: 5.82, child: 4.89, toddler: 4.47, baby: 3.89 }[expressive.base] * expressive.shape.height;
       const vertical = (actor.sockets.leftEye.point[2] - actor.sockets.mouth.point[2]) / radius;
       const nose = styles.noses[expressive.face.nose] || styles.basicNoses[expressive.face.nose];
@@ -579,6 +579,13 @@ const skull = vm.runInContext('pineHeadShape', context);
       const underside = styles.noseUnderside(nose, expressive.base !== 'baby');
       assert.ok(vertical - (nose[3] + underside) * fit.noseLength - lip * fit.lipHeight * (1 + 0.54 * (expressive.shape.upperLipFullness || 0)) >= 0.0399,
         'nose and upper lip need space on the ' + expressive.base + ' rig');
+      // The drawn noses have their own tip and underside. Measure the built
+      // landmarks in the same units used above for the original feature grid.
+      for (const finish of ['soft-pixel','storybook']) {
+        const {noseBase,upperLip} = looks.build(looks.withFaceFinish(expressive,finish)).sockets;
+        assert.ok((noseBase.point[2]-upperLip.point[2])/radius >= .0399,
+          finish+' nose and upper lip need space on the '+expressive.base+' rig');
+      }
     }
   }
   assert.ok(lowCheeks.some((v) => v < -0.04) && lowCheeks.some((v) => v > 0.04) &&
