@@ -30,6 +30,7 @@
     <script defer src="pixel-headwear.js"></script>
     <script defer src="pixel-portrait.js"></script>
     <script defer src="portrait-styles.js"></script>
+    <script defer src="seasonal-wardrobe.js"></script>
     <script defer src="wardrobe-patterns.js"></script>
     <script defer src="hair-styles.js"></script>
     <script defer src="infant-hair.js"></script>
@@ -43,6 +44,7 @@
     <script defer src="workshop-wear.js"></script>
     <script defer src="world-wardrobe.js"></script>
     <script defer src="character-almanac.js"></script>
+    <script defer src="character-titles.js"></script>
     <script defer src="character-collection.js"></script>
     <script defer src="figure-paint.js"></script>
     <script defer src="anatomy-core.js"></script>
@@ -243,7 +245,7 @@
             <h1>人物形象库</h1>
             <div class="gallery-find">
               <select id="shelf-source" aria-label="形象来源"><option value="">所有形象</option></select>
-              <label class="gallery-search"><span aria-hidden="true"></span><input type="search" id="look-query" aria-label="搜索人物" placeholder="搜索人物、职业、衣物或配件"></label>
+              <label class="gallery-search"><span aria-hidden="true"></span><input type="search" id="look-query" aria-label="搜索人物" placeholder="搜外观、衣物、配饰或原职业"></label>
             </div>
           </div>
           <div id="shelf-borrow" class="gallery-borrow" hidden><strong id="shelf-borrow-name"></strong><button id="shelf-borrow-back" type="button">返回编辑</button></div>
@@ -258,6 +260,8 @@
                 <label>年龄<select id="shelf-age"><option value="">全部年龄</option></select></label>
                 <label>体型<select id="shelf-profile"><option value="">全部体型</option></select></label>
                 <label>发型类别<select id="shelf-hair"><option value="">全部发型</option></select></label>
+                <label>穿搭季节<select id="shelf-season"><option value="">全部季节</option></select></label>
+                <label>衣装风格<select id="shelf-region"><option value="">全部风格</option></select></label>
                 <label>服装款式<select id="shelf-garment"><option value="">全部服装</option></select></label>
                 <label>随身配件<select id="shelf-gear"><option value="">全部配件</option></select></label>
               </div>
@@ -272,7 +276,7 @@
                   </nav>
                 </div>
                 <div class="gallery-display">
-                  <select id="shelf-order" aria-label="排列顺序"><option value="featured">推荐顺序</option><option value="name">按名称排序</option></select>
+                  <select id="shelf-order" aria-label="排列顺序"><option value="featured">造型混排</option><option value="name">按名称排序</option></select>
                   <div class="gallery-framing" role="group" aria-label="形象卡视图"><button type="button" data-shelf-view="body" aria-pressed="true">全身</button><button type="button" data-shelf-view="face" aria-pressed="false">头像</button></div>
                 </div>
               </div>

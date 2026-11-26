@@ -564,7 +564,9 @@ const pineDesignerBody = (() => {
       mouthOffset = measure(shape, 'mouthHeight');
     const jeans = parts.bottom === 'trousers',
       boots = parts.shoes === 'boots';
-    const skirtPattern=pinePatternWardrobe.skirts[parts.bottom];
+    const skirtPattern=pinePatternWardrobe.skirts[parts.bottom], seasonalTop=pineSeasonalWardrobe.tops[parts.top];
+    const sleeveCut=seasonalTop?.[5];
+    const shortArm={bare:0,cap:.26,short:.58,puff:.70}[sleeveCut];
     const skirt = !!skirtPattern || parts.bottom === 'skirt' || parts.bottom === 'plaid-skirt',
       cargo = parts.bottom === 'cargo';
     const highTops = parts.shoes === 'high-tops',
@@ -1294,10 +1296,16 @@ const pineDesignerBody = (() => {
         const u = (dx * front[0] + dy * front[1] + dz * front[2] - tilt * weight * along) / depth;
         const v = across / (halfHips + (halfHem - halfHips) * along);
         if (Math.abs(u) > 1 || Math.abs(v) > 1) return 0;
-        const fold = Math.cos((skirtPattern ? skirtPattern[4] : 12) * Math.atan2(v, u) + 0.2 * along);
+        const apronPanel=(parts.bottom==='mamian-skirt' && Math.abs(v)<.47) ||
+          (parts.bottom==='highland-kilt' && u>.15) || parts.bottom==='qipao-column' || parts.bottom==='office-pencil';
+        const fold = apronPanel ? 0 : Math.cos((skirtPattern ? skirtPattern[4] : 12) * Math.atan2(v, u) + 0.2 * along);
         const rim = 1 - 0.048 * along * (1 + fold);
         if (Math.abs(u) ** 2.8 + Math.abs(v) ** 2.8 > rim ** 2.8 || along > 1 - 0.021 * (1 + fold)) return 0;
-        if (skirtPattern) return pinePatternWardrobe.skirtFabric(parts.bottom,along,u,v,fold,k);
+        if (skirtPattern) {
+          const pigment=pinePatternWardrobe.skirtFabric(parts.bottom,along,u,v,fold,k);
+          return wholeFigure && pigment && pineSeasonalWardrobe.skirts[parts.bottom]
+            ? pineFigurePaint.skirtPanel(k,pigment,along,u,v,fold) : pigment;
+        }
         if (parts.bottom === 'plaid-skirt') {
           if (along < 0.12 || along > 0.95) return k.bottomShade;
           if (Math.abs(Math.sin(12 * v)) < 0.2 || Math.abs(Math.sin(along * 14)) < 0.19) return k.accent;
@@ -1575,7 +1583,28 @@ const pineDesignerBody = (() => {
           wholeFigure && { k, side, tailored, bend, garment, anatomy, paintedBody, end: elbow, base: recipe.base, region: 'upperArm', style: parts.top }) : b.link;
         const foreLink = softContours ? contouredLink(b, pose.torso, limbContours.forearm,
           wholeFigure && { k, side, tailored, bend, garment, anatomy, paintedBody, end: wrist, base: recipe.base, region: 'forearm', style: parts.top }) : b.link;
-        if (worldTop || collectionTop || workshopTop) {
+        if (seasonalTop) {
+          const cloth=fore=>(t,u,v)=>pineSeasonalWardrobe.sleeve(parts.top,t,u,v,side,fore?cuff:elbowR,fore,k);
+          const upperPaint=cloth(false), lowerPaint=cloth(true);
+          const bare=(t,u,v)=>side*v<-.47*elbowR?k.skin:k.skinLight;
+          const toward=(a,c,t)=>a.map((v,i)=>v+(c[i]-v)*t);
+          if(shortArm!==undefined) {
+            upperLink(shoulder,elbow,.86*upper,.84*elbowR,.92,bare);
+            foreLink(elbow,wrist,.85*elbowR,.84*cuff,.92,bare);
+            if(shortArm) upperLink(shoulder,toward(shoulder,elbow,shortArm),upper*(sleeveCut==='puff'?1.21:1.04),
+              elbowR*(sleeveCut==='puff'?1.30:1.14),1,(t,u,v)=>t>.84?k.topShade:upperPaint(t,u,v));
+          } else {
+            const volume={wide:1.16,'square-sleeve':1.24,padded:1.23,contrast:1.10}[sleeveCut] || 1.04;
+            upperLink(shoulder,elbow,upper*volume,elbowR*volume,.98,upperPaint);
+            if(sleeveCut==='three-quarter') {
+              foreLink(elbow,wrist,.89*elbowR,.86*cuff,.93,bare);
+              foreLink(elbow,toward(elbow,wrist,.52),elbowR*1.09,cuff*1.23,.98,lowerPaint);
+            } else {
+              const cuffWidth={wide:1.64,'square-sleeve':1.89,padded:1.14}[sleeveCut] || 1;
+              foreLink(elbow,wrist,elbowR*volume,cuff*cuffWidth,.98,lowerPaint);
+            }
+          }
+        } else if (worldTop || collectionTop || workshopTop) {
           const sleeve = worldTop
             ? pineWorldWardrobe.sleeve
             : collectionTop
@@ -1673,7 +1702,7 @@ const pineDesignerBody = (() => {
     function drawTorso(pose, b, k) {
       b.frame(pose.torso);
       const seated = floorLoad(pose);
-      const coatDrop = ['cross-robe', 'brocade', 'lab-coat', 'apron', 'mantle'].includes(parts.top)
+      const coatDrop = seasonalTop?.[2]==='long' ? 3.45*s : ['cross-robe', 'brocade', 'lab-coat', 'apron', 'mantle'].includes(parts.top)
         ? 3.45 * s
         : parts.top === 'striped-cardigan'
           ? 1.48 * s
@@ -1687,7 +1716,7 @@ const pineDesignerBody = (() => {
           (hoodie ? 0.42 * s : cardigan ? 0.52 * s : coatDrop),
         high = rig.neck[2] - 0.1 * s,
         tall = high - low;
-      const ease = hoodie ? 1.085 : cardigan ? 1.025 : 1;
+      const ease = sleeveCut==='padded' ? 1.17 : seasonalTop?.[3]==='hood' ? 1.09 : hoodie ? 1.085 : cardigan ? 1.025 : 1;
       const broad = rig.shoulder[1] * 1.06,
         maxW = Math.max(hipHalf * 1.11, broad) * (tailored ? 1.18 : 1.05) * ease;
       const fittedDepth = ease * Math.max(chestDepth * 1.28, hipThickness + 0.77 * s);
@@ -1876,7 +1905,14 @@ const pineDesignerBody = (() => {
         return paintedPanel(u, v, t, hemRise);
       });
       const hemZ = low + tall * waistline, clothHeight = high - hemZ;
-      if (wholeFigure && !panels && !(tailored && parts.top === 'oxford')) paint.neckline(b, k, parts.top, chestDepth, broad, hemZ, clothHeight);
+      if (wholeFigure && !panels && !seasonalTop && !(tailored && parts.top === 'oxford')) paint.neckline(b, k, parts.top, chestDepth, broad, hemZ, clothHeight);
+      if (parts.top==='cotton-yukata') {
+        // A folded bow stands free of the straight sash at the back.
+        const knot=hemZ+.24*clothHeight;
+        for(const side of [-1,1]) b.blob(-1.02*chestDepth,side*.27*broad,knot,.33*chestDepth,.29*broad,.096*clothHeight,
+          (x,y,z)=>z>knot+.035*clothHeight ? k.trimLight : Math.abs(y)<.20*broad ? k.trimShade:k.accent,2.7);
+        b.blob(-1.18*chestDepth,0,knot,.22*chestDepth,.14*broad,.094*clothHeight,k.accent,2.5);
+      }
       if (workshopTop) {
         if (!pixelStructure || parts.top !== 'snap-knit')
           pineWorkshopWear.torsoDetails(parts.top, b, k, chestDepth, broad, hemZ, clothHeight);
@@ -1898,7 +1934,7 @@ const pineDesignerBody = (() => {
           },
           3.7
         );
-      } else if (hoodie) {
+      } else if (hoodie || seasonalTop?.[3]==='hood') {
         const hoodZ = high - 0.105 * clothHeight;
         b.blob(
           -0.88 * chestDepth,
@@ -1919,7 +1955,7 @@ const pineDesignerBody = (() => {
           2.55
         );
         // The pocket narrows toward its top and has two inset diagonal hand openings.
-        b.stamp(
+        if(hoodie || parts.top==='loopback-hoodie') b.stamp(
           0.66 * chestDepth,
           1.27 * chestDepth,
           -0.76 * broad,

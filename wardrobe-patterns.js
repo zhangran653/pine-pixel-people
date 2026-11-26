@@ -59,6 +59,7 @@ const pinePatternWardrobe = (() => {
     'petal-skirt':['花瓣叠摆裙',.94,.16,1.48,8]
   };
   function skirtFabric(style,t,u,v,fold,k) {
+    if(season.skirts[style]) return season.skirt(style,t,u,v,fold,k);
     if (style==='folk-gather' && (Math.abs(t-.79)<.035 || Math.abs(t-.91)<.045)) return k.accent;
     if (style==='harbour-wrap' && u>.08 && Math.abs(v-.47+.86*t)<.09) return k.trimLight;
     if (style==='bell-skirt' && t>.60+.075*Math.cos(6*Math.atan2(v,u))) return t>.93 ? k.trimLight : k.accent;
@@ -101,7 +102,11 @@ const pinePatternWardrobe = (() => {
   const choices = {hair:Object.fromEntries(Object.entries(hair).map(([id,style])=>[id,style.label])),top:labels(tops),
     bottom:{...labels(bottoms),...labels(skirts)},shoes:labels(shoes),bag:labels(bags),brooch:ornaments('pin','珐琅胸针'),
     hairAccessory:ornaments('comb','边梳'),ears:ornaments('drops','垂耳饰')};
+  const season=pineSeasonalWardrobe;
+  Object.assign(tops,season.tops); Object.assign(bottoms,season.bottoms);
+  Object.assign(skirts,season.skirts); Object.assign(shoes,season.shoes);
   function fabric(style,u,v,t,k) {
+    if (season.tops[style]) return season.fabric(style,u,v,t,k);
     const [, , ,collar,detail] = tops[style], a=Math.abs(v), front=u>.15;
     const neck = .74 + .27*a, cross=t-.60-.43*v;
     if (collar==='cross' && front && Math.abs(cross)<.09) return cross<-.04 ? k.trimLight : k.accent;
@@ -144,6 +149,7 @@ const pinePatternWardrobe = (() => {
     return t<.08 ? k.topShade : k.top;
   }
   function sleeve(style,t,u,v,side,r,fore,k) {
+    if(season.tops[style]) return season.sleeve(style,t,u,v,side,r,fore,k);
     const finish=tops[style][5];
     if (finish==='linen') return fore && t>.82 ? k.skinLight : side*v<-.46*r ? k.topShade : k.lining;
     if (finish==='rolled' && fore && t>.40) return t<.65 ? k.lining : k.skinLight;
@@ -152,6 +158,7 @@ const pinePatternWardrobe = (() => {
     return side*v<-.55*r ? k.topShade : k.top;
   }
   function trouser(kind,t,u,v,side,shin,k) {
+    if(season.bottoms[kind]) return season.trouser(kind,t,u,v,side,shin,k);
     const mark=bottoms[kind][3], a=side*v;
     if (mark==='track' && (Math.abs(a-.65)<.14 || Math.abs(a-.35)<.08)) return k.accent;
     if (mark==='patch' && u>.23 && (shin ? t<.24 : t>.66)) return k.bottomShade;
@@ -164,6 +171,7 @@ const pinePatternWardrobe = (() => {
     return a<-.51 ? k.bottomShade : k.bottom;
   }
   function footwear(kind,f,a,z,k) {
+    if(season.shoes[kind]) return season.shoe(kind,f,a,z,k);
     const mark=shoes[kind][3];
     if (z<.33) return mark==='gum' ? k.shoeLight : k.outsole;
     if (mark==='gum' && (z<.58 || (f>.52 && z<1.50))) return k.rubber;

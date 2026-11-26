@@ -205,6 +205,21 @@ const pineCharacterAlmanac = (() => {
     for(const ch of text) value=Math.imul(value^ch.charCodeAt(0),16777619);
     return value>>>0;
   }
+  // Individual art direction for pairs that read alike at gameplay size in front and profile.
+  const finishing={
+    weatherdesk_chart:{hair:'ripple-lob',wear:{hat:'none',top:'ridge-fleece',neck:'knit-snood',shoes:'gaiter-boots'},
+      dyes:{top:'#b49c60',bottom:'#546878',accent:'#b87962'}},
+    herbhall_grow:{hair:'looped-knot',wear:{hat:'pine-core/reed-hat',top:'frog-coat',bottom:'folk-gather'},
+      dyes:{hat:'#bb995e',top:'#6d8976',bottom:'#79744f',accent:'#d5b685'}},
+    petrescue_nurse:{hair:'petal-bob',wear:{top:'pointelle-cardigan',shoes:'penny-loafers'},
+      dyes:{top:'#b57e8b',bottom:'#526775',accent:'#dfc4ae'}},
+    cradleship_comet:{hair:'baby-puffs',wear:{top:'lullaby-smock',bottom:'patch-tights',shoes:'soft-booties'},
+      dyes:{top:'#7c9c9a',bottom:'#b59a80',shoes:'#c2a679',accent:'#e1c081'}},
+    teagrove_host:{hair:'space-buns',wear:{top:'sunday-blouse',bottom:'petal-skirt'},
+      dyes:{top:'#ba8675',bottom:'#926f85',accent:'#d3ad8c'}},
+    habitatlab_optics:{hair:'brushed-crop',wear:{top:'orbit-liner',glasses:'goggles'},
+      dyes:{top:'#73878f',accent:'#d8b36d'}}
+  };
   function generate(add,palette) {
     for (const scene of scenes) {
       const {kit,roles,profiles:age,era}=scene, outfit=kits[kit];
@@ -255,6 +270,13 @@ const pineCharacterAlmanac = (() => {
         const strand=accentId==='elder' ? (hash(key)%2 ? 'salt' : 'silver') : choose(hairDyes,'strand');
         const colors=palette(skin,strand,eye,top,bottom,shoe,accent);
         const art={head,build,hair,wear,dyes,palette:colors,...portraitAccents[accentId]};
+        const finish=finishing[key];
+        if(finish) {
+          art.hair=finish.hair;
+          Object.assign(art.wear,finish.wear);
+          Object.assign(art.dyes,finish.dyes);
+          if(art.wear.hat==='none') delete art.dyes.hat;
+        }
         add(scene,key,label,profile,art);
       });
     }

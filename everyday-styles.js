@@ -37,7 +37,8 @@ const pineEverydayStyles = (() => {
       tie: '长领带',
       choker: '颈圈',
       'winter-scarf': '针织围巾',
-      bolo: '波洛领绳'
+      bolo: '波洛领绳',
+      ...pineSeasonalWardrobe.neck
     }
   };
   const wearables = {
@@ -229,9 +230,16 @@ const pineEverydayStyles = (() => {
     return fore && t > 0.81 ? k.topLight : side * v < -0.51 * r ? k.topShade : k.top;
   }
   function pants(style, b, thighLink, shinLink, k, hip, knee, foot, side, r, kr, ar) {
+    const end = (a,c,t) => a.map((v,i)=>v+(c[i]-v)*t);
     const pattern = pinePatternWardrobe.bottoms[style];
     if (pattern) {
       const pigment=shin=>(t,u,v)=>pinePatternWardrobe.trouser(style,t,u/kr,v/kr,side,shin,k);
+      if (pattern[4]) {
+        thighLink(hip,knee,.91*r,.92*kr,.94,()=>k.skinLight);
+        shinLink(knee,foot,.92*kr,ar,.94,()=>k.skinLight);
+        thighLink(hip,end(hip,knee,pattern[4]),1.08*r,kr*pattern[1],1.02,pigment(false));
+        return;
+      }
       thighLink(hip,knee,r,kr*pattern[1],.96,pigment(false));
       shinLink(knee,foot,kr*pattern[1],ar*pattern[2],.98,pigment(true));
       return;
@@ -240,7 +248,6 @@ const pineEverydayStyles = (() => {
       capri = style === 'capris',
       wide = style === 'wide-leg' || style === 'panel-culottes',
       stripe = style === 'pinstripe';
-    const end = (a, c, t) => a.map((v, i) => v + (c[i] - v) * t);
     const cloth = (t, u, v) => {
       if (style === 'panel-culottes') {
         const pleat = Math.abs(v / kr - side * (.29 + .21*t));
@@ -287,7 +294,7 @@ const pineEverydayStyles = (() => {
       mary = style === 'mary-janes',
       run = style === 'runners';
     const h = ankle * (pattern ? pattern[1] : boot ? 0.72 : sandal ? 0.39 : mary ? 0.51 : 0.58);
-    if (mary || sandal)
+    if (mary || sandal || pattern?.[3]==='straps' || pattern?.[3]==='zori')
       b.blob(toe, y, floor + 0.58 * ankle, 0.84 * sx, 0.78 * sy, 0.48 * ankle, k.skinLight, 2.7);
     b.blob(
       toe,
@@ -330,6 +337,8 @@ const pineEverydayStyles = (() => {
         1.23 * r,
         1,
         (t, u, v) => {
+          if (pattern?.[3]==='snow') return t>.68 ? k.lining : k.shoeShade;
+          if (pattern?.[3]==='western') return t>.86-.12*Math.abs(v/r) || Math.abs(t-.38-.27*Math.abs(v/r))<.055 ? k.shoeLight:k.shoes;
           if (pattern && (Math.abs(t-.33)<.09 || Math.abs(t-.78)<.07)) return pattern[3]==='gaiter' ? k.brass : k.rubber;
           if (style === 'wrap-boots' && Math.cos(17*t+v/r*2.6) > .24) return k.accent;
           return t > 0.85 ? k.shoeLight : Math.abs(v) > 0.62 * r && t > 0.25 ? k.shoeShade : k.shoes;
@@ -610,6 +619,7 @@ const pineEverydayStyles = (() => {
     }
     const style = parts.neck;
     if (!Object.hasOwn(clothes.neck, style)) return;
+    if (pineSeasonalWardrobe.neck[style]) return pineSeasonalWardrobe.neckwear(style,b,k,d,w,tall,z,mount);
     if (style === 'winter-scarf') {
       b.blob(
         0.02 * d,

@@ -12,7 +12,9 @@ const pineCollectionWardrobe = (() => {
   const pattern = pinePatternWardrobe;
   Object.assign(tops,pattern.choices.top); Object.assign(bottoms,pattern.choices.bottom);
   Object.assign(shoes,pattern.choices.shoes); Object.assign(bags,pattern.choices.bag);
-  const choices = { top: tops, bottom: bottoms, shoes, bag: bags, charm: charms };
+  const seasonal=pineSeasonalWardrobe.choices;
+  Object.assign(tops,seasonal.top); Object.assign(bottoms,seasonal.bottom); Object.assign(shoes,seasonal.shoes);
+  const choices = { top: tops, bottom: bottoms, shoes, neck:seasonal.neck, bag: bags, charm: charms };
   const currentChoices=Object.entries({...pattern.choices,...choices});
   function needsCurrentParts(parts) {
     return currentChoices.some(([slot, options]) => Object.hasOwn(options, parts[slot]));

@@ -797,7 +797,7 @@ SOFTWARE.`;
       parts: { top, bottom, shoes, neck },
       colors: { top: palette[0], bottom: palette[1], shoes: palette[2], accent: palette[3] }
     };
-  Object.assign(outfits, pineWorkshopWear.outfits);
+  Object.assign(outfits, pineWorkshopWear.outfits, pineSeasonalWardrobe.outfits);
   function applyOutfit(recipe, outfit) {
     if (Object.hasOwn(outfit.parts, 'hat')) {
       const owner = outfit.parts.hat.split('/')[0];
@@ -1573,6 +1573,11 @@ SOFTWARE.`;
   const neutralShape = Object.fromEntries(requiredShape.map(key => [key,shape[key][2]]));
   const templates = [...seedWardrobe, ...pineCharacterCollection.sources].map(source => {
     const doc = pineCharacterCollection.assemble(source,core,infantNoseRelease,neutralShape);
+    const seasonal=pineSeasonalWardrobe.outfits[pineSeasonalWardrobe.wearers[doc.id.slice(5)]];
+    if(seasonal) {
+      Object.assign(doc.parts,seasonal.parts);
+      Object.assign(doc.colors,seasonal.colors);
+    }
     const ratios = fittedFigureRatios(doc);
     // At game size, a little more room for the eyes and mouth keeps the faces readable.
     if (doc.base === 'adult') {
@@ -1583,6 +1588,9 @@ SOFTWARE.`;
     for (const [key, value] of Object.entries(ratios)) doc.shape[key] ??= value;
     return doc;
   });
+  const titleOptions={slots,wearables,catalog};
+  const originalTitles=pineCharacterTitles.index(templates,titleOptions);
+  const visibleFeatures=doc=>pineCharacterTitles.features(doc,titleOptions);
   const templateById = new Map(templates.map((doc) => [doc.id, doc]));
   function outfitFrom(doc,label=doc.label) {
     const outfit = {label, parts:{}, colors:{}};
@@ -2190,7 +2198,7 @@ SOFTWARE.`;
     applyFacePreset,
     featureShapeKeys,
     outfits,
-    workshopOutfits: pineWorkshopWear.outfits,
+    workshopOutfits: pineWorkshopWear.outfits, seasonalWardrobe:pineSeasonalWardrobe,
     collectionOutfits, outfitFrom,
     wearables,
     carriedSlots,
@@ -2211,7 +2219,7 @@ SOFTWARE.`;
     templates,
     templateById,
     archivedTemplates,
-    library: pineCharacterCollection,
+    library: pineCharacterCollection, originalTitles, visibleFeatures,
     manifest,
     install,
     prepare,

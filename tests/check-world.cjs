@@ -300,6 +300,29 @@ for(const [slot,parts] of Object.entries(swatches)){
   const worn=new Set(newest.map(doc=>doc.parts[slot]));
   for(const id of Object.keys(parts)) assert.ok(worn.has(id),slot+'/'+id+' missing from the catalogue');
 }
+const seasonWardrobe=looks.seasonalWardrobe;
+const pairedLooks=Object.values(seasonWardrobe.outfits);
+assert.equal(Object.keys(seasonWardrobe.wearers).length,pairedLooks.length);
+for(const [person,outfitId] of Object.entries(seasonWardrobe.wearers)){
+  const doc=looks.templateById.get('look_'+person), outfit=seasonWardrobe.outfits[outfitId];
+  for(const [slot,value] of Object.entries(outfit.parts)) assert.equal(doc.parts[slot],value,doc.id+'/'+slot);
+  for(const [slot,value] of Object.entries(outfit.colors)) assert.equal(doc.colors[slot],value);
+}
+for(const [slot,items] of Object.entries(seasonWardrobe.choices)){
+  for(const id of Object.keys(items)) {
+    assert.ok(looks.slots[slot][id] && pairedLooks.some(o=>o.parts[slot]===id),slot+'/'+id);
+  }
+}
+for(const base of ['adult','child','toddler','baby']){
+  const original=looks.templates.find(d=>d.base===base);
+  for(const outfit of pairedLooks) {
+    assert.ok(outfit.seasons.every(season=>seasonWardrobe.seasons[season]) && seasonWardrobe.regions[outfit.region]);
+    assert.ok(outfit.families.every(type=>seasonWardrobe.families[type]));
+    const recipe=looks.prepare(looks.applyOutfit(clone(original),outfit)).recipe;
+    for(const key of ['hair','hat','bag','glasses','implement']) assert.equal(recipe.parts[key],original.parts[key]);
+    assert.equal(recipe.colors.skin,original.colors.skin);
+  }
+}
 for(const doc of newest){
   assert.ok(looks.library.facets(doc).hair);
   if(doc.base==='baby'){
@@ -307,12 +330,18 @@ for(const doc of newest){
     assert.ok(!doc.parts.ears && !doc.parts.charm && !doc.parts.implement);
   }
 }
+for(const doc of looks.templates) {
+  const {tokens,titles}=looks.visibleFeatures(doc);
+  assert.ok(titles.includes(doc.label) && doc.label!==looks.originalTitles.get(doc.id),doc.id);
+  if(doc.parts.hat!=='none') assert.ok(!tokens.includes(looks.slots.hair[doc.parts.hair]),'hair hidden by hat '+doc.id);
+}
 const faces = new Set();
 for (const doc of looks.templates) {
   const original = looks.archivedTemplates.get(doc.id);
   const recipe = looks.prepare(clone(doc)).recipe, copy = looks.build(recipe);
   if (original) {
-    for (const key of ['label','base','gender']) assert.equal(doc[key],original[key],doc.id);
+    assert.equal(looks.originalTitles.get(doc.id),original.label,doc.id);
+    for (const key of ['base','gender']) assert.equal(doc[key],original[key],doc.id);
     assert.equal(doc.parts.implement,original.parts.implement,doc.id);
     assert.notDeepEqual(clone(doc.colors),clone(original.colors),doc.id);
   } else assert.ok(looks.library.newIds.has(doc.id));

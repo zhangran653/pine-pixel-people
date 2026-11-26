@@ -386,7 +386,14 @@
             "frog-coat", "festival-bolero", "moth-cape", "thermal-shell",
             "orchard-pinafore", "barista-apron", "atelier-coat", "field-vest", "running-shell", "ridge-fleece", "shell-parka",
             "cable-knit", "fairisle-knit", "petal-cardigan", "lullaby-smock", "sunday-blouse", "patch-pullover", "station-jacket",
-            "double-vest", "camp-shirt", "reed-robe", "loom-jacket", "bell-tabard", "leaf-mantle", "orbit-liner", "relay-shell"
+            "double-vest", "camp-shirt", "reed-robe", "loom-jacket", "bell-tabard", "leaf-mantle", "orbit-liner", "relay-shell",
+            "banker-shirt", "linen-blouse", "cropped-blazer", "two-button-suit", "loopback-hoodie", "zip-hoodie",
+            "pointelle-cardigan", "pocket-tee", "band-tee", "rib-tank", "linen-camp", "pique-polo",
+            "sundress-bodice", "gingham-blouse", "flannel-overshirt", "double-suit", "crew-sweat", "boxy-hood",
+            "vneck-pullover", "belted-trench", "cord-shirtcoat", "channel-puffer", "hood-parka", "toggle-duffle",
+            "shawl-knit", "rib-rollneck", "wool-overcoat", "wrap-bodice", "mandarin-jacket", "qipao-bodice",
+            "cross-ru", "cotton-yukata", "open-haori", "festival-happi", "western-yoke", "letterman-jacket",
+            "denim-trucker", "aran-cardigan", "bleu-workcoat", "highland-waistcoat"
           ]
         },
         "bottom": {
@@ -406,7 +413,10 @@
             "track-shorts",
             "panel-culottes", "banded-trousers",
             "gusset-slacks", "sailor-pants", "knee-cargos", "ribbon-joggers", "loom-pants", "balloon-pants", "patch-tights",
-            "flight-trousers", "folk-gather", "harbour-wrap", "bell-skirt", "petal-skirt"
+            "flight-trousers", "folk-gather", "harbour-wrap", "bell-skirt", "petal-skirt",
+            "two-pleat-slacks", "linen-wide", "denim-straight", "denim-bootcut", "pleated-hakama", "fleece-jog",
+            "bermuda-shorts", "linen-shorts", "office-pencil", "bias-midi", "pleated-mini", "summer-tier",
+            "circle-skirt", "wool-a-line", "mamian-skirt", "qipao-column", "yukata-hem", "highland-kilt"
           ]
         },
         "shoes": {
@@ -426,7 +436,9 @@
             "runners",
             "oxfords",
             "deck-shoes", "wrap-boots",
-            "gum-plimsolls", "court-sneakers", "tassel-loafers", "gaiter-boots", "petal-slippers", "cabin-boots"
+            "gum-plimsolls", "court-sneakers", "tassel-loafers", "gaiter-boots", "petal-slippers", "cabin-boots",
+            "penny-loafers", "bow-flats", "fisherman-sandals", "slip-on-canvas", "snow-boots", "derby-laceups",
+            "cowboy-boots", "thong-zori"
           ]
         },
         "neck": {
@@ -439,7 +451,8 @@
             "tie",
             "choker",
             "winter-scarf",
-            "bolo"
+            "bolo",
+            "knit-snood", "checked-muffler", "silk-foulard", "slim-tie", "sailor-kerchief", "ribbon-tie"
           ]
         },
         "hat": {
@@ -969,9 +982,10 @@
     {
       "if": { "properties": { "parts": { "anyOf": [
         { "required":["hair"], "properties":{ "hair":{ "enum":["feather-crop","page-crop","brushed-crop","petal-bob","swing-bob","shoulder-shag","cascade-part","ripple-lob","willow-wave","cloud-puffs","looped-knot","ribbon-fall","side-loop","loop-braid","ribbon-plait","temple-braids"] } } },
-        { "required":["top"], "properties":{ "top":{ "enum":["kiln-smock","utility-gilet","deck-jumper","quilt-jacket","frog-coat","festival-bolero","moth-cape","thermal-shell","orchard-pinafore","barista-apron","atelier-coat","field-vest","running-shell","ridge-fleece","shell-parka","cable-knit","fairisle-knit","petal-cardigan","lullaby-smock","sunday-blouse","patch-pullover","station-jacket","double-vest","camp-shirt","reed-robe","loom-jacket","bell-tabard","leaf-mantle","orbit-liner","relay-shell"] } } },
-        { "required":["bottom"], "properties":{ "bottom":{ "enum":["panel-culottes","banded-trousers","gusset-slacks","sailor-pants","knee-cargos","ribbon-joggers","loom-pants","balloon-pants","patch-tights","flight-trousers","folk-gather","harbour-wrap","bell-skirt","petal-skirt"] } } },
-        { "required":["shoes"], "properties":{ "shoes":{ "enum":["deck-shoes","wrap-boots","gum-plimsolls","court-sneakers","tassel-loafers","gaiter-boots","petal-slippers","cabin-boots"] } } },
+        { "required":["top"], "properties":{ "top":{ "enum":["kiln-smock","utility-gilet","deck-jumper","quilt-jacket","frog-coat","festival-bolero","moth-cape","thermal-shell","orchard-pinafore","barista-apron","atelier-coat","field-vest","running-shell","ridge-fleece","shell-parka","cable-knit","fairisle-knit","petal-cardigan","lullaby-smock","sunday-blouse","patch-pullover","station-jacket","double-vest","camp-shirt","reed-robe","loom-jacket","bell-tabard","leaf-mantle","orbit-liner","relay-shell","banker-shirt","linen-blouse","cropped-blazer","two-button-suit","loopback-hoodie","zip-hoodie","pointelle-cardigan","pocket-tee","band-tee","rib-tank","linen-camp","pique-polo","sundress-bodice","gingham-blouse","flannel-overshirt","double-suit","crew-sweat","boxy-hood","vneck-pullover","belted-trench","cord-shirtcoat","channel-puffer","hood-parka","toggle-duffle","shawl-knit","rib-rollneck","wool-overcoat","wrap-bodice","mandarin-jacket","qipao-bodice","cross-ru","cotton-yukata","open-haori","festival-happi","western-yoke","letterman-jacket","denim-trucker","aran-cardigan","bleu-workcoat","highland-waistcoat"] } } },
+        { "required":["bottom"], "properties":{ "bottom":{ "enum":["panel-culottes","banded-trousers","gusset-slacks","sailor-pants","knee-cargos","ribbon-joggers","loom-pants","balloon-pants","patch-tights","flight-trousers","folk-gather","harbour-wrap","bell-skirt","petal-skirt","two-pleat-slacks","linen-wide","denim-straight","denim-bootcut","pleated-hakama","fleece-jog","bermuda-shorts","linen-shorts","office-pencil","bias-midi","pleated-mini","summer-tier","circle-skirt","wool-a-line","mamian-skirt","qipao-column","yukata-hem","highland-kilt"] } } },
+        { "required":["neck"], "properties":{ "neck":{ "enum":["knit-snood","checked-muffler","silk-foulard","slim-tie","sailor-kerchief","ribbon-tie"] } } },
+        { "required":["shoes"], "properties":{ "shoes":{ "enum":["deck-shoes","wrap-boots","gum-plimsolls","court-sneakers","tassel-loafers","gaiter-boots","petal-slippers","cabin-boots","penny-loafers","bow-flats","fisherman-sandals","slip-on-canvas","snow-boots","derby-laceups","cowboy-boots","thong-zori"] } } },
         { "required":["bag"], "properties":{ "bag":{ "enum":["reed-creel","tube-case","doctor-case","map-folio","market-basket","dancer-duffel","flap-ruck","crescent-bag","tool-roll","capsule-pack"] } } },
         { "required":["brooch"], "properties":{ "brooch":{ "enum":["daisy-pin","ginkgo-pin","koi-pin","moth-pin","berry-pin","starfall-pin","moon-pin","prism-pin","swallow-pin","bell-pin","spool-pin","planet-pin"] } } },
         { "required":["hairAccessory"], "properties":{ "hairAccessory":{ "enum":["daisy-comb","ginkgo-comb","koi-comb","moth-comb","berry-comb","starfall-comb","moon-comb","prism-comb","swallow-comb","bell-comb","spool-comb","planet-comb"] } } },

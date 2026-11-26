@@ -477,7 +477,7 @@ const pineFigurePaint = (() => {
   };
   const longPants = new Set(['trousers','joggers','pinstripe','wide-leg','cuffed-denim','cargo','bib-overalls','knee-pants','panel-culottes','banded-trousers']);
   for (const style of newCuts('coat')) workCoats.add(style);
-  for (const style of Object.keys(pinePatternWardrobe.bottoms)) longPants.add(style);
+  for (const [style,cut] of Object.entries(pinePatternWardrobe.bottoms)) if(!cut[4]) longPants.add(style);
   function patternFor(style, bottom, base, fit) {
     const top = topPatterns[fit.top || (highWaists.has(style) && style !== 'blazer' ? 'tucked' :
       knitwear.has(style) || style === 'snap-knit' ? 'bloused' : 'straight')];
@@ -544,6 +544,13 @@ const pineFigurePaint = (() => {
       return v > .011 ? k.topShade : k.topLight;
     }
     return k.top;
+  }
+  function skirtPanel(k, value, t, u, v, fold) {
+    const {set,types,bias}=inks(k),group=types[value];
+    if(!group) return value;
+    const light=.80*u-1.22*v+.23*(1-t);
+    const pleat=fold*(.12+.34*t);
+    return swatch(set[group],3.65+light+.75*bias[value]-pleat-(t>.95?.62:0));
   }
   function cutTorso(k, value, garment, u, v, h) {
     const { set, types, bias } = inks(k), group = types[value];
@@ -1067,7 +1074,7 @@ const pineFigurePaint = (() => {
     panelDetail,
     garmentCut,
     cutLink,
-    cutTorso,
+    cutTorso, skirtPanel,
     shirt,
     lighting: { painted, metal: fasteners },
     hem,

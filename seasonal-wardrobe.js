@@ -1,0 +1,337 @@
+// Garments are drawn in the wearer's local coordinates. IDs describe a cut, independent of dye and wearer.
+const pineSeasonalWardrobe = (() => {
+  // Name, gallery family, body cut, collar, surface construction, sleeve.
+  const tops={
+    'banker-shirt':['细条纹扣领衬衫','tailored','shirt','point','pinstripe','cuff'],
+    'linen-blouse':['七分袖麻衬衫','casual','shirt','split','tucks','three-quarter'],
+    'cropped-blazer':['短款驳领西装','tailored','coat','lapel','crop','cuff'],
+    'two-button-suit':['两粒扣西装','tailored','coat','lapel','single','suit'],
+    'loopback-hoodie':['袋鼠兜连帽卫衣','casual','knit','hood','pouch','rib'],
+    'zip-hoodie':['拉链连帽卫衣','casual','knit','hood','zip','rib'],
+    'pointelle-cardigan':['镂纹圆领开衫','knits','knit','round','eyelet','rib'],
+    'pocket-tee':['胸袋圆领短袖','casual','shirt','round','pocket','short'],
+    'band-tee':['宽横条短袖','casual','shirt','boat','bands','short'],
+    'rib-tank':['罗纹背心','casual','shirt','tank','vertical','bare'],
+    'linen-camp':['亚麻开领短袖衬衫','casual','shirt','camp','seam','short'],
+    'pique-polo':['珠地撞领运动衫','active','shirt','polo','placket','short'],
+    'sundress-bodice':['细吊带收腰裙上身','casual','shirt','straps','waist','bare'],
+    'gingham-blouse':['方领格纹泡袖衫','casual','shirt','square','gingham','puff'],
+    'flannel-overshirt':['大格纹法兰绒衬衫','casual','coat','point','plaid','cuff'],
+    'double-suit':['双排扣戗驳领西装','tailored','coat','peak','double','suit'],
+    'crew-sweat':['三角插片圆领卫衣','casual','knit','round','gusset','rib'],
+    'boxy-hood':['落肩拼袖连帽衫','casual','knit','hood','sidepanels','contrast'],
+    'vneck-pullover':['嵌条V领毛衫','knits','knit','vneck','edging','rib'],
+    'belted-trench':['腰带叠襟风衣','tailored','long','lapel','storm','tab'],
+    'cord-shirtcoat':['灯芯绒衬衫夹克','casual','coat','point','cord','tab'],
+    'channel-puffer':['横格蓬松羽绒服','active','coat','stand','quilt','padded'],
+    'hood-parka':['带帽大口袋棉服','active','long','hood','park','tab'],
+    'toggle-duffle':['牛角扣粗呢大衣','casual','long','stand','toggles','tab'],
+    'shawl-knit':['青果领厚开衫','knits','knit','shawl','basket','rib'],
+    'rib-rollneck':['高领罗纹针织衫','knits','knit','roll','ribbing','rib'],
+    'wool-overcoat':['翻领长呢大衣','tailored','long','peak','welt','suit'],
+    'wrap-bodice':['系带裹身裙上衣','casual','shirt','wrap','tie','three-quarter'],
+    'mandarin-jacket':['立领一字扣便褂','robes','coat','stand','frogs','turnback'],
+    'qipao-bodice':['斜襟盘扣旗袍上身','robes','shirt','mandarin','curved','cap'],
+    'cross-ru':['缘边交领短襦','robes','shirt','cross','girdle','wide'],
+    'cotton-yukata':['棉浴衣上身','robes','shirt','cross','obi','square-sleeve'],
+    'open-haori':['敞襟羽织','robes','coat','haori','cords','wide'],
+    'festival-happi':['宽襟祭典法被','robes','coat','happi','crest','square-sleeve'],
+    'western-yoke':['尖肩片西部按扣衬衫','casual','shirt','point','western','snap'],
+    'letterman-jacket':['拼袖棒球夹克','active','coat','varsity','letter','contrast'],
+    'denim-trucker':['双胸袋短牛仔夹克','casual','coat','point','trucker','tab'],
+    'aran-cardigan':['阿兰绞花开衫','knits','knit','vneck','aran','rib'],
+    'bleu-workcoat':['法式三袋工作夹克','work','coat','point','threepocket','turnback'],
+    'highland-waistcoat':['尖摆呢料马甲','tailored','coat','vneck','waistcoat','shirtsleeve']
+  };
+  // Knee and ankle widths; shorts also specify where the cloth ends on the thigh.
+  const bottoms={
+    'two-pleat-slacks':['双褶西裤',1.05,1.26,'pressed'], 'linen-wide':['亚麻阔腿裤',1.22,1.70,'linen'],
+    'denim-straight':['直筒牛仔裤',1.05,1.26,'denim'], 'denim-bootcut':['微喇牛仔裤',.99,1.61,'flare'],
+    'pleated-hakama':['宽褶袴裤',1.28,1.72,'hakama'], 'fleece-jog':['罗口卫裤',1.12,.87,'sweat'],
+    'bermuda-shorts':['翻边百慕大短裤',1.16,1,'hem',.86], 'linen-shorts':['抽绳亚麻短裤',1.23,1,'drawcord',.53]
+  };
+  const skirts={
+    'office-pencil':['直筒通勤裙',.98,.22,1.13,4],'bias-midi':['斜裁中长裙',.97,.47,1.34,5],
+    'pleated-mini':['箱褶短裙',.70,.01,1.51,12],'summer-tier':['层褶夏裙',1,.51,1.62,12],
+    'circle-skirt':['伞摆裙',.96,.28,1.73,9],'wool-a-line':['呢料A字裙',.95,.09,1.47,5],
+    'mamian-skirt':['侧褶马面裙',1,.68,1.52,20],'qipao-column':['侧开衩旗袍裙身',1,.46,1.12,2],
+    'yukata-hem':['浴衣叠襟下摆',1,.74,1.26,3],'highland-kilt':['苏格兰格呢褶裙',.97,.055,1.38,16]
+  };
+  const shoes={
+    'penny-loafers':['一字带乐福鞋',.55,0,'penny'],'bow-flats':['蝴蝶结芭蕾鞋',.47,0,'bow'],
+    'fisherman-sandals':['包头编带凉鞋',.52,0,'straps'],'slip-on-canvas':['松紧口帆布鞋',.55,0,'canvas'],
+    'snow-boots':['翻绒雪地靴',.74,.51,'snow'],'derby-laceups':['开放襟德比鞋',.58,0,'derby'],
+    'cowboy-boots':['弧口西部靴',.68,.57,'western'],'thong-zori':['夹趾草履',.40,0,'zori']
+  };
+  const neck={'knit-snood':'厚针织围脖','checked-muffler':'格纹长围巾','silk-foulard':'三角丝巾',
+    'slim-tie':'窄版领带','sailor-kerchief':'打结海员巾','ribbon-tie':'垂带蝴蝶领结'};
+  const names=list=>Object.fromEntries(Object.entries(list).map(([key,value])=>[key,value[0]]));
+  const choices={top:names(tops),bottom:{...names(bottoms),...names(skirts)},shoes:names(shoes),neck};
+  const seasons={spring:'春',summer:'夏',autumn:'秋',winter:'冬'};
+  const regions={daily:'日常通用',cn:'中国',jp:'日本',us:'美国',eu:'欧洲'};
+  const families={suit:'西装',skirt:'裙装',hoodie:'卫衣',shirt:'衬衫',knit:'针织',coat:'外套',light:'T恤与背心',traditional:'传统服饰'};
+  const outfits={};
+  // Palette order follows the garment down to the ground. Trim is a separate dye.
+  function look(id,label,season,region,types,top,bottom,shoe,neckwear,palette) {
+    const [shirt,trousers,foot,trim]=palette.split(' ').map(hex=>'#'+hex);
+    outfits[id]={label,seasons:season.split(' '),region,families:types.split(' '),
+      parts:{top,bottom,shoes:shoe,neck:neckwear}, colors:{top:shirt,bottom:trousers,shoes:foot,accent:trim}};
+  }
+  look('spring-stripes','细条衬衫与双褶西裤','spring autumn','daily','shirt','banker-shirt','two-pleat-slacks','derby-laceups','slim-tie','9cb8c7 505b67 624c43 765064');
+  look('linen-sage','七分袖与亚麻阔腿裤','spring summer','daily','shirt','linen-blouse','linen-wide','penny-loafers','none','d8c9ad 799383 87664e ac8c6f');
+  look('apricot-suit','短西装与直筒裙','spring autumn','daily','suit skirt','cropped-blazer','office-pencil','bow-flats','silk-foulard','bc9d89 716777 6b514c 839e93');
+  look('navy-two-piece','深蓝两粒扣西服','spring autumn','daily','suit','two-button-suit','two-pleat-slacks','derby-laceups','slim-tie','4a5a73 4a5a73 554542 a86e70');
+  look('moss-hoodie','草绿袋鼠兜卫衣','spring autumn','daily','hoodie','loopback-hoodie','fleece-jog','slip-on-canvas','none','799174 666c76 e1d3b8 cab892');
+  look('plum-zip','莓红拉链卫衣与短裤','spring summer','daily','hoodie','zip-hoodie','bermuda-shorts','slip-on-canvas','none','aa6c76 7e8590 e1d1ba bda2a2');
+  look('petal-cardi','镂纹开衫与伞摆裙','spring','daily','knit skirt','pointelle-cardigan','circle-skirt','bow-flats','ribbon-tie','b598ad 7d718d 865d69 d1c5a9');
+  look('pocket-summer','口袋短袖与亚麻短裤','summer','daily','light','pocket-tee','linen-shorts','fisherman-sandals','none','d59778 899985 b48b66 e6c9a2');
+  look('sail-stripes','宽条短袖与翻边短裤','summer','daily','light','band-tee','bermuda-shorts','slip-on-canvas','sailor-kerchief','e3d9c4 8797a2 b9a086 5e7989');
+  look('pool-tank','罗纹背心与阔腿长裤','summer','daily','light','rib-tank','linen-wide','fisherman-sandals','none','759e9a b8a58e 8c715b a7b49b');
+  look('linen-camp-look','开领衬衫与亚麻短裤','summer','daily','shirt','linen-camp','linen-shorts','fisherman-sandals','none','b4a278 8293a0 997957 dbcbac');
+  look('courtside-polo','撞领短衫与百慕大裤','summer','daily','shirt','pique-polo','bermuda-shorts','slip-on-canvas','none','86a9a4 c0aa8e ddceb9 556f7e');
+  look('sundress','松石色吊带伞裙','summer','daily','skirt','sundress-bodice','circle-skirt','bow-flats','none','709b94 709b94 b38571 ddc8a1');
+  look('gingham-picnic','格纹泡袖衫与层褶裙','summer spring','daily','shirt skirt','gingham-blouse','summer-tier','fisherman-sandals','none','be8583 d6c3a7 9d795b e5ceba');
+  look('flannel-weekend','大格衬衫与直筒牛仔裤','autumn spring','daily','shirt','flannel-overshirt','denim-straight','penny-loafers','none','9a6861 667e93 725943 625965');
+  look('double-breast','灰绿双排扣西装','autumn winter','daily','suit','double-suit','two-pleat-slacks','derby-laceups','none','697a73 697a73 604c41 c1ab80');
+  look('crew-denim','圆领卫衣与微喇牛仔裤','autumn spring','daily','hoodie','crew-sweat','denim-bootcut','slip-on-canvas','none','bc8d65 6a8194 d6c9ae d9b896');
+  look('campus-hood','拼袖连帽衫与箱褶短裙','autumn spring','daily','hoodie skirt','boxy-hood','pleated-mini','slip-on-canvas','none','8594aa 69687b ccbfaa d0bc99');
+  look('ochre-vneck','V领毛衫与呢料A字裙','autumn','daily','knit skirt','vneck-pullover','wool-a-line','penny-loafers','none','b19461 777f6c 806451 e0cfad');
+  look('rain-trench','束腰风衣与微喇裤','autumn spring','daily','coat','belted-trench','denim-bootcut','derby-laceups','none','b1997e 63748a 7d6251 786453');
+  look('cord-walk','灯芯绒夹克与翻边长裤','autumn','daily','shirt coat','cord-shirtcoat','cuffed-denim','penny-loafers','none','988059 667987 785844 c8b490');
+  look('snow-puffer','羽绒服与翻绒雪地靴','winter','daily','coat','channel-puffer','fleece-jog','snow-boots','knit-snood','b1bec7 626a77 a38773 c58270');
+  look('forest-parka','带帽棉服与格纹围巾','winter','daily','coat','hood-parka','denim-straight','snow-boots','checked-muffler','788966 657183 886d56 c79c7a');
+  look('navy-duffle','牛角扣大衣与软围脖','winter','daily','coat','toggle-duffle','two-pleat-slacks','snow-boots','knit-snood','596981 877b78 755e4c cab68e');
+  look('oat-shawl','厚针开衫与斜裁裙','winter autumn','daily','knit skirt','shawl-knit','bias-midi','gaiter-boots','none','c9bb9f 807185 896c58 a5937f');
+  look('wine-rollneck','高领毛衣与呢裙','winter autumn','daily','knit skirt','rib-rollneck','wool-a-line','gaiter-boots','none','9c6974 606b7d 6f534c c5a486');
+  look('camel-overcoat','长呢大衣与格纹围巾','winter','daily','coat','wool-overcoat','two-pleat-slacks','derby-laceups','checked-muffler','b39978 625a65 745746 916d65');
+  look('wrap-dress','斜襟裹身中长裙','spring summer','daily','skirt','wrap-bodice','bias-midi','bow-flats','none','aa777a aa777a 855e61 e1c5a3');
+  look('cn-cloth-jacket','立领盘扣便褂与阔腿裤','spring autumn','cn','traditional coat','mandarin-jacket','linen-wide','penny-loafers','none','677d81 595b68 5d4c45 b7ab8d');
+  look('cn-qipao','豆绿斜襟旗袍','summer','cn','traditional skirt','qipao-bodice','qipao-column','bow-flats','none','849787 849787 8b7068 d8bc9a');
+  look('cn-mamian','交领短襦与侧褶马面裙','spring autumn','cn','traditional skirt','cross-ru','mamian-skirt','flats','none','d6c5a1 986369 805c55 c9a463');
+  look('jp-yukata','靛蓝棉浴衣与草履','summer','jp','traditional','cotton-yukata','yukata-hem','thong-zori','none','637995 637995 90755e d4b477');
+  look('jp-haori','敞襟羽织与宽褶袴裤','spring autumn','jp','traditional coat','open-haori','pleated-hakama','thong-zori','none','768575 62667a 867453 baab94');
+  look('jp-happi','宽襟法被与束口裤','summer autumn','jp','traditional coat','festival-happi','balloon-pants','thong-zori','none','5e8397 555f76 886e56 e1cdb0');
+  look('us-western','尖肩片衬衫与西部靴','spring autumn','us','shirt','western-yoke','denim-bootcut','cowboy-boots','bolo','bd8d65 697c91 9b7350 e2c7a2');
+  look('us-campus','拼袖棒球夹克与直筒裤','spring autumn','us','coat','letterman-jacket','denim-straight','slip-on-canvas','none','597a71 65778a d3c9b1 d1bba0');
+  look('us-trucker','双袋牛仔夹克与微喇裤','autumn spring','us','coat','denim-trucker','denim-bootcut','cowboy-boots','silk-foulard','718a9e 556b85 a07a58 c39575');
+  look('ie-aran','爱尔兰阿兰绞花开衫','autumn winter','eu','knit','aran-cardigan','wool-a-line','gaiter-boots','none','c0ae8b 778372 876d52 e1cfaa');
+  look('fr-bleu','法国蓝布工作夹克','spring autumn','eu','coat','bleu-workcoat','denim-straight','derby-laceups','none','587791 636c79 705e50 c5b497');
+  look('sc-kilt','苏格兰呢马甲与格呢裙','autumn winter','eu','traditional skirt','highland-waistcoat','highland-kilt','derby-laceups','ribbon-tie','6a6b65 6d8477 605952 af786e');
+  // Dress an existing member where the context fits. IDs, faces and personal equipment stay with the wearer.
+  const wearers={
+    architecture_drafter:'spring-stripes', dyeworks_grader:'linen-sage', museumcrew_curator:'apricot-suit',
+    chamber_conductor:'navy-two-piece', indiegames_tools:'moss-hoodie', artclub_comic:'plum-zip',
+    bookfair_letterer:'petal-cardi', rockpools_sand:'pocket-summer', rockpools_tide:'sail-stripes',
+    ballet_modern:'pool-tank', coffee_buyer:'linen-camp-look', veloclub_coach:'courtside-polo',
+    bookfair_teller:'sundress', horticulture_orchid:'gingham-picnic', petrescue_walker:'flannel-weekend',
+    airfield_lounge:'double-breast', broadcast_mixer:'crew-denim', artclub_model:'campus-hood',
+    bookfair_editor:'ochre-vneck', architecture_survey:'rain-trench', architecture_modeler:'cord-walk',
+    weatherdesk_wind:'snow-puffer', weatherdesk_rain:'forest-parka', tram_planner:'navy-duffle',
+    museumcrew_registrar:'oat-shawl', broadcast_producer:'wine-rollneck', broadcast_field:'camel-overcoat',
+    chamber_flute:'wrap-dress', silkloom_warp:'cn-cloth-jacket', museumcrew_educator:'cn-qipao',
+    silkloom_brocade:'cn-mamian', bookfair_artist:'jp-yukata', dyeworks_mentor:'jp-haori',
+    dyeworks_dyer:'jp-happi', chamber_bass:'us-western', artclub_collage:'us-campus',
+    coffee_roaster:'us-trucker', bookfair_dealer:'ie-aran', dyeworks_weaver:'fr-bleu', chamber_viola:'sc-kilt'
+  };
+  const near=(v,center,radius)=>Math.abs(v-center)<radius;
+  function fabric(id,u,v,t,k) {
+    const [,,,collar,detail]=tops[id], a=Math.abs(v), front=u>.10;
+    const button=(at,spacing=.19)=>front && near(v,at,.065) && t>.17 && t<.84 && Math.cos((t-.34)*2*Math.PI/spacing)>.53;
+    // Lapels and an open shirt reveal a separate facing underneath the top cloth.
+    if(front) {
+      if(collar==='lapel'||collar==='peak'||collar==='shawl') {
+        const edge=Math.max(0,(t-(collar==='shawl'?.39:.30))*(collar==='peak'?.98:.82));
+        if(a<edge) {
+          if(a<edge*.54) return k.lining;
+          if(collar!=='shawl' && t>.72 && t<.79 && a>edge*.79) return k.top;
+          return a>edge-.057 ? k.topLight : k.topShade;
+        }
+      }
+      if(['point','camp','polo'].includes(collar)) {
+        const point=.90-.18*Math.max(0,1-Math.abs(a-.27)/.26);
+        if(a<.56 && t>point) return collar==='polo'?k.accent:k.topLight;
+        if(collar==='camp' && a<Math.max(0,(t-.74)*1.12)) return k.skin;
+      }
+      if(collar==='split' && a<(t-.76)*.8) return k.skin;
+      if(collar==='round'||collar==='boat'||collar==='square'||collar==='tank'||collar==='straps'||collar==='vneck') {
+        let edge=.89+.22*a*a;
+        if(collar==='boat') edge=.87+.12*a;
+        if(collar==='square') edge=a<.53?.77:1;
+        if(collar==='tank') edge=.73+.39*a*a;
+        if(collar==='vneck') edge=.62+.52*a;
+        if(collar==='straps') edge=a>.49&&a<.67 ? 1 : .72+.045*a;
+        if(t>edge) return collar==='vneck' ? k.lining : k.skin;
+        if(near(t,edge,.033)) return collar==='vneck' ? k.accent : k.topShade;
+      }
+      if(collar==='wrap'||collar==='cross') {
+        const band=t-.69-.45*v;
+        if(near(band,0,.055)) return k.accent;
+        if(near(band,.072,.026) || (v<0 && near(t,.74-.41*v,.034))) return k.lining;
+      }
+      if(collar==='haori'||collar==='happi') {
+        const opening=(collar==='haori'?.19:.07)+.22*t;
+        if(a<opening) return k.lining;
+        if(a<opening+.16) return collar==='happi'?k.topShade:k.accent;
+      }
+      if(collar==='hood' && t>.66 && near(a,.24,.047)) return t>.70?k.lining:k.brass;
+    }
+    if(collar==='roll' && t>.82) return Math.cos(t*64)>.55 ? k.topLight:k.topShade;
+    if((collar==='stand'||collar==='mandarin') && t>.88 && (!front || a>.07)) return t<.925?k.accent:k.topShade;
+    if(collar==='varsity' && t>.89+.10*a) return t>.94?k.accent:k.lining;
+    const pocket=front && a>.27 && a<.72 && t>.26 && t<.43;
+    const breast=front && v>.23 && v<.64 && t>.54 && t<.73;
+    switch(detail) {
+      case 'single': case 'double': case 'crop': case 'welt':
+        if(detail==='crop' && t<.22) return k.lining;
+        if(button(detail==='double'?.32:.03,.22) || (detail==='double'&&button(-.32,.22))) return k.brass;
+        if(pocket && t>.372 && t<.42) return k.topShade;
+        if(detail==='welt' && front && near(v,-.24,.042) && t<.69) return k.topLight;
+        break;
+      case 'storm':
+        if(near(t,.33,.062)) return front && a<.15 ? k.brass : k.accent;
+        if(t>.62+.18*a && (!front || v>.18)) return t<.66+.18*a ? k.topShade:k.topLight;
+        break;
+      case 'pinstripe': if(Math.cos(17*v+3*u)>.79) return k.lining; break;
+      case 'tucks': if(front && a>.18 && a<.55 && t>.48 && Math.cos(24*v)>.2) return k.topLight; break;
+      case 'pouch': if(front && t>.14 && t<.43 && a<.71-.62*t) return a>.58-.62*t?k.topShade:k.topLight; break;
+      case 'zip': if(front && (a<.065 || (a>.36 && a<.70 && near(t,.18+.37*a,.035)))) return k.trimLight; break;
+      case 'eyelet': if(front && button(0)) return k.brass;
+        if(a>.19 && a<.71 && Math.cos(19*v+11*t)>.62 && Math.cos(19*v-11*t)>.58) return k.topShade; break;
+      case 'pocket': if(breast) return t>.68?k.topShade:k.topLight; break;
+      case 'bands': if(Math.cos(t*26+1.2*u)>.22) return k.accent; break;
+      case 'vertical': if(Math.cos(v*23+u*2)>.52) return k.topShade; break;
+      case 'seam': if(breast && (t>.675 || v>.58)) return k.topLight; break;
+      case 'placket': if(front && a<.093 && t>.53) return button(0,.13)?k.brass:k.accent; break;
+      case 'waist': if(t<.17) return t<.11?k.accent:k.topLight; break;
+      case 'gingham': case 'plaid': {
+        const wide=detail==='plaid', warp=Math.cos(v*(wide?11:17)+u*2)>.24, weft=Math.cos(t*(wide?21:30))>.23;
+        if(warp&&weft) return k.topShade;
+        if(warp||weft) return wide ? k.accent:k.lining;
+        break;
+      }
+      case 'gusset': if(front && a<.34 && Math.abs(t-.65-.76*a)<.052) return k.topShade; break;
+      case 'sidepanels': if(a>.66+.14*t) return k.accent; break;
+      case 'edging': if(t<.16 || (front && near(t,.56+.49*a,.033))) return k.accent; break;
+      case 'cord': if(breast || pocket) return t>.66 || t>.375&&t<.43 ? k.topShade:k.topLight;
+        if(Math.cos(v*23+u*4)>.68) return k.topLight; break;
+      case 'quilt': if(front&&a<.06) return k.trimLight;
+        if(Math.cos(t*30+.7*a)>.59) return k.topShade; if(Math.cos(t*30+.7*a)<-.62) return k.topLight; break;
+      case 'park': if(pocket) return t>.37?k.accent:k.topShade; if(front && a<.10) return k.topLight; break;
+      case 'toggles': if(front && a<.39 && t>.27&&t<.81 && Math.cos((t-.36)*28)>.58) return a<.15?k.lining:k.accent; break;
+      case 'basket': if(Math.cos(13*v)*Math.cos(22*t)>.43) return k.topLight; break;
+      case 'ribbing': if(Math.cos(v*19+u*2)>.60) return k.topLight; break;
+      case 'tie': if(near(t,.28,.042) || (front && v>.18 && t<.30 && near(v,.32-.48*t,.07))) return k.accent; break;
+      case 'frogs': if(front && a<.31 && t>.20 && t<.88 && Math.cos((t-.32)*27)>.50) return a<.09?k.brass:k.accent; break;
+      case 'curved': if(front && t>.57 && near(v,.62-4.8*(t-.60)**2,.063)) return k.accent;
+        if(front && near(v,.61,.055) && near(t,.53,.055)) return k.brass; break;
+      case 'girdle': case 'obi': if(t<(detail==='obi'?.37:.20)) return t<.08 || t>.26&&t<.32 ? k.trimLight:k.accent;
+        if(detail==='obi' && t<.64 && Math.cos(v*12+u*3)>.76 && Math.cos(t*32-v*3)>.58) return k.topLight; break;
+      case 'cords': if(front && a<.47 && near(t,.46+.15*a,.041)) return k.accent; break;
+      case 'crest': if(!front && (v/.37)**2+((t-.63)/.18)**2<1) return a<.085 || near(t,.65,.039)?k.topShade:k.lining;
+        if(t<.14 && Math.cos(15*v+4*u)>.15) return k.accent; break;
+      case 'western': { const y=.70+.18*Math.abs(a-.48);
+        if(t>y) return near(t,y,.045)?k.topShade:k.accent;
+        if((breast || front&&v<-.23&&v>-.64&&t>.54&&t<.73) && near(t,.59+.19*Math.abs(a-.43),.036)) return k.trimLight;
+        break; }
+      case 'letter': if(front && v>.27 && v<.58 && t>.54 && t<.77 && (v<.36 || t<.61)) return k.lining;
+        if(t<.13) return t>.065?k.accent:k.topShade; break;
+      case 'trucker': if(front && a>.25 && a<.71 && t>.52 && t<.74) return t>.59+.22*Math.abs(a-.48)?k.topLight:k.topShade;
+        if(front && near(a,.20+.16*t,.046)) return k.trimLight; break;
+      case 'aran': if(near(a,.43+.086*Math.sin(t*21),.070) || near(a,.43-.086*Math.sin(t*21),.048)) return k.topLight;
+        if(a>.68 && Math.cos(v*18+t*16)>.70) return k.topShade; if(button(0,.20)) return k.brass; break;
+      case 'threepocket': if(pocket||breast) return t>.68 || t>.37&&t<.43?k.topShade:k.topLight; break;
+      case 'waistcoat': if(t<.12+.17*a || (!front && t>.52)) return k.lining;
+        if(pocket && t>.365 || button(0,.15)) return k.trimLight; break;
+    }
+    if(front && ['point','split','camp'].includes(collar) && a<.05) return button(0,.18)?k.brass:k.topShade;
+    return t<.075?k.topShade:k.top;
+  }
+  function sleeve(id,t,u,v,side,r,fore,k) {
+    const [,,,,mark,finish]=tops[id], a=side*v/r;
+    if(finish==='shirtsleeve') return fore&&t>.82?k.topLight:k.lining;
+    if(finish==='padded') return Math.cos(16*t+.5*a)>.64?k.topShade:k.topLight;
+    if(finish==='contrast') return fore&&t>.80 ? (t>.9?k.accent:k.topShade) : k.accent;
+    if(finish==='square-sleeve'||finish==='wide') return fore&&t>.78 ? (t>.90?k.trimLight:k.accent) : k.top;
+    if(fore&&t>.76) return finish==='turnback'?k.lining:finish==='tab'&&a>.28?k.accent:
+      finish==='snap'&&Math.cos(t*40)>.36?k.brass:k.topShade;
+    if(mark==='bands' && Math.cos(t*13)>.18 || mark==='western' && !fore&&t<.22) return k.accent;
+    if((mark==='gingham'||mark==='plaid') && (Math.cos(t*17)>.4||Math.cos(v/r*9)>.67)) return k.accent;
+    return a<-.49?k.topShade:k.top;
+  }
+  function trouser(id,t,u,v,side,shin,k) {
+    const mark=bottoms[id][3], a=v*side;
+    if(mark==='pressed' && u>.15 && near(v,side*(.25+.11*t),.10)) return k.bottomLight;
+    if(mark==='linen' && near(v,.39*side-.22*Math.sin(t*4.2),.15)) return k.bottomLight;
+    if(mark==='denim'||mark==='flare') {
+      if(!shin && t<.35 && (u<-.4 && near(t,.23+.12*Math.abs(a),.04) || near(a,.69-.51*t,.085))) return k.accent;
+      if(near(a,.72,.095) || (shin&&t>.88&&mark==='flare')) return k.bottomShade;
+    }
+    if(mark==='hakama'&&Math.cos(13*v+u*1.8)>.27) return k.bottomShade;
+    if(mark==='sweat'&&shin&&t>.77) return t>.9?k.bottomShade:k.bottomLight;
+    if(mark==='hem'&&t>.78 || mark==='drawcord'&&t<.14) return k.bottomLight;
+    return a<-.54?k.bottomShade:k.bottom;
+  }
+  function skirt(id,t,u,v,fold,k) {
+    const a=Math.abs(v);
+    if(id==='qipao-column' && t>.67 && a>.95-.34*(t-.67)) return 0;
+    if(id==='mamian-skirt') {
+      if(t>.91 || near(t,.81,.021) || (near(a,.46,.04)&&a<.60)) return k.accent;
+      if(a<.46) return k.bottom;
+    }
+    if(id==='highland-kilt') {
+      const warp=Math.cos(17*v+2*u),weft=Math.cos(23*t);
+      if(warp>.80 || weft>.85) return k.accent;
+      if(warp>.06&&weft>.12) return k.bottomShade;
+      if(u>.2) return k.bottom;
+    }
+    if(id==='yukata-hem' && u>0 && near(v,.35+.22*t,.055)) return k.bottomShade;
+    if(id==='office-pencil' && u<0 && t>.65 && a<.10*(t-.47)) return 0;
+    if(id==='wool-a-line' && u>.1 && near(a,.54-.15*t,.047)) return k.bottomShade;
+    if(id==='summer-tier' && (near(t,.49+.03*Math.cos(v*7),.036) || near(t,.78+.035*Math.cos(v*7),.035))) return k.bottomLight;
+    if(id==='bias-midi' && near(fold,.3,.18) && t>.49) return k.bottomLight;
+    if(id==='pleated-mini' && t>.85) return t>.93?k.bottomShade:k.accent;
+    if(id==='circle-skirt' && t>.90) return k.bottomLight;
+    return t<.06 || fold>.72 ? k.bottomShade : fold<-.72?k.bottomLight:k.bottom;
+  }
+  function shoe(id,f,a,z,k) {
+    const mark=shoes[id][3],side=Math.abs(a);
+    if(z<.31) return k.outsole;
+    if(mark==='straps'||mark==='zori') {
+      if(z<.62) return k.shoes;
+      if(mark==='zori') return near(f,.41-.82*side,.13)?k.accent:0;
+      return f>.64 || side>.73 || near(f,.25+.14*a,.12)||near(f,-.21-.24*a,.13)?k.shoes:0;
+    }
+    if(mark==='bow' && z>1 && f<.12 && side<.69) return near(f,.02,.08)&&side<.53?k.accent:k.skinLight;
+    if(mark==='penny' && near(f,.15,.16)&&z>.97) return side<.27 ? k.shoeShade:k.shoeLight;
+    if(mark==='canvas' && (z<.56 || (f<.27&&f>-.25&&near(side,.48,.14)))) return k.rubber;
+    if(mark==='derby' && f>-.24&&f<.29&&side<.52&&Math.cos((f+.12*a)*23)>.20) return k.shoeShade;
+    if(mark==='snow'&&z<.68 || mark==='western'&&near(f,.29-.52*side,.12)) return k.shoeLight;
+    return f>.66?k.shoeLight:k.shoes;
+  }
+  function neckwear(id,b,k,d,w,h,z,mount) {
+    const anchor=(level,y,offset=.06)=>mount?mount(level,y,offset*d):[(1.05-.38*y*y+offset)*d,y*w,z(level)];
+    const link=(a,c,r,end,ink)=>b.link(a,c,r*w,end*w,.79,ink);
+    if(id==='knit-snood'||id==='checked-muffler'){
+      const scarf=id==='checked-muffler';
+      b.blob(.02*d,0,z(.97),1.02*d,.81*w,(scarf?.088:.12)*h,(x,y,pz)=>
+        Math.cos((pz-z(.97))*48/h+(scarf?y/w*7:0))>.39?k.trimLight:k.accent,2.65);
+      if(scarf) {
+        link(anchor(.93,-.26),anchor(.41,-.43),.20,.18,(t,u,v)=>Math.cos(t*25)>.28||Math.cos(v/w*25)>.62?k.trimShade:k.accent);
+        link(anchor(.94,.33),anchor(.63,.46),.15,.14,t=>t>.81?k.trimLight:k.accent);
+      }
+      return;
+    }
+    if(id==='slim-tie') {
+      b.blob(...anchor(.88,0),.14*d,.117*w,.056*h,k.trimShade);
+      link(anchor(.86,0),anchor(.45,.03),.064,.096,t=>t>.84?k.trimShade:k.accent);return;
+    }
+    for(const sign of [-1,1]) {
+      const ribbon=id==='ribbon-tie',depth=id==='silk-foulard'?.77:.70;
+      link(anchor(.96,sign*.47),anchor(depth,.03),ribbon?.065:.12,ribbon?.08:.13,()=>k.accent);
+      if(ribbon) b.blob(...anchor(.84,sign*.16),.16*d,.17*w,.056*h,k.accent,2.4);
+      link(anchor(ribbon?.84:depth,.02),anchor(ribbon?.59:.66,sign*(ribbon?.18:.26)),.085,
+        id==='sailor-kerchief'?.12:.041,t=>t>.72?k.trimLight:k.accent);
+    }
+  }
+  return {tops,bottoms,skirts,shoes,neck,choices,outfits,wearers,seasons,regions,families,fabric,sleeve,trouser,skirt,shoe,neckwear};
+})();

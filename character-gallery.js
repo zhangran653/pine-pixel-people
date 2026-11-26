@@ -5,15 +5,34 @@ const pineCharacterGallery = (() => {
   const profiles = {female:'女性体型',male:'男性体型',unspecified:'中性／未指定'};
   const sources = {new:'本次新增',earlier:'此前收录',preset:'内置预设',saved:'我的形象'};
   const realms = PineWorld.realms, catalogue = PineLooks.library;
+  const wardrobe=PineLooks.seasonalWardrobe;
+  const outfitByCut=new Map(Object.values(wardrobe.outfits).map(o=>[o.parts.top+'/'+o.parts.bottom,o]));
   const dimensions = {
     era:['时代',realms], field:['职业领域',catalogue.fields], setting:['活动场景',catalogue.settings], series:['人物系列',catalogue.series],
     age:['年龄',ages], hair:['发型类别',catalogue.hairFamilies], garment:['服装款式',catalogue.garments], gear:['随身配件',catalogue.gear],
-    profile:['体型',profiles], source:['形象来源',sources]
+    season:['穿搭季节',wardrobe.seasons], region:['衣装风格',wardrobe.regions], profile:['体型',profiles], source:['形象来源',sources]
   };
   const featured = ['coffee_brewer','cloudpost_kite','veloclub_leader','firstyear_autumn','silkloom_weft','deepsignal_dish',
     'kiln_potter','artclub_clay','clinicteam_optician','gladecrew_moth','cradleship_lune','orbitfarm_hive',
     'moth_keeper','lunar_geologist','rain_pupil','reed_ferryman','star_moss_baby','harbour_pilot'];
-  const featureOrder = new Map(featured.map((key,i)=>['look_'+key,i]));
+  // Keep the first hand-picked portraits. Then space out similar coats, haircuts and series.
+  function galleryOrder() {
+    const order=new Map(), recent=[];
+    function place(doc) {
+      order.set(doc.id,order.size); recent.unshift(doc);
+      if(recent.length>10) recent.pop();
+    }
+    for(const key of featured) place(PineLooks.templateById.get('look_'+key));
+    const pending=PineLooks.templates.filter(doc=>!order.has(doc.id));
+    while(pending.length) {
+      let index=pending.findIndex(d=>recent.every((r,i)=>r.parts.top!==d.parts.top &&
+        (i>=5 || r.identity.series!==d.identity.series) && (i>=3 || r.parts.hair!==d.parts.hair)));
+      if(index<0) index=pending.findIndex(d=>d.parts.top!==recent[0].parts.top);
+      place(pending.splice(Math.max(index,0),1)[0]);
+    }
+    return order;
+  }
+  const featureOrder=galleryOrder();
   const collator = new Intl.Collator('zh-Hans-CN',{numeric:true});
   function button(label) {
     const b = document.createElement('button');
@@ -27,19 +46,26 @@ const pineCharacterGallery = (() => {
   function entry(key, doc) {
     const id = doc.identity || {}, actual = catalogue.facets(doc);
     const saved = key.startsWith('saved:'), fresh = !saved && catalogue.almanacIds.has(doc.id);
+    const outfit=outfitByCut.get(doc.parts.top+'/'+doc.parts.bottom);
     const facets = {
       era:[id.era || 'modern'], field:[id.field], series:id.series ? [id.series] : [], setting:id.settings || [], age:[doc.base],
-      hair:[actual.hair], garment:[actual.garment], gear:actual.gear, profile:[doc.gender || 'unspecified'],
+      season:outfit?.seasons || [], region:outfit?[outfit.region]:[], hair:[actual.hair], garment:[actual.garment], gear:actual.gear, profile:[doc.gender || 'unspecified'],
       source:saved ? ['saved'] : fresh ? ['preset','new'] : ['preset','earlier']
     };
     const [pack,hat] = doc.parts.hat.split('/');
     const hatName = hat && PineLooks.catalog.get(pack+'@'+doc.packs[pack])?.parts.find(p=>p.id===hat)?.label;
-    const text = [doc.label, doc.id, id.role, hatName];
+    const text = [doc.label, doc.id, id.role, hatName, ...PineLooks.visibleFeatures(doc).tokens];
+    if(outfit) {
+      text.push(...outfit.families.map(id=>wardrobe.families[id]),...outfit.seasons.map(id=>wardrobe.seasons[id]+'装'));
+      if(Object.entries(outfit.parts).every(([k,v])=>doc.parts[k]===v) &&
+        Object.entries(outfit.colors).every(([k,v])=>doc.colors[k]===v)) text.push(outfit.label);
+    }
+    if (!saved) text.push(PineLooks.originalTitles.get(doc.id));
     for (const [facet,values] of Object.entries(facets))
       for (const code of values) text.push(dimensions[facet][1][code]);
     for (const [slot,value] of Object.entries(doc.parts))
       text.push(PineLooks.slots[slot]?.[value] || PineLooks.wearables[slot]?.[value] || value);
-    const priority = saved ? -1 : featureOrder.get(doc.id) ?? (fresh ? featured.length : featured.length+1);
+    const priority = saved ? -1 : featureOrder.get(doc.id) ?? featureOrder.size;
     return {key,doc,facets,text:normalize(text.filter(Boolean).join(' ')),priority};
   }
   function create({getEntries, observe, resetImages, select, borrowOutfit}) {
@@ -142,7 +168,7 @@ const pineCharacterGallery = (() => {
       const tile=document.createElement('article');
       tile.className='gallery-card'; b.className='gallery-person'; copy.className='gallery-caption';
       title.textContent=doc.label;
-      meta.textContent=[realms[facets.era[0]],ages[doc.base],catalogue.fields[facets.field[0]]].filter(Boolean).join(' · ');
+      meta.textContent=[ages[doc.base],realms[facets.era[0]],facets.region.length ? wardrobe.regions[facets.region[0]]+'穿搭' : ''].filter(Boolean).join(' · ');
       copy.append(title,meta); b.append(c,copy);
       b.dataset.key=key; b.dataset.era=facets.era[0];
       b.setAttribute('aria-pressed',String(currentKey===key));

@@ -94,8 +94,13 @@
     swatchKey = '',
     swatchFrame = 0;
   const draftKey = 'pinePixel.atelier.draft.v1';
+  let autoTitle=false;
+  const rack=looks.seasonalWardrobe, rackQuery=new URLSearchParams(location.search);
+  const rackState={page:1};
+  for (const [key,values] of [['season',rack.seasons],['region',rack.regions],['family',rack.families]])
+    rackState[key]=Object.hasOwn(values,rackQuery.get(key)) ? rackQuery.get(key) : '';
   let transferredPartner;
-  const readEdit = () => ({ doc: clone(draft), key: cardKey, dirty, saved });
+  const readEdit = () => ({ doc: clone(draft), key: cardKey, dirty, saved, autoTitle });
   let previousEdit;
   const edits = PineWorkspace.editHistory(readEdit, state => {
     restoreEdit(state);
@@ -105,6 +110,7 @@
     const raw = state.doc;
     const doc = looks.prepare({ ...raw, label: raw.label.trim() || '未命名形象' }).recipe;
     activate(doc, state.key, state.saved, true, false);
+    autoTitle=state.autoTitle ?? autoTitle;
     draft.label = raw.label;
     $('look-name').value = raw.label;
     dirty = state.dirty;
@@ -340,6 +346,12 @@
     $('action').value = action;
   }
   function changed() {
+    if(autoTitle) {
+      const possible=looks.visibleFeatures(draft).titles;
+      if(possible.length && !possible.includes(draft.label)) {
+        draft.label=possible[0]; $('look-name').value=draft.label;
+      }
+    }
     const candidates = $('face-candidates');
     if (candidates?.childElementCount) {
       candidates.replaceChildren();
@@ -459,6 +471,8 @@
           ((tab === 'wear' || tab === 'shape') && pin !== draft.packs[looks.core])) {
         fields();
         $('edit-' + id)?.focus({ preventScroll: true });
+      } else if(tab==='wear' && !['top','bottom','shoes','neck'].includes(id)) {
+        document.querySelector('.season-rack')?.dispatchEvent(new Event('refresh-rack'));
       }
     };
     label.append(caption, field);
@@ -1434,6 +1448,63 @@
     delete draft.embeddedPacks;
     if (qualified !== 'none' && owner !== looks.core) draft.packs[owner] = version;
   }
+  function seasonalRack(area) {
+    const section=document.createElement('fieldset'),legend=document.createElement('legend'),filters=document.createElement('div');
+    section.className='preset-group season-rack'; legend.textContent='四季与地域衣橱'; filters.className='rack-filters';
+    section.append(legend,filters); area.append(section);
+    const selectByKey={};
+    for(const [key,label,values] of [['season','季节',rack.seasons],['region','地区风格',rack.regions],['family','衣类',rack.families]]) {
+      const field=document.createElement('label'),select=document.createElement('select');
+      field.append(label,select); filters.append(field); select.id='rack-'+key;
+      select.add(new Option('全部',''));
+      for(const [id,name] of Object.entries(values)) select.add(new Option(name,id));
+      select.value=rackState[key]; selectByKey[key]=select;
+      select.onchange=()=>{ rackState[key]=select.value; rackState.page=1; draw(); };
+    }
+    const grid=document.createElement('div'), tools=document.createElement('div'),status=document.createElement('span');
+    grid.className='rack-grid'; tools.className='rack-tools'; status.id='rack-count'; status.setAttribute('role','status');
+    function button(label,id) { const b=document.createElement('button'); b.type='button'; b.textContent=label; b.id=id; return b; }
+    const prev=button('上一页','rack-prev'),next=button('下一页','rack-next'),roll=button('随机试穿','rack-roll'),clear=button('清除筛选','rack-clear');
+    tools.append(roll,status,prev,next,clear); section.append(grid,tools);
+    prev.onclick=()=>{--rackState.page;draw();}; next.onclick=()=>{++rackState.page;draw();};
+    clear.onclick=()=>{ for(const [key,ctrl] of Object.entries(selectByKey)) {ctrl.value='';rackState[key]='';} rackState.page=1;draw(); };
+    function dress(id,focus) {
+      looks.applyOutfit(draft,rack.outfits[id]); changed(); fields();
+      if(focus) $(focus)?.focus({preventScroll:true});
+    }
+    function draw() {
+      const matches=Object.entries(rack.outfits).filter(([,o])=>
+        (!rackState.season||o.seasons.includes(rackState.season)) && (!rackState.region||o.region===rackState.region) &&
+        (!rackState.family||o.families.includes(rackState.family)));
+      const per=4,pages=Math.ceil(matches.length/per);
+      rackState.page=Math.min(Math.max(1,rackState.page),Math.max(1,pages));
+      const start=(rackState.page-1)*per;
+      status.textContent=matches.length ? matches.length+' 套 · '+rackState.page+' / '+pages : '没有符合条件的穿搭';
+      prev.disabled=rackState.page<=1; next.disabled=rackState.page>=pages; roll.disabled=!matches.length;
+      clear.hidden=!(rackState.season||rackState.region||rackState.family);
+      grid.replaceChildren();
+      const worn=outfit=>Object.entries(outfit.parts).every(([k,v])=>draft.parts[k]===v) &&
+        Object.entries(outfit.colors).every(([k,v])=>draft.colors[k]===v);
+      for(const [id,outfit] of matches.slice(start,start+per)) {
+        const b=button('', 'rack-look-'+id),canvas=document.createElement('canvas'),title=document.createElement('span');
+        b.dataset.outfit=id;b.setAttribute('aria-pressed',String(worn(outfit)));canvas.setAttribute('aria-hidden','true');
+        title.textContent=outfit.label; b.append(canvas,title);grid.append(b);
+        const clothed=looks.applyOutfit(clone(draft),outfit);
+        clothed.label=clothed.label.trim()||'试衣';
+        thumbnails.set(canvas,{doc:clothed,bearing:26,view:'body'});
+        b.onclick=()=>{ if(!worn(outfit)) dress(id,b.id); };
+      }
+      roll.onclick=()=>{
+        const fresh=matches.filter(([,o])=>!worn(o)),choices=fresh.length?fresh:matches;
+        const [id]=choices[Math.floor(Math.random()*choices.length)];
+        rackState.page=1+Math.floor(matches.findIndex(([key])=>key===id)/per);
+        dress(id,'rack-roll');
+      };
+      paintThumbnails(grid);
+    }
+    section.addEventListener('refresh-rack',draw);
+    draw();
+  }
   function wearFields(area) {
     figureUpgrade(area);
     const apply = (outfit) => looks.applyOutfit(draft, outfit);
@@ -1441,6 +1512,7 @@
     borrow.type='button'; borrow.id='borrow-outfit'; borrow.textContent='从形象库借穿衣服与配饰';
     borrow.onclick=()=>gallery.pickOutfit(draft.label);
     area.append(borrow);
+    seasonalRack(area);
     const featured = presetGroup('工坊同款', looks.workshopOutfits, 'outfit', apply);
     area.append(featured);
     paintThumbnails(featured);
@@ -1448,7 +1520,7 @@
     area.append(collection);
     paintThumbnails(collection);
     const everyday = Object.fromEntries(
-      Object.entries(looks.outfits).filter(([id]) => !Object.hasOwn(looks.workshopOutfits,id) && !Object.hasOwn(looks.collectionOutfits,id))
+      Object.entries(looks.outfits).filter(([id]) => !Object.hasOwn(looks.workshopOutfits,id) && !Object.hasOwn(looks.collectionOutfits,id) && !Object.hasOwn(rack.outfits,id))
     );
     area.append(presetGroup('日常穿搭', everyday, 'outfit', apply));
     function group(title) {
@@ -1562,6 +1634,7 @@
     $('undo-random').hidden = true;
     const previousBase = draft?.base;
     draft = clone(doc);
+    autoTitle=!!key?.startsWith('preset:') && !isSaved && looks.visibleFeatures(doc).titles.includes(doc.label);
     previewBareHair = true;
     syncHairAge(previousBase);
     if (!isSaved && !keepId) draft.id = looks.newId();
@@ -1823,6 +1896,7 @@
   $('look-series').onchange = editIdentity;
   $('look-settings').onchange = editIdentity;
   $('look-name').oninput = () => {
+    autoTitle=false;
     draft.label = $('look-name').value;
     dirty = true;
     heading();
@@ -2075,6 +2149,13 @@
             const field = revealField($('edit-' + item.value));
             field.focus();
             return;
+          }
+          if(item.slot==='outfit' && rack.outfits[item.value]) {
+            const outfit=rack.outfits[item.value];
+            Object.assign(rackState,{season:'',region:outfit.region,family:'',page:1});
+            const group=Object.keys(rack.outfits).filter(id=>rack.outfits[id].region===outfit.region);
+            rackState.page=1+Math.floor(group.indexOf(item.value)/4);
+            looks.applyOutfit(draft,outfit); changed(); fields(); $('rack-look-'+item.value)?.focus();return;
           }
           const data = {
             hair: 'hair-style',

@@ -1000,6 +1000,14 @@ function checkLibrary() {
     filter('shelf-source','preset');
     const count = () => Number($('shelf-count').textContent.match(/\d+/)[0]);
     check(count() === PineLooks.templates.length && count() >= 500 && keys().length === 12, 'paginated character count');
+    filter('look-query','程序员');
+    const programmer=PineLooks.templateById.get('look_programmer');
+    check(keys().includes('preset:'+programmer.id) && programmer.label.includes('圆框眼镜'), 'old role still finds the visually titled preset');
+    filter('look-query',programmer.label);
+    check(keys().join()==='preset:'+programmer.id, 'find an individual by the full visible caption');
+    filter('look-query',''); filter('shelf-region','cn'); filter('shelf-season','summer');
+    check(keys().join()==='preset:look_museumcrew_educator','regional summer clothing examples match the actual garment');
+    filter('shelf-region',''); filter('shelf-season','');
     const all = new Set();
     while (true) {
       for (const key of keys()) {
@@ -1088,6 +1096,16 @@ function checkLibrary() {
       check(borrowed.parts[slot]===value,'off-page random outfit: '+slot);
     $('borrow-outfit').click(); $('shelf-borrow-back').click();
     check(JSON.stringify(recipe())===JSON.stringify(borrowed),'cancelled borrowing changed the person');
+    filter('rack-region','jp');filter('rack-season','summer');
+    check($('rack-count').textContent.startsWith('2 套') && !$('rack-roll').disabled,'filtered seasonal outfits');
+    $('rack-look-jp-yukata').click();
+    const yukata=recipe();
+    check(yukata.parts.top==='cotton-yukata' && yukata.parts.bottom==='yukata-hem' &&
+      yukata.label==='铜框眼镜习作' && yukata.parts.hair===borrowed.parts.hair,'try on a seasonal outfit and retain personal name and hair');
+    $('rack-roll').click(); check(recipe().parts.top==='festival-happi','roll a different outfit inside current filters');
+    filter('rack-family','suit');
+    check($('rack-roll').disabled && !$('rack-clear').hidden,'recover from empty seasonal intersection');
+    $('rack-clear').click(); check($('rack-count').textContent.startsWith('40 套') && !$('rack-next').disabled,'reset seasonal wardrobe');
     out.textContent = '500-person gallery, scoped random selection, editable filters, outfit borrowing and pagination passed';
   } catch (error) { out.dataset.state = 'fail'; out.textContent = error.stack; }
 }
