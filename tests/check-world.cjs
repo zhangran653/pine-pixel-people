@@ -319,9 +319,52 @@ for(const base of ['adult','child','toddler','baby']){
     assert.ok(outfit.seasons.every(season=>seasonWardrobe.seasons[season]) && seasonWardrobe.regions[outfit.region]);
     assert.ok(outfit.families.every(type=>seasonWardrobe.families[type]));
     const recipe=looks.prepare(looks.applyOutfit(clone(original),outfit)).recipe;
-    for(const key of ['hair','hat','bag','glasses','implement']) assert.equal(recipe.parts[key],original.parts[key]);
+    for(const key of ['hair','hat','bag','glasses','implement'])
+      assert.equal(recipe.parts[key],outfit.parts[key] ?? original.parts[key]);
     assert.equal(recipe.colors.skin,original.colors.skin);
   }
+}
+// A regional costume can supply its own hat while leaving personal equipment
+// alone. Embroidery is a dye on the native materials and survives borrowing.
+{
+  const person=clone(looks.templateById.get('look_moth_keeper'));
+  person.parts.glasses='round';
+  const dressed=looks.applyOutfit(clone(person),seasonWardrobe.outfits['us-rodeo']);
+  const prepared=looks.prepare(dressed).recipe;
+  assert.equal(prepared.parts.hat,'pine-core/western-felt');
+  assert.equal(prepared.parts.glasses,'round'); assert.equal(prepared.parts.implement,person.parts.implement);
+  assert.ok(!prepared.embeddedPacks && Object.keys(prepared.packs).length===1);
+  for (const id of ['cn-plum-qipao','jp-furisode','us-rodeo']) {
+    const source=looks.applyOutfit(clone(person),seasonWardrobe.outfits[id]);
+    const borrowed=looks.prepare(looks.applyOutfit(clone(person),looks.outfitFrom(source))).recipe;
+    assert.equal(borrowed.colors.embroidery,source.colors.embroidery);
+    const a=looks.build(borrowed), b=looks.build({...borrowed,colors:{...borrowed.colors,embroidery:'#36cacf'}});
+    const pose=motion.actions.get('wave').sample(.46,a)[0].pose;
+    assert.notEqual(hash(a.body.makePose(pose).colors),hash(b.body.makePose(pose).colors),id+' thread dye');
+  }
+}
+// During a wave the formal sleeve hangs into open space below the raised arm.
+// A short cotton sleeve on the very same performer stops above that space.
+{
+  function belowForearm(outfit) {
+    const person=clone(looks.templateById.get('look_dyeworks_stitcher'));
+    const actor=looks.build(looks.applyOutfit(person,seasonWardrobe.outfits[outfit]));
+    const pose=motion.actions.get('wave').sample(.46,actor)[0].pose;
+    const arm=pose.arms.reduce((a,b)=>a.wrist[2]>b.wrist[2]?a:b);
+    const {density,nx,ny}=actor.body, height=actor.rig.height;
+    const cells=actor.body.makePose(pose).colors, below=Math.min(arm.wrist[2],arm.elbow[2]);
+    const grid=(v,offset)=>Math.ceil(v*density+offset-.5);
+    const left=grid(arm.wrist[0]-.15*height,nx/2), right=grid(arm.wrist[0]+.15*height,nx/2);
+    const back=grid(arm.wrist[1]-.08*height,ny/2), front=grid(arm.wrist[1]+.08*height,ny/2);
+    const low=grid(below-.15*height,0), high=grid(below-.095*height,0);
+    let cloth=0;
+    for (let z=low;z<high;z++) for (let y=back;y<front;y++) for (let x=left;x<right;x++) {
+      if (cells[(z*ny+y)*nx+x]) cloth++;
+    }
+    return cloth;
+  }
+  assert.ok(belowForearm('jp-furisode')>50,'long sleeve collapsed against the waving arm');
+  assert.equal(belowForearm('jp-yukata'),0,'cotton sleeve reached formal sleeve length');
 }
 for(const doc of newest){
   assert.ok(looks.library.facets(doc).hair);

@@ -605,7 +605,8 @@ const pineDesignerBody = (() => {
       boots = parts.shoes === 'boots';
     const skirtPattern=pinePatternWardrobe.skirts[parts.bottom], seasonalTop=pineSeasonalWardrobe.tops[parts.top];
     const sleeveCut=seasonalTop?.[5];
-    const shortArm={bare:0,cap:.26,short:.58,puff:.70}[sleeveCut];
+    const shortArm={bare:0,cap:.26,short:.58,puff:.70,'blouse-puff':.68}[sleeveCut];
+    const joinedDress=pineSeasonalWardrobe.dressHems[parts.top]===parts.bottom;
     const skirt = pinePatternWardrobe.isSkirt(parts.bottom),
       cargo = parts.bottom === 'cargo';
     const highTops = parts.shoes === 'high-tops',
@@ -1109,6 +1110,12 @@ const pineDesignerBody = (() => {
       feather: 0.18 - 0.082 * profileStrength * (0.35 + 0.65 * definition)
     } : null;
     const materials = palette(recipe.colors, surfaceDetails, individual);
+    if (pineSeasonalWardrobe.embroidered(parts)) {
+      const thread=(recipe.colors.embroidery || recipe.colors.accent).slice(1);
+      materials.embroidery=thread;
+      materials.petals=tint(thread,'fff0dc',.48);
+      materials.embroideryShade=tint(thread,'433c53',.66);
+    }
     if (adjustableJaw) {
       const shades = planes ? [0.215, 0.158, 0.106, 0.054] : [0.105, 0.084, 0.062, 0.04];
       for (const [index, amount] of shades.entries())
@@ -1351,7 +1358,8 @@ const pineDesignerBody = (() => {
       };
       function foldAt(along,u,v) {
         const apronPanel=(parts.bottom==='mamian-skirt' && Math.abs(v)<.47) ||
-          (parts.bottom==='highland-kilt' && u>.15) || parts.bottom==='qipao-column' || parts.bottom==='office-pencil';
+          (parts.bottom==='highland-kilt' && u>.15) || (parts.bottom==='dirndl-apron' && u>.18 && Math.abs(v)<.72) ||
+          parts.bottom==='qipao-column' || parts.bottom==='plum-qipao-hem' || parts.bottom==='office-pencil';
         return apronPanel ? 0 : Math.cos((skirtPattern ? skirtPattern[4] : 12) * Math.atan2(v,u) + .2*along);
       }
       function fabric(along,u,v,fold) {
@@ -1683,7 +1691,8 @@ const pineDesignerBody = (() => {
         cuff = (anatomy?.limbs.cuff ?? measures.cuff * s) * (1 - .07 * seated),
         palm = (anatomy?.limbs.hand ?? measures.hand * s) * (1 + .075 * seated);
       b.frame(null);
-      for (const { side, shoulder, elbow, wrist, hand } of pose.arms) {
+      for (const arm of pose.arms) {
+        const {side, shoulder, elbow, wrist, hand}=arm;
         const bend = tailored ? jointCompression(shoulder, elbow, wrist) : 0;
         const upperLink = softContours ? contouredLink(b, pose.torso, limbContours.upperArm,
           wholeFigure && { k, side, tailored, bend, garment, anatomy, paintedBody, end: elbow, base: recipe.base, region: 'upperArm', style: parts.top }) : b.link;
@@ -1697,18 +1706,22 @@ const pineDesignerBody = (() => {
           if(shortArm!==undefined) {
             upperLink(shoulder,elbow,.86*upper,.84*elbowR,.92,bare);
             foreLink(elbow,wrist,.85*elbowR,.84*cuff,.92,bare);
-            if(shortArm) upperLink(shoulder,toward(shoulder,elbow,shortArm),upper*(sleeveCut==='puff'?1.21:1.04),
-              elbowR*(sleeveCut==='puff'?1.30:1.14),1,(t,u,v)=>t>.84?k.topShade:upperPaint(t,u,v));
+            const puff=sleeveCut==='puff' || sleeveCut==='blouse-puff';
+            const cuffInk=sleeveCut==='blouse-puff' || parts.top==='qipao-bodice' ? k.accent : k.topShade;
+            if(shortArm) upperLink(shoulder,toward(shoulder,elbow,shortArm),upper*(puff?1.21:1.04),
+              elbowR*(puff?1.30:1.14),1,(t,u,v)=>t>.84?cuffInk:upperPaint(t,u,v));
           } else {
-            const volume={wide:1.16,'square-sleeve':1.24,padded:1.23,contrast:1.10}[sleeveCut] || 1.04;
+            const volume={wide:1.16,'square-sleeve':1.24,furisode:1.19,padded:1.23,contrast:1.10}[sleeveCut] || 1.04;
             upperLink(shoulder,elbow,upper*volume,elbowR*volume,.98,upperPaint);
             if(sleeveCut==='three-quarter') {
               foreLink(elbow,wrist,.89*elbowR,.86*cuff,.93,bare);
               foreLink(elbow,toward(elbow,wrist,.52),elbowR*1.09,cuff*1.23,.98,lowerPaint);
             } else {
-              const cuffWidth={wide:1.64,'square-sleeve':1.89,padded:1.14}[sleeveCut] || 1;
+              const cuffWidth={wide:1.64,'square-sleeve':1.89,furisode:1.60,padded:1.14}[sleeveCut] || 1;
               foreLink(elbow,wrist,elbowR*volume,cuff*cuffWidth,.98,lowerPaint);
             }
+            if (parts.top==='furisode-robe' || parts.top==='cotton-yukata')
+              pineSeasonalWardrobe.hangingSleeve(parts.top,b,k,pose,arm,rig.height,elbowR);
           }
         } else if (worldTop || collectionTop || workshopTop) {
           const sleeve = worldTop
@@ -1808,7 +1821,10 @@ const pineDesignerBody = (() => {
     function drawTorso(pose, b, k) {
       b.frame(pose.torso);
       const seated = floorLoad(pose);
-      const coatDrop = seasonalTop?.[2]==='long' ? 3.45*s : ['cross-robe', 'brocade', 'lab-coat', 'apron', 'mantle'].includes(parts.top)
+      // A continuous robe carries its skirt fabric across the pelvis, including
+      // the narrow band between the torso and the posed hem. No trouser fly here.
+      const dressWaist=(u,v)=>pineFigurePaint.skirtPanel(k,k.bottom,0,u,v,0);
+      const coatDrop = parts.top==='zhongshan-jacket' ? 1.55*s : seasonalTop?.[2]==='long' ? 3.45*s : ['cross-robe', 'brocade', 'lab-coat', 'apron', 'mantle'].includes(parts.top)
         ? 3.45 * s
         : parts.top === 'striped-cardigan'
           ? 1.48 * s
@@ -1829,7 +1845,7 @@ const pineDesignerBody = (() => {
       const back = selectedCut ? -fittedDepth : -1.14 * chestDepth;
       const front = selectedCut ? fittedDepth : 1.19 * chestDepth;
       const paint = wholeFigure && pineFigurePaint;
-      const standingHem = pattern ? pattern.hemline : wholeFigure ? paint.hem(parts.top, recipe.base, modelAnatomy) : 0;
+      const standingHem = parts.top==='zhongshan-jacket' ? 0 : pattern ? pattern.hemline : wholeFigure ? paint.hem(parts.top, recipe.base, modelAnatomy) : 0;
       // Cloth bunches at the hip when seated; leave the lap visible in front,
       // including on a matching set. Long coats still hang below the hips.
       const waistline = pixelStructure && standingHem > 0 ? standingHem + .16 * seated : standingHem;
@@ -1920,7 +1936,8 @@ const pineDesignerBody = (() => {
         hipThickness,
         hipHalf,
         0.79 * hipHeight,
-        (x, y, z) => wholeFigure ? paint.waist(k, (x - rig.pelvis[0]) / hipThickness, y / hipHalf,
+        (x, y, z) => wholeFigure && joinedDress ? dressWaist((x-rig.pelvis[0])/hipThickness,y/hipHalf) :
+          wholeFigure ? paint.waist(k, (x - rig.pelvis[0]) / hipThickness, y / hipHalf,
           clamp(0.37 + 0.41 * (z - rig.pelvis[2]) / hipHeight, 0, 1)) :
           z > rig.pelvis[2] + 0.42 * hipHeight
             ? k.bottomShade
@@ -1932,6 +1949,7 @@ const pineDesignerBody = (() => {
       function paintedPanel(u, v, t, hemRise) {
         if (wholeFigure && t < waistline + hemRise) {
           const h = t / (waistline + hemRise);
+          if (joinedDress) return dressWaist(u,v);
           return seated ? paint.infantLap(k, u, v, h, pixelStructure) : paint.waist(k, u, v, h);
         }
         const garmentHeight = wholeFigure ? (t - waistline - hemRise) / (1 - waistline - hemRise) : t;
@@ -2012,13 +2030,7 @@ const pineDesignerBody = (() => {
       });
       const hemZ = low + tall * waistline, clothHeight = high - hemZ;
       if (wholeFigure && !panels && !seasonalTop && !(tailored && parts.top === 'oxford')) paint.neckline(b, k, parts.top, chestDepth, broad, hemZ, clothHeight);
-      if (parts.top==='cotton-yukata') {
-        // A folded bow stands free of the straight sash at the back.
-        const knot=hemZ+.24*clothHeight;
-        for(const side of [-1,1]) b.blob(-1.02*chestDepth,side*.27*broad,knot,.33*chestDepth,.29*broad,.096*clothHeight,
-          (x,y,z)=>z>knot+.035*clothHeight ? k.trimLight : Math.abs(y)<.20*broad ? k.trimShade:k.accent,2.7);
-        b.blob(-1.18*chestDepth,0,knot,.22*chestDepth,.14*broad,.094*clothHeight,k.accent,2.5);
-      }
+      if (seasonalTop) pineSeasonalWardrobe.torsoDetails(parts.top,b,k,chestDepth,broad,hemZ,clothHeight,rig.neck,fit,mount);
       if (workshopTop) {
         if (!pixelStructure || parts.top !== 'snap-knit')
           pineWorkshopWear.torsoDetails(parts.top, b, k, chestDepth, broad, hemZ, clothHeight);

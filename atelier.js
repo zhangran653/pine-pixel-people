@@ -515,7 +515,7 @@
         fitsSkirt(outfit) &&
         Object.entries(outfit.parts).every(([k, v]) => draft.parts[k] === v) &&
         Object.entries(outfit.colors).every(([k, v]) => draft.colors[k] === v) &&
-        (!Object.hasOwn(outfit.parts,'hat') ||
+        (!Object.hasOwn(outfit.parts,'hat') || outfit.keepAccessories ||
           (looks.carriedSlots.every((k) => draft.parts[k] === outfit.parts[k]) &&
             looks.outfitDyes.every((k) => draft.colors[k] === outfit.colors[k])));
       b.setAttribute('aria-pressed', String(match));
@@ -1361,7 +1361,7 @@
     legend.textContent = '预设色卡';
     tabs.className = 'category-buttons';
     swatches.className = 'hair-color-options';
-    const colorNames = { ...looks.colors, ...looks.portraitColors, ...looks.gearColors };
+    const colorNames = { ...looks.colors, ...looks.portraitColors, ...looks.gearColors, ...looks.fabricDyes };
     const palettes = { ...looks.colorPresets, hair: looks.hairColors };
     function refresh() {
       swatches.replaceChildren();
@@ -1402,7 +1402,7 @@
     area.append(palette);
     const sections = [
       ['人物配色', ['skin', 'hair', 'eyes', ...Object.keys(looks.portraitColors)]],
-      ['衣物配色', ['top', 'bottom', 'shoes', 'accent', 'hat']],
+      ['衣物配色', ['top', 'bottom', 'shoes', 'accent', 'hat', ...(rack.embroidered(draft.parts)?Object.keys(looks.fabricDyes):[])]],
       ['配件配色', Object.keys(looks.gearColors).filter((k) => k !== 'hat')]
     ];
     for (const [caption, keys] of sections) {
@@ -1419,7 +1419,7 @@
         item.className = 'dye-setting';
         const input = colorInput(key, () => {
           reset.disabled = false;
-          for (const inherited of Object.keys({ ...looks.portraitColors, ...looks.gearColors })) {
+          for (const inherited of Object.keys({ ...looks.portraitColors, ...looks.gearColors, ...looks.fabricDyes })) {
             const field = $('color-' + inherited);
             if (field && !Object.hasOwn(draft.colors, inherited))
               field.value = looks.gearColor(draft.colors, inherited);
@@ -2341,7 +2341,7 @@
   }
   const requestedHair = query.get('hair');
   const dyes = {};
-  for (const key of Object.keys({ ...looks.colors, ...looks.portraitColors, ...looks.gearColors })) {
+  for (const key of Object.keys({ ...looks.colors, ...looks.portraitColors, ...looks.gearColors, ...looks.fabricDyes })) {
     const value = query.get('dye.' + key) ?? (key === 'skin' ? query.get('skin') : null);
     if (/^[0-9a-f]{6}$/i.test(value || '') && '#' + value.toLowerCase() !== draft.colors[key])
       dyes[key] = '#' + value.toLowerCase();

@@ -27,7 +27,9 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 可以组合筛选时代、职业领域、人物系列、活动场景、年龄、体型、发型、服装、配件和来源。还可按穿搭季节和衣装的地区风格找到对应穿搭的示例人物。发型、上衣款式和随身配件取自实际穿戴。选好条件后，点「随机选一位」会从全部匹配结果中挑人。每页可选 12、24 或 48 位。「随机人物」也可以抽到当前年龄的整套衣装。已分享的种子链接仍可复现原来的搭配。已有角色在「穿搭」里可以点「从形象库借穿衣服与配饰」，再按同样的条件挑选。[本次收录的 356 位](atelier.html?tool=person-library&source=new) · [婴儿专属发型](atelier.html?tool=person-library&age=baby&hair=infant)
 
-在「穿搭 → 四季与地域衣橱」里可以让当前人物预览和试穿 40 套搭配，按春夏秋冬、地区风格、西装、裙装、卫衣、衬衫等条件组合筛选。28 套日常衣装包括袋鼠兜卫衣、两粒扣西装、亚麻短裤和羽绒服，另外 12 套包括中式马面裙、日本棉浴衣、美国西部按扣衬衫、爱尔兰阿兰开衫和苏格兰格呢裙。每件都能单独选、换色、随动作转身。点击「随机试穿」会在当前筛选结果中挑一套。整套试穿会保留人物的发型、眼镜和随身物。[打开四季衣橱](atelier.html?tab=wear) · [在形象库看中国风格衣装](atelier.html?tool=person-library&region=cn) · [前后视角穿搭实拍](studies/pixel-structure/seasonal-wardrobe.webp)
+「穿搭 → 四季与地域衣橱」提供 28 套日常搭配和 17 套地域穿搭，共 45 套。可以给当前人物逐件换装、染色，或按季节、地区和衣类筛选后点「随机试穿」。在形象库搜索「旗袍」「中山装」「和服」「西部」或「Dirndl」，可以直接找到穿着相应衣服的人物。[打开四季衣橱](atelier.html?tab=wear) · [在形象库看中国衣装](atelier.html?tool=person-library&region=cn)
+
+豆绿短袖旗袍和梅枝长旗袍各有自己的袖长与开衩。中山装的四只袋盖随胸腰转动，振袖和服抬手时会露出垂袖内侧的扇纹。美国西部演出装带卷檐毡帽和撞色肩片，奥地利 Dirndl 的前围裙与苏格兰高地格呢裙可以分别借穿。梅枝、振袖花纹和西部衬衫的绣线还可以单独染色。[六套服装的像素实拍](studies/pixel-structure/regional-dress.webp) · [查看振袖招手动作](atelier.html?preset=look_dyeworks_stitcher&tab=wear&region=jp&action=wave&phase=46&bearing=12)
 
 
 现代 264 位、古代 84 位、奇幻 80 位、科幻 72 位共用部件与动作。405 名成人、65 名儿童、12 名幼儿和 18 名婴儿使用各自的分龄造型。新增人物采用按系列搭配的版型、配色和职业用品，每份配方都有固定 ID，可保存到本地、导出 JSON 或带去编排动作。[早期 61 位](studies/pixel-structure/character-library.webp) · [随后收录的 83 位](studies/pixel-structure/character-catalogue-expansion.webp) · [形象与部件规范](appearance-standard.html#character-library)

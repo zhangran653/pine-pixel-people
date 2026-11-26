@@ -56,6 +56,7 @@ const pineCharacterGallery = (() => {
     const hatName = hat && PineLooks.catalog.get(pack+'@'+doc.packs[pack])?.parts.find(p=>p.id===hat)?.label;
     const text = [doc.label, doc.id, id.role, hatName, ...PineLooks.visibleFeatures(doc).tokens];
     if(outfit) {
+      if (outfit.keywords) text.push(outfit.keywords);
       text.push(...outfit.families.map(id=>wardrobe.families[id]),...outfit.seasons.map(id=>wardrobe.seasons[id]+'装'));
       if(Object.entries(outfit.parts).every(([k,v])=>doc.parts[k]===v) &&
         Object.entries(outfit.colors).every(([k,v])=>doc.colors[k]===v)) text.push(outfit.label);

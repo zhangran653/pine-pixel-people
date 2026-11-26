@@ -62,7 +62,9 @@ const pineCharacterTitles = (() => {
   const sets={
     'qipao-bodice/qipao-column':'斜襟旗袍','sundress-bodice/circle-skirt':'吊带伞裙',
     'cotton-yukata/yukata-hem':'棉浴衣','wrap-bodice/bias-midi':'系带裹身裙',
-    'two-button-suit/two-pleat-slacks':'两粒扣西服套装','double-suit/two-pleat-slacks':'双排扣西服套装'
+    'two-button-suit/two-pleat-slacks':'两粒扣西服套装','double-suit/two-pleat-slacks':'双排扣西服套装',
+    'zhongshan-jacket/two-pleat-slacks':'四袋中山装','plum-qipao/plum-qipao-hem':'梅枝长旗袍',
+    'furisode-robe/furisode-hem':'扇花纹振袖和服'
   };
   function features(doc,options) {
     const p=doc.parts;

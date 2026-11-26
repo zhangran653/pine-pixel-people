@@ -656,10 +656,12 @@ SOFTWARE.`;
   for (const [slot, options] of Object.entries(pineWorldWardrobe.wearables))
     wearables[slot] = { ...wearables[slot], ...options };
   const gearColors = { ...pineWorldWardrobe.dyes, ...pineWorkshopWear.dyes, ...pineEverydayStyles.dyes };
-  const optionalColors = { ...gearColors, ...pinePortraitStyles.dyes };
+  const fabricDyes = { embroidery:'绣花色' };
+  const optionalColors = { ...gearColors, ...fabricDyes, ...pinePortraitStyles.dyes };
   const carriedSlots = Object.keys(wearables).filter((k) => k !== 'phone' && k !== 'laptop');
-  const outfitDyes = Object.keys(gearColors).filter((k) => k !== 'device');
+  const outfitDyes = [...Object.keys(gearColors).filter((k) => k !== 'device'), ...Object.keys(fabricDyes)];
   function gearColor(colors, key) {
+    if (key === 'embroidery') return colors.embroidery || colors.accent;
     if (key === 'charm') return colors.charm || '#bf9a66';
     if (Object.hasOwn(pinePortraitStyles.dyes, key)) return pinePortraitStyles.color(colors, key);
     if (Object.hasOwn(pineEverydayStyles.dyes, key)) return colors[key] || pineEverydayStyles.defaults[key];
@@ -807,8 +809,10 @@ SOFTWARE.`;
       if (external) requireThat(pin, '穿搭缺少帽子素材包版本');
       const embedded = external && [...(outfit.embeddedPacks || []), ...(recipe.embeddedPacks || [])]
         .find(pack => pack.id === owner && pack.release === pin);
-      for (const key of carriedSlots) delete recipe.parts[key];
-      for (const key of outfitDyes) delete recipe.colors[key];
+      if (!outfit.keepAccessories) {
+        for (const key of carriedSlots) delete recipe.parts[key];
+        for (const key of outfitDyes) delete recipe.colors[key];
+      }
       recipe.packs = { [core]: recipe.packs[core] };
       if (external) recipe.packs[owner] = pin;
       if (embedded) recipe.embeddedPacks = [embedded];
@@ -818,6 +822,7 @@ SOFTWARE.`;
       if (outfit.skirtEase !== undefined) recipe.skirtEase = outfit.skirtEase;
       else delete recipe.skirtEase;
     }
+    if (outfit.parts.top && outfit.parts.bottom && !outfit.colors.embroidery) delete recipe.colors.embroidery;
     Object.assign(recipe.parts, outfit.parts);
     Object.assign(recipe.colors, outfit.colors);
     recipe.packs[core] = editingRelease(recipe);
@@ -2214,6 +2219,7 @@ SOFTWARE.`;
     carriedSlots,
     outfitDyes,
     gearColors,
+    fabricDyes,
     gearColor,
     faceDetails,
     portraitColors: pinePortraitStyles.dyes,

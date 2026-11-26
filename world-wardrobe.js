@@ -81,6 +81,18 @@ const pineWorldWardrobe = (() => {
     [0, 0, 0.91, 0.87, 0.85, 0.2, 'hatLight'],
     [0, 0, 1.08, 0.47, 0.45, 0.17, 'hatMain']
   ]);
+  // Narrow overlapping strips lift the felt brim at either side. Two crown
+  // ridges leave a central crease in profile without painting a black stripe.
+  const westernBrim = [];
+  for (let i=-7; i<=7; i++) {
+    const t=i/7;
+    westernBrim.push([.035,t*1.46,.57+.30*t**4,1.52*Math.sqrt(1-.84*t*t),.22,.112,'hatMain',2.8]);
+  }
+  hat('western-felt','卷檐西部毡帽', [
+    ...westernBrim, [-.035,0,.83,1.01,.88,.32,'hatMain',3],
+    [-.10,-.36,1.055,.88,.45,.37,'hatMain',2.5], [-.10,.36,1.055,.88,.45,.37,'hatMain',2.5],
+    [-.026,0,.742,1.012,.894,.088,'hatTrim',3.4]
+  ]);
   hat('star-hat', '斜尖星帽', [
     [0, 0, 0.57, 1.44, 1.38, 0.11, 'hatShade'],
     [0, 0, 0.83, 1.05, 1.02, 0.36, 'hatMain'],

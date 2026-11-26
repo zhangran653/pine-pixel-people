@@ -1008,6 +1008,11 @@ function checkLibrary() {
     filter('look-query',''); filter('shelf-region','cn'); filter('shelf-season','summer');
     check(keys().join()==='preset:look_museumcrew_educator','regional summer clothing examples match the actual garment');
     filter('shelf-region',''); filter('shelf-season','');
+    for (const [term,person] of [['中山装','museumcrew_keeper'],['振袖','dyeworks_stitcher'],['rodeo','broadcast_host'],['Dirndl','dyeworks_forager']]) {
+      filter('look-query',term);
+      check(keys().includes('preset:look_'+person),'missing regional clothing search result: '+term);
+    }
+    filter('look-query','');
     const all = new Set();
     while (true) {
       for (const key of keys()) {
@@ -1105,7 +1110,17 @@ function checkLibrary() {
     $('rack-roll').click(); check(recipe().parts.top==='festival-happi','roll a different outfit inside current filters');
     filter('rack-family','suit');
     check($('rack-roll').disabled && !$('rack-clear').hidden,'recover from empty seasonal intersection');
-    $('rack-clear').click(); check($('rack-count').textContent.startsWith('40 套') && !$('rack-next').disabled,'reset seasonal wardrobe');
+    $('rack-clear').click();
+    check($('rack-count').textContent.startsWith(Object.keys(PineLooks.seasonalWardrobe.outfits).length+' 套') && !$('rack-next').disabled,'reset seasonal wardrobe');
+    filter('rack-region','us'); filter('rack-family','traditional');
+    check($('rack-look-us-rodeo') && $('rack-look-us-western'),'western heritage shirts missing from the regional rack');
+    filter('rack-region','jp'); $('rack-look-jp-furisode').click();
+    check(recipe().parts.bottom==='furisode-hem' && recipe().parts.top==='furisode-robe','formal kimono cut');
+    $('tab-colors').click();
+    const thread=$('color-embroidery');
+    check(thread && thread.value===recipe().colors.embroidery,'missing embroidery colour');
+    thread.value='#678945'; thread.dispatchEvent(new Event('input'));
+    check(recipe().colors.embroidery==='#678945','custom embroidery dye is not portable');
     out.textContent = '500-person gallery, scoped random selection, editable filters, outfit borrowing and pagination passed';
   } catch (error) { out.dataset.state = 'fail'; out.textContent = error.stack; }
 }
