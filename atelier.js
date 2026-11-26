@@ -173,7 +173,8 @@
     const paintedFace = draft.bodyFinish === 'painted' && looks.portraitStyleOf(draft) === 'animation';
     const namedPair = (query.get('study') === 'recipes' || Object.hasOwn(pineFigureModels,query.get('compare'))) &&
       $('compare').value === 'review:partner';
-    const before = namedPair ? 'recipes' : draft.base === 'baby' && draft.packs[looks.core] === looks.chinPadRelease ? 'chin-pad' :
+    const before = namedPair ? 'recipes' : draft.portraitInk && looks.portraitStyleOf(draft) === 'animation' ? 'ink' :
+      draft.base === 'baby' && draft.infantNose ? 'baby-nose' : draft.base === 'baby' && draft.packs[looks.core] === looks.chinPadRelease ? 'chin-pad' :
       draft.base === 'baby' && draft.packs[looks.core] === looks.infantChinRelease ? 'chin' :
       pinePortraitStyles.hasGarmentFits(draft.packs[looks.core]) ? 'garments' :
       draft.packs[looks.core] === looks.expressionRelease ? 'acting' :
@@ -292,6 +293,9 @@
     previousEdit = readEdit();
     $('mirror-name').textContent = draft.label || '未命名形象';
     $('portrait-style').value = looks.portraitStyleOf(draft);
+    const ink = $('portrait-style').value === 'animation' && draft.portraitInk;
+    $('try-ink').setAttribute('aria-pressed', String(!!ink));
+    $('try-ink').textContent = ink ? '立绘五官 · ' + looks.portraitInks[ink] : '试用像素立绘五官';
     const trial = pinePortraitStyles.hasGameFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation';
     $('anatomy-link').href = 'anatomy-study.html#' + new URLSearchParams({character: JSON.stringify(draft)});
     studyLink();
@@ -436,7 +440,7 @@
       const pin = draft.packs[looks.core];
       apply(field.value);
       changed();
-      if (id === 'feature-paint' || id === 'infant-chin' || id === 'clothing-cut' || (id === 'bottom' && pinePortraitStyles.hasGarmentFits(pin)) ||
+      if (['feature-paint','infant-chin','infant-nose','portrait-ink','clothing-cut'].includes(id) || (id === 'bottom' && pinePortraitStyles.hasGarmentFits(pin)) ||
           ((tab === 'wear' || tab === 'shape') && pin !== draft.packs[looks.core])) {
         fields();
         $('edit-' + id)?.focus({ preventScroll: true });
@@ -592,6 +596,9 @@
     const ratioFit = pinePortraitStyles.hasFigureRatios(draft.packs[looks.core]);
     const acting = pinePortraitStyles.hasFacialActing(draft.packs[looks.core]);
     const painted = gameFace && pinePortraitStyles.hasPaintedFeatures(draft.packs[looks.core]);
+    if (looks.portraitStyleOf(draft) === 'animation') area.append(picker('像素笔触', 'portrait-ink',
+      [['','原有笔触'], ...Object.entries(looks.portraitInks)], draft.portraitInk || '',
+      value => { draft = value ? looks.withPortraitInk(draft,value) : looks.withoutPortraitInk(draft); }));
     area.append(picker('五官与比例', 'feature-paint', [['original','原有笔触'], ['painted','分龄像素笔触 · 1.19.6'], ['ratios','分龄笔触与可调比例 · 1.19.7'], ['acting','动作眼神与神情 · 1.19.8']],
       acting ? 'acting' : ratioFit ? 'ratios' : painted ? 'painted' : 'original', value => {
         if (value === 'acting') draft = looks.withExpressionStudy(draft);
@@ -603,9 +610,10 @@
       picker('婴儿下巴', 'infant-chin', [
         ['prior','原有下巴'], ['soft',acting ? '短圆下巴 · 试作' : '分龄五官与短圆下巴'],
         ['pad',acting ? '饱满小下巴 · 试作' : '分龄五官与饱满小下巴']
-      ], draft.packs[looks.core] === looks.chinPadRelease ? 'pad' : draft.packs[looks.core] === looks.infantChinRelease ? 'soft' : 'prior',
-      value => { draft = value === 'prior' ? looks.withoutInfantChin(draft)
-        : looks.withInfantChin(draft,value === 'pad' ? looks.chinPadRelease : looks.infantChinRelease); })
+      ], ({original:'prior',short:'soft',full:'pad'})[pinePortraitStyles.infantChinStyle(draft)],
+      value => { draft = looks.withInfantChinStyle(draft, {prior:'original',soft:'short',pad:'full'}[value]); }),
+      picker('婴儿鼻部','infant-nose',[['prior','原有鼻形'],['nursery','浅鼻根与圆鼻头']],
+        draft.infantNose || 'prior', value => { draft = value === 'nursery' ? looks.withInfantNose(draft) : looks.withoutInfantNose(draft); })
     );
     if (acting && gameFace) area.append(picker('平时神情', 'rest-expression',
       [['','随五官'], ...Object.entries(looks.restExpressions)], draft.face.restExpression || '', value => {
@@ -640,6 +648,10 @@
       const comparison = guide.querySelector('.guide-comparison');
       comparison.href = acting ? 'studies/pixel-structure/acting-faces.webp' : ratioFit ? 'studies/pixel-structure/figure-ratios.webp' : painted ? 'studies/pixel-structure/painted-features.webp' : drawn ? 'studies/pixel-structure/drawn-faces.webp' : gameFace ? 'studies/pixel-structure/game-faces.webp' : 'pixel-face-before-after.webp';
       comparison.textContent = '同一角色的两版实机对照';
+      if (draft.portraitInk || (draft.base === 'baby' && draft.infantNose)) {
+        comparison.href = 'studies/pixel-structure/' + (draft.portraitInk ? 'portrait-mouth.webp' : 'nursery-nose.webp');
+        comparison.textContent = draft.portraitInk ? '随机人物的嘴与神情对照' : '婴儿鼻部三向对照';
+      }
     }
     guide.open = expandedFields.get('turnaround') === true;
     guide.ontoggle = () => { if (guide.isConnected) expandedFields.set('turnaround', guide.open); };
@@ -1187,8 +1199,8 @@
       ['original','原有剪裁'], ['cut','分龄剪裁 · 1.19.5'], ['patterns','分款剪裁 · 1.19.9 试作']
     ], current, value => {
       if (value === 'patterns') {
-        draft = looks.withGarmentStudy(draft);
-        if (pinePortraitStyles.hasInfantChin(pin)) draft.packs[looks.core] = pin;
+        if (pinePortraitStyles.hasInfantChin(pin)) delete draft.clothingCut;
+        else draft = looks.withGarmentStudy(draft);
       } else if (pinePortraitStyles.hasInfantChin(pin)) {
         delete draft.garmentFit;
         draft.clothingCut = value === 'cut' ? 'age' : 'original';
@@ -1514,6 +1526,8 @@
         const body = Object.fromEntries(tabKeys.shape.map(key => [key, draft.shape[key]]));
         draft = { ...draft, face: clone(candidate.face), shape: { ...candidate.shape, ...body },
           packs: { ...draft.packs, [looks.core]: candidate.packs[looks.core] } };
+        if (candidate.portraitInk) draft.portraitInk = candidate.portraitInk;
+        else delete draft.portraitInk;
       } else draft = looks.randomFace(draft, { style, portrait });
       changed();
       fields(gallery);
@@ -1533,17 +1547,22 @@
   }
   function tryBaseFace(form) {
     const pin = draft.packs[looks.core], cut = draft.clothingCut, shape = draft.shape, rest = draft.face?.restExpression;
-    const fit = draft.garmentFit;
+    const savedOptions = Object.fromEntries(['garmentFit','portraitInk','infantNose','infantChin'].filter(key => draft[key]).map(key => [key,draft[key]]));
     draft = looks.withBaseFace(draft, form);
     if (pinePortraitStyles.hasClothingStudy(pin)) draft.packs[looks.core] = pin;
     if (pinePortraitStyles.hasFigureRatios(pin)) draft.shape = shape;
     if (pinePortraitStyles.hasFacialActing(pin) && rest) draft.face.restExpression = rest;
-    if (fit) draft.garmentFit = fit;
+    Object.assign(draft,savedOptions);
     if (cut) draft.clothingCut = cut;
     changed();
     fields();
   }
   $('try-figure').onclick = tryFigure;
+  $('try-ink').onclick = () => {
+    draft = draft.portraitInk && looks.portraitStyleOf(draft) === 'animation' ? looks.withoutPortraitInk(draft) : looks.withPortraitInk(draft,'cel');
+    changed();
+    fields();
+  };
   $('random-character').onclick = () => randomize(true);
   $('portrait-style').onchange = () => {
     looks.setPortraitStyle(draft, $('portrait-style').value);
@@ -2089,6 +2108,17 @@
     activate(first, '', false, availableId);
   } else activate(first, (stored ? 'saved:' : 'preset:') + first.id, !!stored);
   if (query.get('figure') === 'study') tryFigure();
+  if (query.get('figure') === 'ink') {
+    const seed = query.get('seed'), age = query.get('age');
+    if (seed !== null && /^\d{1,10}$/.test(seed) && Number(seed) <= 0xffffffff && ['adult','child','toddler','baby'].includes(age))
+      activate(looks.randomCharacter({ base:age, seed:Number(seed), ink:'auto', bodyFinish:'painted' }), '', false, true);
+    else { draft = looks.withPortraitInk(draft,draft.portraitInk || 'cel'); changed(); fields(); }
+  }
+  if (query.get('figure') === 'baby-nose' && draft.base === 'baby' && looks.portraitStyleOf(draft) === 'animation') {
+    draft = looks.withInfantNose(draft);
+    changed();
+    fields();
+  }
   if (query.get('figure') === 'cut' && !looks.usesClothingCut(draft)) {
     if (pinePortraitStyles.hasPaintedFeatures(draft.packs[looks.core])) delete draft.clothingCut;
     else draft = looks.withClothingStudy(draft);

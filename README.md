@@ -21,6 +21,12 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 1.19.12 随机人脸与像素表情试作
+
+在创作室选「试用像素立绘五官」，再点「随机人物」。要保留当前人物的头发、肤色和衣服，去「五官」点「随机五官」。随机先选脸型和神情，再搭配眉眼与口型。「五官」里可以单独调嘴形、宽度、唇厚、平时神情和笔触。试作配方可以保存、导出和套用动作。[打开随机样本 2602](http://127.0.0.1:8000/atelier.html?figure=ink&age=adult&seed=2602&tab=face&bearing=315) · [三个同人前后对照](studies/pixel-structure/portrait-mouth.webp) · [连续八个种子](studies/pixel-structure/portrait-batch.webp)
+
+研究记录包含 OpenTTD 和 OpenGFX 嘴部图块的实测、LPC 原生尺寸表情的逐像素对照，以及整脸形状与表情感知的研究。婴儿的「浅鼻根与圆鼻头」可以和三种下巴分别搭配。[开源项目与论文](studies/pixel-structure/README.md#随机人脸的协调) · [婴儿鼻部三向对照](studies/pixel-structure/nursery-nose.webp)
+
 ### 1.19.11 婴儿唇下轮廓试作
 
 在「五官 → 婴儿下巴」选择「饱满小下巴」。从侧面看，下唇下方先留出一小段接近唇缘的轮廓，再从颏尖转回颈部。下巴前后、高低与圆钝度可以继续调节，随机五官也会沿用所选试作。[在创作室编辑](http://127.0.0.1:8000/atelier.html?model=baby02-profile&figure=chin-pad&tab=face&bearing=270)

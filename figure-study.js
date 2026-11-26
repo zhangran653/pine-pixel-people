@@ -10,12 +10,12 @@
   const reviews = { face:[previousStudy,currentStudy], cast:[stableRelease,currentStudy], bases:[currentStudy,looks.baseFaceRelease],
     cut:[looks.baseFaceRelease,looks.clothingStudyRelease], features:[looks.clothingStudyRelease,looks.featureStudyRelease],
     ratios:[looks.featureStudyRelease,looks.figureRatioRelease], acting:[looks.figureRatioRelease,looks.expressionRelease],
-    garments:[looks.expressionRelease,looks.garmentRelease] };
+    garments:[looks.expressionRelease,looks.garmentRelease], ink:[looks.chinPadRelease,looks.infantNoseRelease] };
   const seedFor = (release, id) => hash('pine/figure-holdout/' + release + '/' + id);
   const search = new URLSearchParams(location.search);
   let reviewKind = Object.hasOwn(reviews, search.get('review')) ? search.get('review') : 'face';
   function storageKey() {
-    const versions = reviews[reviewKind].join('-') + ({face:'', cast:'.painted.cast', bases:'.bases', cut:'.clothing', features:'.features', ratios:'.ratios', acting:'.acting', garments:'.garments'}[reviewKind]);
+    const versions = reviews[reviewKind].join('-') + ({face:'', cast:'.painted.cast', bases:'.bases', cut:'.clothing', features:'.features', ratios:'.ratios', acting:'.acting', garments:'.garments',ink:'.portrait-ink'}[reviewKind]);
     return 'pine.figureStudy.' + versions + '.v1';
   }
   const stages = [$('canvas-a'), $('canvas-b')];
@@ -119,6 +119,12 @@
     const [, release] = reviews[reviewKind];
     const seed = seedFor(release, session.current);
     const options = { base, seed, portrait: 'animation', style: 'natural', release };
+    if (reviewKind === 'ink') {
+      const prior = looks.randomCharacter({...options,release:looks.chinPadRelease,bodyFinish:'painted'});
+      const names = Object.keys(looks.portraitInks);
+      const trial = looks.withPortraitInk(prior,names[seed % names.length]);
+      return flipped(session.current) ? [trial,prior] : [prior,trial];
+    }
     const cast = reviewKind === 'cast';
     const revised = looks.randomCharacter({ ...options, bodyFinish: reviewKind === 'face' ? undefined : 'painted' });
     const old = reviewKind === 'garments' ? looks.withoutGarmentStudy(revised) : reviewKind === 'acting' ? looks.withoutExpressionStudy(revised) : reviewKind === 'ratios' ? looks.withoutFigureRatios(revised) : reviewKind === 'features' ? looks.withoutFeatureStudy(revised) : reviewKind === 'cut' ? beforeClothing(revised) : cast ? looks.randomCharacter({ ...options, release:stableRelease }) :
@@ -163,6 +169,14 @@
       : pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
     const before = $('before').value;
     if (before === 'recipes') return [companion,submitted];
+    if (before === 'baby-nose') {
+      const trial = looks.withInfantNose(source);
+      return [looks.withoutInfantNose(trial),trial];
+    }
+    if (before === 'ink') {
+      const trial = looks.withPortraitInk(source,source.portraitInk || 'cel');
+      return [looks.withoutPortraitInk(trial),trial];
+    }
     const wasActing = pinePortraitStyles.hasFacialActing(source.packs[looks.core]);
     if (before === 'chin-pad') return [looks.withInfantChin(source), looks.withInfantChin(source,looks.chinPadRelease)];
     if (before === 'chin') {
@@ -294,6 +308,15 @@
         '头肩镜头直接放大全身画面里的像素。'
         : finish ? '同一个人物、同一帧。可转到侧面看袖口、手臂、膝盖和小腿的明暗。'
         : '同一人物配方、镜头与动作帧，分别用两版实时切片绘制。';
+    if (!blind && (before === 'ink' || before === 'baby-nose')) {
+      const drawing = before === 'ink';
+      $('title-a').textContent = drawing ? '原有笔触' : '原有鼻形';
+      $('title-b').textContent = drawing ? looks.portraitInks[recipes[1].portraitInk] : '浅鼻根与圆鼻头';
+      $('prompt').textContent = drawing ? '同一张脸、同一组染色。把脸转到四分之三侧面，比较眼睑、面颊与头发的色块。'
+        : recipes[1].base === 'baby' ? '两侧共用眼睛、嘴唇、下巴和坐姿。转到侧面看鼻根到鼻头的轮廓。' : '选择婴儿可比较鼻头的形状。';
+      $('face-gallery').href = 'studies/pixel-structure/' + (drawing ? 'portrait-ink.webp' : 'nursery-nose.webp');
+      $('face-gallery').textContent = drawing ? '同脸三种像素笔触实拍' : '婴儿鼻部三向实拍';
+    }
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     actors = recipes.map(doc => looks.build(doc));
     neutralFrames = sampleActors('idle', .17);
@@ -464,7 +487,7 @@
       link.hidden = !visible;
       if (visible) {
         const options = new URLSearchParams({ action: $('action').value, bearing: $('bearing').value, phase: $('phase').value });
-        if ($('framing').value === 'head' || (mode === 'model' && ['features','ratios','acting'].includes($('before').value))) options.set('tab', 'face');
+        if ($('framing').value === 'head' || (mode === 'model' && ['features','ratios','acting','ink','baby-nose'].includes($('before').value))) options.set('tab', 'face');
         else if ((mode === 'model' && ['cut','garments'].includes($('before').value)) ||
                  (mode === 'blind' && reviewKind === 'garments')) options.set('tab', 'shape');
         const data = new URLSearchParams({ character: JSON.stringify(recipes[i]) });
@@ -572,6 +595,7 @@
   const initialAngle = Number(search.get('bearing'));
   if (Number.isFinite(initialAngle) && initialAngle >= 0 && initialAngle <= 360) $('bearing').value = initialAngle % 360;
   if (['chin','chin-pad'].includes($('before').value) && !search.has('subject')) $('subject').value = 'baby02-profile';
+  if ($('before').value === 'baby-nose' && !search.has('subject')) $('subject').value = 'baby02-pad';
   if ([...$('subject').options].some(o => o.value === search.get('subject'))) $('subject').value = search.get('subject');
   save();
   const phase = search.get('phase'), value = Number(phase);

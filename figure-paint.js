@@ -239,6 +239,17 @@ const pineFigurePaint = (() => {
   }
   const shortPlanes = [0, 1.25, 3.45, 4.6, 5.55];
   const longPlanes = [0, 1.0, 2.45, 3.85, 5.15, 6.05];
+  function brushedHair(k, plane, u, v, h, brush) {
+    // Follow the painted lock. A broken ribbon of light crosses neighbouring
+    // locks at the crown and narrows on the side facing away from the light.
+    const crest = (brush === 'line' ? .72 : .55) + .25*v - .16*u - .18*v*v;
+    const spread = brush === 'wash' ? .29 : brush === 'cel' ? .16 : .095;
+    const crown = Math.abs(h-crest) < spread * (1-.22*v) && u-.51*v > -.46;
+    const lit = .45*u - .73*v + .34*h;
+    const mass = brush === 'wash' ? .80*plane+.60 : plane < 1.9 ? .7 : plane < 3.5 ? 2.45 : plane < 5.1 ? 4.1 : 5.3;
+    const glint = crown && plane > 2.7 ? (brush === 'wash' ? .83 : brush === 'line' ? 2.3 : 1.7) : 0;
+    return swatch(inks(k).set.strand, mass + lit + glint);
+  }
   function hair(k, tone, u, v, h, short, fallback) {
     const planes = short ? shortPlanes : longPlanes;
     if (!tone || tone >= planes.length) return fallback[tone];
@@ -1057,6 +1068,7 @@ const pineFigurePaint = (() => {
     hem,
     drape,
     hair,
+    brushedHair,
     waist,
     torso,
     limb,

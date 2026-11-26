@@ -26,6 +26,10 @@ const pineFigureModels = (() => {
   return {
     get 'baby02-source'() { return infantProfile(false); },
     get 'baby02-profile'() { return infantProfile(true); },
+    get 'baby02-pad'() {
+      const doc = PineLooks.withInfantChin(infantProfile(true), PineLooks.chinPadRelease);
+      return {...doc, id:'look_baby02_pad', label:'婴儿 02 · 饱满下巴'};
+    },
     adult: sitter('male', '卷袖衬衫', { hair: 'side-part', top: 'oxford', bottom: 'trousers', shoes: 'canvas-shoes' },
       { eyes: 'soft-oval', brows: 'straight', nose: 'short', mouth: 'soft-smile', outline: 'oval' },
       { skin: '#ac744c', hair: '#3c2c2a', eyes: '#473026', top: '#818465', bottom: '#50494b', shoes: '#80604c', accent: '#dcc8a0' }),

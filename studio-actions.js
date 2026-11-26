@@ -75,7 +75,7 @@ const soloClips = (() => {
       off[2] - breath * (1 - Math.cos(tau * u))
     ];
     ch.headYaw = 0.13 * Math.sin(u * tau) ** 3;
-    const structured = ['1.19.2','1.19.3','1.19.4','1.19.5','1.19.6','1.19.7','1.19.8','1.19.9','1.19.10','1.19.11'].includes(a.figureRelease);
+    const structured = ['1.19.2','1.19.3','1.19.4','1.19.5','1.19.6','1.19.7','1.19.8','1.19.9','1.19.10','1.19.11','1.19.12'].includes(a.figureRelease);
     if (structured || a.figureRelease === '1.19.0' || a.figureRelease === '1.19.1') {
       if (a.tags.includes('baby')) {
         if (!ch.floorSeat) infantFloorPose(r, ch);

@@ -207,6 +207,10 @@ const pineGameFace = (() => {
     return ((landmarks[age][form]?.[0] ?? neutralChins[age]) - neutralChins[age]) * mix;
   }
   const noses = curve([-0.32, -0.04, 0.24, 0.46, 0.61, 0.73, 0.88, 1], [0, 0.13, 0.49, 0.8, 1, 0.58, 0, 0]);
+  // Brow to upper lip, measured in units of the distance to the tip. The ball
+  // rises out of a shallow root and rolls into two low wings.
+  const nurseryNose = curve([-.22, 0, .32, .58, .78, .92, 1, 1.10, 1.24, 1.40],
+    [0, .015, .06, .20, .57, .92, 1, .87, .36, 0]);
   const cross = [0, 0.28, 0.52, 0.82, 0.95, 1];
   function frontAt(row, v) {
     const f = clamp(Math.abs(v), 0, 1) * steps,
@@ -265,7 +269,7 @@ const pineGameFace = (() => {
     }
     return { padH, bottomH, undersideX, throatH, throatX, supported };
   }
-  function build(base, shape, face, baseTarget, scalp, eye, mouth, noseRow, drawn, painted, infantProfile, infantChin) {
+  function build(base, shape, face, baseTarget, scalp, eye, mouth, noseRow, drawn, painted, infantProfile, infantChin, infantNose, ink) {
     const mix = face.formMix ?? 1, drawing = drawn && drawnProfiles[base][baseTarget];
     const p = drawing && mix > 0 ? profiles[base].map((original, i) => h => {
       const a = original(h);
@@ -281,12 +285,14 @@ const pineGameFace = (() => {
     const noseLength = clamp(0.58 + (noseRow[3] - 0.3) * 0.83, 0.48, 0.7);
     // Give the philtrum room between the returning nasal base and the upper lip.
     // The mouth takes part of the change, so a long nose retains its character.
-    const tipAt = noseLength - (1 - noseLength) * .72 * ((shape.noseLipSpacing ?? 1) - 1);
+    const fittedTip = noseLength - (1 - noseLength) * .72 * ((shape.noseLipSpacing ?? 1) - 1);
+    const tipAt = infantNose ? clamp(.56 + .61 * (fittedTip - .58), .43, .65) : fittedTip;
     const reach =
       (infant ? 0.132 : base === 'adult' ? 0.205 : 0.166) *
       clamp(noseRow[2] / 0.19 + 0.32 * value('noseBridge'), 0.58, 1.5) *
       (0.85 + 0.15 * (shape.faceRelief ?? 1)) * (drawing ? 1 + (landmarks[base][baseTarget][2] - 1) * mix : 1);
-    const noseWidth = clamp(noseRow[1] * (1 + 0.26 * value('noseWidth')) * (infant ? 1.17 : 1), 0.105, 0.32);
+    const fittedWidth = clamp(noseRow[1] * (1 + 0.26 * value('noseWidth')) * (infant ? 1.17 : 1), 0.105, 0.32);
+    const noseWidth = infantNose ? .075 + .72 * fittedWidth : fittedWidth;
     // Both lids close over the same curved eye plane. The brow and cheek can
     // change depth outside it without shearing the iris on a three-quarter turn.
     const eyeWidth = p[0](eye),
@@ -352,8 +358,10 @@ const pineGameFace = (() => {
       ]);
       const t = (eye - h) / Math.max(0.24, eye - mouth),
         tipT = (t * 0.61) / tipAt;
-      const nose = noses(tipT) * reach * (infantProfile ? 1.38 : 1);
-      const wing = bell(tipT, 0.67, 0.19);
+      const tipRatio = t / tipAt;
+      const nose = infantNose ? nurseryNose(tipRatio) * (.099 + .62 * (reach - .13)) : noses(tipT) * reach * (infantProfile ? 1.38 : 1);
+      const wing = infantNose ? .031 * bell(tipRatio, 1.10, .25) : .037 * bell(tipT, .67, .19);
+      const bulbWidth = infantNose ? noseWidth * (.61 + .39 * ramp(tipRatio, .36, .91)) : noseWidth;
       const upper = bell(h, mouth + 0.04, 0.077),
         lower = bell(h, mouth - 0.043, 0.077);
       const fold = bell(h, mouth - 0.134, 0.07);
@@ -381,8 +389,8 @@ const pineGameFace = (() => {
         const undisturbed = dome(v);
         let f =
           undisturbed +
-          nose * bell(y, 0, noseWidth) +
-          0.037 * wing * bell(y, noseWidth * 0.74, noseWidth * 0.6) +
+          nose * (infantNose ? Math.max(0, 1 - (y / bulbWidth) ** 2) ** 1.28 : bell(y, 0, noseWidth)) +
+          wing * bell(y, noseWidth * 0.74, noseWidth * 0.6) +
           mouthBed * bell(y, 0, 0.41) -
           oralArc * ramp(y, 0.025, 0.43) * (1 - ramp(y, 0.61, 0.9)) -
           socket;
@@ -440,7 +448,7 @@ const pineGameFace = (() => {
       }
     }
     const row = (h) => rowList[clamp(Math.round(((h + 1) * rings) / 2), 0, rings)];
-    return { row, insideSkin, frontAt, noseWidth, mouth, chin, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
+    return { row, insideSkin, frontAt, noseWidth, infantNose, ink, mouth, chin, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
   }
 
   function eye(shape, off, h, blink, side, k, pitch) {
@@ -491,6 +499,20 @@ const pineGameFace = (() => {
     toddler: { lid:[[-.21,-.21],[.63,-.71],[.97,-.99],[1,-1],[.95,-.9],[.64,-.55],[-.03,-.03]], opening:1.13, iris:.74, brow:.80, smile:.125, part:.044 },
     baby:    { lid:[[-.19,-.19],[.64,-.65],[.96,-.94],[1,-.96],[.95,-.85],[.63,-.49],[-.04,-.04]], opening:1.03, iris:.68, brow:.68, smile:.146, part:.085 }
   };
+  // Pair lid design with the edge of the cheek shadow. Coordinates and light
+  // are in head space, so the same patches wrap around a turning character.
+  const brushes = {
+    wash:{ lid:[[0,0],[.65,-.58],[.98,-.97],[1,-1],[.79,-.85],[.43,-.45],[0,0]], stroke:.79, brow:.82, iris:1.09, corner:.87, shadow:.08, warmth:.94 },
+    cel: { lid:[[-.16,-.16],[.41,-.52],[.96,-.73],[1,-.87],[1,-.66],[.72,-.27],[.13,.13]], stroke:1.20, brow:1.05, iris:1.00, corner:1.04, shadow:.18, warmth:.68 },
+    line:{ lid:[[-.12,-.12],[.39,-.39],[.73,-.58],[.87,-.68],[.93,-.50],[.75,-.18],[.22,.22]], stroke:1.55, brow:.93, iris:.91, corner:1.22, shadow:.12, warmth:.46 }
+  };
+  function featureBrush(base, ink) {
+    const guide = featureGuides[base], brush = brushes[ink];
+    if (!brush) return guide;
+    const mix = base === 'baby' ? .46 : base === 'toddler' ? .70 : .92;
+    const lid = guide.lid.map((pair,i) => pair.map((v,j) => v + mix * (brush.lid[i][j] - v)));
+    return { ...guide, lid, brow:guide.brow * brush.brow, brush, irisDrawing:irisDrawings[ink] };
+  }
   // Indexed iris drawn in the surface coordinates of the eye. The small amber
   // or cool arc turns around the pupil and the catchlight stays on the lit side.
   const irisBrush = [
@@ -498,25 +520,34 @@ const pineGameFace = (() => {
     'ri**ppppiir', 'rii*ppppiir', 'riippppiiar', 'riiiippiiaa',
     '.riiaaaaii.', '..riiaair..', '....iir....'
   ];
+  const irisDrawings = {
+    wash:['....rrr....','..rriiirr..','.riipppiiir','.ri**pppiir','ii**ppppiir','iii*ppppiir','riiipppiiar','riiiippiaaa','.riiaaaaai.','..iiaaaai..','....iii....'],
+    cel: ['....rrr....','..rririrr..','.rrippppiir','.ri**pppiir','ri**ppppiir','riiippppiir','riiipppiiaa','riiiippiaaa','.riaaaaaii.','..iiaaaii..','....iii....'],
+    line:['....rrr....','..rrrrrrr..','.rriipppiir','.ri**pppiir','ri**ppppiir','riiippppiir','riiipppiirr','riiippiiaar','.riiaaaaai.','..riiaair..','....iii....']
+  };
   const irisInks = { r:'irisShadow', p:'pupil', i:'eyes', a:'irisLight', '*':'glint' };
   // The artist chooses the resting attitude. Motion is layered over it in
   // head coordinates, shared by both eyes and independent of the camera.
-  function expression(base, face, cue, jawOpen) {
+  function expression(base, face, cue, jawOpen, ink) {
     const rest = face.restExpression || (face.mouth === 'smile' ? 'warm' : face.eyes === 'round' ? 'curious' : 'calm');
     const young = base === 'baby' || base === 'toddler';
     const [across, up] = cue?.gaze || [0,0], smile = clamp(cue?.smile || 0,0,1);
     return {
       across:.44*across, up:.40*up, iris:young ? .63 : .65,
-      lid:(young ? .84 : .92) + (rest === 'curious' ? .13 : 0) + .045*up - .07*smile,
-      lower:(young ? .84 : .93) - .09*smile,
+      lid:(young ? .84 : .92) + (rest === 'curious' ? (ink ? .07 : .13) : 0) + .045*up - .07*smile,
+      lower:(young ? .84 : .93) - .09*smile - (ink && rest === 'warm' ? .14 : 0),
       brow:(rest === 'curious' ? .031 : 0) + .014*up,
       lift:(rest === 'warm' ? .74 : .46) + .72*smile,
       gap:(rest === 'warm' ? .24 : .045) + .51*smile,
-      jaw:clamp(jawOpen || 0,0,1)
+      jaw:clamp(jawOpen || 0,0,1), rest, smile
     };
   }
   function paintedEye(guide, shape, off, h, blink, side, k, pitch, acting) {
     const q = off / (1.06 * shape.width);
+    if (guide.brush === brushes.line && q >= .87 && q < 1.17) {
+      const lift = shape.tilt*q + .20*shape.up + .15*(q-1);
+      if (Math.abs(h-lift) < (.028 + .20*pitch)*(1.17-q)/.30) return k.lash;
+    }
     if (Math.abs(q) >= 1 || h > .42 || h < -.30) return 0;
     const at = (q + 1) * 3, i = Math.min(5, Math.floor(at)), t = at - i;
     const a = guide.lid[i], b = guide.lid[i + 1];
@@ -527,16 +558,78 @@ const pineGameFace = (() => {
     const base = (a[1] + t * (b[1] - a[1])) * down;
     const shut = .65 * base + .35 * top, lid = top + blink * (shut - top);
     const floor = base + blink * (shut - base);
-    const stroke = clamp(.023 + .29 * pitch, .025, .044) * (1 - .36 * q * q);
+    const stroke = clamp(.023 + .29 * pitch, .025, .044) * (1 - .36 * q * q) *
+      (guide.brush ? guide.brush.stroke * (.96 + .24*q) : 1);
     if (y > lid + stroke || y < floor - .22 * stroke) return 0;
-    if (blink > .93 || y >= lid - .27 * stroke) return Math.abs(q) > .79 ? k.lidSkin : k.lash;
-    const ix = acting ? (side * (q + .045) - acting.across) / acting.iris : side * (q + .032) / guide.iris;
+    if (blink > .93 || y >= lid - .27 * stroke)
+      return Math.abs(q) > .79 && !(guide.brush && q > 0) ? k.lidSkin : k.lash;
+    const ix = (acting ? (side * (q + .045) - acting.across) / acting.iris : side * (q + .032) / guide.iris) / (guide.brush?.iris ?? 1);
     const iz = (y - (.095 + (acting?.up || 0)) * up) / (.73 * up + .48 * down);
     if (Math.abs(ix) < 1 && Math.abs(iz) < 1) {
-      const mark = irisBrush[Math.floor((1 - iz) * 5.5)][Math.floor((ix + 1) * 5.5)];
+      const grid = guide.irisDrawing || irisBrush;
+      const mark = grid[Math.floor((1 - iz) * 5.5)][Math.floor((ix + 1) * 5.5)];
       if (mark !== '.') return k[irisInks[mark]];
     }
     return Math.abs(q) > .81 || y > lid - 2 * stroke ? k.scleraShade : k.sclera;
+  }
+  // At six stations from the centre to a corner, draw the crease, upper lip
+  // and lower lip independently. At sprite scale only the crease is continuous.
+  const lipStations = [0,.20,.42,.66,.85,1];
+  const lipDrawing = (seam, upper, lower, gap) => ({
+    seam:curve(lipStations,seam), upper:curve(lipStations,upper), lower:curve(lipStations,lower), gap
+  });
+  const mouthDrawings = {
+    quiet:lipDrawing([-.005,-.002,.008,.016,.020,.019],[.42,.67,.59,.29,.08,0],[.84,.91,.68,.30,.05,0],0),
+    bow:lipDrawing([-.009,.004,.012,.019,.022,.021],[.57,.98,.80,.36,.11,0],[.98,.95,.72,.35,.08,0],0),
+    smile:lipDrawing([-.022,-.019,-.011,.011,.043,.069],[.33,.63,.54,.25,.07,0],[.92,.94,.80,.47,.15,0],.009),
+    open:lipDrawing([-.008,-.005,.003,.017,.031,.039],[.45,.75,.57,.25,.07,0],[.86,.90,.65,.25,.06,0],.018),
+    bud:lipDrawing([-.008,-.003,.011,.020,.023,.020],[.57,.93,.77,.34,.11,0],[1,.98,.70,.25,.05,0],.014)
+  };
+  function mouthBrush(base, guide, name, row, upperScale, lowerScale, acting) {
+    const young = base === 'toddler' || base === 'baby';
+    const smiling = name === 'smile' || name === 'soft-smile' || acting.rest === 'warm';
+    const parted = acting.rest === 'curious' && ['small','relaxed','classic','lower-full'].includes(name);
+    const bow = ['bow','pursed','full','upper-full','lower-full'].includes(name);
+    const drawing = smiling ? mouthDrawings.smile : young ? mouthDrawings.bud : parted ? mouthDrawings.open : bow ? mouthDrawings.bow : mouthDrawings.quiet;
+    const width = row[1] * (smiling ? 1.05 : 1.01);
+    const top = (.013 + .72*row[2]) * upperScale, bottom = (.021 + .83*row[3]) * lowerScale;
+    const gap = drawing.gap + (name === 'smile' ? .019 : 0) + .054*acting.jaw + .028*acting.smile;
+    function seam(q) {
+      const a = Math.min(1,Math.abs(q));
+      return drawing.seam(a) * (.72+.28*guide.brush.corner) + .061*acting.smile*a*a;
+    }
+    function paint(lateral, h, k, pitch) {
+      const q = lateral/width, a = Math.abs(q);
+      if (a >= 1 || h < -.33 || h > .26) return 0;
+      const y = h-seam(q);
+      const taper = 1-ramp(a,.53,1);
+      const stroke = (.015 + Math.min(.023,.56*pitch)) * (.43+.57*taper);
+      const opening = gap * (1-a*a)**1.5;
+      if (y < .48*stroke && y > -opening-.67*stroke) {
+        if (opening > .061 && y < -.66*opening) return k.lipPetal;
+        return a > .76 ? k.upperLip : k.lipLine;
+      }
+      if (y >= 0 && y < top*drawing.upper(a)) return q < -.38 || a > .72 ? k.lipBody : k.upperLip;
+      const lower = bottom*drawing.lower(a);
+      if (y < -opening && y > -opening-lower) {
+        const depth = -(y+opening)/lower;
+        if (q > -.53 && q < .16 && depth > .40 && depth < .82) return k.lipGlow;
+        return depth > .32 ? k.lowerLip : k.lipBody;
+      }
+      return 0;
+    }
+    function surroundingLight(lateral, h, noseBase) {
+      const q = lateral/width;
+      if (Math.abs(q) > 1.52 || h < -.26 || h > noseBase) return 0;
+      // The mouth patch shares its landmarks with the skin between the nose
+      // and chin. Leave the lit cheek open and turn the far corner into it.
+      const upper = bell(q,-.22,.72)*bell(h,noseBase*.49,Math.max(.05,noseBase*.49));
+      const corner = bell(q,.89,.45)*bell(h,drawing.seam(.88)-.014,.090);
+      const under = bell(q,.14,.67)*bell(h,-bottom-.025,.062);
+      const chin = bell(q,-.13,.83)*bell(h,-bottom-.136,.088);
+      return .038*upper - .049*corner - .044*under + .036*chin;
+    }
+    return {width,seam,paint,surroundingLight};
   }
   function paintedMouth(guide, name, row, lateral, h, k, pitch, upperScale, lowerScale, acting) {
     if (h > .33 || h < -.55) return 0;
@@ -562,10 +655,23 @@ const pineGameFace = (() => {
       return q < .67 && y < -gap - .31 * down ? k.lowerLip : k.lipBody;
     return 0;
   }
-  function skin(model, r, x, y, h, eye, infant, k, inks, painted, acting) {
+  function skin(model, r, x, y, h, eye, infant, k, inks, painted, acting, oralLight = 0) {
     const a = Math.abs(y),
       side = x - r.axis;
-    if (side > 0 && a < model.noseWidth * 1.18) {
+    if (side > 0 && model.infantNose) {
+      const tip = h - model.tip, w = model.noseWidth;
+      if (bell(a, w * .70, w * .34) * bell(tip, -.041, .030) > .29) return k[inks[17]];
+      if (bell(y, w * .14, w * .93) * bell(tip, -.032, .038) > .35) return k[inks[19]];
+      if (bell(y, -w * .22, w * .70) * bell(tip, .019, .036) > .29) return k[inks[8]];
+    } else if (side > 0 && model.ink && a < model.noseWidth * 1.18) {
+      const w = model.noseWidth, tip = h - model.tip;
+      const q = y/w, bridge = (eye-h) / Math.max(.12,eye-model.tip);
+      if (bell(a,w*.66,w*.34) * bell(tip,-.039,.035) > .29) return k[inks[16]];
+      if (bell(y,w*.22,w*.98) * bell(tip,-.032,.050) > .21) return k[inks[17]];
+      if (bridge > .26 && bridge < 1.06 && q > .19+.30*(1-bridge) && q < .35+.48*bridge)
+        return k[inks[bridge > .70 ? 17 : 18]];
+      if (bell(y,-w*.32,w*.76) * bell(tip,.031,.050) > .21) return k[inks[10]];
+    } else if (side > 0 && a < model.noseWidth * 1.18) {
       const tip = h - model.tip;
       if (painted) {
         const width = a / model.noseWidth;
@@ -622,6 +728,24 @@ const pineGameFace = (() => {
       const nape = .48 + .13*h - .045*y - .043*rear;
       light += (nape-light) * ramp(rear,0,.62);
     }
+    if (model.ink) {
+      const brush = brushes[model.ink];
+      // The temple shadow descends beside the mouth. On the lit cheek a single
+      // wedge meets the lower lid, leaving a quiet area around the lips.
+      const wrap = .48*across + .30*(1-front) + .25*y + .12*under;
+      const shadow = ramp(wrap, .32, .79);
+      const z = h - eye + .25 - .14 * (a-.49);
+      const malar = bell(a,.52,.39) * bell(z,0,.23) * front;
+      const browLight = bell(y,-.22,.55) * bell(h,eye+.32,.33) * front;
+      const ground = .53 + .11*turn*front - .054*y + .044*h - .12*under;
+      const value = light*.47 + ground*.53 - brush.shadow*shadow + .080*browLight + (.060-.055*y)*malar + front*oralLight;
+      let tone;
+      if (brush === brushes.cel) tone = value < .37 ? 3 : value < .496 ? 5 : value < .615 ? 7 : 9;
+      else if (brush === brushes.line) tone = value < .41 ? 4 : value < .55 ? 6 : value < .67 ? 8 : 9;
+      else tone = clamp(Math.floor((value-.37)*13+4.5),4,9);
+      const warm = malar*brush.warmth + shadow*.13;
+      return k[inks[tone + (warm > .48 ? 24 : warm > .19 ? 12 : 0)]];
+    }
     const tone =
       light > 0.715
         ? 10
@@ -638,7 +762,7 @@ const pineGameFace = (() => {
                   : 3;
     return k[inks[(blush > 0.36 ? 24 : blush > 0.14 ? 12 : 0) + tone]];
   }
-  function palette(materials, swatches, tint, painted) {
+  function palette(materials, swatches, tint, painted, ink) {
     const rgb = [1, 3, 5].map((i) => parseInt(swatches.skin.slice(i, i + 2), 16));
     const dark = clamp((148 - (0.25 * rgb[0] + 0.58 * rgb[1] + 0.17 * rgb[2])) / 110, 0, 1);
     materials.sclera = tint(materials.sclera, 'cba58d', 0.16 + 0.34 * dark);
@@ -670,15 +794,29 @@ const pineGameFace = (() => {
         materials[name] = tint(materials[name], 'e8aa84', (0.078 * dark * (tone - 4)) / 7);
       }
     }
+    if (ink) {
+      // A cool reflected shadow and a warm light both start at the user's dye.
+      // Keep the eye white, lip line and hair reflection in the same value range.
+      for (let warmth=0; warmth<3; warmth++) for (let tone=3; tone<=9; tone++) {
+        const key = 'skinPlane' + (warmth*12+tone);
+        if (tone < 6) materials[key] = tint(materials[key], '54455a', (.048 + .010*dark) * (6-tone));
+        if (tone > 7) materials[key] = tint(materials[key], 'ffdeba', (.079-.035*dark)*(tone-7));
+      }
+      materials.lipLine = tint(materials.lipLine, materials.upperLip, ink === 'wash' ? .38 : .18);
+      materials.upperLip = tint(materials.upperLip, materials.skinPlane17, .23);
+      materials.lipBody = tint(materials.lipBody, materials.skinPlane18, .26);
+      materials.lowerLip = tint(materials.lowerLip, materials.skinPlane19, .31);
+      materials.lipGlow = tint(materials.lowerLip, materials.lipGlow, ink === 'wash' ? .37 : .56);
+    }
   }
   const cache = new Map();
-  function model(base, shape, face, target, scalp, eye, mouth, nose, drawn = false, painted = false, infantProfile = false, infantChin = false) {
-    const key = JSON.stringify([base, shape, face.outline, face.nose, target, face.formMix ?? 1, eye, mouth, drawn, painted, infantProfile, infantChin]);
+  function model(base, shape, face, target, scalp, eye, mouth, nose, drawn = false, painted = false, infantProfile = false, infantChin = false, infantNose = false, ink) {
+    const key = JSON.stringify([base, shape, face.outline, face.nose, target, face.formMix ?? 1, eye, mouth, drawn, painted, infantProfile, infantChin, infantNose, ink]);
     if (!cache.has(key)) {
       if (cache.size >= 8) cache.delete(cache.keys().next().value);
-      cache.set(key, build(base, shape, face, target, scalp, eye, mouth, nose, drawn, painted, infantProfile, infantChin));
+      cache.set(key, build(base, shape, face, target, scalp, eye, mouth, nose, drawn, painted, infantProfile, infantChin, infantNose, ink));
     }
     return cache.get(key);
   }
-  return { model, forms, baseForms, lipLift, chinShift, eye, lip, featureGuides, expression, paintedEye, paintedMouth, skin, palette };
+  return { model, forms, baseForms, lipLift, chinShift, eye, lip, featureGuides, featureBrush, expression, paintedEye, paintedMouth, mouthBrush, skin, palette };
 })();

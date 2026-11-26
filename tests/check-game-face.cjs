@@ -495,6 +495,79 @@ function checkFeatureStudy(cast) {
   }
 }
 
+function checkPortraitBrushes(cast) {
+  const pins = [looks.garmentRelease,looks.infantChinRelease,looks.chinPadRelease];
+  for (const pin of pins) {
+    const prior = looks.randomCharacter({base:'baby',seed:26,release:pin});
+    const nose = looks.withInfantNose(prior);
+    assert.deepEqual(toPlain(looks.withoutInfantNose(nose)),toPlain(prior));
+    assert.equal(styles.infantChinStyle(looks.randomFace(prior,{ink:'auto',seed:7})),styles.infantChinStyle(prior));
+    assert.equal(styles.infantChinStyle(looks.randomCharacter({source:prior,base:'baby',ink:'auto',seed:7})),styles.infantChinStyle(prior));
+    for (const chin of ['short','full','original']) {
+      const doc = looks.withInfantChinStyle(looks.withPortraitInk(nose,'wash'),chin);
+      assert.equal(styles.infantChinStyle(doc),chin);
+      assert.equal(doc.infantNose,'nursery');
+      const off = looks.withoutInfantNose(doc);
+      assert.equal(off.portraitInk,'wash');
+      assert.deepEqual(toPlain(looks.withInfantNose(off)),toPlain(doc));
+      assert.deepEqual(toPlain(looks.prepare(toPlain(doc)).recipe.colors),toPlain(doc.colors));
+    }
+  }
+  for (const nose of ['button','wide','long']) {
+    const row = styles.noses[nose] || styles.basicNoses[nose];
+    const args = ['baby',{}, {nose}, 'round', scalps.scalp('baby',true), -.13, -.56, row, true,true,true,looks.chinPadRelease];
+    const prior = surfaces.model(...args), next = surfaces.model(...args,true);
+    assert.ok(prior.row(prior.tip).face[0] > next.row(next.tip).face[0] + .035);
+    assert.ok(next.row(next.tip).face[0] > next.row(next.mouth).face[0]);
+    for (const h of [-.83,-.56,.24,.74]) assert.deepEqual(next.row(h).face,prior.row(h).face);
+  }
+  const faces = new Set(), finishes = new Set(), rests = new Set();
+  for (const base of ['adult','child','toddler','baby']) for (let seed=0;seed<32;seed++) {
+    const options = {base,seed,ink:'auto'};
+    const doc = looks.randomCharacter(options), ready = looks.prepare(toPlain(doc)).recipe;
+    assert.deepEqual(doc,looks.randomCharacter(options));
+    assert.equal(ready.portraitInk,doc.portraitInk);
+    if (base === 'baby') assert.equal(ready.infantNose,'nursery');
+    const again = looks.randomCharacter({...options, source:ready,locks:['wear','body','skin','hair']});
+    assert.deepEqual(toPlain(again.parts),toPlain(ready.parts));
+    assert.equal(again.colors.skin,ready.colors.skin);
+    assert.equal(again.colors.hair,ready.colors.hair);
+    if (base !== 'baby') assert.notEqual(again.face.form,ready.face.form);
+    faces.add(doc.face.form); rests.add(doc.face.restExpression); finishes.add(doc.portraitInk);
+  }
+  assert.deepEqual([faces.size,rests.size,finishes.size],[4,3,3]);
+  const inks = {lipLine:1, upperLip:2, lipBody:3, lowerLip:4, lipGlow:5, lipPetal:6};
+  const guide = surfaces.featureBrush('adult','cel'), row = styles.mouths.relaxed;
+  const mouth = (rest,jaw) => surfaces.mouthBrush('adult',guide,'relaxed',row,1,1,
+    surfaces.expression('adult',{mouth:'relaxed',restExpression:rest},null,jaw,'cel'));
+  const closed = mouth('calm',0), open = mouth('curious',.8), smiling = mouth('warm',0);
+  assert.ok(smiling.seam(.94)-smiling.seam(0) > closed.seam(.94)-closed.seam(0)+.035);
+  assert.equal(open.paint(0,-.030,inks,.02),inks.lipLine,'opening follows the jaw under the crease');
+  assert.notEqual(closed.paint(0,-.030,inks,.02),inks.lipLine);
+  assert.equal(closed.paint(.995*closed.width,-.045,inks,.02),0,'lower lip tapers away before the corner');
+  const actorColors = new Set();
+  for (const ink of Object.keys(looks.portraitInks)) {
+    const doc = looks.withPortraitInk(examples.adult,ink);
+    doc.id = 'look_brush_'+ink;
+    const before = looks.withoutPortraitInk(doc);
+    assert.deepEqual(doc.parts,before.parts);
+    assert.deepEqual(doc.shape,before.shape);
+    const [a,b] = [before,doc].map(d=>looks.build(d)), action = motion.actions.get('walk');
+    const pose = action.sample(.37,b)[0].pose, old = a.body.makePose(pose).colors, painted = b.body.makePose(pose).colors;
+    assert.equal(mask(old),mask(painted),'side-part keeps its volume when brush changes');
+    assert.notEqual(digest(old),digest(painted));
+    actorColors.add(digest(painted));
+    motion.characters.set(b.id,b);
+    cast.setFrame(action.sample(.37,b));
+    assert.ok(cast.group.getObjectByName(b.id).geometry.drawRange.count>0);
+  }
+  assert.equal(actorColors.size,3);
+  const doc = looks.withPortraitInk(examples.adult,'line');
+  assert.throws(()=>looks.prepare({...doc,portraitInk:'unknown'}));
+  assert.throws(()=>looks.prepare({...doc,packs:{[looks.core]:looks.chinPadRelease}}));
+  console.log('Four ages, 128 repeatable brush recipes, independent infant nose and chin, locks, moving cells and Three.js passed');
+}
+
 async function check() {
   const cast = (await import('../pine-three.mjs')).createPineCast(
     await import('../vendor/three-r187/three.module.js'),
@@ -622,6 +695,7 @@ async function check() {
   checkFacialActing(cast);
   checkGarmentFits(cast);
   checkInfantChin(cast);
+  checkPortraitBrushes(cast);
   console.log('Four garment ages, 128 reproducible wardrobes, fits and wear locks, shared face pixels, short hems, dyes, floor contacts and Three.js passed');
   console.log('Four ages, 128 reversible acting recipes, bilateral gaze, closed lids, prop tracking, planted feet and Three.js passed');
   console.log('Four ages, 128 reproducible ratio fits, independent head and trunk controls, neutral archived meshes, locks and Three.js passed');

@@ -25,7 +25,13 @@ const pinePortraitStyles = (() => {
   const garmentRelease = '1.19.9';
   const infantChinRelease = '1.19.10';
   const chinPadRelease = '1.19.11';
-  const hasInfantChin = pin => pin === infantChinRelease || pin === chinPadRelease;
+  const infantNoseRelease = '1.19.12';
+  const hasInfantChin = pin => pin === infantChinRelease || pin === chinPadRelease || pin === infantNoseRelease;
+  function infantChinStyle(recipe) {
+    const pin = recipe.packs?.['pine-core'];
+    if (pin === infantNoseRelease) return recipe.infantChin ?? 'full';
+    return pin === chinPadRelease ? 'full' : pin === infantChinRelease ? 'short' : 'original';
+  }
   const hasGarmentFits = pin => pin === garmentRelease || hasInfantChin(pin);
   const hasFacialActing = pin => pin === expressionRelease || hasGarmentFits(pin);
   const hasFigureRatios = pin => pin === figureRatioRelease || hasFacialActing(pin);
@@ -736,7 +742,7 @@ const pinePortraitStyles = (() => {
     return 0;
   }
   return {
-    proportions, infantChinRelease, chinPadRelease, hasInfantChin, hasGarmentFits,
+    proportions, infantChinRelease, chinPadRelease, infantNoseRelease, infantChinStyle, hasInfantChin, hasGarmentFits,
     illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, figureRelease, tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease, expressionRelease, garmentRelease, hasFacialActing, hasFigureRatios, hasPaintedFeatures, hasClothingStudy, hasBaseFace, hasGameFace, hasStructureStudy, hasProportionStudy, hasTailoredFigure, hasPixelFace, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
     illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors,
     morphs,
