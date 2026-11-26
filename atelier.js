@@ -173,7 +173,8 @@
     const paintedFace = draft.bodyFinish === 'painted' && looks.portraitStyleOf(draft) === 'animation';
     const namedPair = (query.get('study') === 'recipes' || Object.hasOwn(pineFigureModels,query.get('compare'))) &&
       $('compare').value === 'review:partner';
-    const before = namedPair ? 'recipes' : draft.base === 'baby' && draft.packs[looks.core] === looks.infantChinRelease ? 'chin' :
+    const before = namedPair ? 'recipes' : draft.base === 'baby' && draft.packs[looks.core] === looks.chinPadRelease ? 'chin-pad' :
+      draft.base === 'baby' && draft.packs[looks.core] === looks.infantChinRelease ? 'chin' :
       pinePortraitStyles.hasGarmentFits(draft.packs[looks.core]) ? 'garments' :
       draft.packs[looks.core] === looks.expressionRelease ? 'acting' :
       draft.packs[looks.core] === looks.figureRatioRelease ? 'ratios' :
@@ -599,9 +600,12 @@
         else draft = looks.withoutFeatureStudy(draft);
       }));
     if (draft.base === 'baby' && looks.portraitStyleOf(draft) === 'animation') area.append(
-      picker('婴儿下巴', 'infant-chin', [['prior','原有下巴'], ['soft',acting ? '短圆下巴 · 试作' : '试用分龄五官与短圆下巴']],
-        draft.packs[looks.core] === looks.infantChinRelease ? 'soft' : 'prior',
-        value => { draft = value === 'soft' ? looks.withInfantChin(draft) : looks.withoutInfantChin(draft); })
+      picker('婴儿下巴', 'infant-chin', [
+        ['prior','原有下巴'], ['soft',acting ? '短圆下巴 · 试作' : '分龄五官与短圆下巴'],
+        ['pad',acting ? '饱满小下巴 · 试作' : '分龄五官与饱满小下巴']
+      ], draft.packs[looks.core] === looks.chinPadRelease ? 'pad' : draft.packs[looks.core] === looks.infantChinRelease ? 'soft' : 'prior',
+      value => { draft = value === 'prior' ? looks.withoutInfantChin(draft)
+        : looks.withInfantChin(draft,value === 'pad' ? looks.chinPadRelease : looks.infantChinRelease); })
     );
     if (acting && gameFace) area.append(picker('平时神情', 'rest-expression',
       [['','随五官'], ...Object.entries(looks.restExpressions)], draft.face.restExpression || '', value => {
@@ -1184,8 +1188,8 @@
     ], current, value => {
       if (value === 'patterns') {
         draft = looks.withGarmentStudy(draft);
-        if (pin === looks.infantChinRelease) draft.packs[looks.core] = pin;
-      } else if (pin === looks.infantChinRelease) {
+        if (pinePortraitStyles.hasInfantChin(pin)) draft.packs[looks.core] = pin;
+      } else if (pinePortraitStyles.hasInfantChin(pin)) {
         delete draft.garmentFit;
         draft.clothingCut = value === 'cut' ? 'age' : 'original';
       } else {
@@ -2096,8 +2100,8 @@
     changed();
     fields();
   }
-  if (query.get('figure') === 'chin' && draft.base === 'baby' && looks.portraitStyleOf(draft) === 'animation') {
-    draft = looks.withInfantChin(draft);
+  if (['chin','chin-pad'].includes(query.get('figure')) && draft.base === 'baby' && looks.portraitStyleOf(draft) === 'animation') {
+    draft = looks.withInfantChin(draft,query.get('figure') === 'chin-pad' ? looks.chinPadRelease : looks.infantChinRelease);
     changed();
     fields();
   }

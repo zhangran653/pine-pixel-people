@@ -21,6 +21,12 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 1.19.11 婴儿唇下轮廓试作
+
+在「五官 → 婴儿下巴」选择「饱满小下巴」。从侧面看，下唇下方先留出一小段接近唇缘的轮廓，再从颏尖转回颈部。下巴前后、高低与圆钝度可以继续调节，随机五官也会沿用所选试作。[在创作室编辑](http://127.0.0.1:8000/atelier.html?model=baby02-profile&figure=chin-pad&tab=face&bearing=270)
+
+左侧是 1.19.10 短圆试作，右侧是 1.19.11 饱满试作。放大图的短线标出同一帧的下唇高度。八个随机样本沿用上一批种子。[同一人物的唇下局部](studies/pixel-structure/infant-chin-pad.webp) · [八个随机婴儿](studies/pixel-structure/infant-chin-pad-random.webp) · [转动人物或试看低头](http://127.0.0.1:8000/figure-study.html?before=chin-pad&subject=baby02-profile&bearing=270&size=128&framing=head)
+
 ### 1.19.10 婴儿下巴试作
 
 在立体动画画风的婴儿配方中，打开「五官」里的「婴儿下巴」，可在原有轮廓和短圆试作间切换。短圆试作从本人的下唇向下画出颏尖和颏底，颈前的皮肤接在颏底后方。下巴前后、高低和圆润度仍可单独调节。[打开婴儿 02 的侧脸](http://127.0.0.1:8000/atelier.html?model=baby02-profile&figure=chin&tab=face&bearing=270)

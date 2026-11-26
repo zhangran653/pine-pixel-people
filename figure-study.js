@@ -164,6 +164,7 @@
     const before = $('before').value;
     if (before === 'recipes') return [companion,submitted];
     const wasActing = pinePortraitStyles.hasFacialActing(source.packs[looks.core]);
+    if (before === 'chin-pad') return [looks.withInfantChin(source), looks.withInfantChin(source,looks.chinPadRelease)];
     if (before === 'chin') {
       const trial = looks.withInfantChin(source);
       return [looks.withoutInfantChin(trial), trial];
@@ -253,19 +254,23 @@
     const bases = !blind && before === 'bases', clothing = !blind && before === 'cut', features = !blind && before === 'features';
     const completeFigure = !blind && wholeEditions.get(before);
     const ratios = !blind && before === 'ratios', acting = !blind && before === 'acting';
-    const chin = !blind && before === 'chin';
+    const chinPad = !blind && before === 'chin-pad';
+    const chin = !blind && (before === 'chin' || before === 'chin-pad');
+    const chinPrompt = chinPad
+      ? '从下唇往下看，比较轮廓向下走了多远才转向脖子。可切换伸手、张嘴或左右侧面。'
+      : '两侧共用鼻唇、肤色和坐姿。看下唇下方的圆弧，再切到伸手或爬行，观察下巴怎样接入颈部。';
     const garments = !blind && before === 'garments';
     const paired = !blind && before === 'recipes';
     $('face-gallery').hidden = blind || paired;
-    $('face-gallery').href = 'studies/pixel-structure/' + (chin ? 'infant-chin.webp' : garments ? 'garment-fits.webp' : acting ? 'acting-faces.webp' : ratios ? 'figure-ratios.webp' : completeFigure ? before + '.webp' : features ? 'painted-features.webp' : clothing ? 'garment-cuts.webp' : bases ? 'drawn-faces.webp' : 'game-faces.webp');
-    $('face-gallery').textContent = chin ? '婴儿下巴与坐姿实拍' : garments ? '同人换装与动作实拍' : acting ? '眼神与坐姿实拍' : ratios ? '头身与侧脸比例实拍' : completeFigure ? '稳定版与完整试作实拍' : features ? '五官与坐姿侧面实拍' : clothing ? '衣物与动作实拍' : bases ? '分龄基础脸三视图' : '新旧脸型实拍';
+    $('face-gallery').href = 'studies/pixel-structure/' + (chinPad ? 'infant-chin-pad.webp' : chin ? 'infant-chin.webp' : garments ? 'garment-fits.webp' : acting ? 'acting-faces.webp' : ratios ? 'figure-ratios.webp' : completeFigure ? before + '.webp' : features ? 'painted-features.webp' : clothing ? 'garment-cuts.webp' : bases ? 'drawn-faces.webp' : 'game-faces.webp');
+    $('face-gallery').textContent = chinPad ? '下唇到颏尖实拍' : chin ? '婴儿下巴与坐姿实拍' : garments ? '同人换装与动作实拍' : acting ? '眼神与坐姿实拍' : ratios ? '头身与侧脸比例实拍' : completeFigure ? '稳定版与完整试作实拍' : features ? '五官与坐姿侧面实拍' : clothing ? '衣物与动作实拍' : bases ? '分龄基础脸三视图' : '新旧脸型实拍';
     $('form-field').hidden = !bases && !(features && looks.portraitStyleOf(recipes[1])==='animation');
     const names = looks.baseFaceForms(recipes[1].base);
     if (!$('form-field').hidden) for (const opt of $('drawn-form').options) if (opt.value) opt.textContent = names[opt.value];
     const baselineTitle = features ? recipes[0].packs[looks.core] + ' · 原有五官' : clothing ? looks.baseFaceRelease + ' · 原有衣物' : bases ? currentStudy + ' · 原有脸型' : before === 'whole' || completeFigure ? stableRelease + ' · 稳定版' :
       before === 'current' ? recipes[0].packs[looks.core] + ' · 草稿原版' : $('before').selectedOptions[0].textContent;
-    $('title-a').textContent = blind ? 'A' : paired ? recipes[0].label : chin ? recipes[0].packs[looks.core] + ' · 原有下巴' : garments ? looks.expressionRelease + ' · 分龄剪裁' : acting ? looks.figureRatioRelease + ' · 原有神情' : ratios ? looks.featureStudyRelease + ' · 原有比例' : baselineTitle;
-    $('title-b').textContent = blind ? 'B' : paired ? recipes[1].label : chin ? looks.infantChinRelease + ' · 短圆下巴' : garments ? looks.garmentRelease + ' · 分款剪裁' : acting ? looks.expressionRelease + ' · 动作神情' : ratios ? looks.figureRatioRelease + ' · 分龄比例' : completeFigure ? completeFigure + ' · 完整试作' : features ? looks.featureStudyRelease + ' · 五官与下颌' : clothing ? looks.clothingStudyRelease + ' · 分龄衣物剪裁' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
+    $('title-a').textContent = blind ? 'A' : paired ? recipes[0].label : chinPad ? looks.infantChinRelease + ' · 短圆下巴' : chin ? recipes[0].packs[looks.core] + ' · 原有下巴' : garments ? looks.expressionRelease + ' · 分龄剪裁' : acting ? looks.figureRatioRelease + ' · 原有神情' : ratios ? looks.featureStudyRelease + ' · 原有比例' : baselineTitle;
+    $('title-b').textContent = blind ? 'B' : paired ? recipes[1].label : chinPad ? looks.chinPadRelease + ' · 饱满小下巴' : chin ? looks.infantChinRelease + ' · 短圆下巴' : garments ? looks.garmentRelease + ' · 分款剪裁' : acting ? looks.expressionRelease + ' · 动作神情' : ratios ? looks.figureRatioRelease + ' · 分龄比例' : completeFigure ? completeFigure + ' · 完整试作' : features ? looks.featureStudyRelease + ' · 五官与下颌' : clothing ? looks.clothingStudyRelease + ' · 分龄衣物剪裁' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
       currentStudy + (whole ? ' · 全身试作' : finish ? ' · 四肢与衣边色块' : ' · 美术基础脸');
     $('prompt').textContent = blind
       ? reviewKind === 'cast'
@@ -273,7 +278,7 @@
         : '本批比较 ' + reviews[reviewKind].join(' 与 ') + '。两侧共用同一张随机配方、同一动作和机位。'
       : paired ? '左侧是对照人物，右侧是当前草稿。两份配方共用机位和动作进度，可分别回到创作室编辑。'
       : chin ? (recipes[1].base === 'baby' && looks.portraitStyleOf(recipes[1]) === 'animation'
-        ? '两侧共用鼻唇、肤色和坐姿。看下唇下方的圆弧，再切到伸手或爬行，观察下巴怎样接入颈部。'
+        ? chinPrompt
         : '选择立体动画画风的婴儿可比较下巴。当前人物沿用原有轮廓。')
       : garments ? '两侧用同一配方。正面看衣摆、袖口和裤腿之间的空隙，走几步看裤脚落在鞋面的形状。'
       : acting ? '两侧共用五官和穿搭。拖动动作进度，看眼睛是否朝向玩具或书页，再转到侧面看下巴与衣领。'
@@ -566,7 +571,7 @@
   if (['64', '128', '256', 'world'].includes(search.get('size'))) $('sample-size').value = search.get('size');
   const initialAngle = Number(search.get('bearing'));
   if (Number.isFinite(initialAngle) && initialAngle >= 0 && initialAngle <= 360) $('bearing').value = initialAngle % 360;
-  if ($('before').value === 'chin' && !search.has('subject')) $('subject').value = 'baby02-profile';
+  if (['chin','chin-pad'].includes($('before').value) && !search.has('subject')) $('subject').value = 'baby02-profile';
   if ([...$('subject').options].some(o => o.value === search.get('subject'))) $('subject').value = search.get('subject');
   save();
   const phase = search.get('phase'), value = Number(phase);

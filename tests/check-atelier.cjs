@@ -936,10 +936,14 @@ function checkInfantProfilePair() {
     const softer=JSON.parse(documentPair().get('character'));
     if (softer.packs['pine-core']!==PineLooks.infantChinRelease || JSON.stringify(softer.shape)!==JSON.stringify(JSON.parse(edited.get('character')).shape))
       throw Error('the infant surface changed the authored face controls');
+    choose('infant-chin','pad');
+    if (JSON.parse(documentPair().get('character')).packs['pine-core']!==PineLooks.chinPadRelease ||
+        documentPair().get('partner')!==edited.get('partner'))
+      throw Error('the fuller chin needs its own editable recipe and original reference');
     $('tab-wear').click();
     for (const cut of ['original','cut','patterns']) {
       choose('clothing-cut',cut);
-      if (JSON.parse(documentPair().get('character')).packs['pine-core']!==PineLooks.infantChinRelease)
+      if (JSON.parse(documentPair().get('character')).packs['pine-core']!==PineLooks.chinPadRelease)
         throw Error('changing the clothing cut lost the selected chin');
     }
     $('tab-face').click();choose('infant-chin','prior');

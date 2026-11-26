@@ -38,7 +38,8 @@ const PineLooks = (() => {
     figureRatioRelease = pinePortraitStyles.figureRatioRelease,
     expressionRelease = pinePortraitStyles.expressionRelease,
     garmentRelease = pinePortraitStyles.garmentRelease,
-    infantChinRelease = pinePortraitStyles.infantChinRelease;
+    infantChinRelease = pinePortraitStyles.infantChinRelease,
+    chinPadRelease = pinePortraitStyles.chinPadRelease;
   const releases = [
     originalRelease,
     styleRelease,
@@ -67,7 +68,7 @@ const PineLooks = (() => {
     facePlaneRelease,
     pixelRelease,
     release,
-    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease, expressionRelease, garmentRelease, infantChinRelease
+    tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease, expressionRelease, garmentRelease, infantChinRelease, chinPadRelease
   ];
   function figurePin(recipe) {
     const pin = recipe?.packs?.[core];
@@ -208,10 +209,11 @@ const PineLooks = (() => {
     if (next.clothingCut === 'age') delete next.clothingCut;
     return next;
   }
-  function withInfantChin(recipe) {
+  function withInfantChin(recipe, edition = infantChinRelease) {
+    requireThat(pinePortraitStyles.hasInfantChin(edition), '未知婴儿下巴版本');
     const next = pinePortraitStyles.hasFacialActing(recipe.packs[core]) ? structuredClone(recipe) : withExpressionStudy(recipe);
     if (!pinePortraitStyles.hasGarmentFits(recipe.packs[core]) && usesClothingCut(next)) next.clothingCut = 'age';
-    next.packs[core] = infantChinRelease;
+    next.packs[core] = edition;
     return next;
   }
   function withoutInfantChin(recipe) {
@@ -915,7 +917,7 @@ SOFTWARE.`;
     requireThat(releases.includes(pin), '不支持的基础部件版本');
     requireThat(raw.bodyFinish === undefined || raw.bodyFinish === 'painted', '未知身体着色方式');
     requireThat(raw.clothingCut === undefined || (pinePortraitStyles.hasPaintedFeatures(pin) && raw.clothingCut === 'original') ||
-      (pin === infantChinRelease && raw.clothingCut === 'age'),
+      (pinePortraitStyles.hasInfantChin(pin) && raw.clothingCut === 'age'),
       '所选基础部件版本不支持这项衣物剪裁');
     if (raw.garmentFit !== undefined) {
       requireThat(pinePortraitStyles.hasGarmentFits(pin) && raw.clothingCut === undefined, '衣服版型需要启用分款剪裁');
@@ -1594,7 +1596,7 @@ SOFTWARE.`;
     doc.packs[core] = pin;
     if (!pinePortraitStyles.hasGameFace(pin)) delete doc.bodyFinish;
     if (!pinePortraitStyles.hasGarmentFits(pin)) delete doc.garmentFit;
-    if (!pinePortraitStyles.hasPaintedFeatures(pin) || (doc.clothingCut === 'age' && pin !== infantChinRelease)) delete doc.clothingCut;
+    if (!pinePortraitStyles.hasPaintedFeatures(pin) || (doc.clothingCut === 'age' && !pinePortraitStyles.hasInfantChin(pin))) delete doc.clothingCut;
     if (!pinePortraitStyles.hasFigureRatios(pin)) clearFigureRatios(doc);
     else if (!pinePortraitStyles.hasFacialActing(pin) && doc.face) delete doc.face.restExpression;
     if (!pinePortraitStyles.hasStructureStudy(pin)) delete doc.anatomyParts;
@@ -1722,7 +1724,7 @@ SOFTWARE.`;
     }
     if (bodyFinish) doc.bodyFinish = bodyFinish;
     if (pinePortraitStyles.hasPaintedFeatures(pin) && source?.clothingCut === 'original') doc.clothingCut = 'original';
-    if (pin === infantChinRelease && source?.clothingCut === 'age') doc.clothingCut = 'age';
+    if (pinePortraitStyles.hasInfantChin(pin) && source?.clothingCut === 'age') doc.clothingCut = 'age';
     if (pinePortraitStyles.hasGarmentFits(pin) && !keep.has('wear')) randomGarmentFit(doc, random);
     if (pinePortraitStyles.hasFigureRatios(pin)) {
       const ratios = fittedFigureRatios(doc);
@@ -1741,7 +1743,7 @@ SOFTWARE.`;
     release,
     tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease, expressionRelease, garmentRelease, garmentFits, withGarmentStudy, withoutGarmentStudy, restExpressions, withExpressionStudy, withoutExpressionStudy,
     withFigureStudy, withGameFace, withBaseFace, withClothingStudy, withFeatureStudy, withoutFeatureStudy, withFigureRatios, withoutFigureRatios, usesClothingCut,
-    infantChinRelease, withInfantChin, withoutInfantChin,
+    infantChinRelease, chinPadRelease, withInfantChin, withoutInfantChin,
     originalRelease,
     styleRelease,
     profileRelease,

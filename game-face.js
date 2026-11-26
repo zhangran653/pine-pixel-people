@@ -220,24 +220,35 @@ const pineGameFace = (() => {
   }
   // Draw upwards from the underside of the infant chin to an existing row just
   // under the lower lip. The lip supplies the depth for this particular face.
-  function sculptInfantChin(rows, mouth, shape) {
+  function sculptInfantChin(rows, mouth, shape, supported) {
     const ringIndex = h => clamp(Math.round((1 + h) * rings / 2), 0, rings);
-    const joinIndex = ringIndex(mouth - .076), joinH = 2 * joinIndex / rings - 1;
+    const shortJoin = 2 * ringIndex(mouth - .076) / rings - 1;
+    const joinIndex = ringIndex(mouth - (supported ? .067 : .076)), joinH = 2 * joinIndex / rings - 1;
     const join = rows[joinIndex], lip = rows[ringIndex(mouth - .042)].face[0];
     const roundness = shape.chinRoundness || 0, projection = shape.chinProjection || 0;
-    const padH = joinH - .062 + .019 * (shape.chinHeight || 0);
-    const bottomH = Math.max(-.99, padH - .111 - .015 * roundness);
-    const tip = lip - .076 + .034 * projection;
-    const undersideX = tip - .20 - .025 * roundness;
+    const shortPad = shortJoin - .062 + .019 * (shape.chinHeight || 0);
+    const throatH = Math.max(-.99, shortPad - .111 - .015 * roundness);
+    const shortTip = lip - .076 + .034 * projection;
+    const throatX = shortTip - .20 - .025 * roundness;
+    // Carry the small front cushion down from the lip before turning it under.
+    // The throat keeps its independent attachment at the back of the cushion.
+    const padH = supported ? shortPad - .046 : shortPad;
+    const bottomH = supported ? Math.max(-.99, throatH - .055) : throatH;
+    const tip = supported ? lip - .003 + .060 * projection : shortTip;
+    const undersideX = supported ? lip - .166 - .024 * roundness : throatX;
     const padStation = (padH - bottomH) / (joinH - bottomH);
     // Square-root spacing rounds the underside away from its lowest voxel.
     // Linear spacing would close in a cone and leave a single dangling pixel.
     const stations = [0, .10, .28, padStation, .81, 1].map(Math.sqrt);
-    const breadth = curve(stations, [0, .32, .55, .73 + .04*roundness, .91, 1]);
+    const breadth = curve(stations, supported
+      ? [0, .23, .45, .67 + .04*roundness, .90, 1]
+      : [0, .32, .55, .73 + .04*roundness, .91, 1]);
     const jawBack = join.axis - join.rear;
     const rear = curve(stations, [undersideX, undersideX-.12, undersideX-.25, undersideX-.39, jawBack+.08, jawBack]);
     const axis = curve(stations, [undersideX, undersideX-.05, undersideX-.11, undersideX-.18, join.axis+.03, join.axis]);
-    const front = curve(stations, [undersideX, tip-.12, tip-.038, tip, Math.min(tip,join.face[0])-.022, join.face[0]]);
+    const front = curve(stations, supported
+      ? [undersideX, tip-.098, tip-.030, tip, lip-.024+.024*projection, join.face[0]]
+      : [undersideX, tip-.12, tip-.038, tip, Math.min(tip,join.face[0])-.022, join.face[0]]);
     for (let i = 0; i < joinIndex; i++) {
       const h = 2*i/rings - 1, r = rows[i];
       const t = clamp((h - bottomH) / (joinH - bottomH), 0, 1);
@@ -252,7 +263,7 @@ const pineGameFace = (() => {
         r.face[j] = r.axis + r.fore * (padSection + (lipSection - padSection) * blend);
       }
     }
-    return { padH, bottomH, undersideX };
+    return { padH, bottomH, undersideX, throatH, throatX, supported };
   }
   function build(base, shape, face, baseTarget, scalp, eye, mouth, noseRow, drawn, painted, infantProfile, infantChin) {
     const mix = face.formMix ?? 1, drawing = drawn && drawnProfiles[base][baseTarget];
@@ -393,7 +404,7 @@ const pineGameFace = (() => {
       ring.fore = ring.face[0] - ring.axis;
       return ring;
     });
-    const chin = infantChin ? sculptInfantChin(rowList, mouth, shape) : null;
+    const chin = infantChin ? sculptInfantChin(rowList, mouth, shape, infantChin === pinePortraitStyles.chinPadRelease) : null;
     if (infantProfile) {
       // Carry the outline over the upper occiput into the original cap. These
       // are rear stations only. Width, brow and facial profiles stay independent.
@@ -594,6 +605,10 @@ const pineGameFace = (() => {
       const cheek = ramp(a,.32,.61) * ramp(model.mouth-h,-.15,.12);
       light += (cheekLight-light) * (.36 * cheek + .39 * ramp(model.mouth-h,.065,.14));
       light += .078 * bell(a,0,.48) * bell(h,model.chin.padH,.105) * front - .032 * below;
+      if (model.chin.supported) {
+        const pad = ramp(x,.43,.83) * (1-ramp(a,.30,.62));
+        light += pad * (.093 * bell(h,model.chin.padH+.016,.076) - .049 * bell(h,model.mouth-.10,.039));
+      }
     } else if (painted && (h < -.38 || h < model.mouth - .07)) {
       const chinFront = ramp(x, .02, .89);
       const underside = ramp((infant ? -.43 : -.42) - .39 * chinFront - h, -.035, .23);

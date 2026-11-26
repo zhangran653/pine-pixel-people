@@ -254,6 +254,21 @@ function checkInfantChin(cast) {
   assert.deepEqual(toPlain(looks.withoutInfantChin(sameCut)),toPlain(ageCut));
   assert.throws(()=>looks.prepare({...ageCut,clothingCut:'age'}));
   const after = looks.build(next);
+  const fullerDoc = looks.withInfantChin(next,looks.chinPadRelease), fuller = looks.build(fullerDoc);
+  assert.deepEqual(toPlain(looks.withInfantChin(fullerDoc)),toPlain(next));
+  assert.equal(looks.prepare(toPlain(fullerDoc)).recipe.packs[looks.core],looks.chinPadRelease);
+  assert.throws(()=>looks.withInfantChin(next,'unknown'));
+  for (const name of ['lowerLip','upperLip','mouth','throat','collar','leftJawJoint','leftEye','seat'])
+    assert.deepEqual(fuller.sockets[name],after.sockets[name],name+' stays anchored as the chin fills');
+  for (const base of ['adult','child','toddler','baby']) {
+    const options = {base,seed:93,bodyFinish:'painted'};
+    const prior = looks.randomCharacter({...options,release:looks.infantChinRelease});
+    const trial = looks.randomCharacter({...options,release:looks.chinPadRelease});
+    assert.deepEqual(toPlain(looks.withInfantChin(trial)),toPlain({...prior,id:trial.id,label:trial.label}));
+    const actors = [prior,trial].map(d=>looks.build(d)), pose = motion.actions.get('idle').sample(.17,actors[0])[0].pose;
+    const cells = actors.map(a=>digest(a.body.makePose(pose).colors));
+    assert.equal(cells[0]===cells[1],base!=='baby',base+' chin scope');
+  }
   motion.characters.set(after.id,after);
   for (const id of ['idle','baby-reach','crawl']) {
     const frame = motion.actions.get(id).sample(.61,after);
@@ -265,6 +280,11 @@ function checkInfantChin(cast) {
     const shape = {...next.shape,chinRoundness:amount,chinHeight:amount,chinProjection:amount};
     const args = ['baby',shape,next.face,form,scalp,-.13,mouth,styles.basicNoses.button,true,true,true];
     const oldSurface = surfaces.model(...args), surface = surfaces.model(...args,true);
+    const pad = surfaces.model(...args,looks.chinPadRelease);
+    assert.deepEqual(pad.row(mouth-.045).face,surface.row(mouth-.045).face);
+    assert.ok(pad.chin.padH < surface.chin.padH && pad.chin.throatH === surface.chin.throatH);
+    assert.ok(pad.row(pad.chin.padH).face[0] > surface.row(pad.chin.padH).face[0] + .045,
+      'the forward pad must still be visible below the former tip in every face form');
     for (const h of [mouth-.045,mouth,surface.tip,.3,.72])
       assert.deepEqual(surface.row(h).face,oldSurface.row(h).face,'lower lip, nose and vault keep their surface');
     const {undersideX,bottomH,padH} = surface.chin;

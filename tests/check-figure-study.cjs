@@ -197,6 +197,10 @@ function check(studyBench) {
       }
       choose('action','crawl');
       expect($('phase').value!=='' && new URL($('edit-b').href).searchParams.get('action')==='crawl','infant chin must follow the selected pose');
+      choose('before','chin-pad');choose('action','idle');choose('sample-size','64');
+      expect(linkedRecipe('a').packs['pine-core']===PineLooks.infantChinRelease && linkedRecipe('b').packs['pine-core']===PineLooks.chinPadRelease,
+        'lip-to-chin comparison must isolate the former and revised chins');
+      expect($('canvas-a').toDataURL()!==picture(),'the fuller chin must read at native scale');
       $('qa').textContent='Two portable recipes, editable infant chin, bilateral native profiles, movement and reversible editor handoffs passed';return;
     }
     if (query.has('garment-hem')) {

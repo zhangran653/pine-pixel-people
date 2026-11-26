@@ -3,7 +3,7 @@ const pineDesignerBody = (() => {
   // The first three sculpt releases added the scalp, layered short hair and fitted jaw in order.
   const sculptedReleases = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1',
     '1.12.0', '1.13.0', '1.13.1', '1.14.0', '1.15.0', pinePortraitStyles.illustratedRelease,
-    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease, pinePortraitStyles.clothingStudyRelease, pinePortraitStyles.featureStudyRelease, pinePortraitStyles.figureRatioRelease, pinePortraitStyles.expressionRelease, pinePortraitStyles.garmentRelease, pinePortraitStyles.infantChinRelease];
+    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease, pinePortraitStyles.clothingStudyRelease, pinePortraitStyles.featureStudyRelease, pinePortraitStyles.figureRatioRelease, pinePortraitStyles.expressionRelease, pinePortraitStyles.garmentRelease, pinePortraitStyles.infantChinRelease, pinePortraitStyles.chinPadRelease];
   // Relative to the selected body. The editor, recipe validator and painter share these limits.
   const shapeRanges = {
     height: [0.75, 1.3, 1],
@@ -626,7 +626,7 @@ const pineDesignerBody = (() => {
     const naturalProfile = pin === '1.14.0' || editableProfile;
     const infantHeadVersion = pin === '1.13.0' || pin === '1.13.1' || naturalProfile;
     const infant = recipe.base === 'baby' && infantHeadVersion;
-    const infantChin = infant && gameFace && pin === pinePortraitStyles.infantChinRelease;
+    const infantChin = infant && gameFace && pinePortraitStyles.hasInfantChin(pin);
     const refitNape = sculptedHead && infant && pin !== '1.13.0';
     const headKind = infant ? 'baby' : kind;
     const proportionBase = recipe.base === 'baby' && !infant ? 'child' : recipe.base;
@@ -702,7 +702,7 @@ const pineDesignerBody = (() => {
     const articulatedJaw = fittedDepth || recipe.packs?.['pine-core'] === '1.10.1';
     const adjustableJaw = articulatedJaw || recipe.packs?.['pine-core'] === '1.10.0';
     const skinShape = gameFace
-      ? pineGameFace.model(recipe.base, shape, recipe.face || {}, faceForm, headShape, eyeLevel, mouthH, noseRow, drawnFace, paintedFeatures, facialActing && infant, infantChin)
+      ? pineGameFace.model(recipe.base, shape, recipe.face || {}, faceForm, headShape, eyeLevel, mouthH, noseRow, drawnFace, paintedFeatures, facialActing && infant, infantChin && pin)
       : adjustableJaw
       ? pineHeadShape.reshape(headKind, shape, fittedDepth ? measure(shape, 'faceRelief') : 0, individual, refitNape, skinPlanes)
       : fittedJaw
@@ -940,7 +940,7 @@ const pineDesignerBody = (() => {
       upperNeck = [fit.x + ((modelAnatomy && infant ? 0.015 : 0.055) + 0.04 * (shape.jawNeck || 0)) * fit.rx, 0,
         fit.z - (modelAnatomy && infant ? 0.55 : pixelPortrait ? 0.38 : 0.64) * fit.rz];
     const chinJoin = infantChin && [
-      fit.x + (skinShape.chin.undersideX - .12) * fit.rx, 0, fit.z + (skinShape.chin.bottomH + .072) * fit.rz
+      fit.x + (skinShape.chin.throatX - .12) * fit.rx, 0, fit.z + (skinShape.chin.throatH + .072) * fit.rz
     ];
     const sockets = {
       ...(adjustableJaw
@@ -948,9 +948,9 @@ const pineDesignerBody = (() => {
             headPivot: socket('head', rig.headPivot),
             collar: socket('torso', collar),
             throat: socket('head', [
-              fit.x + (infantChin ? skinShape.chin.undersideX - .19 + .066 * (shape.jawNeck || 0) : 0.52 + 0.115 * (shape.jawNeck || 0)) * fit.rx,
+              fit.x + (infantChin ? skinShape.chin.throatX - .19 + .066 * (shape.jawNeck || 0) : 0.52 + 0.115 * (shape.jawNeck || 0)) * fit.rx,
               0,
-              fit.z + (infantChin ? skinShape.chin.bottomH + .077 : -0.897 + 0.032 * (shape.chinHeight || 0)) * fit.rz
+              fit.z + (infantChin ? skinShape.chin.throatH + .077 : -0.897 + 0.032 * (shape.chinHeight || 0)) * fit.rz
             ])
           }
         : {}),
