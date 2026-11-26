@@ -61,7 +61,7 @@
         </select></label>
         <label id="before-field">比较内容<select id="before">
           <optgroup id="whole-comparisons" label="完整人物"><option value="whole-1.19.9">稳定版与完整试作 · 1.18.0 / 1.19.9</option><option value="whole-1.19.8">稳定版与完整试作 · 1.18.0 / 1.19.8</option><option value="whole-1.19.7">稳定版与完整试作 · 1.18.0 / 1.19.7</option><option value="whole-1.19.6">稳定版与完整试作 · 1.18.0 / 1.19.6</option><option value="whole">稳定版与全身试作 · 1.18.0 / 1.19.3</option></optgroup>
-          <optgroup label="分项试作"><option value="ink">同脸对照 · 像素笔触</option><option value="baby-nose">婴儿鼻部 · 浅鼻根与圆鼻头</option><option value="bases">分龄基础脸 · 1.19.3 / 1.19.4</option><option value="cut">分龄衣物剪裁 · 1.19.4 / 1.19.5</option><option value="features">五官与下颌 · 1.19.5 / 1.19.6</option><option value="ratios">头身与侧脸比例 · 1.19.6 / 1.19.7</option><option value="acting">眼神与坐姿 · 1.19.7 / 1.19.8</option><option value="garments">上衣与裤腿版型 · 1.19.8 / 1.19.9</option><option value="chin">婴儿下巴 · 短圆试作</option><option value="chin-pad">下唇到颏尖 · 婴儿唇下轮廓</option></optgroup>
+          <optgroup label="分项试作"><option value="surface">眼眶与口周 · 随五官塑形</option><option value="ink">同脸对照 · 像素笔触</option><option value="baby-nose">婴儿鼻部 · 浅鼻根与圆鼻头</option><option value="bases">分龄基础脸 · 1.19.3 / 1.19.4</option><option value="cut">分龄衣物剪裁 · 1.19.4 / 1.19.5</option><option value="features">五官与下颌 · 1.19.5 / 1.19.6</option><option value="ratios">头身与侧脸比例 · 1.19.6 / 1.19.7</option><option value="acting">眼神与坐姿 · 1.19.7 / 1.19.8</option><option value="garments">上衣与裤腿版型 · 1.19.8 / 1.19.9</option><option value="chin">婴儿下巴 · 短圆试作</option><option value="chin-pad">下唇到颏尖 · 婴儿唇下轮廓</option></optgroup>
           <optgroup label="单项对照"><option value="1.19.2" selected>1.19.2 · 人体结构</option><option value="1.19.1">1.19.1 · 身体比例</option><option value="1.19.0">1.19.0 · 首版试作</option><option value="1.18.0">1.18.0 · 稳定版</option><option value="finish">1.19.3 · 原有身体着色</option></optgroup>
         </select></label>
         <label id="form-field" hidden>比较的脸型<select id="drawn-form"><option value="">随人物配方</option><option value="balanced">均衡</option><option value="long">长脸</option><option value="round">短圆脸</option><option value="angular">方脸</option></select></label>
@@ -86,8 +86,10 @@
         <label>视角 <output id="angle-value" for="bearing">0°</output><input id="bearing" type="range" min="0" max="360" step="any" value="0"></label>
         <label>动作进度 <output id="phase-value" for="phase">17%</output><input id="phase" type="range" min="0" max="100" step="any" value="17"></label>
         <button id="play" aria-pressed="false">播放动作</button>
+        <button type="button" id="face-marks" hidden aria-pressed="false" aria-describedby="face-key">五官定位点</button>
         <a id="face-gallery" href="studies/pixel-structure/game-faces.webp">新旧脸型实拍</a>
       </section>
+      <p id="face-key" hidden>青色为双眼中心，金色为鼻尖与鼻底，玫红为唇缝中央与两侧嘴角，蓝色为颏尖。标记可透过头发和远侧脸面看到。</p>
       <section id="review" hidden aria-label="盲评">
         <div class="review-head"><h2 id="round">人物对照</h2><span id="progress"></span></div>
         <p>选出整体造型更协调的一侧。每组的左右顺序已打乱，完成 32 组后揭晓。</p>

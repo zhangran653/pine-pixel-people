@@ -23,6 +23,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ### 1.19.12 随机人脸与像素表情试作
 
+在「五官 → 眼眶与口周」选择「随眼距和嘴宽塑形」，可以把同一张嘴从正面转到正侧面。种子 2602 在 256 像素全身画面中，正面嘴宽为 16 像素，朝右和朝左的侧面分别从 11 像素收至 5 和 7 像素。对照页的待机头部正对基准轴，可以显示眼、鼻、嘴角和下巴的位置。[转动同一个人](figure-study.html?subject=seeded&age=adult&seed=2602&before=surface&size=256&framing=head&bearing=270) · [两张嘴的四向实拍](studies/pixel-structure/lip-turn.webp) · [曲面结构与复测记录](studies/pixel-structure/README.md#侧面的嘴究竟该有多宽)
+
 在创作室选「试用像素立绘五官」，再点「随机人物」。要保留当前人物的头发、肤色和衣服，去「五官」点「随机五官」。随机先选脸型和神情，再搭配眉眼与口型。「五官」里可以单独调嘴形、宽度、唇厚、平时神情和笔触。试作配方可以保存、导出和套用动作。[打开随机样本 2602](http://127.0.0.1:8000/atelier.html?figure=ink&age=adult&seed=2602&tab=face&bearing=315) · [三个同人前后对照](studies/pixel-structure/portrait-mouth.webp) · [连续八个种子](studies/pixel-structure/portrait-batch.webp)
 
 研究记录包含 OpenTTD 和 OpenGFX 嘴部图块的实测、LPC 原生尺寸表情的逐像素对照，以及整脸形状与表情感知的研究。婴儿的「浅鼻根与圆鼻头」可以和三种下巴分别搭配。[开源项目与论文](studies/pixel-structure/README.md#随机人脸的协调) · [婴儿鼻部三向对照](studies/pixel-structure/nursery-nose.webp)

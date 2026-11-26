@@ -171,6 +171,51 @@ function check(studyBench) {
   const linkedRecipe = side => JSON.parse(new URLSearchParams(new URL($('edit-' + side).href).hash.slice(1)).get('character'));
   try {
     const query = new URLSearchParams(location.search);
+    if (query.has('mouth-turn')) {
+      const left = linkedRecipe('a'), right = linkedRecipe('b');
+      expect(right.faceSurface === 'linked' && JSON.stringify(PineLooks.withoutFaceSurface(right)) === JSON.stringify(left),
+        'The mouth comparison must differ only in its supporting surface');
+      expect(!$('face-marks').hidden,'missing face landmarks');
+      const unmarked = picture();
+      $('face-marks').click();
+      expect(unmarked !== picture() && !$('face-key').hidden,'missing landmark projection');
+      $('face-marks').click();
+      expect(unmarked === picture(),'switching off landmarks must return the original pixels');
+      const original = globalThis.createSliceActor, rows = [];
+      const lips = new Set(['lipLine','lipBody','lipGlow','lipPetal','upperLip','lowerLip']);
+      function width(el) {
+        const w = el.width, data = el.getContext('2d').getImageData(0,0,w,el.height).data;
+        let lo = w, hi = -1;
+        for (let i=0; i<data.length; i+=4) {
+          if (data[i+3]<128 || data[i]-data[i+1]<128 || data[i+2]-data[i+1]<128) continue;
+          const x = (i/4)%w;
+          lo = Math.min(lo,x); hi = Math.max(hi,x);
+        }
+        return Math.max(0,hi-lo+1);
+      }
+      // Keep the real painter and its occluders, using magenta to identify
+      // the six lip materials independently of the character's skin and dyes.
+      try {
+        globalThis.createSliceActor = (art,...args) => original({...art,materials:Object.fromEntries(
+          Object.keys(art.materials).map(k=>[k,lips.has(k)?'ff00ff':'303030']))},...args);
+        choose('subject','seeded');
+        for (const size of [64,128,256]) {
+          choose('sample-size',String(size));
+          for (const angle of [0,315,270,90]) {
+            $('bearing').value=String(angle);
+            $('bearing').dispatchEvent(new Event('input'));
+            rows.push([size,angle,width($('canvas-a')),width($('canvas-b'))]);
+          }
+        }
+      } finally { globalThis.createSliceActor=original; choose('subject','seeded'); }
+      if (query.get('seed') === '2602' && query.get('age') === 'adult') {
+        const [front,,sideA,sideB] = rows.filter(r=>r[0]===256);
+        expect(Math.abs(front[2]-front[3])<=1 && [sideA,sideB].every(r=>r[2]-r[3]>=2 && r[3]<front[3]*.51),
+          'The front mouth must keep its span while both profiles shorten: '+JSON.stringify(rows));
+      }
+      $('qa').textContent=JSON.stringify({age:query.get('age'),seed:query.get('seed'),widths:rows});
+      return;
+    }
     if (query.has('recipe-pair')) {
       const source=linkedRecipe('a'), edited=linkedRecipe('b');
       expect($('before').value==='recipes' && source.face.nose==='rounded' && edited.face.nose==='button' &&
@@ -757,7 +802,9 @@ try {
   for (const top of ['tucked','bloused','straight'])
     garmentCases.push('?subject=draft&before=garments&size=64&garment-hem='+top);
   const actingProfile = '?acting-profile=1&before=acting&size=128&bearing=270&measure=1&subject=';
-  const cases = process.argv.includes('--measure-acting') ? [actingProfile+'baby-face-1',...Array.from({length:8},(_,i)=>actingProfile+'draft&feature-seed='+i)] :
+  const mouthCase = '?mouth-turn=1&subject=seeded&before=surface&age=adult&seed=';
+  const cases = process.argv.includes('--measure-mouth-turn') ? Array.from({length:8},(_,i)=>mouthCase+(2600+i)) :
+    process.argv.includes('--measure-acting') ? [actingProfile+'baby-face-1',...Array.from({length:8},(_,i)=>actingProfile+'draft&feature-seed='+i)] :
     process.argv.includes('--bench-acting') || process.argv.includes('--bench-garments') ? ['?subject=baby&bearing=270&before=1.19.0'] :
     process.argv.includes('--check-garments') ? garmentCases :
     process.argv.includes('--check-acting') ? actingCases :
@@ -771,7 +818,7 @@ try {
     '?draft-test=1&before=current&action=follow-rattle&phase=36.25&bearing=270.5&framing=head', '?bad-test=1#character=%7B',
     '?base-test=1&subject=baby&before=bases&form=round&phase=36.25&action=baby-reach&bearing=270.5', '?mode=blind&review=bases&case=baby%2F0&resume=bases',
     '?clothing-test=1&subject=baseline-4&before=cut&action=walk&phase=43', '?mode=blind&review=cut&case=baby%2F0&resume=cut',
-    featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
+    mouthCase+'2602', featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
     ratioCase, '?mode=blind&review=ratios&case=baby%2F0&resume=ratios', profileCase+'chef',
     '?ratio-draft=1&before=whole-1.19.7&action=baby-reach&bearing=270&phase=43&size=128',...actingCases,...garmentCases];
   const garmentPixels = {};

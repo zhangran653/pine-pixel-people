@@ -91,6 +91,8 @@
       url.searchParams.set('form',$('drawn-form').value);
     else url.searchParams.delete('form');
     url.searchParams.set('bearing',$('bearing').value);
+    if (!$('face-marks').hidden && $('face-marks').getAttribute('aria-pressed') === 'true') url.searchParams.set('marks','1');
+    else url.searchParams.delete('marks');
     if ($('sample-size').value !== '256') url.searchParams.set('size',$('sample-size').value);
     else url.searchParams.delete('size');
     for (const [field, normal] of [['framing','body'], ['action','idle'], ['phase','17']]) {
@@ -134,6 +136,11 @@
   // Reproduce the original consecutive 1.18 random-contact sheet. The eight recipes
   // share one stream; drawing each with an independent seed would select other clothes.
   const archive = new Map();
+  const seedParam = search.get('seed'), seedAge = search.get('age');
+  if (Object.hasOwn(ages,seedAge) && /^\d{1,10}$/.test(seedParam) && Number(seedParam) <= 0xffffffff) {
+    archive.set('seeded',looks.randomCharacter({base:seedAge,seed:Number(seedParam),ink:'auto',bodyFinish:'painted'}));
+    $('subject').prepend(new Option(ages[seedAge] + ' · 种子 ' + seedParam,'seeded'));
+  }
   {
     const labels = ['围裙与布包','蓝夹克','短袖短裤','黄帽橙衫','安全帽与记录板','围兜背带裤','领带制服','牛仔夹克与记录板'];
     let state = 20261125;
@@ -169,12 +176,16 @@
       : pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
     const before = $('before').value;
     if (before === 'recipes') return [companion,submitted];
+    if (before === 'surface') {
+      const trial = looks.withFaceSurface(source);
+      return [looks.withoutFaceSurface(trial),trial];
+    }
     if (before === 'baby-nose') {
       const trial = looks.withInfantNose(source);
       return [looks.withoutInfantNose(trial),trial];
     }
     if (before === 'ink') {
-      const trial = looks.withPortraitInk(source,source.portraitInk || 'cel');
+      const trial = looks.withPortraitInk(looks.withoutFaceSurface(source),source.portraitInk || 'cel');
       return [looks.withoutPortraitInk(trial),trial];
     }
     const wasActing = pinePortraitStyles.hasFacialActing(source.packs[looks.core]);
@@ -317,6 +328,13 @@
       $('face-gallery').href = 'studies/pixel-structure/' + (drawing ? 'portrait-ink.webp' : 'nursery-nose.webp');
       $('face-gallery').textContent = drawing ? '同脸三种像素笔触实拍' : '婴儿鼻部三向实拍';
     }
+    if (!blind && before === 'surface') {
+      $('title-a').textContent = '原有脸部曲面';
+      $('title-b').textContent = '眼眶与口周随五官塑形';
+      $('prompt').textContent = '待机时头部固定朝前，两侧共用神情和笔触。正面看嘴宽，45° 看远侧嘴角，90° 看唇中央向近侧嘴角回收的距离。';
+      $('face-gallery').href = 'studies/pixel-structure/face-surface.webp';
+      $('face-gallery').textContent = '眼、鼻、唇、颏定位实拍';
+    }
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     actors = recipes.map(doc => looks.build(doc));
     neutralFrames = sampleActors('idle', .17);
@@ -347,24 +365,34 @@
     // Set the two camera scales together, once per pair. Stationary babies sit close to the floor.
     const restingBaby = actors[0].tags.includes('baby') && $('action').value !== 'crawl';
     const clip = motion.actions.get($('action').value);
+    $('face-marks').hidden = mode !== 'model' || $('before').value !== 'surface' || clip.id !== 'idle';
     $('pose-note').hidden = clip.roles.length < 2;
     $('rattle-film').hidden = mode === 'blind' || clip.id !== 'follow-rattle' || !pinePortraitStyles.hasFacialActing(recipes[1].packs[looks.core]);
     const cast = actors.flatMap(actor => motion.castFor(clip, actor, partner()));
     ceiling = Math.max(...cast.map(a => a.rig.height)) * (restingBaby && clip.roles.length === 1 ? 1.04 : 1.28);
     rebuildFrame();
   }
+  function faceForward(actor,pose) {
+    // Keep the skull base at the seated or standing pivot while removing the
+    // idle turn. Camera zero and +/-90 now measure the anatomy's own axes.
+    const pivot = actor.rig.headPivot || actor.rig.neck;
+    const position = motion.rig.point(pose.head,pivot);
+    const head = motion.rig.frame(pivot,position.map((v,i)=>v-pivot[i]),0,0,0);
+    return {...pose,head,jaw:pose.jawLocal ? motion.rig.compose(head,pose.jawLocal) : head};
+  }
   function sampleActors(action, phase) {
     const clip = motion.actions.get(action);
     return actors.map(actor => {
       const cast = motion.castFor(clip, actor, partner());
       const sample = clip.sample(phase, ...cast)[cast.indexOf(actor)];
-      const body = actor.body, model = body.makePose(sample.pose);
+      const pose = action === 'idle' && mode === 'model' && $('before').value === 'surface' ? faceForward(actor,sample.pose) : sample.pose;
+      const body = actor.body, model = body.makePose(pose);
       const heading = clip.roles.length === 2 || clip.previewTurn ? sample.heading : 0;
-      const part = { ...sample, x: 0, y: 0, heading, actor, body, model };
+      const part = { ...sample, pose, x: 0, y: 0, heading, actor, body, model };
       const span = actor.rig.height - actor.rig.neck[2];
-      const focus = motion.rig.point(sample.pose.head, [actor.rig.neck[0], 0, actor.rig.neck[2] + .45 * span]);
+      const focus = motion.rig.point(pose.head, [actor.rig.neck[0], 0, actor.rig.neck[2] + .45 * span]);
       return { bands: studioPortraitLayers([part], motion, motion.figureLayers) || [part],
-        focus, span, heading, z: part.z };
+        focus, span, heading, z: part.z, pose };
     });
   }
   function rebuildFrame() {
@@ -382,6 +410,8 @@
       b.setAttribute('aria-pressed', Number(b.dataset.angle) === bearing));
     const yaw = bearing * Math.PI / 180;
     const ink = $('ink').value;
+    const marks = !$('face-marks').hidden && $('face-marks').getAttribute('aria-pressed') === 'true';
+    $('face-key').hidden = !marks;
     const size = $('sample-size').value;
     const measured = size === 'world';
     const scale = measured ? motion.rig.centimetersPerUnit : Number(size) / neutralHeight;
@@ -428,6 +458,20 @@
           image.data[i] = image.data[i+1] = image.data[i+2] = tone;
         }
         ctx.putImageData(image, 0, 0);
+      }
+      if (marks) {
+        const frame = frames[pane], relative = yaw - frame.heading;
+        const anchors = { leftEye:'#5ee1cb',rightEye:'#5ee1cb',noseTip:'#ffc454',noseBase:'#ffc454',
+          mouth:'#ff72a7',leftMouthCorner:'#ff72a7',rightMouthCorner:'#ff72a7',chinTip:'#73a6ff' };
+        for (const [name,color] of Object.entries(anchors)) {
+          const [x,y,z] = motion.rig.socket(actors[pane],frame.pose,name);
+          const u = Math.round(width/2 + scale*(-Math.sin(relative)*x + Math.cos(relative)*y));
+          const v = Math.round(floor - scale*(z+frame.z));
+          ctx.fillStyle = '#303b40';
+          ctx.fillRect(u-1,v-1,3,3);
+          ctx.fillStyle = color;
+          ctx.fillRect(u,v,1,1);
+        }
       }
       ctx.fillStyle = '#c9c6b6';
       ctx.fillRect(0, Math.ceil(floor) + 1, width, 1);
@@ -487,7 +531,7 @@
       link.hidden = !visible;
       if (visible) {
         const options = new URLSearchParams({ action: $('action').value, bearing: $('bearing').value, phase: $('phase').value });
-        if ($('framing').value === 'head' || (mode === 'model' && ['features','ratios','acting','ink','baby-nose'].includes($('before').value))) options.set('tab', 'face');
+        if ($('framing').value === 'head' || (mode === 'model' && ['features','ratios','acting','ink','baby-nose','surface'].includes($('before').value))) options.set('tab', 'face');
         else if ((mode === 'model' && ['cut','garments'].includes($('before').value)) ||
                  (mode === 'blind' && reviewKind === 'garments')) options.set('tab', 'shape');
         const data = new URLSearchParams({ character: JSON.stringify(recipes[i]) });
@@ -559,6 +603,12 @@
   $('framing').onchange = () => { draw(); refreshLinks(); syncAddress(); };
   $('bearing').oninput = () => { draw(); refreshLinks(); };
   $('bearing').onchange = syncAddress;
+  $('face-marks').onclick = () => {
+    const button = $('face-marks');
+    button.setAttribute('aria-pressed',button.getAttribute('aria-pressed') !== 'true');
+    draw();
+    syncAddress();
+  };
   $('ink').onchange = draw;
   $('sample-size').onchange = () => { draw(); syncAddress(); };
   $('play').onclick = () => {
@@ -587,10 +637,12 @@
     for (const event of ['click','auxclick','contextmenu']) $(id).addEventListener(event, refreshLinks);
   }
   if (submitted) $('subject').value = 'draft';
+  else if (archive.has('seeded')) $('subject').value = 'seeded';
   if (Object.hasOwn(looks.gameFaceForms, search.get('form'))) $('drawn-form').value = search.get('form');
   if ([...$('before').options].some(o => o.value === search.get('before'))) $('before').value = search.get('before');
   else $('before').value = submitted ? 'whole' : previousStudy;
   if (search.get('framing') === 'head') $('framing').value = 'head';
+  if (search.get('marks') === '1') $('face-marks').setAttribute('aria-pressed','true');
   if (['64', '128', '256', 'world'].includes(search.get('size'))) $('sample-size').value = search.get('size');
   const initialAngle = Number(search.get('bearing'));
   if (Number.isFinite(initialAngle) && initialAngle >= 0 && initialAngle <= 360) $('bearing').value = initialAngle % 360;

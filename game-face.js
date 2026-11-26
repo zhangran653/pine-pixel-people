@@ -269,7 +269,7 @@ const pineGameFace = (() => {
     }
     return { padH, bottomH, undersideX, throatH, throatX, supported };
   }
-  function build(base, shape, face, baseTarget, scalp, eye, mouth, noseRow, drawn, painted, infantProfile, infantChin, infantNose, ink) {
+  function build(base, shape, face, baseTarget, scalp, eye, mouth, noseRow, drawn, painted, infantProfile, infantChin, infantNose, ink, layout) {
     const mix = face.formMix ?? 1, drawing = drawn && drawnProfiles[base][baseTarget];
     const p = drawing && mix > 0 ? profiles[base].map((original, i) => h => {
       const a = original(h);
@@ -287,6 +287,10 @@ const pineGameFace = (() => {
     // The mouth takes part of the change, so a long nose retains its character.
     const fittedTip = noseLength - (1 - noseLength) * .72 * ((shape.noseLipSpacing ?? 1) - 1);
     const tipAt = infantNose ? clamp(.56 + .61 * (fittedTip - .58), .43, .65) : fittedTip;
+    const noseBase = eye - Math.max(.24,eye-mouth) * tipAt * (infantNose ? 1.40 : .88/.61);
+    const archFall = layout && layout.mouthHalf * layout.lateralDepth *
+      (.54 + .11*value('lipProjection') + .06*value('jawDefinition'));
+    const orbitCenter = layout?.eyeCenter ?? .48, orbitWidth = layout ? 1.20*layout.eyeHalf : .29;
     const reach =
       (infant ? 0.132 : base === 'adult' ? 0.205 : 0.166) *
       clamp(noseRow[2] / 0.19 + 0.32 * value('noseBridge'), 0.58, 1.5) *
@@ -374,6 +378,10 @@ const pineGameFace = (() => {
         upper * (0.041 + 0.014 * value('upperLipFullness')) +
         lower * (0.053 + 0.018 * value('lowerLipFullness')) -
         (painted ? (infant ? .047 : .071) : .024) * fold;
+      const mouthBand = layout && ramp(h,mouth-.25,mouth-.04) * (1-ramp(h,mouth+.06,Math.max(mouth+.13,noseBase+.08))) *
+        (infant ? .48 : base === 'toddler' ? .68 : .91);
+      const lidH = layout && (h-eye) / (h >= eye ? layout.lidTop : layout.lidBottom);
+      const lidBand = layout && (1-ramp(Math.abs(lidH),.72,1.70));
       const ring = {
         axis: axis + (cap.axis - axis) * vault,
         width: width + (cap.width - width) * vault,
@@ -384,8 +392,8 @@ const pineGameFace = (() => {
       for (let j = 0; j <= steps; j++) {
         const v = j / steps,
           y = v * width,
-          eyeBand = bell(h, eye, 0.19);
-        const socket = bell(y, 0.48, 0.29) * eyeBand * (0.044 + 0.036 * value('eyeDepth')) * amount;
+          eyeBand = layout ? bell(lidH,0,1.55) : bell(h, eye, 0.19);
+        const socket = bell(y, orbitCenter, orbitWidth) * eyeBand * (0.044 + 0.036 * value('eyeDepth')) * amount;
         const undisturbed = dome(v);
         let f =
           undisturbed +
@@ -394,12 +402,32 @@ const pineGameFace = (() => {
           mouthBed * bell(y, 0, 0.41) -
           oralArc * ramp(y, 0.025, 0.43) * (1 - ramp(y, 0.61, 0.9)) -
           socket;
-        const lidRegion =
-          ramp(y, 0.1, 0.25) * (1 - ramp(y, 0.72, 0.91)) * (1 - ramp(Math.abs(h - eye - 0.035), 0.145, 0.3));
-        if (lidRegion > 0) {
-          const eyeSurface =
-            eyelids(y / eyeWidth) + 0.026 * bell(y, 0.46, 0.26) - 0.036 * amount * value('eyeDepth');
-          f += lidRegion * (eyeSurface - f);
+        if (layout) {
+          // Across the mouth, the turning point belongs to this person's
+          // commissure. Beyond it the measured cheek section takes over.
+          if (mouthBand > 0) {
+            const q = y/layout.mouthHalf;
+            const weight = mouthBand * ramp(q,.04,.72) * (1-ramp(q,1.02,1.90));
+            const arc = q <= 1 ? q*q : 2*q-1;
+            const dental = mid + mouthBed - archFall*arc;
+            f += weight*(dental-f);
+          }
+          if (lidBand > 0) {
+            const q = (y-layout.eyeCenter)/layout.eyeHalf;
+            const weight = lidBand * (1-ramp(Math.abs(q),.73,1.36)) * ramp(y,.48*noseWidth,noseWidth+.04);
+            const dome = bell(q,0,1.26)*bell(lidH,0,1.24);
+            const surround = eyelids(y/eyeWidth) - .035*amount*value('eyeDepth');
+            const relief = layout.lateralDepth*layout.eyeHalf * (infant ? .21 : .30);
+            f += weight*(surround + relief*(dome-.38) - f);
+          }
+        } else {
+          const lidRegion =
+            ramp(y, 0.1, 0.25) * (1 - ramp(y, 0.72, 0.91)) * (1 - ramp(Math.abs(h - eye - 0.035), 0.145, 0.3));
+          if (lidRegion > 0) {
+            const eyeSurface =
+              eyelids(y / eyeWidth) + 0.026 * bell(y, 0.46, 0.26) - 0.036 * amount * value('eyeDepth');
+            f += lidRegion * (eyeSurface - f);
+          }
         }
         // Fade mouth and eye relief towards the temple at the outer edge of
         // each authored cross section. The legacy endpoint keeps its original relief.
@@ -448,7 +476,7 @@ const pineGameFace = (() => {
       }
     }
     const row = (h) => rowList[clamp(Math.round(((h + 1) * rings) / 2), 0, rings)];
-    return { row, insideSkin, frontAt, noseWidth, infantNose, ink, mouth, chin, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
+    return { row, insideSkin, frontAt, noseWidth, noseBase, infantNose, ink, mouth, chin, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
   }
 
   function eye(shape, off, h, blink, side, k, pitch) {
@@ -810,11 +838,11 @@ const pineGameFace = (() => {
     }
   }
   const cache = new Map();
-  function model(base, shape, face, target, scalp, eye, mouth, nose, drawn = false, painted = false, infantProfile = false, infantChin = false, infantNose = false, ink) {
-    const key = JSON.stringify([base, shape, face.outline, face.nose, target, face.formMix ?? 1, eye, mouth, drawn, painted, infantProfile, infantChin, infantNose, ink]);
+  function model(base, shape, face, target, scalp, eye, mouth, nose, drawn = false, painted = false, infantProfile = false, infantChin = false, infantNose = false, ink, layout) {
+    const key = JSON.stringify([base, shape, face.outline, face.nose, target, face.formMix ?? 1, eye, mouth, drawn, painted, infantProfile, infantChin, infantNose, ink, layout]);
     if (!cache.has(key)) {
       if (cache.size >= 8) cache.delete(cache.keys().next().value);
-      cache.set(key, build(base, shape, face, target, scalp, eye, mouth, nose, drawn, painted, infantProfile, infantChin, infantNose, ink));
+      cache.set(key, build(base, shape, face, target, scalp, eye, mouth, nose, drawn, painted, infantProfile, infantChin, infantNose, ink, layout));
     }
     return cache.get(key);
   }

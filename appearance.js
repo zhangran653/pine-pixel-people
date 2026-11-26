@@ -161,6 +161,7 @@ const PineLooks = (() => {
     delete doc.infantChin;
     delete doc.infantNose;
     delete doc.portraitInk;
+    delete doc.faceSurface;
   }
   function clearFigureRatios(doc) {
     clearPortraitOptions(doc);
@@ -277,6 +278,17 @@ const PineLooks = (() => {
   function withoutPortraitInk(recipe) {
     const next = structuredClone(recipe);
     delete next.portraitInk;
+    delete next.faceSurface;
+    return next;
+  }
+  function withFaceSurface(recipe) {
+    const next = withPortraitInk(recipe,recipe.portraitInk || 'cel');
+    next.faceSurface = 'linked';
+    return next;
+  }
+  function withoutFaceSurface(recipe) {
+    const next = structuredClone(recipe);
+    delete next.faceSurface;
     return next;
   }
   function withFigureRatios(recipe) {
@@ -897,7 +909,7 @@ SOFTWARE.`;
     fields(
       raw,
       ['format', 'version', 'id', 'label', 'base', 'packs', 'parts', 'shape', 'colors'],
-      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity', 'anatomyParts', 'bodyFinish', 'clothingCut', 'garmentFit', 'infantChin', 'infantNose', 'portraitInk']
+      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity', 'anatomyParts', 'bodyFinish', 'clothingCut', 'garmentFit', 'infantChin', 'infantNose', 'portraitInk', 'faceSurface']
     );
     requireThat(raw.baseNotice === undefined || raw.baseNotice === baseNotice, '基础素材许可声明与版本不符');
     requireThat(
@@ -980,6 +992,7 @@ SOFTWARE.`;
     requireThat(raw.infantChin === undefined || (pin === infantNoseRelease && ['original','short','full'].includes(raw.infantChin)), '此版本不支持选择该婴儿下巴');
     requireThat(raw.infantNose === undefined || (pin === infantNoseRelease && raw.infantNose === 'nursery'), '未知婴儿鼻部造型');
     requireThat(raw.portraitInk === undefined || (pin === infantNoseRelease && typeof raw.portraitInk === 'string' && Object.hasOwn(portraitInks, raw.portraitInk)), '未知像素笔触');
+    requireThat(raw.faceSurface === undefined || (raw.portraitInk && raw.faceSurface === 'linked'), '五官联动曲面需要立绘五官');
     if (raw.garmentFit !== undefined) {
       requireThat(pinePortraitStyles.hasGarmentFits(pin) && raw.clothingCut === undefined, '衣服版型需要启用分款剪裁');
       fields(raw.garmentFit, [], Object.keys(garmentFits));
@@ -1072,6 +1085,7 @@ SOFTWARE.`;
       ...(raw.infantChin && raw.infantChin !== 'full' ? { infantChin:raw.infantChin } : {}),
       ...(raw.infantNose ? { infantNose:raw.infantNose } : {}),
       ...(raw.portraitInk ? { portraitInk:raw.portraitInk } : {}),
+      ...(raw.faceSurface ? { faceSurface:raw.faceSurface } : {}),
       ...(raw.garmentFit ? { garmentFit: { ...raw.garmentFit } } : {}),
       ...(anatomy ? { anatomyParts: anatomy } : {}),
       shape: sizes,
@@ -1714,8 +1728,13 @@ SOFTWARE.`;
       if (!pinePortraitStyles.hasGameFace(pin) || portrait !== 'animation') delete doc.face.form;
     }
     const infant = doc.base === 'baby';
-    if (brushed) doc.portraitInk = ink === 'auto' ? pick(Object.keys(portraitInks),random) : ink;
-    else delete doc.portraitInk;
+    if (brushed) {
+      doc.portraitInk = ink === 'auto' ? pick(Object.keys(portraitInks),random) : ink;
+      if (!recipe.portraitInk) doc.faceSurface = 'linked';
+    } else {
+      delete doc.portraitInk;
+      delete doc.faceSurface;
+    }
     let drawnForm = pinePortraitStyles.hasBaseFace(pin) && portrait === 'animation'
       ? pick(infant ? ['round','long','round','angular'] : ['round','long','angular'], random) : null;
     let families = familyIds;
@@ -1838,6 +1857,7 @@ SOFTWARE.`;
     if (ink && pin === infantNoseRelease) faceSource.packs = {...outfit.packs,[core]:pin};
     const doc = randomFace(faceSource,
       { random, style, portrait: portrait || source?.face?.style || 'animation', family, previousForm:source?.face?.form, release: pin, ink });
+    if (doc.portraitInk && source?.portraitInk && !source.faceSurface) delete doc.faceSurface;
     doc.gender = profile.gender || 'unspecified';
     doc.parts.hair = keep.has('hair') ? source.parts.hair : randomHair(profile.base, doc.parts.hat, tailored, random, doc.portraitInk, source?.parts.hair);
     doc.colors.skin = keep.has('skin') ? source.colors.skin : pick(skinDyes, random);
@@ -1891,7 +1911,7 @@ SOFTWARE.`;
     tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease, expressionRelease, garmentRelease, garmentFits, withGarmentStudy, withoutGarmentStudy, restExpressions, withExpressionStudy, withoutExpressionStudy,
     withFigureStudy, withGameFace, withBaseFace, withClothingStudy, withFeatureStudy, withoutFeatureStudy, withFigureRatios, withoutFigureRatios, usesClothingCut,
     infantChinRelease, chinPadRelease, infantNoseRelease, withInfantChin, withoutInfantChin, withInfantChinStyle, withInfantNose, withoutInfantNose,
-    portraitInks, withPortraitInk, withoutPortraitInk,
+    portraitInks, withPortraitInk, withoutPortraitInk, withFaceSurface, withoutFaceSurface,
     originalRelease,
     styleRelease,
     profileRelease,

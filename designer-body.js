@@ -666,6 +666,19 @@ const pineDesignerBody = (() => {
     } : null;
     const noseType = recipe.face?.nose || 'classic';
     const noseRow = pinePortraitStyles.noses[noseType] || pinePortraitStyles.basicNoses[noseType];
+    const eyeSpan = feature.eyeWidth * (1 + 0.23 * (shape.eyeWidth || 0));
+    const eyeOpen = feature.eyeOpen * (1 + 0.42 * (shape.eyeOpening || 0));
+    const lipSpan = feature.lipWidth * (1 + 0.27 * (shape.mouthWidth || 0));
+    const upperLipScale = feature.lipHeight * (1 + 0.54 * (shape.upperLipFullness || 0));
+    const lowerLipScale = feature.lipHeight * (1 + 0.54 * (shape.lowerLipFullness || 0));
+    const mouthName = recipe.face?.mouth || 'classic';
+    const lipStyle = pinePortraitStyles.mouths[mouthName];
+    const lipWidth = lipStyle?.[1] ?? ({ small:.184, full:animated ? .303 : .284, smile:.309 }[mouthName] ?? .263);
+    const lipLift = lipStyle?.[4] ?? (mouthName === 'smile' ? .102 : .034);
+    const liftedCorners = animated && ['smile','soft-smile','small','classic','bow','full'].includes(mouthName);
+    const drawnMouth = animated && (lipStyle ? [...lipStyle] :
+      ['',lipWidth,mouthName === 'full' ? .122 : .063,mouthName === 'full' ? .135 : .069,lipLift,.36,0]);
+    if (liftedCorners) drawnMouth[4] = .036 + .59 * lipLift;
     let skinPlanes = planes;
     if (editableProfile) {
       const above = clamp(eyeLevel - noseRow[3] * feature.noseLength - mouthH - 0.012, 0.045, 0.245);
@@ -704,13 +717,6 @@ const pineDesignerBody = (() => {
     const fittedDepth = softenedOcciput || recipe.packs?.['pine-core'] === '1.11.0';
     const articulatedJaw = fittedDepth || recipe.packs?.['pine-core'] === '1.10.1';
     const adjustableJaw = articulatedJaw || recipe.packs?.['pine-core'] === '1.10.0';
-    const skinShape = gameFace
-      ? pineGameFace.model(recipe.base, shape, recipe.face || {}, faceForm, headShape, eyeLevel, mouthH, noseRow, drawnFace, paintedFeatures, facialActing && infant, infantChin && (chinStyle === 'full' ? pinePortraitStyles.chinPadRelease : pinePortraitStyles.infantChinRelease), infantNose, portraitInk)
-      : adjustableJaw
-      ? pineHeadShape.reshape(headKind, shape, fittedDepth ? measure(shape, 'faceRelief') : 0, individual, refitNape, skinPlanes)
-      : fittedJaw
-        ? pineHeadShape.withJaw(headKind)
-        : headShape;
     const posterior = headShape
       ? pineHeadShape.posterior(measure(shape, 'occiput'), softenedOcciput ? headShape : undefined)
       : null;
@@ -767,6 +773,24 @@ const pineDesignerBody = (() => {
       ry: ry * s * width * (feature.headWidth ?? 1) * (skullDriver?.vaultWidth ?? 1),
       rz: rz * s * (skullDriver?.vaultHeight ?? 1)
     });
+    const eyeY = fit.ry * feature.eyeCenter * spacing * (gameFace ? (infant ? .91 : .94) : 1);
+    const eyeZ = ((headScale === 1 ? heights.eye : headZ + eyeLevel * rz) + headLift) * s;
+    const restingMouth = portraitInk && pineGameFace.mouthBrush(recipe.base,featureGuide,mouthName,drawnMouth,
+      upperLipScale,lowerLipScale,pineGameFace.expression(recipe.base,recipe.face,null,0,portraitInk));
+    // The paint, movable sockets and the shape underneath use the same openings.
+    // Y and X use different head radii. Convert widths when drawing a depth arc.
+    const layout = portraitInk && recipe.faceSurface === 'linked' ? {
+      eyeCenter:eyeY/fit.ry, eyeHalf:1.06*animationEye.width*eyeSpan,
+      lidTop:animationEye.up*eyeOpen, lidBottom:animationEye.down*eyeOpen,
+      mouthHalf:restingMouth.width*lipSpan, lateralDepth:fit.ry/fit.rx
+    } : null;
+    const skinShape = gameFace
+      ? pineGameFace.model(recipe.base, shape, recipe.face || {}, faceForm, headShape, eyeLevel, mouthH, noseRow, drawnFace, paintedFeatures, facialActing && infant, infantChin && (chinStyle === 'full' ? pinePortraitStyles.chinPadRelease : pinePortraitStyles.infantChinRelease), infantNose, portraitInk, layout)
+      : adjustableJaw
+      ? pineHeadShape.reshape(headKind, shape, fittedDepth ? measure(shape, 'faceRelief') : 0, individual, refitNape, skinPlanes)
+      : fittedJaw
+        ? pineHeadShape.withJaw(headKind)
+        : headShape;
     const earZ = infant ? fit.z + (pineInfantLandmarks.ear + 0.067) * fit.rz : fit.z;
     let hatFit = fit;
     const knitBand = refitNape && parts.hat === 'pine-core/cotton-cap' && hatPrimitives.find(p => p.color === 'hatLight');
@@ -789,18 +813,11 @@ const pineDesignerBody = (() => {
       const [forward, height] = mandible.hinge;
       rig.jawPivot = [neutralX + forward * neutralRx, 0, fit.z + height * fit.rz];
     }
-    const eyeY = fit.ry * feature.eyeCenter * spacing * (gameFace ? (infant ? .91 : .94) : 1),
-      eyeZ = ((headScale === 1 ? heights.eye : headZ + eyeLevel * rz) + headLift) * s;
-    const eyeSpan = feature.eyeWidth * (1 + 0.23 * (shape.eyeWidth || 0));
-    const eyeOpen = feature.eyeOpen * (1 + 0.42 * (shape.eyeOpening || 0));
     const eyeCant = (shape.eyeTilt || 0) * 0.091 * fit.rz;
     const browLift = (shape.browHeight || 0) * 0.092 * fit.rz;
     const noseSpan = 1 + 0.34 * (shape.noseWidth || 0), noseRise = 1 + 0.63 * (shape.noseBridge || 0);
     const noseFit = infant || illustrated ? { ...fit, ry: fit.ry * feature.noseWidth, rz: fit.rz * feature.noseLength } : fit;
-    const lipSpan = feature.lipWidth * (1 + 0.27 * (shape.mouthWidth || 0));
     const lipFrontLimit = editableProfile && (!infant || infantFace || shape.lipProjection) ? 0.44 : 0.64;
-    const upperLipScale = feature.lipHeight * (1 + 0.54 * (shape.upperLipFullness || 0));
-    const lowerLipScale = feature.lipHeight * (1 + 0.54 * (shape.lowerLipFullness || 0));
     // Narrow the lower half progressively. The jaw control changes the chin without moving the temples.
     const jawTaper = measures.chin - 0.86 * (jaw - 1);
     const jawWidth = (h) => fit.ry * (1 - jawTaper * clamp(-h, 0, 1));
@@ -986,6 +1003,15 @@ const pineDesignerBody = (() => {
       const lip = (offset) => [faceFront(0, mouthZ + offset), 0, mouthZ + offset];
       sockets.upperLip = socket('head', lip(0.04 * fit.rz * upperLipScale));
       sockets.lowerLip = socket('jaw', lip(-0.04 * fit.rz * lowerLipScale));
+      if (restingMouth) {
+        const surfacePoint = (y,z) => socket('head',[faceFront(y,z),y,z]);
+        const corner = fit.ry * lipSpan * restingMouth.width;
+        const cornerZ = mouthZ + restingMouth.seam(1)*fit.rz;
+        sockets.leftMouthCorner = surfacePoint(corner,cornerZ);
+        sockets.rightMouthCorner = surfacePoint(-corner,cornerZ);
+        sockets.noseTip = surfacePoint(0,fit.z + crownHeight(skinShape.tip)*fit.rz);
+        sockets.noseBase = surfacePoint(0,fit.z + crownHeight(skinShape.noseBase)*fit.rz);
+      }
     }
     const anatomy = pixelStructure ? pineAnatomy.bind(recipe, rig, sockets, {
       hipHalf, hipThickness, hipHeight, chestDepth, measures, scale: s
@@ -2355,9 +2381,7 @@ const pineDesignerBody = (() => {
       const face = recipe.face || {};
       const eyes = face.eyes || 'classic',
         brows = face.brows || 'classic';
-      const nose = face.nose || 'classic',
-        mouth = face.mouth || 'classic';
-      const liftedCorners = animated && ['smile', 'soft-smile', 'small', 'classic', 'bow', 'full'].includes(mouth);
+      const nose = face.nose || 'classic', mouth = mouthName;
       // The close portrait has a softer cheek-to-chin transition. Keep the
       // recipe's jaw width, eye spacing, nose style and calibrated mouth height.
       function contourWidth(h) {
@@ -2372,8 +2396,7 @@ const pineDesignerBody = (() => {
       const surface = roundedHead || !b.faceDetail ? faceFront : portraitFront;
       const eyeStyle = pinePortraitStyles.eyes[eyes],
         browStyle = pinePortraitStyles.brows[brows],
-        noseStyle = pinePortraitStyles.noses[nose],
-        lipStyle = pinePortraitStyles.mouths[mouth];
+        noseStyle = pinePortraitStyles.noses[nose];
       const skinDetails = face.complexion || face.facialHair || face.makeup;
       const drawnEye = animationEye || (illustrated && pinePortraitStyles.illustratedEyeShape(eyes, style, infantFace));
       const acting = facialActing && pineGameFace.expression(recipe.base, face, pose.faceCue, pose.jawOpen, portraitInk);
@@ -2576,11 +2599,6 @@ const pineDesignerBody = (() => {
         frontX = cx + (headShape ? 1.38 : roundedHead ? 1.1 : 1) * rx;
       const headHalf = faceOutline ? 1.22 * ry : 1.075 * ry;
       const jawFrame = articulatedJaw && pose.jawLocal;
-      const lipWidth = lipStyle?.[1] ?? ({ small: 0.184, full: animated ? 0.303 : 0.284, smile: 0.309 }[mouth] ?? 0.263);
-      const lipLift = lipStyle?.[4] ?? (mouth === 'smile' ? 0.102 : 0.034);
-      const drawnMouth = animated && (lipStyle ? [...lipStyle] :
-        ['', lipWidth, mouth === 'full' ? 0.122 : 0.063, mouth === 'full' ? 0.135 : 0.069, lipLift, 0.36, 0]);
-      if (liftedCorners) drawnMouth[4] = 0.036 + 0.59 * lipLift;
       const inkMouth = portraitInk && pineGameFace.mouthBrush(recipe.base,featureGuide,mouth,drawnMouth,upperLipScale,lowerLipScale,acting);
       const lipHalf = (inkMouth ? inkMouth.width : lipWidth) * lipSpan * (1 + 0.13 * (pose.jawOpen || 0));
       if (headShape && !adjustableJaw) {
@@ -2727,7 +2745,7 @@ const pineDesignerBody = (() => {
           }
           // Coordinates along the curved lid, in its local tangent plane. At a
           // profile view the iris recedes behind the cornea and outer canthus.
-          const eyeOff = (gameFace ? off - .16 * (faceFront(y,eyeZ)-eyeX) : modelAnatomy && pixelPortrait ? .86 * off - .085 * (faceFront(y,z)-eyeX) : pixelPortrait ? .99 * off - .075 * (faceFront(y,z)-eyeX) : animated ? 0.93 * off - 0.37 * (faceFront(y, z) - eyeX) : off) / eyeSpan;
+          const eyeOff = (layout ? off : gameFace ? off - .16 * (faceFront(y,eyeZ)-eyeX) : modelAnatomy && pixelPortrait ? .86 * off - .085 * (faceFront(y,z)-eyeX) : pixelPortrait ? .99 * off - .075 * (faceFront(y,z)-eyeX) : animated ? 0.93 * off - 0.37 * (faceFront(y, z) - eyeX) : off) / eyeSpan;
           const lidZ = individual ? eyeZ + (z - eyeZ - eyeCant * eyeOff / (0.26 * ry)) / eyeOpen : z;
           const side = Math.sign(y),
             color = eyeInk(eyeOff, lidZ, side);
@@ -2763,7 +2781,7 @@ const pineDesignerBody = (() => {
         if (headShape) {
           if (gameFace) {
             const oralLight = inkMouth && localX > section.axis
-              ? inkMouth.surroundingLight((y-mouthY)/(ry*lipSpan),(z-mouthZ)/rz,skinShape.tip-mouthH) : 0;
+              ? inkMouth.surroundingLight((y-mouthY)/(ry*lipSpan),(z-mouthZ)/rz,(layout ? skinShape.noseBase : skinShape.tip)-mouthH) : 0;
             return pineGameFace.skin(skinShape,section,localX,lateral,h,eyeLevel,infant,k,planeMaterials,paintedFeatures,facialActing,oralLight);
           }
           const dx = localX - section.axis;

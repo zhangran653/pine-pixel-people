@@ -950,11 +950,16 @@ function checkInfantProfilePair() {
     if (documentPair().toString()!==edited.toString()) throw Error('the chosen chin, clothes and comparison must round-trip');
     choose('infant-nose','nursery');
     $('try-ink').click();
+    const surface = JSON.parse(documentPair().get('character'));
+    if (surface.faceSurface!=='linked' || $('edit-face-surface').value!=='linked') throw Error('linked face structure missing from the trial');
+    choose('face-surface','original');
+    if (documentPair().get('character')!==JSON.stringify(PineLooks.withoutFaceSurface(surface))) throw Error('changing the surface edited the recipe');
+    choose('face-surface','linked');
     choose('infant-chin','pad');choose('portrait-ink','line');
     $('tab-wear').click();choose('clothing-cut','cut');choose('clothing-cut','patterns');
     $('tab-face').click();choose('infant-nose','prior');
     const ink = JSON.parse(documentPair().get('character'));
-    if (ink.portraitInk!=='line' || ink.infantNose || $('edit-infant-chin').value!=='pad')
+    if (ink.portraitInk!=='line' || ink.faceSurface!=='linked' || ink.infantNose || $('edit-infant-chin').value!=='pad')
       throw Error('nose, chin, clothes and brush must be independently editable');
     choose('infant-nose','nursery');$('random-face').click();
     const rerolled = JSON.parse(documentPair().get('character'));

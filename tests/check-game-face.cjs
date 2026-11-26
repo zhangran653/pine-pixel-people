@@ -527,11 +527,13 @@ function checkPortraitBrushes(cast) {
     const doc = looks.randomCharacter(options), ready = looks.prepare(toPlain(doc)).recipe;
     assert.deepEqual(doc,looks.randomCharacter(options));
     assert.equal(ready.portraitInk,doc.portraitInk);
+    assert.equal(ready.faceSurface,'linked');
     if (base === 'baby') assert.equal(ready.infantNose,'nursery');
     const again = looks.randomCharacter({...options, source:ready,locks:['wear','body','skin','hair']});
     assert.deepEqual(toPlain(again.parts),toPlain(ready.parts));
     assert.equal(again.colors.skin,ready.colors.skin);
     assert.equal(again.colors.hair,ready.colors.hair);
+    assert.equal(again.faceSurface,'linked');
     if (base !== 'baby') assert.notEqual(again.face.form,ready.face.form);
     faces.add(doc.face.form); rests.add(doc.face.restExpression); finishes.add(doc.portraitInk);
   }
@@ -565,6 +567,24 @@ function checkPortraitBrushes(cast) {
   const doc = looks.withPortraitInk(examples.adult,'line');
   assert.throws(()=>looks.prepare({...doc,portraitInk:'unknown'}));
   assert.throws(()=>looks.prepare({...doc,packs:{[looks.core]:looks.chinPadRelease}}));
+  assert.throws(()=>looks.prepare({...doc,faceSurface:'unknown'}));
+  assert.throws(()=>looks.prepare({...looks.withoutPortraitInk(doc),faceSurface:'linked'}));
+  assert.equal(looks.randomCharacter({source:doc,seed:2602}).faceSurface,undefined);
+  assert.equal(looks.randomFace(doc,{seed:2602}).faceSurface,undefined);
+  const linked = looks.randomCharacter({base:'adult',seed:2601,ink:'auto'});
+  const oldLayout = looks.withoutFaceSurface(linked);
+  assert.deepEqual(toPlain(looks.withFaceSurface(oldLayout)),toPlain(linked));
+  const bake = (recipe,key,value) => {
+    const a = looks.build({...recipe,shape:{...recipe.shape,[key]:value}});
+    const pose = motion.actions.get('idle').sample(.17,a)[0].pose;
+    return mask(motion.figureLayers(a,pose,a.body.makePose(pose)).at(-1).model.colors);
+  };
+  // Only the opaque head cells count. Moving colour over an identical face
+  // cannot pass the test for a responsive orbital socket or dental arch.
+  for (const [field,lo,hi] of [['eyeSpacing',.9,1.1],['eyeWidth',-.6,.6],['mouthWidth',-.6,.6]]) {
+    assert.equal(bake(oldLayout,field,lo),bake(oldLayout,field,hi),'original surface at '+field);
+    assert.notEqual(bake(linked,field,lo),bake(linked,field,hi),'linked surface at '+field);
+  }
   console.log('Four ages, 128 repeatable brush recipes, independent infant nose and chin, locks, moving cells and Three.js passed');
 }
 
