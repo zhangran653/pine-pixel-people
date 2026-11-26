@@ -732,7 +732,8 @@ const pineDesignerBody = (() => {
     const crown = fitCrown(headShape?.crown, fittedRatios ? shape.crownHeight ?? 1 : 1);
     const crownHeight = (h) => (crown ? crown.raise(h) : h);
     const sliceHeight = (h) => (crown ? crown.lower(h) : h);
-    const downHair = infant && ['crop', 'crew', 'curly'].includes(parts.hair);
+    const nurseryStyle = infant && pineInfantHair.styles[parts.hair];
+    const downHair = infant && (nurseryStyle || ['crop', 'crew', 'curly'].includes(parts.hair));
     const modelHair = tailored && !hasHat && !infant && pineShortHair.modelCut(parts.hair, headKind);
     const shortHair = modelHair || (sculptedHead && !downHair
       ? pineShortHair.get(parts.hair, headKind, hasHat, layeredHair, refitNape, !!planes) : null);
@@ -935,7 +936,21 @@ const pineDesignerBody = (() => {
       return strokes;
     }
     const modelCurls = downHair && parts.hair === 'curly' && tailored && !hasHat;
-    const wisps = downHair ? (animated && knitBand ? [] : modelCurls ? infantCurls() : infantLocks(parts.hair)) : null;
+    function nurseryScalpPoint(polar,bearing,lift) {
+      const h=Math.cos(polar), row=skinShape.row(h), u=Math.cos(bearing), v=Math.sin(bearing);
+      const forward=u<0 ? row.axis+row.rear*u : skinShape.frontAt(row,v);
+      return [fit.x+fit.rx*posterior.fit(forward+lift*u,h),
+        fit.ry*v*(row.width*breadthScale(h)+lift), fit.z+fit.rz*(crownHeight(h)+lift*h)];
+    }
+    function nurseryForelockPoint(side,h,lift) {
+      const row=skinShape.row(h);
+      const v=clamp(side/(row.width*breadthScale(h)),-.98,.98);
+      return [fit.x+fit.rx*(posterior.fit(skinShape.frontAt(row,v),h)+lift),
+        fit.ry*v*row.width*breadthScale(h),fit.z+fit.rz*crownHeight(h)];
+    }
+    const puffs = nurseryStyle && parts.hair==='baby-puffs' && !hasHat ? pineInfantHair.puffs(nurseryScalpPoint,fit) : null;
+    const wisps = nurseryStyle ? pineInfantHair.strands(parts.hair,nurseryScalpPoint,nurseryForelockPoint,hasHat) :
+      downHair ? (animated && knitBand ? [] : modelCurls ? infantCurls() : infantLocks(parts.hair)) : null;
     function faceFront(y, z) {
       const h = sliceHeight((z - fit.z) / fit.rz);
       if (headShape) {
@@ -1138,6 +1153,13 @@ const pineDesignerBody = (() => {
         materials.fineHairLight = tint(materials.hair, materials.lock7, 0.70);
         materials.fineHairMid = tint(materials.hair, materials.lock5, 0.34);
       }
+    }
+    if (nurseryStyle) {
+      const base=tint(materials.foreheadSkin,materials.hair,nurseryStyle.pigment);
+      materials.fineHairMid=base;
+      materials.fineHairLight=tint(base,'f7dbc0',.22);
+      materials.fineHairRoot=tint(base,'2d2430',.30);
+      materials.nurseryDown=tint(materials.foreheadSkin,materials.hair,nurseryStyle.cap ? .40 : .24);
     }
     if (gameFace) pineGameFace.palette(materials, recipe.colors, tint, paintedFeatures, faceInk);
     if (softPixels && !recipe.colors.lip) {
@@ -3273,14 +3295,31 @@ const pineDesignerBody = (() => {
             return h < edge + 0.14 || (v > 0.54 && h < 0.55) ? k.fineHairRoot : k.fineHairMid;
           });
       }
+      if (nurseryStyle?.cap && !hasHat) {
+        // The fitted undercoat holds neighbouring locks together. Its high,
+        // scalloped hairline leaves the brows and ears readable at game size.
+        b.stamp(cx-1.5*rx,cx+1.45*rx,-1.2*ry,1.2*ry,cz-.12*rz,cz+crownHeight(1.07)*rz,(x,y,z)=>{
+          const h=sliceHeight((z-cz)/rz)/1.043;
+          if (h>=1) return 0;
+          const row=skinShape.row(h), u=(posterior.unfit((x-cx)/rx,h)-row.axis)/1.035;
+          const v=y/(ry*breadthScale(h)*1.045), angle=Math.atan2(v,u);
+          const edge=pineInfantHair.capEdge(parts.hair,angle);
+          if (h<edge || !skinShape.insideSkin(row,row.axis+u,v)) return 0;
+          const strand=Math.cos(7*angle+3*h+1.5*Math.sin(angle-h));
+          if (strand<-.78 || h<edge+.05) return k.fineHairRoot;
+          return strand>.52 && v<.50 && h>.48 ? k.fineHairLight : k.fineHairMid;
+        });
+      }
       if (wisps) {
-        const tones = [k.fineHairLight, k.fineHairMid, k.fineHairRoot];
+        const tones = [k.fineHairLight, k.fineHairMid, k.fineHairRoot, k.nurseryDown];
         const wispRadii = [0.019, 0.034, 0.038, 0.027, 0.010];
         for (const { points, shade, radii = wispRadii } of wisps) {
           for (let j = 1; j < points.length; j++)
             b.link(points[j - 1], points[j], radii[j - 1] * ry, radii[j] * ry, 1, () =>
               gameFace && modelCurls && j>=2 && j<=4 && shade!==2 ? (shade===0 ? k.lock7 : k.lock5) : tones[shade]);
         }
+        if (puffs) for (const tuft of puffs)
+          b.blob(...tuft.center,...tuft.size,tones[tuft.tone]);
       } else if (hairStyle?.shave !== 'bare')
         b.stamp(
           cx - (headShape ? 1.56 : surfaceDetails ? 1.48 : roundedHead ? 1.4 : 1.12) * rx,
@@ -3597,6 +3636,7 @@ const pineDesignerBody = (() => {
           ...(jawContour ? ['jawPlane0', 'jawPlane1', 'jawPlane2'] : []),
           ...(headShape ? ['underJaw', 'templeSkin', 'foreheadSkin', 'cheekLight', 'cheekWarm'] : []),
           ...(wisps ? ['fineHairLight', 'fineHairMid', 'fineHairRoot'] : []),
+          ...(nurseryStyle ? ['nurseryDown'] : []),
           'faceLight',
           'faceMid',
           'faceEdge',

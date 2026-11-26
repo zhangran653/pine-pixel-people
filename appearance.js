@@ -497,6 +497,8 @@ SOFTWARE.`;
     const next = JSON.parse(JSON.stringify(recipe));
     next.base = base;
     next.gender = gender;
+    if (base !== 'baby' && pineInfantHair.styles[next.parts.hair])
+      next.parts.hair = pineInfantHair.styles[next.parts.hair].grown;
     if (base !== 'baby' && (recipe.infantChin === 'round' || recipe.packs[core] === release)) delete next.infantChin;
     if (base === 'baby' && recipe.base !== 'baby') {
       next.packs[core] = figurePin(recipe);
@@ -625,6 +627,11 @@ SOFTWARE.`;
   for (const [slot, options] of Object.entries(pineEverydayStyles.clothes))
     Object.assign(slots[slot], options);
   Object.assign(slots.hair, pineHairStyles.choices);
+  const sharedHair = {...slots.hair};
+  Object.assign(slots.hair, pineInfantHair.choices);
+  const hairGroups = {...pineHairStyles.groups};
+  for (const id of Object.keys(pineInfantHair.choices)) hairGroups[id]=pineInfantHair.group;
+  function hairOptions(base) { return base === 'baby' ? slots.hair : sharedHair; }
   for (const [slot, options] of Object.entries(pinePortraitStyles.features))
     Object.assign(features[slot], options);
   const faceDetails = pinePortraitStyles.details;
@@ -853,7 +860,8 @@ SOFTWARE.`;
     else if (usesExtendedShape(recipe.shape)) needed = proportionRelease;
     else if (recipe.gender !== undefined) needed = profileRelease;
     else if (needsNewCore(recipe.parts, recipe.face)) needed = styleRelease;
-    if (pineCollectionWardrobe.needsCurrentParts(recipe.parts) && releases.indexOf(needed) < releases.indexOf(release)) needed = release;
+    if ((pineCollectionWardrobe.needsCurrentParts(recipe.parts) || Object.hasOwn(pineInfantHair.choices,recipe.parts.hair)) &&
+      releases.indexOf(needed) < releases.indexOf(release)) needed = release;
     return releases.indexOf(pin) >= releases.indexOf(needed) ? pin : needed;
   }
   const colors = {
@@ -1072,6 +1080,7 @@ SOFTWARE.`;
       );
       parts[slot] = raw.parts[slot];
     }
+    requireThat(Object.hasOwn(hairOptions(raw.base),parts.hair),'这个发型仅适用于婴儿');
     for (const [slot, values] of Object.entries(wearables)) {
       if (!Object.hasOwn(raw.parts, slot)) continue;
       requireThat(
@@ -1660,7 +1669,8 @@ SOFTWARE.`;
   }
   const naturalHairDyes = ['墨黑', '深棕', '栗棕', '铜红', '蜜金', '银灰', '乌木黑', '巧克力',
     '焦糖棕', '栗红', '亚麻金', '浅铂金', '赤铜', '浅灰白'].map((name) => hairColors[name]);
-  const babyHair = ['bald', 'crop', 'curly', 'crew'];
+  const legacyBabyHair = ['bald', 'crop', 'curly', 'crew'];
+  const babyHair = [...legacyBabyHair,...Object.keys(pineInfantHair.choices)];
   const profileDraws = ['female', 'male', 'child', 'female', 'male', 'toddler', 'female', 'male', 'child', 'baby'];
   const bodySizes = ['height', 'shoulders', 'arms', 'legs'];
 
@@ -1730,7 +1740,7 @@ SOFTWARE.`;
   const toddlerHair = ['crop', 'curly', 'bob', 'pixie', 'twin-tails', 'side-part', 'tapered-coils', 'french-bob', 'crew'];
   // Leave headroom for crowns and brims; low braids and long side lengths still fit.
   const brimHair = new Set(['crop', 'crew', 'fade', 'buzz', 'bald', 'pixie', 'bob', 'side-part', 'curly',
-    'braid', 'twin-braids', 'low-bun', 'shoulder-length', 'lob', 'box-braids', 'locs', 'french-bob']);
+    'braid', 'twin-braids', 'low-bun', 'shoulder-length', 'lob', 'box-braids', 'locs', 'french-bob', ...Object.keys(pineInfantHair.choices)]);
   function tailoredOutfit(donor, lockedHair, random, sewn) {
     // Retain complete specialist outfits (and their matching equipment) among everyday looks.
     const keepDonor = random() < (donor.base === 'adult' ? 0.42 : 0.22);
@@ -1759,8 +1769,13 @@ SOFTWARE.`;
     ['bun','low-bun','top-knot','crown-braid','space-buns'],
     ['ponytail','twin-tails','low-pony','side-pony','braid','twin-braids','fishtail','bubble-pony','box-braids','locs']
   ];
-  function randomHair(base, hat, tailored, random, ink, previousHair) {
-    let choices = base === 'baby' ? babyHair : Object.keys(slots.hair);
+  function randomHair(base, hat, tailored, random, ink, previousHair, modernNursery) {
+    if (base==='baby' && modernNursery) {
+      const pool=hat==='none' ? babyHair : ['bald','crop','baby-sweep','baby-cloud','baby-whorl'];
+      const available=pool.filter(id=>id!==previousHair);
+      return pick(available,random);
+    }
+    let choices = base === 'baby' ? legacyBabyHair : Object.keys(sharedHair);
     if (tailored && base === 'toddler') choices = toddlerHair;
     if (tailored && hat !== 'none') choices = choices.filter(id => brimHair.has(id));
     if (ink) {
@@ -2018,8 +2033,13 @@ SOFTWARE.`;
     const tailored = pinePortraitStyles.hasTailoredFigure(pin);
     requireThat(base === undefined || Object.values(bodyProfiles).some(profile => profile.base === base), '未知年龄基型');
     requireThat(base === undefined || !keep.has('body') || base === source.base, '指定年龄与锁定的体型不一致');
-    let profiles = base === undefined && keep.has('hair') && !babyHair.includes(source.parts.hair)
-      ? profileDraws.filter((key) => key !== 'baby') : profileDraws;
+    let profiles = profileDraws;
+    if (keep.has('hair')) {
+      const nurseryOnly=Object.hasOwn(pineInfantHair.choices,source.parts.hair);
+      requireThat(!nurseryOnly || base===undefined || base==='baby','锁定的发型仅适用于婴儿');
+      if (nurseryOnly) profiles=['baby'];
+      else if (base===undefined && !babyHair.includes(source.parts.hair)) profiles=profiles.filter(key=>key!=='baby');
+    }
     if (base !== undefined) profiles = profiles.filter(key => bodyProfiles[key].base === base);
     const profile = keep.has('body') ? source : bodyProfiles[pick(profiles, random)];
     const donor = pick(seedWardrobe.filter((doc) => doc.base === profile.base), random);
@@ -2036,7 +2056,12 @@ SOFTWARE.`;
       if (!source.spriteMouth) delete doc.spriteMouth;
     }
     doc.gender = profile.gender || 'unspecified';
-    doc.parts.hair = keep.has('hair') ? source.parts.hair : randomHair(profile.base, doc.parts.hat, tailored, random, doc.portraitInk, source?.parts.hair);
+    // Both original infant wardrobe donors wear a knit cap. An unlocked new
+    // person can wear it or show their hair; an explicit edition replays its original pool.
+    const nurseryPool = profile.base==='baby' && options.release===undefined;
+    const canUncover = nurseryPool && !tailored && !keep.has('wear') && doc.parts.hat!=='none';
+    doc.parts.hair = keep.has('hair') ? source.parts.hair : randomHair(profile.base, canUncover ? 'none' : doc.parts.hat,
+      tailored, random, doc.portraitInk, source?.parts.hair, nurseryPool);
     doc.colors.skin = keep.has('skin') ? source.colors.skin : pick(skinDyes, random);
     doc.colors.eyes = pick(Object.values(colorPresets.eyes), random);
     doc.colors.hair = keep.has('hair') ? source.colors.hair
@@ -2078,6 +2103,11 @@ SOFTWARE.`;
         else if (source.shape[key] === undefined) delete doc.shape[key];
         else doc.shape[key] = source.shape[key];
       }
+    }
+    if (canUncover && (['baby-sprout','baby-comma','baby-puffs'].includes(doc.parts.hair) || random()<.59)) {
+      doc.parts.hat='none';
+      doc.packs={ [core]:doc.packs[core] };
+      delete doc.embeddedPacks;
     }
     doc.id = seed === undefined ? newId() : seededLookId(doc, seed);
     doc.label = '新人物 ' + doc.id.slice(-5).toUpperCase();
@@ -2146,7 +2176,7 @@ SOFTWARE.`;
     gearColor,
     faceDetails,
     portraitColors: pinePortraitStyles.dyes,
-    hairGroups: pineHairStyles.groups,
+    hairGroups, hairOptions, nurseryHair: pineInfantHair.choices,
     applyOutfit,
     needsNewCore,
     shape, figureRatioRanges,

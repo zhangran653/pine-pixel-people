@@ -507,7 +507,14 @@ const skull = vm.runInContext('pineHeadShape', context);
       !['eyes', 'hair', 'skin'].includes(k) && !(k in styles.dyes)));
     return [parts, dyes].map((v) => Object.entries(v).sort(([a], [b]) => a.localeCompare(b)));
   };
-  const wardrobes = new Set([...looks.archivedTemplates.values()].map((doc) => JSON.stringify([doc.base, clothing(doc)])));
+  const wardrobes = new Set();
+  for (const doc of looks.archivedTemplates.values()) {
+    wardrobes.add(JSON.stringify([doc.base, clothing(doc)]));
+    if (doc.base === 'baby') {
+      const bareheaded = { ...doc, parts: { ...doc.parts, hat: 'none' } };
+      wardrobes.add(JSON.stringify([doc.base, clothing(bareheaded)]));
+    }
+  }
   function seeded(state) {
     return () => ((state = (Math.imul(state, 1664525) + 1013904223) >>> 0) / 4294967296);
   }
@@ -577,7 +584,7 @@ const skull = vm.runInContext('pineHeadShape', context);
     for (let i = 0; i < 64; i++) {
       const baby = looks.randomCharacter({ source: babySeed, locks: ['body'], style, random: babyRandom });
       assert.equal(baby.base, 'baby');
-      assert.ok(['bald', 'crop', 'curly', 'crew'].includes(baby.parts.hair));
+      assert.ok(['bald', 'crop', 'curly', 'crew'].includes(baby.parts.hair) || Object.hasOwn(looks.nurseryHair,baby.parts.hair));
       assert.ok(['', 'oval', 'round', 'pear'].includes(baby.face.outline || ''));
       assert.ok(!['aquiline', 'long'].includes(baby.face.nose) && baby.face.eyes !== 'deep-set');
       checkSpacing(baby);

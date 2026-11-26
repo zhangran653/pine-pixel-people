@@ -27,7 +27,7 @@ const builtins = [
   'pixel-headwear',
   'pixel-portrait',
   'portrait-styles',
-  'hair-styles',
+  'hair-styles', 'infant-hair',
   'head-sections',
   'skull-core', 'head-shape', 'game-face',
   'short-hair',

@@ -302,7 +302,9 @@ function checkInfantChin(cast) {
     assert.equal(looks.prepare(toPlain(doc)).recipe.infantChin,'round');
     const archived = looks.randomCharacter({base:'baby',seed,finish:'soft-pixel',release:looks.release});
     assert.equal(archived.infantChin,undefined);
-    for (const key of ['shape','parts','colors','face']) assert.deepEqual(doc[key],archived[key]);
+    for (const key of ['shape','colors','face']) assert.deepEqual(doc[key],archived[key]);
+    assert.deepEqual(toPlain({...doc.parts,hair:archived.parts.hair,hat:archived.parts.hat}),toPlain(archived.parts));
+    assert.ok(['bald','crop','curly','crew'].includes(archived.parts.hair));
     assert.equal(looks.randomFace(archived,{seed}).infantChin,'round');
     const full = looks.withInfantChinStyle(doc,'full'), restored = looks.withInfantChinStyle(full,'round');
     assert.equal(looks.prepare(full).recipe.packs[looks.core],looks.release);

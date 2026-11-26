@@ -84,10 +84,12 @@
     stamp = null,
     lastSample = -1,
     drag = null;
+  let previewBareHair = true;
+  const bareHairActors = new WeakMap();
   let hairGroup = '',
     comparisonSlot = 'eyes',
     paletteSlot = 'skin';
-  let hairAngle = 140,
+  let hairAngle = 140, nurseryAngle = 330,
     priorAngle = 24,
     swatchKey = '',
     swatchFrame = 0;
@@ -208,8 +210,20 @@
       const text = '试演搭档 · ' + label;
       if (line.textContent !== text) line.textContent = text;
     }
+    let previewActor = actor;
+    if (tab === 'hair' && draft.base === 'baby' && previewBareHair && draft.parts.hat !== 'none') {
+      if (!bareHairActors.has(actor)) {
+        const uncovered = {
+          ...draft, label: draft.label.trim() || '未命名形象',
+          parts: { ...draft.parts, hat: 'none' }, packs: { [looks.core]: draft.packs[looks.core] }
+        };
+        delete uncovered.embeddedPacks;
+        bareHairActors.set(actor, looks.build(uncovered));
+      }
+      previewActor = bareHairActors.get(actor);
+    }
     mirror.show({
-      actor,
+      actor: previewActor,
       compare: partner,
       action,
       u: phase,
@@ -1031,14 +1045,13 @@
   function paintHairCards(cards, stagger = false) {
     cancelAnimationFrame(swatchFrame);
     const headVersion = looks.hasRoundedHead(draft) ? draft.packs[looks.core] : looks.hairRelease;
-    const currentKey = JSON.stringify([
-      headVersion,
-      draft.base,
-      draft.gender,
-      draft.shape,
-      draft.face,
-      draft.colors
-    ]);
+    const { top, bottom, shoes } = draft.parts;
+    const mannequin = {
+      ...draft, label: draft.label.trim() || '未命名形象', packs: { [looks.core]: headVersion },
+      parts: { top, bottom, shoes, neck: 'none', hat: 'none' }
+    };
+    delete mannequin.embeddedPacks;
+    const currentKey = JSON.stringify(mannequin);
     if (swatchKey !== currentKey) {
       swatchKey = currentKey;
       swatchActors.clear();
@@ -1049,20 +1062,11 @@
       const canvas = button.querySelector('canvas');
       function draw() {
         if (!swatchActors.has(key)) {
-          const sample = {
-            ...looks.templates[0],
-            packs: { [looks.core]: headVersion },
-            base: draft.base,
-            gender: draft.gender ?? 'unspecified',
-            shape: draft.shape,
-            face: draft.face || looks.facePresets.classic.face,
-            colors: draft.colors,
-            parts: { ...looks.templates[0].parts, hair: key, neck: 'none', hat: 'none' }
-          };
+          const sample = { ...mannequin, packs: { ...mannequin.packs }, parts: { ...mannequin.parts, hair: key } };
           sample.packs[looks.core] = looks.editingRelease(sample);
           swatchActors.set(key, looks.build(sample));
         }
-        thumbnails.set(canvas, { actor: swatchActors.get(key), bearing: 140 });
+        thumbnails.set(canvas, { actor: swatchActors.get(key), bearing: draft.base === 'baby' ? bearing : 140 });
         paintThumbnail(canvas);
       }
       if (stagger && key !== draft.parts.hair) {
@@ -1153,8 +1157,9 @@
     filters.className = 'category-buttons';
     filters.setAttribute('role', 'group');
     filters.setAttribute('aria-label', '发型类别');
-    if (!hairGroup) hairGroup = looks.hairGroups[draft.parts.hair] || '短发';
-    for (const group of ['全部', '短发', '中长发', '束发', '卷发', '编发']) {
+    const groups = ['全部', ...(draft.base === 'baby' ? [pineInfantHair.group] : []), '短发', '中长发', '束发', '卷发', '编发'];
+    if (!groups.includes(hairGroup)) hairGroup = draft.base === 'baby' ? pineInfantHair.group : looks.hairGroups[draft.parts.hair];
+    for (const group of groups) {
       const b = document.createElement('button');
       b.type = 'button';
       b.textContent = group;
@@ -1168,7 +1173,7 @@
       filters.append(b);
     }
     area.append(slider('occiput'), filters, cards);
-    for (const [key, name] of Object.entries(looks.slots.hair)) {
+    for (const [key, name] of Object.entries(looks.hairOptions(draft.base))) {
       if (hairGroup !== '全部' && looks.hairGroups[key] !== hairGroup) continue;
       const button = document.createElement('button'),
         canvas = document.createElement('canvas');
@@ -1200,10 +1205,35 @@
       b.type = 'button';
       b.dataset.hairAngle = String(angle);
       b.textContent = name;
-      b.onclick = () => orbit(angle);
+      b.onclick = () => {
+        orbit(angle);
+        if (draft.base === 'baby') paintHairCards(cards, true);
+      };
       row.append(b);
     }
     area.insertBefore(row, filters);
+    if (draft.base === 'baby' && draft.parts.hat !== 'none') {
+      const hats = document.createElement('div'), title = document.createElement('span');
+      hats.className = 'hair-angles';
+      hats.setAttribute('role', 'group');
+      hats.setAttribute('aria-label', '帽子预览');
+      title.textContent = '帽子预览';
+      hats.append(title);
+      for (const [key, label] of [['off', '摘帽'], ['on', '戴帽']]) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.hairHat = key;
+        b.textContent = label;
+        b.setAttribute('aria-pressed', String(previewBareHair === (key === 'off')));
+        b.onclick = () => {
+          previewBareHair = key === 'off';
+          show();
+          for (const item of hats.querySelectorAll('button')) item.setAttribute('aria-pressed', String(item === b));
+        };
+        hats.append(b);
+      }
+      area.insertBefore(hats, filters);
+    }
     area.append(hairColorFields(cards));
     orientation();
     markPresets();
@@ -1432,7 +1462,7 @@
     garmentFields(clothing);
     for (const [slot, options] of Object.entries(looks.slots)) {
       clothing.append(
-        picker(names[slot], slot, Object.entries(options), draft.parts[slot], (v) => {
+        picker(names[slot], slot, Object.entries(slot==='hair' ? looks.hairOptions(draft.base) : options), draft.parts[slot], (v) => {
           draft.parts[slot] = v;
           if (slot === 'hair') hairGroup = looks.hairGroups[v];
         })
@@ -1505,13 +1535,31 @@
     area.append(button);
   }
   let randomOrigin = null;
+  function syncHairAge(previousBase) {
+    const baby = draft.base === 'baby';
+    hairGroup = baby ? pineInfantHair.group : looks.hairGroups[draft.parts.hair];
+    if (baby === (previousBase === 'baby')) return;
+    if (tab === 'hair') {
+      if (baby) {
+        hairAngle = bearing;
+        bearing = nurseryAngle;
+      } else {
+        nurseryAngle = bearing;
+        bearing = hairAngle;
+      }
+      orientation();
+    }
+    if (queryField.value.trim()) searchStyles();
+  }
   function activate(doc, key, isSaved, keepId = false, resetEdits = true) {
     if (resetEdits) edits.clear();
     previousEdit = null;
     randomOrigin = null;
     $('undo-random').hidden = true;
+    const previousBase = draft?.base;
     draft = clone(doc);
-    hairGroup = looks.hairGroups[draft.parts.hair] || '短发';
+    previewBareHair = true;
+    syncHairAge(previousBase);
     if (!isSaved && !keepId) draft.id = looks.newId();
     saved = isSaved;
     dirty = false;
@@ -1693,10 +1741,10 @@
     const next = b.dataset.tab;
     if (next === 'hair' && tab !== 'hair') {
       priorAngle = bearing;
-      bearing = hairAngle;
+      bearing = draft.base==='baby' ? nurseryAngle : hairAngle;
     }
     if (next !== 'hair' && tab === 'hair') {
-      hairAngle = bearing;
+      if (draft.base==='baby') nurseryAngle=bearing; else hairAngle=bearing;
       bearing = priorAngle;
     }
     if (next === 'face' && tab !== 'face') {
@@ -1730,7 +1778,9 @@
   for (const b of document.querySelectorAll('[data-body-profile]'))
     b.onclick = () => {
       if (looks.bodyProfileOf(draft) === b.dataset.bodyProfile) return;
+      const previousBase = draft.base;
       draft = looks.withBodyProfile(draft, b.dataset.bodyProfile);
+      if ((previousBase === 'baby') !== (draft.base === 'baby')) syncHairAge(previousBase);
       changed();
       fields();
     };
@@ -1958,7 +2008,7 @@
             : Object.hasOwn(looks.wearables, slot) || slot === 'neck'
               ? '配饰 配件'
               : '服饰 衣物';
-      for (const [id, label] of Object.entries(options))
+      for (const [id, label] of Object.entries(slot==='hair' ? looks.hairOptions(draft.base) : options))
         collect(slot, id, label, dest, names[slot], slot === 'hair' ? looks.hairGroups[id] : category);
     }
     for (const pack of looks.catalog.values()) {
@@ -2195,7 +2245,7 @@
     if (/^[0-9a-f]{6}$/i.test(value || '') && '#' + value.toLowerCase() !== draft.colors[key])
       dyes[key] = '#' + value.toLowerCase();
   }
-  const changeHair = Object.hasOwn(looks.slots.hair, requestedHair) && requestedHair !== draft.parts.hair;
+  const changeHair = Object.hasOwn(looks.hairOptions(draft.base), requestedHair) && requestedHair !== draft.parts.hair;
   const removeHat = query.get('hat') === 'none' && draft.parts.hat !== 'none';
   if (changeHair) {
     draft.parts.hair = requestedHair;

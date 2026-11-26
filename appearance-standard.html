@@ -147,14 +147,17 @@
         </table>
         <h2>试穿与身高参照</h2>
         <p>
-          在「默认体型」选女、男、儿童、幼儿或婴儿后，可以单独调整身高、肩宽与四肢比例。切换体型会保留这些滑杆的相对值，以及角色的五官、发型、衣服和配色。
+          在「默认体型」选女、男、儿童、幼儿或婴儿后，可以单独调整身高、肩宽与四肢比例。切换体型会保留这些滑杆的相对值，以及角色的五官、衣服和配色。通用发型随角色保留，婴儿专属发型在更换年龄时转换成相近的通用发型。
           两个成人样本使用相同身高、短发和短袖长裤，拖动镜头可以并排观察肩线、腰胯和侧面厚度。
           <a href="atelier.html?preset=look_body_female&amp;compare=look_body_male&amp;tab=shape"
             >打开同装对照</a
           >
         </p>
+        <h3 id="nursery-hair">婴儿专属发型</h3>
+        <p>使用 <code>PineLooks.hairOptions(base)</code> 获取该年龄可选的发型，<code>PineLooks.nurseryHair</code> 给出六款专属造型的 ID 和名称。<code>parts.hair</code> 可取 <code>baby-sprout</code>（头顶小软翘）、<code>baby-comma</code>（额前逗号卷）、<code>baby-sweep</code>（偏分细软刘海）、<code>baby-cloud</code>（云朵短卷）、<code>baby-whorl</code>（旋儿胎发）或 <code>baby-puffs</code>（双簇小绒团）。它们使用 <code>base: "baby"</code>、<code>pine-core</code> 1.18.0 或更新的绘制版本和共用色槽 <code>colors.hair</code>。</p>
+        <p>普通随机婴儿可以抽到六种造型。锁定这类发型时会同时限定婴儿年龄，传入明确的旧版 <code>release</code> 可以重放原先的随机发型池。发束在头部坐标中取样，播放爬行、抱起或转头时随头移动。编辑器的摘帽预览只改变镜子，导出的配方记录实际穿戴的帽子。<a href="atelier.html?preset=look_dawn_baby&amp;tab=hair">试穿婴儿发型</a> · <a href="studies/pixel-structure/infant-hairstyles.webp">多角度与发色样张</a></p>
         <p>
-          「发型」面板提供 42 款发型、20 种预设发色与自定义取色器，可按短发、中长发、束发、卷发、编发筛选。披肩长发等款式从 pine-core 1.4.0 起可用。
+          「发型」面板提供 42 款通用发型、6 款婴儿专属发型、20 种预设发色与自定义取色器，可按短发、中长发、束发、卷发、编发筛选。披肩长发等款式从 pine-core 1.4.0 起可用。
           披肩长发（<code>shoulder-length</code>）、长波浪（<code>long-waves</code>）、半扎长发（<code>half-up</code>）、
           双麻花辫（<code>twin-braids</code>）与偏分短发（<code>side-part</code>）均可用于成人和儿童。单独修改发色可沿用存档的基础部件版本。
           <a href="atelier.html?preset=look_body_female&amp;tab=hair&amp;hair=shoulder-length"
@@ -439,7 +442,7 @@ PineWardrobe.save(portrait);</code></pre>
         <h2 id="collection">基础部件 1.8.0 的外观目录</h2>
         <p>
           这一版有 28 个可选部位、263 款外观。查询 <code>PineLooks.features</code> 可取得四项基本五官的名称和 ID，<code>PineLooks.faceDetails</code> 列出五项可叠加的脸部细节。
-          <code>PineLooks.slots</code> 与 <code>PineLooks.wearables</code> 列出穿戴部位，内置帽子和扩展包帽子从 <code>PineLooks.catalog</code> 读取。发型分类见 <code>PineLooks.hairGroups</code>。
+          <code>PineLooks.slots</code> 与 <code>PineLooks.wearables</code> 列出穿戴部位，内置帽子和扩展包帽子从 <code>PineLooks.catalog</code> 读取。发型分类见 <code>PineLooks.hairGroups</code>，按年龄提供选项时使用 <code>PineLooks.hairOptions(base)</code>。
         </p>
         <p>
           七个基础色槽仍为必填。<code>colors.brow</code>、<code>beard</code> 省略时随发色，<code>leftEye</code> 省略时两眼共用 <code>eyes</code>。

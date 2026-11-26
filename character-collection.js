@@ -326,10 +326,10 @@ const pineCharacterCollection = (() => {
     head:'pip',build:'small',hair:'crew',palette:palette('sienna','sable','espresso','cf8b62','66817b','c49a72','edd4a2'),
     wear:{top:'quilt-jacket',bottom:'bib-overalls',shoes:'strap-sneakers'},traits:{brows:'fine',eyes:'round'},sculpt:{height:.96}});
   add('modern','dawn_baby','晨光棉衣宝宝','baby','home',['home'],{
-    head:'acorn',build:'baby',hair:'crew',palette:palette('peach','walnut','umber','84aa9b','897b78','be9a74','e5c99c'),
+    head:'acorn',build:'baby',hair:'baby-sprout',palette:palette('peach','walnut','umber','84aa9b','897b78','be9a74','e5c99c'),
     wear:{top:'quilt-jacket',bottom:'knee-pants',shoes:'soft-booties'},traits:{mouth:'small',brows:'short-brow'},dyes:{brow:'#715341'},sculpt:{eyeSpacing:1.05,chinRoundness:.54}});
   add('modern','rain_baby','听雨宝宝','baby','home',['home','town'],{
-    head:'clover',build:'small',hair:'curly',palette:palette('umber','espresso','espresso','8ca6b5','646c87','ae8b6d','dec7a5'),
+    head:'clover',build:'small',hair:'baby-cloud',palette:palette('umber','espresso','espresso','8ca6b5','646c87','ae8b6d','dec7a5'),
     wear:{top:'snap-knit',bottom:'joggers',shoes:'soft-booties'},traits:{eyes:'doe-eye',mouth:'relaxed'},sculpt:{chinRoundness:.49}});
   add('historic','woodblock_printer','木版年画师','female','craft',['workshop','stage'],{
     head:'linden',build:'compact',hair:'crown-braid',palette:palette('olive','ink','moss','945950','515465','795749','ddbc7a'),
@@ -401,7 +401,7 @@ const pineCharacterCollection = (() => {
     head:'pip',build:'small',hair:'curly',palette:palette('amber','espresso','amber','8f94b0','677887','b89573','e4c48d'),
     wear:{top:'deck-jumper',bottom:'bib-overalls',shoes:'soft-booties'},traits:{eyes:'round',brows:'arched',nose:'short'}});
   add('scifi','nursery_baby','温室舱宝宝','baby','home',['station','home'],{
-    head:'clover',build:'baby',hair:'bald',palette:palette('sand','fawn','umber','95b9ad','7c8e9d','bea185','e4d6ac'),
+    head:'clover',build:'baby',hair:'baby-comma',palette:palette('sand','fawn','umber','95b9ad','7c8e9d','bea185','e4d6ac'),
     wear:{top:'quilt-jacket',bottom:'capris',shoes:'soft-booties'},traits:{eyes:'soft-oval',mouth:'bow'},sculpt:{chinRoundness:.55}});
 
   add('modern','winter_runner','冬训小跑手','child','learning',['school','wild'],{

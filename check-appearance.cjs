@@ -29,7 +29,7 @@ const sources = [
   'pixel-headwear',
   'pixel-portrait',
   'portrait-styles',
-  'hair-styles',
+  'hair-styles', 'infant-hair',
   'head-sections',
   'skull-core', 'head-shape', 'game-face',
   'short-hair',
@@ -1014,6 +1014,42 @@ assert.ok(
   'a wide jumping pose loses full-body detail'
 );
 const addedHair = ['shoulder-length', 'long-waves', 'half-up', 'twin-braids', 'side-part'];
+// A nursery cut is a real volume in the head frame. Changing age must also
+// produce a wearable recipe, including after a locked roll or a JSON transfer.
+{
+  const source=clone(a.l.templateById.get('look_dawn_baby'));
+  const without={...source,parts:{...source.parts,hair:'bald'}};
+  const bare=a.l.build(without), shapes=new Set(), poses=new Set();
+  const ids=Object.keys(a.l.nurseryHair), rolls=new Set(), hatted=new Set();
+  for (let seed=0;seed<96;seed++) {
+    const roll=a.l.randomCharacter({base:'baby',seed});
+    if (roll.parts.hat==='none') rolls.add(roll.parts.hair); else hatted.add(roll.parts.hair);
+    if (seed<8) assert.deepEqual(clone(roll),clone(a.l.randomCharacter({base:'baby',seed})));
+  }
+  assert.ok(hatted.size>1);
+  for (const hair of ids) {
+    assert.ok(rolls.has(hair),'ordinary infant rolls never show '+hair);
+    const doc={...source,parts:{...source.parts,hair}};
+    const portable=a.l.prepare(doc).recipe;
+    assert.deepEqual(clone(b.l.prepare(clone(portable)).recipe),clone(portable));
+    const actor=a.l.build(doc);
+    assert.deepEqual(actor.sockets,bare.sockets);
+    const frame=digest(actor,a.m);
+    assert.notEqual(frame,digest(bare,a.m));
+    shapes.add(frame); poses.add(digest(actor,a.m,'crawl',.51));
+    assert.notEqual(frame,digest(a.l.build({...doc,colors:{...doc.colors,hair:'#c19968'}}),a.m));
+    const locked=a.l.randomCharacter({source:doc,locks:['hair'],seed:9});
+    assert.equal(locked.base,'baby'); assert.equal(locked.parts.hair,hair);
+    assert.throws(()=>a.l.randomCharacter({source:doc,base:'adult',locks:['hair'],seed:9}),/婴儿/);
+    for (const profile of ['female','child','toddler']) {
+      const next=a.l.withBodyProfile(doc,profile);
+      assert.ok(!Object.hasOwn(a.l.nurseryHair,next.parts.hair));
+      assert.equal(a.l.prepare(next).recipe.colors.hair,source.colors.hair);
+      assert.throws(()=>a.l.prepare({...next,parts:{...next.parts,hair}}),/婴儿/);
+    }
+  }
+  assert.equal(shapes.size,ids.length); assert.equal(poses.size,ids.length);
+}
 const schemaHair = json('character-v1.schema.json').properties.parts.properties.hair.enum;
 assert.deepEqual([...Object.keys(a.l.slots.hair)].sort(), schemaHair.sort());
 for (const pin of [a.l.originalRelease, a.l.styleRelease, a.l.profileRelease, a.l.proportionRelease]) {
@@ -1089,12 +1125,11 @@ for (const base of ['child', 'adult']) {
     }
   }
   for (const [slot, choices] of Object.entries(a.l.slots)) {
-    const drawings = new Set(
-      Object.keys(choices).map((value) =>
-        digest(a.l.build({ ...current, base, parts: { ...first.parts, [slot]: value } }), a.m)
-      )
-    );
-    assert.equal(drawings.size, Object.keys(choices).length, base + ' · ' + slot);
+    const permitted=Object.keys(slot==='hair' ? a.l.hairOptions(base) : choices);
+    const drawings = new Set(permitted.map(value =>
+      digest(a.l.build({ ...current, base, parts: { ...first.parts, [slot]: value } }), a.m)
+    ));
+    assert.equal(drawings.size, permitted.length, base + ' · ' + slot);
   }
 }
 const examples = ['chorus-child', 'relay-child'].map((name) => json('packs/' + name + '.json')),

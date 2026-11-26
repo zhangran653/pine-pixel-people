@@ -152,7 +152,7 @@ function checkEditor() {
     byId('tab-hair').click();
     document.querySelector('[data-hair-group="全部"]').click();
     const cards = [...document.querySelectorAll('[data-hair-style]')];
-    expect(cards.length === Object.keys(PineLooks.slots.hair).length, 'missing hairstyle swatches');
+    expect(cards.length === Object.keys(PineLooks.hairOptions('adult')).length, 'missing age-appropriate hairstyle swatches');
     for (const button of cards) {
       const c = button.querySelector('canvas');
       expect(
@@ -1072,6 +1072,44 @@ function checkLibrary() {
     out.textContent = 'Paginated gallery, series navigation, nine facets, named item search, outfits and editable saved metadata passed';
   } catch (error) { out.dataset.state = 'fail'; out.textContent = error.stack; }
 }
+function checkInfantHair() {
+  const $=id=>document.getElementById(id), out=$('qa-result');
+  const check=(ok,reason)=>{ if(!ok) throw Error(reason); };
+  const recipe=()=>{
+    $('figure-link').dispatchEvent(new Event('focus'));
+    return JSON.parse(new URLSearchParams(new URL($('figure-link').href).hash.slice(1)).get('character'));
+  };
+  try {
+    const ids=Object.keys(PineLooks.nurseryHair), cards=()=>[...document.querySelectorAll('[data-hair-style]')];
+    check(cards().length===ids.length && cards().every(b=>ids.includes(b.dataset.hairStyle)),'infant tab opens on six exclusive swatches');
+    document.querySelector('[data-hair-style=baby-puffs]').click();
+    const original=recipe(), bare=$('mirror').toDataURL();
+    document.querySelector('[data-hair-hat=on]').click();
+    check($('mirror').toDataURL()!==bare && recipe().parts.hat===original.parts.hat,'hat comparison did not preserve the costume');
+    document.querySelector('[data-hair-hat=off]').click();
+    document.querySelector('[data-hair-angle="180"]').click();
+    document.querySelector('[data-hair-style=baby-whorl]').click();
+    const dye=document.querySelector('[data-hair-color="#82513b"]');
+    dye.click(); $('save-look').click();
+    const d=recipe();
+    check(d.parts.hair==='baby-whorl' && d.colors.hair==='#82513b' && d.parts.hat===original.parts.hat &&
+      PineWardrobe.saved.get(d.id)?.parts.hair===d.parts.hair,'saving the dyed scalp or preserving hat');
+    const search=$('style-query');
+    search.value='额前逗号卷';
+    search.dispatchEvent(new Event('input'));
+    check(document.querySelector('[data-match="hair/baby-comma"]'),'baby hair is searchable');
+    document.querySelector('[data-body-profile=child]').click();
+    check(!document.querySelector('[data-hair-style^="baby-"], [data-match="hair/baby-comma"]') &&
+      !ids.includes(recipe().parts.hair),'changing age left an infant-only hairstyle or search result');
+    check($('bearing').value==='140','a child should open on the shared hairstyle angle');
+    $('tab-wear').click();
+    check(![...$('edit-hair').options].some(o=>ids.includes(o.value)),'wear picker offers infant-only styles to children');
+    document.querySelector('[data-body-profile=baby]').click();
+    $('tab-hair').click();
+    check($('bearing').value==='180' && cards().length===ids.length,'return to the infant hair group and its last angle');
+    out.dataset.state='pass';out.textContent='Nursery-only swatches, cap preview, colour, rotation, save and changing age passed';
+  } catch(e) {out.dataset.state='fail';out.textContent=e.stack;}
+}
 function checkRoundedBaby() {
   const $ = id => document.getElementById(id), out = $('qa-result');
   const check = (pass, message) => { if (!pass) throw Error(message); };
@@ -1494,6 +1532,7 @@ try {
     ['atelier', checkOrdinaryFaces, '?tab=face&bearing=0#' + new URLSearchParams({character:JSON.stringify({
       ...JSON.parse(readFileSync(join(root,'packs/female-adult.json'),'utf8')),packs:{'pine-core':'1.18.0'}
     })})],
+    ['atelier', checkInfantHair, '?preset=look_chestnut&tab=hair'],
     ['atelier', checkRoundedBaby, '?figure=random&age=baby&seed=3603&tab=face&bearing=270&action=idle&phase=17'],
     ['atelier', checkRatioEditor, '?figure=features&model=baby&tab=face'],
     ['atelier', checkInfantProfilePair, '?model=baby02-profile&compare=baby02-source&tab=face&bearing=270&action=idle&phase=17'],
