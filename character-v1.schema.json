@@ -759,6 +759,10 @@
             "brow-slit"
           ]
         },
+        "finish": {
+          "enum": ["soft-pixel", "original"],
+          "description": "普通立体动画人物的面部画法。省略时按该存档原有画法显示。"
+        },
         "nose": {
           "enum": [
             "classic",
@@ -912,6 +916,10 @@
     }
   },
   "allOf": [
+    {
+      "if": { "properties": { "face": { "required": ["finish"] } }, "required": ["face"] },
+      "then": { "properties": { "packs": { "properties": { "pine-core": { "const": "1.18.0" } } }, "face": { "properties": { "style": { "const": "animation" } } } } }
+    },
     {
       "if": { "required": ["spriteMouth"] },
       "then": { "required": ["faceSurface"] }

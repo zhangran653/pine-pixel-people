@@ -21,6 +21,10 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 创作室普通随机人物
+
+「随机人物」「随机五官」和四张候选脸默认使用柔和像素画法。转动人物可以看到鼻翼随光线转暗、嘴角收进脸侧，闭嘴时上唇与下唇的厚度分别可调。已有立体动画人物可在「五官 → 面部画法」直接比较两种画法，再决定保存哪一版。[同一张黄帽脸](figure-study.html?before=everyday&subject=yellow-hardhat&framing=head&bearing=0) · [黑发人物的侧面](figure-study.html?before=everyday&subject=blue-jacket&framing=head&bearing=270) · [四个年龄的八次随机](studies/pixel-structure/everyday-random.webp)
+
 ### 1.19.12 随机人脸与像素表情试作
 
 在「五官 → 眼眶与口周」选择「唇到下巴的连续轮廓 · 试作」，可以比较同一个人的嘴角、下唇与颏尖。种子 2602 在 256 像素全身中的下唇下方原先有一个向前返折 4 像素的钩。新选项把这段画成连续曲线，轻笑的嘴角逐渐收笔。随机人物时可以沿用所选曲面。[转动种子 2602](figure-study.html?subject=seeded&age=adult&seed=2602&before=profile-line&size=256&framing=head&bearing=270) · [同人原色、剪影与张嘴动作](studies/pixel-structure/lip-chin-profile.webp)

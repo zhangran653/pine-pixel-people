@@ -211,6 +211,9 @@ const pineGameFace = (() => {
   // rises out of a shallow root and rolls into two low wings.
   const nurseryNose = curve([-.22, 0, .32, .58, .78, .92, 1, 1.10, 1.24, 1.40],
     [0, .015, .06, .20, .57, .92, 1, .87, .36, 0]);
+  // Root, bridge, ball and the short returning underside on the same surface.
+  const softNose = curve([-.24,0,.28,.57,.80,.94,1,1.08,1.19,1.34],
+    [0,.018,.16,.43,.81,.985,1,.95,.60,0]);
   const cross = [0, 0.28, 0.52, 0.82, 0.95, 1];
   function frontAt(row, v) {
     const f = clamp(Math.abs(v), 0, 1) * steps,
@@ -319,7 +322,8 @@ const pineGameFace = (() => {
     // The mouth takes part of the change, so a long nose retains its character.
     const fittedTip = noseLength - (1 - noseLength) * .72 * ((shape.noseLipSpacing ?? 1) - 1);
     const tipAt = infantNose ? clamp(.56 + .61 * (fittedTip - .58), .43, .65) : fittedTip;
-    const noseBase = eye - Math.max(.24,eye-mouth) * tipAt * (infantNose ? 1.40 : .88/.61);
+    const softPixels = !!layout?.softPixels;
+    const noseBase = eye - Math.max(.24,eye-mouth) * tipAt * (infantNose ? 1.40 : softPixels ? 1.34 : .88/.61);
     const archFall = layout && layout.mouthHalf * layout.lateralDepth *
       (.54 + .11*value('lipProjection') + .06*value('jawDefinition'));
     const orbitCenter = layout?.eyeCenter ?? .48, orbitWidth = layout ? 1.20*layout.eyeHalf : .29;
@@ -344,7 +348,7 @@ const pineGameFace = (() => {
       temple + 0.54 * (outer - temple),
       temple
     ]);
-    const chinLift = neutralChins[base] + (drawing ? chinShift(base, baseTarget, mix) : 0);
+    const chinLift = neutralChins[base] + (drawing ? chinShift(base, baseTarget, mix) : 0) + (softPixels && !infant ? .050 : 0);
     const lowerLength = lengthTarget * amount - 0.032 * amount * value('chinHeight');
     const rowList = Array.from({ length: rings + 1 }, (_, i) => {
       const h = (i * 2) / rings - 1,
@@ -395,9 +399,10 @@ const pineGameFace = (() => {
       const t = (eye - h) / Math.max(0.24, eye - mouth),
         tipT = (t * 0.61) / tipAt;
       const tipRatio = t / tipAt;
-      const nose = infantNose ? nurseryNose(tipRatio) * (.099 + .62 * (reach - .13)) : noses(tipT) * reach * (infantProfile ? 1.38 : 1);
-      const wing = infantNose ? .031 * bell(tipRatio, 1.10, .25) : .037 * bell(tipT, .67, .19);
-      const bulbWidth = infantNose ? noseWidth * (.61 + .39 * ramp(tipRatio, .36, .91)) : noseWidth;
+      const nose = infantNose ? nurseryNose(tipRatio) * (.099 + .62 * (reach - .13))
+        : softPixels ? softNose(tipRatio)*(.029+.64*reach) : noses(tipT) * reach * (infantProfile ? 1.38 : 1);
+      const wing = infantNose ? .031 * bell(tipRatio, 1.10, .25) : softPixels ? .048 * bell(tipRatio,1.03,.27) : .037 * bell(tipT, .67, .19);
+      const bulbWidth = infantNose || softPixels ? noseWidth * (.61 + .39 * ramp(tipRatio, .36, .91)) : noseWidth;
       const upper = bell(h, mouth + 0.04, 0.077),
         lower = bell(h, mouth - 0.043, 0.077);
       const fold = bell(h, mouth - 0.134, 0.07);
@@ -429,7 +434,7 @@ const pineGameFace = (() => {
         const undisturbed = dome(v);
         let f =
           undisturbed +
-          nose * (infantNose ? Math.max(0, 1 - (y / bulbWidth) ** 2) ** 1.28 : bell(y, 0, noseWidth)) +
+          nose * (infantNose || softPixels ? Math.max(0, 1 - (y / bulbWidth) ** 2) ** 1.28 : bell(y, 0, noseWidth)) +
           wing * bell(y, noseWidth * 0.74, noseWidth * 0.6) +
           mouthBed * bell(y, 0, 0.41) -
           oralArc * ramp(y, 0.025, 0.43) * (1 - ramp(y, 0.61, 0.9)) -
@@ -509,7 +514,7 @@ const pineGameFace = (() => {
       }
     }
     const row = (h) => rowList[clamp(Math.round(((h + 1) * rings) / 2), 0, rings)];
-    return { row, insideSkin, frontAt, noseWidth, noseBase, infantNose, ink, mouth, chin, lipChin, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
+    return { row, insideSkin, frontAt, noseWidth, noseBase, infantNose, softPixels, ink, mouth, chin, lipChin, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
   }
 
   function eye(shape, off, h, blink, side, k, pitch) {
@@ -567,12 +572,27 @@ const pineGameFace = (() => {
     cel: { lid:[[-.16,-.16],[.41,-.52],[.96,-.73],[1,-.87],[1,-.66],[.72,-.27],[.13,.13]], stroke:1.20, brow:1.05, iris:1.00, corner:1.04, shadow:.18, warmth:.68 },
     line:{ lid:[[-.12,-.12],[.39,-.39],[.73,-.58],[.87,-.68],[.93,-.50],[.75,-.18],[.22,.22]], stroke:1.55, brow:.93, iris:.91, corner:1.22, shadow:.12, warmth:.46 }
   };
-  function featureBrush(base, ink) {
+  // Each row traces an upper and a lower lid from the tear duct to the temple.
+  // Retain the selected eye's width and tilt when drawing these different openings.
+  const restingLids = {
+    rounded: [[-.10,-.10],[.64,-.60],[.97,-.95],[1,-1],[.94,-.82],[.62,-.51],[.02,.02]],
+    almond:  [[-.18,-.18],[.46,-.54],[.77,-.77],[.90,-.82],[.89,-.59],[.65,-.30],[.13,.13]],
+    covered: [[-.08,-.08],[.42,-.52],[.65,-.83],[.71,-.91],[.69,-.77],[.47,-.44],[.01,.01]],
+    falling: [[.01,.01],[.65,-.46],[.90,-.71],[.94,-.78],[.76,-.68],[.39,-.44],[-.08,-.08]]
+  };
+  const lidKinds = {
+    classic:'almond', almond:'almond', upturned:'almond', 'long-almond':'almond', 'level-eye':'almond',
+    round:'rounded', 'doe-eye':'rounded', 'soft-oval':'rounded', 'double-lid':'rounded',
+    narrow:'covered', sleepy:'covered', hooded:'covered', monolid:'covered', 'deep-set':'covered',
+    downturned:'falling', crescent:'falling'
+  };
+  function featureBrush(base, ink, softPixels = false, eyes) {
     const guide = featureGuides[base], brush = brushes[ink];
     if (!brush) return guide;
     const mix = base === 'baby' ? .46 : base === 'toddler' ? .70 : .92;
-    const lid = guide.lid.map((pair,i) => pair.map((v,j) => v + mix * (brush.lid[i][j] - v)));
-    return { ...guide, lid, brow:guide.brow * brush.brow, brush, irisDrawing:irisDrawings[ink] };
+    const drawing = softPixels ? restingLids[lidKinds[eyes]] || brush.lid : brush.lid;
+    const lid = guide.lid.map((pair,i) => pair.map((v,j) => v + mix * (drawing[i][j] - v)));
+    return { ...guide, lid, brow:guide.brow * brush.brow, brush, irisDrawing:irisDrawings[ink],softPixels };
   }
   // Indexed iris drawn in the surface coordinates of the eye. The small amber
   // or cool arc turns around the pupil and the catchlight stays on the lit side.
@@ -604,7 +624,7 @@ const pineGameFace = (() => {
     };
   }
   function paintedEye(guide, shape, off, h, blink, side, k, pitch, acting) {
-    const q = off / (1.06 * shape.width);
+    const q = off / ((guide.softPixels ? .99 : 1.06) * shape.width);
     if (guide.brush === brushes.line && q >= .87 && q < 1.17) {
       const lift = shape.tilt*q + .20*shape.up + .15*(q-1);
       if (Math.abs(h-lift) < (.028 + .20*pitch)*(1.17-q)/.30) return k.lash;
@@ -614,16 +634,33 @@ const pineGameFace = (() => {
     const a = guide.lid[i], b = guide.lid[i + 1];
     const up = (shape.infant ? .053 + .72 * shape.up : shape.up) * guide.opening * (acting ? acting.lid : 1);
     const down = (shape.infant ? .031 + .83 * shape.down : shape.down) * 1.13 * guide.opening * (acting ? acting.lower : 1);
-    const y = h - shape.tilt * q;
-    const top = (a[0] + t * (b[0] - a[0])) * up;
+    const y = h - (guide.softPixels ? .76 : 1) * shape.tilt * q;
+    const top = (a[0] + t * (b[0] - a[0])) * up * (guide.softPixels && !shape.infant ? .88 : 1);
     const base = (a[1] + t * (b[1] - a[1])) * down;
     const shut = .65 * base + .35 * top, lid = top + blink * (shut - top);
     const floor = base + blink * (shut - base);
     const stroke = clamp(.023 + .29 * pitch, .025, .044) * (1 - .36 * q * q) *
-      (guide.brush ? guide.brush.stroke * (.96 + .24*q) : 1);
+      (guide.softPixels ? 1.09 + .15*q : guide.brush ? guide.brush.stroke * (.96 + .24*q) : 1);
     if (y > lid + stroke || y < floor - .22 * stroke) return 0;
-    if (blink > .93 || y >= lid - .27 * stroke)
+    if (blink > .93 || y >= lid - .27 * stroke) {
+      if (guide.softPixels) return Math.abs(q) > .78 ? k.lidSkin : q < -.52 ? k.irisShadow : k.lash;
       return Math.abs(q) > .79 && !(guide.brush && q > 0) ? k.lidSkin : k.lash;
+    }
+    if (guide.softPixels) {
+      // Both pupils share the gaze direction. The eyelid clips a steady iris
+      // while a small upper glint and a lower crescent describe its surface.
+      const ix = (side*(q+.075)-.71*(acting?.across || 0))/(shape.infant ? .73 : .68);
+      const iz = (h-(.075+.76*(acting?.up || 0))*up)/(.77*up+.42*down);
+      const radius = ix*ix+iz*iz;
+      if (q > .36 && y < floor+.40*stroke) return k.lidRim;
+      if (radius < 1) {
+        if (((ix+.28)/.19)**2 + ((iz-.24)/.19)**2 < 1) return k.glint;
+        if ((ix/.55)**2+((iz-.11)/.55)**2 < 1) return k.pupil;
+        if (radius > .88 || iz > .36) return k.irisShadow;
+        return iz < -.23 && ix > -.56 ? k.irisLight : k.eyes;
+      }
+      return Math.abs(q) > .84 || y > lid-1.8*stroke ? k.scleraShade : k.sclera;
+    }
     const ix = (acting ? (side * (q + .045) - acting.across) / acting.iris : side * (q + .032) / guide.iris) / (guide.brush?.iris ?? 1);
     const iz = (y - (.095 + (acting?.up || 0)) * up) / (.73 * up + .48 * down);
     if (Math.abs(ix) < 1 && Math.abs(iz) < 1) {
@@ -647,18 +684,26 @@ const pineGameFace = (() => {
     open:lipDrawing([-.008,-.005,.003,.017,.031,.039],[.45,.75,.57,.25,.07,0],[.86,.90,.65,.25,.06,0],.018),
     bud:lipDrawing([-.008,-.003,.011,.020,.023,.020],[.57,.93,.77,.34,.11,0],[1,.98,.70,.25,.05,0],.014)
   };
-  function mouthBrush(base, guide, name, row, upperScale, lowerScale, acting, softProfile = false) {
+  const restingLifts = {pursed:.018, relaxed:.028, wide:.036, classic:.042, 'lower-full':.048, 'upper-full':.050, full:.057, bow:.060, small:.065};
+  function mouthBrush(base, guide, name, row, upperScale, lowerScale, acting, softProfile = false, softPixels = false) {
     const young = base === 'toddler' || base === 'baby';
     const smiling = name === 'smile' || name === 'soft-smile' || acting.rest === 'warm';
     const parted = acting.rest === 'curious' && ['small','relaxed','classic','lower-full'].includes(name);
     const bow = ['bow','pursed','full','upper-full','lower-full'].includes(name);
     const gentleSmile = softProfile && smiling && name !== 'smile';
+    const restingLift = restingLifts[name] ?? .046;
     const drawing = gentleSmile ? mouthDrawings.gentle : smiling ? mouthDrawings.smile : young ? mouthDrawings.bud : parted ? mouthDrawings.open : bow ? mouthDrawings.bow : mouthDrawings.quiet;
-    const width = row[1] * (smiling ? 1.05 : 1.01);
-    const top = (.013 + .72*row[2]) * upperScale, bottom = (.021 + .83*row[3]) * lowerScale;
-    const gap = drawing.gap + (name === 'smile' ? .019 : 0) + .054*acting.jaw + .028*acting.smile;
+    const width = row[1] * (smiling ? 1.05 : 1.01) * (softPixels && !young ? 1.11 : 1);
+    const top = (.013 + .72*row[2]) * upperScale * (softPixels ? .78 : 1);
+    const bottom = (.021 + .83*row[3]) * lowerScale * (softPixels ? .72 : 1);
+    const gap = softPixels ? (name === 'smile' ? .008 : 0) + .043*acting.jaw + .018*acting.smile :
+      drawing.gap + (name === 'smile' ? .019 : 0) + .054*acting.jaw + .028*acting.smile;
     function seam(q) {
       const a = Math.min(1,Math.abs(q));
+      if (softPixels) {
+        const lift = name === 'smile' ? .105 : gentleSmile ? .085 : restingLift;
+        return -.016 + (lift+.041*acting.smile)*ramp(a,.18,.89);
+      }
       return drawing.seam(a) * (.72+.28*guide.brush.corner) + (softProfile ? .036 : .061)*acting.smile*a*a;
     }
     function paint(lateral, h, k, pitch) {
@@ -666,16 +711,18 @@ const pineGameFace = (() => {
       if (a >= 1 || h < -.33 || h > .26) return 0;
       const y = h-seam(q);
       const taper = 1-ramp(a,.53,1);
-      const end = softProfile ? 1-ramp(a,.62,.985) : 1;
-      const stroke = (.015 + Math.min(.023,.56*pitch)) * (.43+.57*taper)*end;
+      const end = softPixels ? 1-ramp(a,.68,.93) : softProfile ? 1-ramp(a,.62,.985) : 1;
+      const line = softPixels ? clamp(2.1*pitch,.034,.081) : .015+Math.min(.023,.56*pitch);
+      const stroke = line * (.43+.57*taper)*end;
       const opening = gap * (1-a*a)**1.5*end;
       if (y < .48*stroke && y > -opening-.67*stroke) {
         if (opening > .061 && y < -.66*opening) return k.lipPetal;
-        if (softProfile && a > .46) return a > .76 ? k.lipCorner : k.upperLip;
+        if (softProfile && a > (softPixels ? .58 : .46)) return a > (softPixels ? .80 : .76) ? k.lipCorner : k.upperLip;
         return a > .76 ? k.upperLip : k.lipLine;
       }
-      if (y >= 0 && y < top*drawing.upper(a)*end) return q < -.38 || a > .72 ? k.lipBody : k.upperLip;
-      const lower = bottom*drawing.lower(a)*end;
+      if (y >= 0 && y < top*drawing.upper(a)*end)
+        return softPixels ? (y > .54*top ? k.lipCorner : k.lipBody) : q < -.38 || a > .72 ? k.lipBody : k.upperLip;
+      const lower = bottom*drawing.lower(a)*end*(softPixels ? 1.17 : 1);
       if (y < -opening && y > -opening-lower) {
         const depth = -(y+opening)/lower;
         if (q > -.53 && q < .16 && depth > .40 && depth < .82) return k.lipGlow;
@@ -744,7 +791,24 @@ const pineGameFace = (() => {
   function skin(model, r, x, y, h, eye, infant, k, inks, painted, acting, oralLight = 0) {
     const a = Math.abs(y),
       side = x - r.axis;
-    if (side > 0 && model.infantNose) {
+    let noseLight = 0;
+    if (model.softPixels) {
+      // The septum stays lit between the two alae. In profile the visible
+      // accent follows the underside of the round tip into the nearer wing.
+      if (side > 0 && a < 1.12*model.noseWidth && h < eye && h > model.tip-.12) {
+        const q = y/model.noseWidth, at = h-model.tip;
+        const wing = bell(Math.abs(q),.64,.40)*bell(at,-.054+.035*q*q,.049);
+        const ball = bell(q,-.22,.70)*bell(at,.020,.066);
+        const base = bell(q,.18,.79)*bell(at,-.062+.037*q*q,.043);
+        if (wing*(.86+.19*q) > (infant ? .74 : .55)) return k.nasalFold;
+        if (ball > .47) return k.nasalLight;
+        if (base*(.40+.65*Math.abs(q))+.32*wing > .40) return k.nasalBase;
+        const bridge = (h-model.tip)/Math.max(.14,eye-model.tip);
+        const plane = bell(q,.56-.18*bridge,.44)*bell(bridge,.25,.37);
+        if (!infant && plane > .41) return k.nasalPlane;
+        noseLight = (.12*ball - .18*wing - .075*base - .16*plane)*(infant ? .62 : 1);
+      }
+    } else if (side > 0 && model.infantNose) {
       const tip = h - model.tip, w = model.noseWidth;
       if (bell(a, w * .70, w * .34) * bell(tip, -.041, .030) > .29) return k[inks[17]];
       if (bell(y, w * .14, w * .93) * bell(tip, -.032, .038) > .35) return k[inks[19]];
@@ -824,7 +888,11 @@ const pineGameFace = (() => {
       const malar = bell(a,.52,.39) * bell(z,0,.23) * front;
       const browLight = bell(y,-.22,.55) * bell(h,eye+.32,.33) * front;
       const ground = .53 + .11*turn*front - .054*y + .044*h - .12*under;
-      const value = light*.47 + ground*.53 - brush.shadow*shadow + .080*browLight + (.060-.055*y)*malar + front*oralLight;
+      let value = light*.47 + ground*.53 - brush.shadow*shadow + .080*browLight + (.060-.055*y)*malar + front*(oralLight+noseLight);
+      if (model.softPixels) {
+        const socket = bell(a,.43,.39)*bell(h,eye+.13,.20);
+        value += front*(.055*malar-.099*socket) - .080*shadow;
+      }
       let tone;
       if (brush === brushes.cel) tone = value < .37 ? 3 : value < .496 ? 5 : value < .615 ? 7 : 9;
       else if (brush === brushes.line) tone = value < .41 ? 4 : value < .55 ? 6 : value < .67 ? 8 : 9;

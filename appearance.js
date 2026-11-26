@@ -158,6 +158,7 @@ const PineLooks = (() => {
     baby:    { headScale:.92,   crownHeight:.80, trunkLength:1.17,  noseLipSpacing:1.04 }
   };
   function clearPortraitOptions(doc) {
+    if (doc.face) delete doc.face.finish;
     delete doc.infantChin;
     delete doc.infantNose;
     delete doc.portraitInk;
@@ -561,6 +562,7 @@ SOFTWARE.`;
     requireThat(typeof style === 'string' && Object.hasOwn(portraitStyles, style), '未知人物画风');
     if (portraitStyleOf(recipe) === style) return recipe;
     recipe.face = { ...(recipe.face || facePresets.classic.face), style };
+    if (style !== 'animation') delete recipe.face.finish;
     recipe.packs[core] = figurePin(recipe);
     return recipe;
   }
@@ -741,6 +743,7 @@ SOFTWARE.`;
     else if (recipe.clothingCut !== undefined) needed = featureStudyRelease;
     else if (recipe.bodyFinish !== undefined || recipe.face?.form !== undefined || recipe.face?.formMix !== undefined) needed = gameFaceRelease;
     else if (recipe.anatomyParts !== undefined) needed = structureStudyRelease;
+    else if (recipe.face?.finish !== undefined) needed = release;
     else if (recipe.face?.style === 'animation') needed = facePlaneRelease;
     else if (recipe.face?.style !== undefined) needed = illustratedRelease;
     else if (profileKeys.some((key) => (recipe.shape[key] ?? 0) !== 0)) needed = lipJawRelease;
@@ -1028,7 +1031,7 @@ SOFTWARE.`;
     let face;
     if (pin !== originalRelease) {
       const selected = raw.face === undefined ? facePresets.classic.face : raw.face;
-      fields(selected, Object.keys(features), [...Object.keys(faceDetails), 'style', 'form', 'formMix', 'restExpression']);
+      fields(selected, Object.keys(features), [...Object.keys(faceDetails), 'style', 'form', 'formMix', 'restExpression', 'finish']);
       face = {};
       for (const [key, values] of Object.entries({ ...features, ...faceDetails })) {
         if (Object.hasOwn(faceDetails, key) && !Object.hasOwn(selected, key)) continue;
@@ -1037,6 +1040,10 @@ SOFTWARE.`;
           '未知五官款式 · ' + key
         );
         face[key] = selected[key];
+      }
+      if (selected.finish !== undefined) {
+        requireThat(pin === release && (selected.style ?? 'animation') === 'animation' && ['soft-pixel','original'].includes(selected.finish), '这项面部画法用于普通立体动画人物');
+        face.finish = selected.finish;
       }
       if (selected.restExpression !== undefined) {
         requireThat(typeof selected.restExpression === 'string' && Object.hasOwn(restExpressions, selected.restExpression), '未知的平时神情');
@@ -1764,6 +1771,15 @@ SOFTWARE.`;
     const cheeks = design || pick(cheekChoices, random);
     doc.face = { ...doc.face, style: portrait, eyes: eyePair.face.eyes, brows: eyePair.face.brows,
       nose: nosePair.face.nose, mouth: nosePair.face.mouth };
+    // Explicitly pinned generations remain reproducible. A new ordinary roll
+    // uses the current face drawing, including when started from an old save.
+    if (pin === release && portrait === 'animation') {
+      const finish = options.finish ?? recipe.face?.finish ?? (options.release ? undefined : 'soft-pixel');
+      if (finish !== undefined) {
+        requireThat(['original','soft-pixel'].includes(finish),'未知面部画法');
+        doc.face.finish = finish;
+      }
+    }
     if (composition) {
       if (!young) doc.face.brows = pick(composition.brows,random);
       const mouthRoll = random();
@@ -1866,7 +1882,8 @@ SOFTWARE.`;
     const faceSource = { ...outfit, base: profile.base, shape: donor.shape, face: {} };
     if (ink && pin === infantNoseRelease) faceSource.packs = {...outfit.packs,[core]:pin};
     const doc = randomFace(faceSource,
-      { random, style, portrait: portrait || source?.face?.style || 'animation', family, previousForm:source?.face?.form, release: pin, ink });
+      { random, style, portrait: portrait || source?.face?.style || 'animation', family, previousForm:source?.face?.form,
+        finish:options.finish ?? source?.face?.finish ?? (options.release ? undefined : 'soft-pixel'), release: pin, ink });
     if (doc.portraitInk && source?.portraitInk) {
       if (source.faceSurface) doc.faceSurface = source.faceSurface;
       else delete doc.faceSurface;

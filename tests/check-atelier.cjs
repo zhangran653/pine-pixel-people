@@ -912,6 +912,50 @@ function checkEditor() {
   }
 }
 
+function checkOrdinaryFaces() {
+  const $ = id => document.getElementById(id), out = $('qa-result');
+  const recipe = () => {
+    const link = $('figure-link');
+    link.dispatchEvent(new Event('focus'));
+    return JSON.parse(new URLSearchParams(new URL(link.href).hash.slice(1)).get('character'));
+  };
+  const check = (pass, message) => { if (!pass) throw Error(message); };
+  try {
+    $('tab-face').click();
+    const source = recipe();
+    check(source.packs[PineLooks.core] === PineLooks.release && !source.face.finish,'expected an archived character');
+    const prior = $('mirror').toDataURL();
+    $('random-character').click();
+    check(recipe().face.finish === 'soft-pixel','unmodified studio random button still drew the archived face');
+    $('undo-random').click();
+    check(JSON.stringify(recipe()) === JSON.stringify(source),'random and undo changed the captured recipe');
+    const setFinish = value => {
+      const field = $('edit-face-finish');
+      field.value = value;
+      field.dispatchEvent(new Event('change'));
+    };
+    setFinish('soft-pixel');
+    let draft = recipe();
+    check(draft.face.finish === 'soft-pixel' && prior !== $('mirror').toDataURL(),'the mirror did not repaint');
+    delete draft.face.finish;
+    check(JSON.stringify(draft) === JSON.stringify(source),'changing the finish moved other settings');
+    setFinish('original');
+    check($('mirror').toDataURL() === prior, 'restoring the original drawing changed archived pixels');
+    $('random-character').click();
+    check(recipe().face.finish === 'original','ordinary reroll lost explicit finish');
+    $('undo-random').click();
+    setFinish('soft-pixel');
+    $('choose-faces').click();
+    document.querySelector('[data-face-candidate]').click();
+    draft = recipe();
+    check(draft.face.finish === 'soft-pixel' && JSON.stringify(draft.parts) === JSON.stringify(source.parts),'candidate changed the finish or clothes');
+    $('random-face').click();
+    check(recipe().face.finish === 'soft-pixel','face-only reroll lost selected finish');
+    $('random-character').click();
+    check(recipe().face.finish === 'soft-pixel' && new URL($('figure-link').href).searchParams.get('before') === 'everyday','random page opened a different edition');
+    out.dataset.state = 'pass'; out.textContent = 'Ordinary face finish, captured recipe, original pixels, candidates and both random buttons passed';
+  } catch (error) { out.dataset.state = 'fail'; out.textContent = error.stack; }
+}
 function checkInfantProfilePair() {
   const $=id=>document.getElementById(id), result=$('qa-result');
   try {
@@ -1293,6 +1337,7 @@ try {
       : 'google-chrome');
   for (const [name, check, query] of [
     ['atelier', checkEditor, '?bearing=90'],
+    ['atelier', checkOrdinaryFaces, '?model=yellow-hardhat&tab=face&bearing=0'],
     ['atelier', checkRatioEditor, '?figure=features&model=baby&tab=face'],
     ['atelier', checkInfantProfilePair, '?model=baby02-profile&compare=baby02-source&tab=face&bearing=270&action=idle&phase=17'],
     ['studio', checkStudioMotions, '?demo=custom'],

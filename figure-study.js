@@ -11,12 +11,12 @@
     cut:[looks.baseFaceRelease,looks.clothingStudyRelease], features:[looks.clothingStudyRelease,looks.featureStudyRelease],
     ratios:[looks.featureStudyRelease,looks.figureRatioRelease], acting:[looks.figureRatioRelease,looks.expressionRelease],
     garments:[looks.expressionRelease,looks.garmentRelease], ink:[looks.chinPadRelease,looks.infantNoseRelease],
-    ensemble:[stableRelease,looks.infantNoseRelease] };
+    ensemble:[stableRelease,looks.infantNoseRelease], everyday:['original','soft-pixel'] };
   const seedFor = (release, id) => hash('pine/figure-holdout/' + release + '/' + id);
   const search = new URLSearchParams(location.search);
   let reviewKind = Object.hasOwn(reviews, search.get('review')) ? search.get('review') : 'face';
   function storageKey() {
-    const versions = reviews[reviewKind].join('-') + ({face:'', cast:'.painted.cast', bases:'.bases', cut:'.clothing', features:'.features', ratios:'.ratios', acting:'.acting', garments:'.garments',ink:'.portrait-ink',ensemble:'.ensemble'}[reviewKind]);
+    const versions = reviews[reviewKind].join('-') + ({face:'', cast:'.painted.cast', bases:'.bases', cut:'.clothing', features:'.features', ratios:'.ratios', acting:'.acting', garments:'.garments',ink:'.portrait-ink',ensemble:'.ensemble',everyday:'.everyday'}[reviewKind]);
     return 'pine.figureStudy.' + versions + '.v1';
   }
   const stages = [$('canvas-a'), $('canvas-b')];
@@ -122,6 +122,10 @@
     const [, release] = reviews[reviewKind];
     const seed = seedFor(release, session.current);
     const options = { base, seed, portrait: 'animation', style: 'natural', release };
+    if (reviewKind === 'everyday') {
+      const pair = everydayPair(looks.randomCharacter({base,seed}));
+      return flipped(session.current) ? pair.reverse() : pair;
+    }
     if (reviewKind === 'ensemble') {
       const current = looks.randomCharacter({ ...options, ink:'auto', bodyFinish:'painted' });
       const [prior, trial] = wholePortraitPair(current);
@@ -173,10 +177,23 @@
     const clothed = looks.withClothingStudy(looks.withBaseFace(doc));
     return { ...looks.withFeatureStudy(clothed), bodyFinish:'painted' };
   }
-  function wholePortraitPair(source) {
+  function stableFigure(source) {
+    if (source.packs[looks.core] === stableRelease) return structuredClone(source);
     const stable = looks.withFigureStudy(source);
     stable.packs[looks.core] = stableRelease;
     delete stable.anatomyParts;
+    return stable;
+  }
+  function everydayPair(source) {
+    const original = stableFigure(source);
+    original.face ??= {...looks.facePresets.classic.face};
+    if (looks.portraitStyleOf(original) !== 'animation') original.face.style = 'animation';
+    delete original.face.finish;
+    return [original,{...original,face:{...original.face,finish:'soft-pixel'}}];
+  }
+  function wholePortraitPair(source) {
+    const stable = stableFigure(source);
+    if (stable.face) delete stable.face.finish;
     // Retain authored fittings and dyes. Apply age-specific defaults when
     // bringing an older study character into the current portrait edition.
     let fitted = source;
@@ -196,6 +213,10 @@
           bodyFinish:sample[0] === looks.featureStudyRelease ? 'painted' : undefined })
       : pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
     const before = $('before').value;
+    if (before === 'everyday') {
+      const ordinary = subject === 'seeded' ? looks.randomCharacter({base:seedAge,seed:Number(seedParam)}) : source;
+      return everydayPair(ordinary);
+    }
     if (before === 'recipes') return [companion,submitted];
     if (before === 'whole-1.19.12') return wholePortraitPair(source);
     if (before === 'profile-line') return [looks.withFaceSurface(source,undefined,'linked'), looks.withFaceSurface(source,undefined,'contour')];
@@ -322,7 +343,7 @@
     $('title-b').textContent = blind ? 'B' : paired ? recipes[1].label : chinPad ? looks.chinPadRelease + ' · 饱满小下巴' : chin ? looks.infantChinRelease + ' · 短圆下巴' : garments ? looks.garmentRelease + ' · 分款剪裁' : acting ? looks.expressionRelease + ' · 动作神情' : ratios ? looks.figureRatioRelease + ' · 分龄比例' : completeFigure ? completeFigure + ' · 完整试作' : features ? looks.featureStudyRelease + ' · 五官与下颌' : clothing ? looks.clothingStudyRelease + ' · 分龄衣物剪裁' : bases ? looks.baseFaceRelease + ' · ' + names[recipes[1].face.form] :
       currentStudy + (whole ? ' · 全身试作' : finish ? ' · 四肢与衣边色块' : ' · 美术基础脸');
     $('prompt').textContent = blind
-      ? reviewKind === 'cast'
+      ? reviewKind === 'everyday' ? '两侧是普通随机抽到的同一个人。眼型、鼻形、唇形和衣服都相同，可以转动人物比较表情。' : reviewKind === 'cast'
         ? '稳定版与试作各自随机生成一人。年龄、种子、镜头与动作帧相同，比较整体搭配和造型。'
         : '本批比较 ' + reviews[reviewKind].join(' 与 ') + '。两侧共用同一张随机配方、同一动作和机位。'
       : paired ? '左侧是对照人物，右侧是当前草稿。两份配方共用机位和动作进度，可分别回到创作室编辑。'
@@ -375,6 +396,13 @@
       $('face-gallery').href = 'studies/pixel-structure/lip-chin-profile.webp';
       $('face-gallery').textContent = '下唇、嘴角与颏尖的原色和剪影';
     }
+    if (!blind && before === 'everyday') {
+      $('title-a').textContent = '原有画法';
+      $('title-b').textContent = '柔和像素脸';
+      $('prompt').textContent = '两侧共用眼型、鼻形、唇形、肤色、发型和衣服。转动同一个人，观察鼻底的阴影与放松时的唇线。';
+      $('face-gallery').href = 'studies/pixel-structure/everyday-faces.webp';
+      $('face-gallery').textContent = '黑发蓝衣与黄帽人物实拍';
+    }
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     actors = recipes.map(doc => looks.build(doc));
     neutralFrames = sampleActors('idle', .17);
@@ -385,8 +413,8 @@
       return Math.max(...highs) - Math.min(...lows);
     }));
     const clipIds = new Set(['idle','walk','wave','sit','drink','crawl','baby-reach',choice]);
-    if (acting || garments || chin || (!blind && before === 'profile-line') || (paired && actors.every(a => pinePortraitStyles.hasFacialActing(a.figureRelease))) || pinePortraitStyles.hasFacialActing(completeFigure) || (blind && ['acting','garments','ensemble'].includes(reviewKind)))
-      for (const id of ['look-around','follow-rattle','rattle','read','write','phone','type','open-mouth']) clipIds.add(id);
+    if (acting || garments || chin || (!blind && ['profile-line','everyday'].includes(before)) || (paired && actors.every(a => pinePortraitStyles.hasFacialActing(a.figureRelease))) || pinePortraitStyles.hasFacialActing(completeFigure) || (blind && ['acting','garments','ensemble','everyday'].includes(reviewKind)))
+      for (const id of ['look-around','follow-rattle','rattle','read','write','phone','type','open-mouth','chat']) clipIds.add(id);
     const clips = [...clipIds].map(id => motion.actions.get(id))
       .filter(clip => clip && (!paired || clip.roles.length === 1) && actors.every(actor => motion.castFor(clip, actor, partner())));
     $('action').replaceChildren(...clips.map(c => new Option(c.label, c.id)));
@@ -550,8 +578,9 @@
     $('saved').textContent = !storageOK ? '本次评审只保存在当前页面' : done ? '评审已完成' : vote ? '本组偏好已保存' : '进度自动保存在此浏览器';
     $('results').hidden = !done;
     if (done) {
-      $('title-a').textContent = 'A · ' + recipes[0].packs[looks.core];
-      $('title-b').textContent = 'B · ' + recipes[1].packs[looks.core];
+      const caption = doc => reviewKind === 'everyday' ? doc.face.finish === 'soft-pixel' ? '柔和像素脸' : '原有画法' : doc.packs[looks.core];
+      $('title-a').textContent = 'A · ' + caption(recipes[0]);
+      $('title-b').textContent = 'B · ' + caption(recipes[1]);
       const counts = $('counts');
       counts.replaceChildren();
       for (const [base, label] of Object.entries(ages)) {
@@ -572,7 +601,7 @@
       link.hidden = !visible;
       if (visible) {
         const options = new URLSearchParams({ action: $('action').value, bearing: $('bearing').value, phase: $('phase').value });
-        if ($('framing').value === 'head' || (mode === 'model' && ['features','ratios','acting','ink','baby-nose','surface','profile-line','mouth-size'].includes($('before').value))) options.set('tab', 'face');
+        if ($('framing').value === 'head' || (mode === 'model' && ['features','ratios','acting','ink','baby-nose','surface','profile-line','mouth-size','everyday'].includes($('before').value))) options.set('tab', 'face');
         else if ((mode === 'model' && ['cut','garments'].includes($('before').value)) ||
                  (mode === 'blind' && reviewKind === 'garments')) options.set('tab', 'shape');
         const data = new URLSearchParams({ character: JSON.stringify(recipes[i]) });
@@ -620,7 +649,7 @@
         a: newOnLeft ? after : before, b: newOnLeft ? before : after, vote };
     });
     const report = { study: 'pine-figure-holdout-' + after, review: reviewKind,
-      ...(reviewKind !== 'face' ? { candidateBodyFinish: 'painted' } : {}), pairs };
+      ...(reviewKind === 'everyday' ? {coreRelease:stableRelease} : reviewKind !== 'face' ? { candidateBodyFinish: 'painted' } : {}), pairs };
     const file = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(file);
     const link = document.createElement('a');

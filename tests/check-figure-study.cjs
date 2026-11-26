@@ -223,11 +223,21 @@ function check(studyBench) {
       expect(JSON.stringify(stable.parts) === JSON.stringify(trial.parts) &&
         JSON.stringify(stable.colors) === JSON.stringify(trial.colors),'wardrobe or dyes changed between versions');
     }
-    if (query.has('ensemble-pair')) {
+    function verifyEverydayPair(original, trial, age, seed) {
+      const normalized = doc => JSON.stringify(PineLooks.prepare(doc).recipe);
+      const native = PineLooks.randomCharacter({base:age, seed});
+      expect(trial.face.finish === 'soft-pixel' && normalized(native) === normalized(trial),
+        'the portrait does not replay the ordinary random generator');
+      const old = structuredClone(trial);
+      delete old.face.finish;
+      expect(normalized(old) === normalized(original), 'the two portraits have different settings');
+    }
+    if (query.has('ensemble-pair') || query.has('everyday-pair')) {
       const stable = linkedRecipe('a'), trial = linkedRecipe('b'), age = query.get('age');
-      verifyWholePair(stable,trial,age,Number(query.get('seed')));
+      const verify = query.has('everyday-pair') ? verifyEverydayPair : verifyWholePair;
+      verify(stable,trial,age,Number(query.get('seed')));
       const clip = age === 'baby' ? 'baby-reach' : 'walk';
-      if (studyBench === 'ensemble') {
+      if (studyBench === 'ensemble' || studyBench === 'everyday') {
         $('qa').textContent = JSON.stringify({age,clip,...measureClip(stable,trial,clip)});
       } else {
         const standing = picture();
@@ -237,7 +247,8 @@ function check(studyBench) {
       }
       return;
     }
-    if (query.has('ensemble-review')) {
+    if (query.has('ensemble-review') || query.has('everyday-review')) {
+      const ordinary = query.has('everyday-review');
       expect($('edit-b').hidden && !$('edit-b').hasAttribute('href') && $('results').hidden,'blind recipe leaked');
       // A throwaway browser profile checks the voting/export flow, with no human votes.
       for (let n = 0; n < 32; n++) document.querySelector('[data-vote="tie"]').click();
@@ -249,19 +260,54 @@ function check(studyBench) {
         HTMLAnchorElement.prototype.click = () => {};
         $('export').click();
       } finally { window.Blob = originalBlob; HTMLAnchorElement.prototype.click = originalClick; }
-      expect(report.review === 'ensemble' && report.pairs.length === 32,'incomplete replay data');
+      expect(report.review === (ordinary ? 'everyday' : 'ensemble') && report.pairs.length === 32,'incomplete replay data');
+      if (ordinary) expect(report.coreRelease === PineLooks.release && !report.candidateBodyFinish,'wrong ordinary edition');
+      const prior = ordinary ? 'original' : '1.18.0';
       for (const age of ['adult','child','toddler','baby']) {
         const agePairs = report.pairs.filter(row=>row.base === age);
-        expect(agePairs.length === 8 && agePairs.filter(row=>row.a === '1.18.0').length === 4,'unbalanced sides');
+        expect(agePairs.length === 8 && agePairs.filter(row=>row.a === prior).length === 4,'unbalanced sides');
       }
       for (const row of report.pairs.slice().reverse()) {
         const a = linkedRecipe('a'), b = linkedRecipe('b');
-        expect(a.packs[PineLooks.core] === row.a && b.packs[PineLooks.core] === row.b,'reported sides differ');
-        const [stable,trial] = row.a === '1.18.0' ? [a,b] : [b,a];
-        verifyWholePair(stable,trial,row.base,row.seed);
+        const side = doc => ordinary ? doc.face.finish || 'original' : doc.packs[PineLooks.core];
+        expect(side(a) === row.a && side(b) === row.b,'reported sides differ');
+        const [stable,trial] = row.a === prior ? [a,b] : [b,a];
+        (ordinary ? verifyEverydayPair : verifyWholePair)(stable,trial,row.base,row.seed);
         if (!$('prev').disabled) $('prev').click();
       }
       $('qa').textContent = '32 full-figure seeds replayed with paired wardrobe and balanced hidden sides';
+      return;
+    }
+    function pigmentWidth(el) {
+      const w = el.width, data = el.getContext('2d').getImageData(0,0,w,el.height).data;
+      let lo = w, hi = -1;
+      for (let i=0; i<data.length; i+=4) {
+        if (data[i+3]<128 || data[i]-data[i+1]<128 || data[i+2]-data[i+1]<128) continue;
+        const x = (i/4)%w;
+        lo = Math.min(lo,x); hi = Math.max(hi,x);
+      }
+      return Math.max(0,hi-lo+1);
+    }
+    if (query.has('ordinary-mouth')) {
+      const original = globalThis.createSliceActor;
+      const inks = new Set(['lipLine','lipBody','lipGlow','lipPetal','upperLip','lowerLip']);
+      const samples = [];
+      try {
+        globalThis.createSliceActor = (art,...args) => original({...art,
+          materials:Object.fromEntries(Object.keys(art.materials).map(k=>[k,inks.has(k)?'ff00ff':'303030']))},...args);
+        choose('subject',query.get('subject'));
+        choose('sample-size','256');
+        for (const angle of [0,315,270,90]) {
+          $('bearing').value=String(angle); $('bearing').dispatchEvent(new Event('input'));
+          samples.push([angle,pigmentWidth($('canvas-a')),pigmentWidth($('canvas-b'))]);
+        }
+        const front = samples[0][2];
+        for (const [angle,old,now] of samples.slice(2)) {
+          expect(now > 0 && now < front*.60,'profile lost its lip or kept the frontal width at '+angle+' '+JSON.stringify(samples));
+          expect(now < old,'same character retained its long profile mark at '+angle+' '+JSON.stringify(samples));
+        }
+      } finally { globalThis.createSliceActor = original; }
+      $('qa').textContent = JSON.stringify({model:query.get('subject'),columns:samples});
       return;
     }
     if (query.has('mouth-turn')) {
@@ -276,16 +322,6 @@ function check(studyBench) {
       expect(unmarked === picture(),'switching off landmarks must return the original pixels');
       const original = globalThis.createSliceActor, rows = [], regular = [];
       const lips = new Set(['lipLine','lipBody','lipGlow','lipPetal','upperLip','lowerLip']);
-      function width(el) {
-        const w = el.width, data = el.getContext('2d').getImageData(0,0,w,el.height).data;
-        let lo = w, hi = -1;
-        for (let i=0; i<data.length; i+=4) {
-          if (data[i+3]<128 || data[i]-data[i+1]<128 || data[i+2]-data[i+1]<128) continue;
-          const x = (i/4)%w;
-          lo = Math.min(lo,x); hi = Math.max(hi,x);
-        }
-        return Math.max(0,hi-lo+1);
-      }
       // Keep the real painter and its occluders, using magenta to identify
       // the six lip materials independently of the character's skin and dyes.
       try {
@@ -300,8 +336,8 @@ function check(studyBench) {
             for (const angle of [0,315,270,90]) {
               $('bearing').value=String(angle);
               $('bearing').dispatchEvent(new Event('input'));
-              if (compact) rows.push([size,angle,width($('canvas-a')),width($('canvas-b'))]);
-              else if (size === 64) regular.push(width($('canvas-b')));
+              if (compact) rows.push([size,angle,pigmentWidth($('canvas-a')),pigmentWidth($('canvas-b'))]);
+              else if (size === 64) regular.push(pigmentWidth($('canvas-b')));
               if (angle === 0 || size === 256 || (size === 128 && query.get('age') === 'adult')) {
                 const key = size+'/'+angle;
                 if (compact) expect(large.get(key) === picture(),'small brush changed the larger projected image '+key);
@@ -844,7 +880,7 @@ function check(studyBench) {
         return +((sorted[middle-1]+sorted[middle])/2).toFixed(1);
       };
       return {
-        versions:studyBench === 'body' ? ['original ink','painted'] : [base.packs[PineLooks.core],candidate.packs[PineLooks.core]],
+        versions:studyBench === 'everyday' ? ['original','soft-pixel'] : studyBench === 'body' ? ['original ink','painted'] : [base.packs[PineLooks.core],candidate.packs[PineLooks.core]],
         framesPerVersion:20, medianPoseAndFineBandsMs:samples.map(median), medianProjectionAndReadbackMs:projection.map(median) };
     }
     if (studyBench) {
@@ -882,7 +918,7 @@ try {
   const measureCut = process.argv.includes('--measure-cut');
   const measureBases = process.argv.includes('--measure-bases');
   const measureForms = measureBases || process.argv.includes('--measure-forms');
-  const bench = process.argv.includes('--bench-ensemble') ? 'ensemble' : process.argv.includes('--bench-garments') ? 'garments' : process.argv.includes('--bench-acting') ? 'acting' : process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
+  const bench = process.argv.includes('--bench-everyday') ? 'everyday' : process.argv.includes('--bench-ensemble') ? 'ensemble' : process.argv.includes('--bench-garments') ? 'garments' : process.argv.includes('--bench-acting') ? 'acting' : process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
   const setup = join(dir, 'draft-fixture.js');
   writeFileSync(setup, '(' + loadDraft.toString() + ')(' + readFileSync(join(root,'packs/creek-hats.json'),'utf8') + ');');
   const page = readFileSync(join(root, 'figure-study.html'), 'utf8')
@@ -908,10 +944,14 @@ try {
   const actingProfile = '?acting-profile=1&before=acting&size=128&bearing=270&measure=1&subject=';
   const mouthCase = '?mouth-turn=1&subject=seeded&before=surface&age=adult&seed=';
   const ensembleCases = ['adult','child','toddler','baby'].map(age=>'?ensemble-pair=1&before=whole-1.19.12&subject=seeded&seed=2602&age='+age);
+  const ordinaryCases = ['adult','child','toddler','baby'].map(age=>'?everyday-pair=1&before=everyday&subject=seeded&seed=2602&age='+age);
+  const ordinaryMouths = ['blue-jacket','yellow-hardhat'].map(id=>'?ordinary-mouth=1&before=everyday&subject='+id);
+  const ordinaryReview = '?everyday-review=1&mode=blind&review=everyday&case=adult%2F0';
   const ensembleReview = '?ensemble-review=1&mode=blind&review=ensemble&case=adult%2F0';
   const chinEdge = '?chin-edge=1&before=profile-line&subject=seeded&age=adult&seed=';
   const firstSeed = process.argv.includes('--holdout-mouth-turn') ? 2610 : 2600;
   const cases = process.argv.includes('--measure-chin-edge') ? Array.from({length:8},(_,i)=>chinEdge+(2600+i)) :
+    bench === 'everyday' ? ordinaryCases : process.argv.includes('--check-everyday') ? [...ordinaryCases,ordinaryReview,...ordinaryMouths] :
     bench === 'ensemble' ? ensembleCases : process.argv.includes('--check-ensemble') ? [...ensembleCases,ensembleReview] :
     narrow || process.argv.includes('--measure-mouth-turn') || process.argv.includes('--holdout-mouth-turn') ? Array.from({length:8},(_,i)=>mouthCase+(firstSeed+i)) :
     process.argv.includes('--measure-acting') ? [actingProfile+'baby-face-1',...Array.from({length:8},(_,i)=>actingProfile+'draft&feature-seed='+i)] :
@@ -928,7 +968,7 @@ try {
     '?draft-test=1&before=current&action=follow-rattle&phase=36.25&bearing=270.5&framing=head', '?bad-test=1#character=%7B',
     '?base-test=1&subject=baby&before=bases&form=round&phase=36.25&action=baby-reach&bearing=270.5', '?mode=blind&review=bases&case=baby%2F0&resume=bases',
     '?clothing-test=1&subject=baseline-4&before=cut&action=walk&phase=43', '?mode=blind&review=cut&case=baby%2F0&resume=cut',
-    mouthCase+'2602', chinEdge+'2602',ensembleCases[3],ensembleReview, featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
+    mouthCase+'2602', chinEdge+'2602',ensembleCases[3],ensembleReview,ordinaryCases[3],ordinaryReview,...ordinaryMouths, featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
     ratioCase, '?mode=blind&review=ratios&case=baby%2F0&resume=ratios', profileCase+'chef',
     '?ratio-draft=1&before=whole-1.19.7&action=baby-reach&bearing=270&phase=43&size=128',...actingCases,...garmentCases];
   const garmentPixels = {};

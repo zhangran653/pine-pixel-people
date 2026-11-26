@@ -495,6 +495,47 @@ function checkFeatureStudy(cast) {
   }
 }
 
+function checkOrdinaryFaces(cast) {
+  const openings = ['doe-eye','almond','downturned','hooded'].map(eyes=>surfaces.featureBrush('adult','wash',true,eyes).lid);
+  assert.equal(new Set(openings.map(lid=>JSON.stringify(lid))).size,4,'four selected eye types share a single drawing');
+  for (const base of ['adult','child','toddler','baby']) {
+    const options = {base,seed:2602};
+    const a = looks.randomCharacter({...options,release:looks.release}), b = looks.randomCharacter(options);
+    const clone = toPlain(b);
+    delete clone.face.finish;
+    assert.deepEqual({...clone,id:a.id,label:a.label},toPlain(a));
+    assert.equal(b.face.finish,'soft-pixel');
+    assert.deepEqual(toPlain(looks.prepare(b).recipe),toPlain(looks.prepare(toPlain(b)).recipe));
+    assert.equal(looks.randomFace(a,{seed:52}).face.finish,'soft-pixel');
+    const original = {...b,face:{...b.face,finish:'original'}};
+    assert.equal(looks.randomFace(original,{seed:52}).face.finish,'original');
+    assert.equal(looks.randomCharacter({source:original,seed:52}).face.finish,'original');
+    const implicit = toPlain(b);
+    delete implicit.face.style;
+    assert.equal(looks.prepare(implicit).recipe.face.finish,'soft-pixel');
+    assert.throws(()=>looks.prepare({...b,face:{...b.face,style:'manga'}}),/面部画法/);
+    assert.ok(!looks.withFaceSurface(b).face.finish);
+
+    const plain = looks.build(a), actor = looks.build(b), saved = looks.build(original);
+    const clip = motion.actions.get(base === 'baby' ? 'baby-reach' : 'walk');
+    const pose = clip.sample(.41,actor)[0].pose;
+    for (const name of ['height','hip','shoulder','neck','jawPivot']) assert.deepEqual(actor.rig[name],plain.rig[name]);
+    const colors = person => person.body.makePose(pose).colors;
+    const c = colors(plain), drawn = colors(actor);
+    assert.equal(digest(c),digest(colors(saved)),'explicit original altered the archive');
+    const neckHeight = motion.rig.point(pose.head,actor.rig.neck)[2];
+    const beforeNeck = Math.floor((neckHeight-3)*actor.body.density)*actor.body.nx*actor.body.ny;
+    assert.equal(digest(c.subarray(0,beforeNeck)),digest(drawn.subarray(0,beforeNeck)),base+' portrait changed pixels below the posed neck');
+    assert.notEqual(digest(c),digest(drawn));
+    const restored = looks.build(looks.prepare(toPlain(b)).recipe);
+    assert.equal(digest(drawn),digest(colors(restored)));
+    motion.characters.set(actor.id,actor);
+    cast.setFrame(clip.sample(.41,actor));
+    assert.ok(cast.group.getObjectByName(actor.id).geometry.drawRange.count > 0);
+  }
+  console.log('Ordinary random faces reproduce the wardrobe, preserve archived pixels, and animate in Three.js at four ages');
+}
+
 function checkPortraitBrushes(cast) {
   const pins = [looks.garmentRelease,looks.infantChinRelease,looks.chinPadRelease];
   for (const pin of pins) {
@@ -769,6 +810,7 @@ async function check() {
   checkGarmentFits(cast);
   checkInfantChin(cast);
   checkPortraitBrushes(cast);
+  checkOrdinaryFaces(cast);
   console.log('Four garment ages, 128 reproducible wardrobes, fits and wear locks, shared face pixels, short hems, dyes, floor contacts and Three.js passed');
   console.log('Four ages, 128 reversible acting recipes, bilateral gaze, closed lids, prop tracking, planted feet and Three.js passed');
   console.log('Four ages, 128 reproducible ratio fits, independent head and trunk controls, neutral archived meshes, locks and Three.js passed');
