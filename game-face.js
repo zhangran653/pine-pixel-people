@@ -218,7 +218,43 @@ const pineGameFace = (() => {
     const v = y / row.width;
     return x < row.axis ? (x - row.axis) ** 2 <= row.rear ** 2 * (1 - v * v) : x <= frontAt(row, v);
   }
-  function build(base, shape, face, baseTarget, scalp, eye, mouth, noseRow, drawn, painted, infantProfile) {
+  // Draw upwards from the underside of the infant chin to an existing row just
+  // under the lower lip. The lip supplies the depth for this particular face.
+  function sculptInfantChin(rows, mouth, shape) {
+    const ringIndex = h => clamp(Math.round((1 + h) * rings / 2), 0, rings);
+    const joinIndex = ringIndex(mouth - .076), joinH = 2 * joinIndex / rings - 1;
+    const join = rows[joinIndex], lip = rows[ringIndex(mouth - .042)].face[0];
+    const roundness = shape.chinRoundness || 0, projection = shape.chinProjection || 0;
+    const padH = joinH - .062 + .019 * (shape.chinHeight || 0);
+    const bottomH = Math.max(-.99, padH - .111 - .015 * roundness);
+    const tip = lip - .076 + .034 * projection;
+    const undersideX = tip - .20 - .025 * roundness;
+    const padStation = (padH - bottomH) / (joinH - bottomH);
+    // Square-root spacing rounds the underside away from its lowest voxel.
+    // Linear spacing would close in a cone and leave a single dangling pixel.
+    const stations = [0, .10, .28, padStation, .81, 1].map(Math.sqrt);
+    const breadth = curve(stations, [0, .32, .55, .73 + .04*roundness, .91, 1]);
+    const jawBack = join.axis - join.rear;
+    const rear = curve(stations, [undersideX, undersideX-.12, undersideX-.25, undersideX-.39, jawBack+.08, jawBack]);
+    const axis = curve(stations, [undersideX, undersideX-.05, undersideX-.11, undersideX-.18, join.axis+.03, join.axis]);
+    const front = curve(stations, [undersideX, tip-.12, tip-.038, tip, Math.min(tip,join.face[0])-.022, join.face[0]]);
+    for (let i = 0; i < joinIndex; i++) {
+      const h = 2*i/rings - 1, r = rows[i];
+      const t = clamp((h - bottomH) / (joinH - bottomH), 0, 1);
+      const arc = Math.sqrt(t), blend = ramp(t,.21,1);
+      r.width = join.width * breadth(arc);
+      r.axis = axis(arc);
+      r.rear = r.axis - rear(arc);
+      r.fore = front(arc) - r.axis;
+      for (let j = 0; j <= steps; j++) {
+        const v = j / steps, lipSection = (join.face[j] - join.axis) / join.fore;
+        const padSection = Math.sqrt(1-v*v);
+        r.face[j] = r.axis + r.fore * (padSection + (lipSection - padSection) * blend);
+      }
+    }
+    return { padH, bottomH, undersideX };
+  }
+  function build(base, shape, face, baseTarget, scalp, eye, mouth, noseRow, drawn, painted, infantProfile, infantChin) {
     const mix = face.formMix ?? 1, drawing = drawn && drawnProfiles[base][baseTarget];
     const p = drawing && mix > 0 ? profiles[base].map((original, i) => h => {
       const a = original(h);
@@ -357,6 +393,7 @@ const pineGameFace = (() => {
       ring.fore = ring.face[0] - ring.axis;
       return ring;
     });
+    const chin = infantChin ? sculptInfantChin(rowList, mouth, shape) : null;
     if (infantProfile) {
       // Carry the outline over the upper occiput into the original cap. These
       // are rear stations only. Width, brow and facial profiles stay independent.
@@ -392,7 +429,7 @@ const pineGameFace = (() => {
       }
     }
     const row = (h) => rowList[clamp(Math.round(((h + 1) * rings) / 2), 0, rings)];
-    return { row, insideSkin, frontAt, noseWidth, mouth, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
+    return { row, insideSkin, frontAt, noseWidth, mouth, chin, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
   }
 
   function eye(shape, off, h, blink, side, k, pitch) {
@@ -551,7 +588,13 @@ const pineGameFace = (() => {
       0.16 * under +
       0.029 * h +
       0.05 * bell(a, 0.41, 0.43) * bell(h, eye - 0.22, 0.23) * front;
-    if (painted && (h < -.38 || h < model.mouth - .07)) {
+    if (model.chin && (h < model.mouth - .065 || (h < model.mouth + .15 && a > .32))) {
+      const below = ramp(model.chin.padH - h, .015, .12);
+      const cheekLight = .48 + .064*front - .035*across*across - .042*below;
+      const cheek = ramp(a,.32,.61) * ramp(model.mouth-h,-.15,.12);
+      light += (cheekLight-light) * (.36 * cheek + .39 * ramp(model.mouth-h,.065,.14));
+      light += .078 * bell(a,0,.48) * bell(h,model.chin.padH,.105) * front - .032 * below;
+    } else if (painted && (h < -.38 || h < model.mouth - .07)) {
       const chinFront = ramp(x, .02, .89);
       const underside = ramp((infant ? -.43 : -.42) - .39 * chinFront - h, -.035, .23);
       light += .065 * bell(a, .31, .43) * bell(h, model.mouth - .20, .13) * front
@@ -614,11 +657,11 @@ const pineGameFace = (() => {
     }
   }
   const cache = new Map();
-  function model(base, shape, face, target, scalp, eye, mouth, nose, drawn = false, painted = false, infantProfile = false) {
-    const key = JSON.stringify([base, shape, face.outline, face.nose, target, face.formMix ?? 1, eye, mouth, drawn, painted, infantProfile]);
+  function model(base, shape, face, target, scalp, eye, mouth, nose, drawn = false, painted = false, infantProfile = false, infantChin = false) {
+    const key = JSON.stringify([base, shape, face.outline, face.nose, target, face.formMix ?? 1, eye, mouth, drawn, painted, infantProfile, infantChin]);
     if (!cache.has(key)) {
       if (cache.size >= 8) cache.delete(cache.keys().next().value);
-      cache.set(key, build(base, shape, face, target, scalp, eye, mouth, nose, drawn, painted, infantProfile));
+      cache.set(key, build(base, shape, face, target, scalp, eye, mouth, nose, drawn, painted, infantProfile, infantChin));
     }
     return cache.get(key);
   }

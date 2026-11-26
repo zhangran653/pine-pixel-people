@@ -224,6 +224,59 @@ function checkGarmentFits(cast) {
   assert.notEqual(mask(sitters[0].body.makePose(sits[0]).colors),mask(sitters[1].body.makePose(sits[1]).colors));
 }
 
+function checkInfantChin(cast) {
+  const previous = looks.garmentRelease, release = looks.infantChinRelease;
+  for (const base of ['adult','child','toddler','baby']) {
+    for (let seed=0; seed<8; seed++) {
+      const options = {base,seed,bodyFinish:'painted'};
+      const old = looks.randomCharacter({...options,release:previous});
+      const trial = looks.randomCharacter({...options,release});
+      assert.deepEqual(toPlain(looks.withoutInfantChin(trial)),toPlain({...old,id:trial.id,label:trial.label}));
+      assert.deepEqual(looks.prepare(toPlain(trial)).recipe.face,trial.face);
+      if (seed !== 0 && base !== 'baby') continue;
+      const [before,after] = [old,trial].map(d=>looks.build(d));
+      const pose = motion.actions.get('idle').sample(.17,after)[0].pose;
+      for (const key of ['mouth','upperLip','lowerLip','rightEye','leftEye','rightEarCanal','leftJawJoint','collar','seat'])
+        assert.deepEqual(after.sockets[key],before.sockets[key],base+' '+key);
+      const cells = a => a.body.makePose(pose).colors;
+      if (base === 'baby') {
+        assert.notEqual(mask(cells(before)),mask(cells(after)));
+        assert.ok(after.sockets.chinTip.point[0] > after.sockets.throat.point[0]);
+        assert.ok(after.sockets.lowerLip.point[2] > after.sockets.chinTip.point[2]);
+        assert.deepEqual(motion.actions.get('idle').sample(.17,before)[0].pose.feet,pose.feet);
+      } else assert.equal(digest(cells(before)),digest(cells(after)),base+' keeps its previous slices');
+    }
+  }
+  const old = examples['baby02-profile'], next = looks.withInfantChin(old);
+  assert.deepEqual(toPlain(looks.withoutInfantChin(next)),toPlain(old));
+  const ageCut = looks.withoutGarmentStudy(old), sameCut = looks.withInfantChin(ageCut);
+  assert.equal(looks.prepare(toPlain(sameCut)).recipe.clothingCut,'age');
+  assert.deepEqual(toPlain(looks.withoutInfantChin(sameCut)),toPlain(ageCut));
+  assert.throws(()=>looks.prepare({...ageCut,clothingCut:'age'}));
+  const after = looks.build(next);
+  motion.characters.set(after.id,after);
+  for (const id of ['idle','baby-reach','crawl']) {
+    const frame = motion.actions.get(id).sample(.61,after);
+    cast.setFrame(frame);
+    assert.ok(cast.group.getObjectByName(after.id).geometry.drawRange.count>0);
+  }
+  const scalp = scalps.scalp('baby',true), mouth = -.54;
+  for (const form of ['balanced','long','round','angular']) for (const amount of [-1,0,1]) {
+    const shape = {...next.shape,chinRoundness:amount,chinHeight:amount,chinProjection:amount};
+    const args = ['baby',shape,next.face,form,scalp,-.13,mouth,styles.basicNoses.button,true,true,true];
+    const oldSurface = surfaces.model(...args), surface = surfaces.model(...args,true);
+    for (const h of [mouth-.045,mouth,surface.tip,.3,.72])
+      assert.deepEqual(surface.row(h).face,oldSurface.row(h).face,'lower lip, nose and vault keep their surface');
+    const {undersideX,bottomH,padH} = surface.chin;
+    assert.ok(surface.row(bottomH-.012).width<.001 && surface.row(padH).face[0]>undersideX);
+    for (let h=bottomH+.011; h<mouth-.075; h+=.011) {
+      const row = surface.row(h);
+      assert.ok(row.width>0 && row.rear>=0 && row.fore>=0 && row.face.every(Number.isFinite));
+    }
+  }
+  console.log('Infant chin, fixed lip and ear sockets, seated and crawling meshes, eight seeds per age and reversible garment cuts passed');
+}
+
 function checkFigureRatios(cast) {
   const keys = ['headScale','crownHeight','trunkLength','noseLipSpacing'];
   const close = (a,b) => Math.abs(a-b) < 1e-8;
@@ -548,6 +601,7 @@ async function check() {
   checkFigureRatios(cast);
   checkFacialActing(cast);
   checkGarmentFits(cast);
+  checkInfantChin(cast);
   console.log('Four garment ages, 128 reproducible wardrobes, fits and wear locks, shared face pixels, short hems, dyes, floor contacts and Three.js passed');
   console.log('Four ages, 128 reversible acting recipes, bilateral gaze, closed lids, prop tracking, planted feet and Three.js passed');
   console.log('Four ages, 128 reproducible ratio fits, independent head and trunk controls, neutral archived meshes, locks and Three.js passed');

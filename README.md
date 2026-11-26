@@ -21,6 +21,12 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 1.19.10 婴儿下巴试作
+
+在立体动画画风的婴儿配方中，打开「五官」里的「婴儿下巴」，可在原有轮廓和短圆试作间切换。短圆试作从本人的下唇向下画出颏尖和颏底，颈前的皮肤接在颏底后方。下巴前后、高低和圆润度仍可单独调节。[打开婴儿 02 的侧脸](http://127.0.0.1:8000/atelier.html?model=baby02-profile&figure=chin&tab=face&bearing=270)
+
+对照页的两侧共用五官、肤色和动作进度。可以转到另一侧，或在坐姿、伸手和爬行之间切换。随机样本沿用上一轮分款剪裁的八个婴儿种子。[旋转同一个婴儿](http://127.0.0.1:8000/figure-study.html?before=chin&subject=baby02-profile&bearing=270&size=128&framing=head) · [坐直与低头实拍](studies/pixel-structure/infant-chin.webp) · [八个连续随机婴儿](studies/pixel-structure/infant-chin-random.webp)
+
 ### 1.19.9 上衣和裤腿版型试作
 
 在「体型 → 衣物轮廓」选「分款剪裁」。同一个人穿同一件衬衫，可以把衣摆束进腰头、放宽再收口，或让下摆直落。长裤可以收脚、直筒或阔腿。「随衣物」会使用该款衣服自己的剪裁。成人和儿童站立时双脚分别承重，手边留出一点空隙。普通新人物继续使用 1.18.0。[编辑人物](http://127.0.0.1:8000/atelier.html?model=adult&figure=garments&tab=shape) · [站立、走路与 64 像素剪影](studies/pixel-structure/garment-fits.webp)

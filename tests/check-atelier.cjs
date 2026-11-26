@@ -926,7 +926,25 @@ function checkInfantProfilePair() {
     const edited=new URLSearchParams(new URL($('figure-link').href).hash.slice(1));
     if (JSON.parse(edited.get('character')).shape.chinProjection!==.15 || JSON.stringify(source)!==edited.get('partner'))
       throw Error('editing the chin should only affect its own recipe');
-    result.dataset.state='pass';result.textContent='Editable baby profile, original pose partner and isolated chin edit passed';
+    const choose = (id,value) => {
+      const select = $('edit-'+id);
+      select.value=value;
+      select.dispatchEvent(new Event('change'));
+    };
+    const documentPair = () => new URLSearchParams(new URL($('figure-link').href).hash.slice(1));
+    choose('infant-chin','soft');
+    const softer=JSON.parse(documentPair().get('character'));
+    if (softer.packs['pine-core']!==PineLooks.infantChinRelease || JSON.stringify(softer.shape)!==JSON.stringify(JSON.parse(edited.get('character')).shape))
+      throw Error('the infant surface changed the authored face controls');
+    $('tab-wear').click();
+    for (const cut of ['original','cut','patterns']) {
+      choose('clothing-cut',cut);
+      if (JSON.parse(documentPair().get('character')).packs['pine-core']!==PineLooks.infantChinRelease)
+        throw Error('changing the clothing cut lost the selected chin');
+    }
+    $('tab-face').click();choose('infant-chin','prior');
+    if (documentPair().toString()!==edited.toString()) throw Error('the chosen chin, clothes and comparison must round-trip');
+    result.dataset.state='pass';result.textContent='Editable infant chin and profile, independent clothes, former recipe and seated comparison passed';
   } catch (err) {
     result.dataset.state='fail';result.textContent=err.stack || err.message;
   }

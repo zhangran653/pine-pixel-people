@@ -3,7 +3,7 @@ const pineDesignerBody = (() => {
   // The first three sculpt releases added the scalp, layered short hair and fitted jaw in order.
   const sculptedReleases = ['1.9.0', '1.9.1', '1.9.2', '1.10.0', '1.10.1', '1.11.0', '1.11.1',
     '1.12.0', '1.13.0', '1.13.1', '1.14.0', '1.15.0', pinePortraitStyles.illustratedRelease,
-    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease, pinePortraitStyles.clothingStudyRelease, pinePortraitStyles.featureStudyRelease, pinePortraitStyles.figureRatioRelease, pinePortraitStyles.expressionRelease, pinePortraitStyles.garmentRelease];
+    pinePortraitStyles.silhouetteRelease, pinePortraitStyles.facePlaneRelease, pinePortraitStyles.pixelRelease, pinePortraitStyles.figureRelease, pinePortraitStyles.tailoredRelease, pinePortraitStyles.proportionStudyRelease, pinePortraitStyles.structureStudyRelease, pinePortraitStyles.gameFaceRelease, pinePortraitStyles.baseFaceRelease, pinePortraitStyles.clothingStudyRelease, pinePortraitStyles.featureStudyRelease, pinePortraitStyles.figureRatioRelease, pinePortraitStyles.expressionRelease, pinePortraitStyles.garmentRelease, pinePortraitStyles.infantChinRelease];
   // Relative to the selected body. The editor, recipe validator and painter share these limits.
   const shapeRanges = {
     height: [0.75, 1.3, 1],
@@ -614,7 +614,7 @@ const pineDesignerBody = (() => {
     const drawnMix = drawnFace && faceForm !== 'balanced' ? recipe.face?.formMix ?? 1 : 0;
     const paintedBody = recipe.bodyFinish === 'painted';
     const wholeFigure = pin === pinePortraitStyles.figureRelease || tailored;
-    const pattern = clothingStudy && pin === pinePortraitStyles.garmentRelease
+    const pattern = clothingStudy && pinePortraitStyles.hasGarmentFits(pin) && recipe.clothingCut !== 'age'
       ? pineFigurePaint.patternFor(parts.top, parts.bottom, recipe.base, recipe.garmentFit || {}) : null;
     const garment = tailored && pineFigurePaint.garmentCut(parts.top, recipe.base, clothingStudy, pattern);
     const pixelPortrait = pinePortraitStyles.hasPixelFace(pin) && style === 'animation';
@@ -626,6 +626,7 @@ const pineDesignerBody = (() => {
     const naturalProfile = pin === '1.14.0' || editableProfile;
     const infantHeadVersion = pin === '1.13.0' || pin === '1.13.1' || naturalProfile;
     const infant = recipe.base === 'baby' && infantHeadVersion;
+    const infantChin = infant && gameFace && pin === pinePortraitStyles.infantChinRelease;
     const refitNape = sculptedHead && infant && pin !== '1.13.0';
     const headKind = infant ? 'baby' : kind;
     const proportionBase = recipe.base === 'baby' && !infant ? 'child' : recipe.base;
@@ -701,7 +702,7 @@ const pineDesignerBody = (() => {
     const articulatedJaw = fittedDepth || recipe.packs?.['pine-core'] === '1.10.1';
     const adjustableJaw = articulatedJaw || recipe.packs?.['pine-core'] === '1.10.0';
     const skinShape = gameFace
-      ? pineGameFace.model(recipe.base, shape, recipe.face || {}, faceForm, headShape, eyeLevel, mouthH, noseRow, drawnFace, paintedFeatures, facialActing && infant)
+      ? pineGameFace.model(recipe.base, shape, recipe.face || {}, faceForm, headShape, eyeLevel, mouthH, noseRow, drawnFace, paintedFeatures, facialActing && infant, infantChin)
       : adjustableJaw
       ? pineHeadShape.reshape(headKind, shape, fittedDepth ? measure(shape, 'faceRelief') : 0, individual, refitNape, skinPlanes)
       : fittedJaw
@@ -938,15 +939,18 @@ const pineDesignerBody = (() => {
     const collar = [rig.neck[0] - 0.035 * neutralRx, 0, rig.neck[2] - 0.27 * fit.rz],
       upperNeck = [fit.x + ((modelAnatomy && infant ? 0.015 : 0.055) + 0.04 * (shape.jawNeck || 0)) * fit.rx, 0,
         fit.z - (modelAnatomy && infant ? 0.55 : pixelPortrait ? 0.38 : 0.64) * fit.rz];
+    const chinJoin = infantChin && [
+      fit.x + (skinShape.chin.undersideX - .12) * fit.rx, 0, fit.z + (skinShape.chin.bottomH + .072) * fit.rz
+    ];
     const sockets = {
       ...(adjustableJaw
         ? {
             headPivot: socket('head', rig.headPivot),
             collar: socket('torso', collar),
             throat: socket('head', [
-              fit.x + (0.52 + 0.115 * (shape.jawNeck || 0)) * fit.rx,
+              fit.x + (infantChin ? skinShape.chin.undersideX - .19 + .066 * (shape.jawNeck || 0) : 0.52 + 0.115 * (shape.jawNeck || 0)) * fit.rx,
               0,
-              fit.z + (-0.897 + 0.032 * (shape.chinHeight || 0)) * fit.rz
+              fit.z + (infantChin ? skinShape.chin.bottomH + .077 : -0.897 + 0.032 * (shape.chinHeight || 0)) * fit.rz
             ])
           }
         : {}),
@@ -974,7 +978,7 @@ const pineDesignerBody = (() => {
           fit.z + angleHeight * fit.rz
         ]);
       }
-      const chinZ = fit.z + chinH * fit.rz;
+      const chinZ = fit.z + (skinShape?.chin?.padH ?? chinH) * fit.rz;
       sockets.chinTip = socket('jaw', [faceFront(0, chinZ), 0, chinZ]);
       const lip = (offset) => [faceFront(0, mouthZ + offset), 0, mouthZ + offset];
       sockets.upperLip = socket('head', lip(0.04 * fit.rz * upperLipScale));
@@ -3354,8 +3358,14 @@ const pineDesignerBody = (() => {
         const up = [2, 6, 10].map(i => pose.head[i]);
         // The neck turns almost horizontal during a crawl. Keep its start on
         // the moving throat and draw the underside in the jaw's facing direction.
-        const start = a.map((v, i) => v + .30 * delta[i] + (settled ? .19 : .27) * neutralRx * forward[i] - .067 * fit.rz * up[i]);
-        const reach = babyChin.map((v, i) => v - .15 * fit.rx * fore[i] - .10 * fit.rz * up[i] - start[i]);
+        const start = infantChin
+          ? a.map((v,i) => v + .33*delta[i] + .27*neutralRx*forward[i])
+          : a.map((v, i) => v + .30 * delta[i] + (settled ? .19 : .27) * neutralRx * forward[i] - .067 * fit.rz * up[i]);
+        // The new fold meets the bottom of the pad. A target at the tip makes
+        // the skin below the ear run all the way out to the front of the face.
+        const attachment = infantChin ? studioRig.point(pose.jaw || pose.head, chinJoin)
+          : babyChin.map((v,i) => v - .15 * fit.rx * fore[i] - .10 * fit.rz * up[i]);
+        const reach = attachment.map((v,i) => v - start[i]);
         const span = dot(reach, fore);
         if (span > .18 * fit.rx)
           throat = { start, fore, side, up, span, drift: dot(reach, side), rise: dot(reach, up) };
@@ -3396,9 +3406,11 @@ const pineDesignerBody = (() => {
         const side = px * throat.side[0] + py * throat.side[1] + pz * throat.side[2];
         const v = (side - u * throat.drift) / (fit.ry * (.37 - .16 * u));
         if (Math.abs(v) >= 1) return 0;
-        const floor = throat.rise * u * (.72 + .28 * u) + .085 * fit.rz * v * v;
+        const floor = infantChin
+          ? throat.rise * u*u*(3-2*u) + fit.rz * (.076*Math.sin(Math.PI*u)**2 + .061*v*v)
+          : throat.rise * u * (.72 + .28 * u) + .085 * fit.rz * v * v;
         // Round the underside while keeping its upper surface inside the jaw.
-        const pad = facialActing ? (settled ? .054 : .036) * fit.rz * (1 - v*v) * Math.sin(Math.PI*u) : 0;
+        const pad = facialActing && !infantChin ? (settled ? .054 : .036) * fit.rz * (1 - v*v) * Math.sin(Math.PI*u) : 0;
         const height = px * throat.up[0] + py * throat.up[1] + pz * throat.up[2] - floor;
         if (height >= -pad && height < .27 * fit.rz * (1 - v * v)) {
           const turn = facialActing ? u + .20*v*v + .62*height/fit.rz : u;

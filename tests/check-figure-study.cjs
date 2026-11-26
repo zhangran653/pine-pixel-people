@@ -185,7 +185,19 @@ function check(studyBench) {
       expect(picture()!==standing && ![...$('action').options].some(o=>o.value==='follow-rattle'),'independently posed recipe samples');
       choose('subject','adult');
       expect($('before').value!=='recipes' && $('before').querySelector('[value="recipes"]').disabled,'archive subject retained a draft-only pair');
-      $('qa').textContent='Two portable recipes, native profile comparison, movement and reversible editor handoffs passed';return;
+      choose('subject','baby02-profile'); choose('before','chin'); choose('action','idle');
+      const trial=linkedRecipe('b'), old=linkedRecipe('a');
+      expect(trial.packs['pine-core']===PineLooks.infantChinRelease && JSON.stringify(PineLooks.withoutInfantChin(trial))===JSON.stringify(old),'infant chin must use matching recipes');
+      for (const size of ['64','128']) {
+        choose('sample-size',size);
+        for (const angle of [90,270]) {
+          $('bearing').value=String(angle); $('bearing').dispatchEvent(new Event('input'));
+          expect($('canvas-a').toDataURL()!==picture(),'missing native profile at '+size+' / '+angle);
+        }
+      }
+      choose('action','crawl');
+      expect($('phase').value!=='' && new URL($('edit-b').href).searchParams.get('action')==='crawl','infant chin must follow the selected pose');
+      $('qa').textContent='Two portable recipes, editable infant chin, bilateral native profiles, movement and reversible editor handoffs passed';return;
     }
     if (query.has('garment-hem')) {
       const doc=linkedRecipe('b');

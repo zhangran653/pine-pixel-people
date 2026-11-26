@@ -23,7 +23,9 @@ const pinePortraitStyles = (() => {
   const figureRatioRelease = '1.19.7';
   const expressionRelease = '1.19.8';
   const garmentRelease = '1.19.9';
-  const hasFacialActing = pin => pin === expressionRelease || pin === garmentRelease;
+  const infantChinRelease = '1.19.10';
+  const hasGarmentFits = pin => pin === garmentRelease || pin === infantChinRelease;
+  const hasFacialActing = pin => pin === expressionRelease || hasGarmentFits(pin);
   const hasFigureRatios = pin => pin === figureRatioRelease || hasFacialActing(pin);
   const hasPaintedFeatures = pin => pin === featureStudyRelease || hasFigureRatios(pin);
   const hasClothingStudy = pin => pin === clothingStudyRelease || hasPaintedFeatures(pin);
@@ -732,7 +734,7 @@ const pinePortraitStyles = (() => {
     return 0;
   }
   return {
-    proportions,
+    proportions, infantChinRelease, hasGarmentFits,
     illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, figureRelease, tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease, expressionRelease, garmentRelease, hasFacialActing, hasFigureRatios, hasPaintedFeatures, hasClothingStudy, hasBaseFace, hasGameFace, hasStructureStudy, hasProportionStudy, hasTailoredFigure, hasPixelFace, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
     illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors,
     morphs,
