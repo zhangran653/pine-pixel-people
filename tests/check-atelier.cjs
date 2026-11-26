@@ -953,7 +953,26 @@ function checkOrdinaryFaces() {
     check(recipe().face.finish === 'soft-pixel','face-only reroll lost selected finish');
     $('random-character').click();
     check(recipe().face.finish === 'soft-pixel' && new URL($('figure-link').href).searchParams.get('before') === 'everyday','random page opened a different edition');
-    out.dataset.state = 'pass'; out.textContent = 'Ordinary face finish, captured recipe, original pixels, candidates and both random buttons passed';
+    setFinish('storybook');
+    $('choose-faces').click();
+    document.querySelector('[data-face-candidate]').click();
+    const drawing = recipe();
+    check(drawing.face.finish === 'storybook' && new URL($('figure-link').href).searchParams.get('before') === 'storybook','study lost the selected drawing');
+    $('tab-shape').click();
+    const cut = $('edit-clothing-cut');
+    cut.value = 'patterns';
+    cut.dispatchEvent(new Event('change'));
+    const fitted = recipe();
+    check(fitted.packs[PineLooks.core] === PineLooks.infantNoseRelease && fitted.bodyFinish === 'painted','fitted body not selected');
+    for (const key of ['face','colors','parts']) check(JSON.stringify(fitted[key]) === JSON.stringify(drawing[key]), 'fit altered '+key);
+    $('tab-face').click();
+    check($('edit-face-finish').value === 'storybook','fitted face picker is wrong');
+    $('random-face').click();
+    $('random-character').click();
+    check(recipe().face.finish === 'storybook','changing the actor lost the fitted face drawing');
+    $('save-look').click();
+    check(PineWardrobe.saved.get(recipe().id)?.face.finish === 'storybook','fitted character did not save');
+    out.dataset.state = 'pass'; out.textContent = 'Studio face drawings, candidates, fitted clothes, save and both random buttons passed';
   } catch (error) { out.dataset.state = 'fail'; out.textContent = error.stack; }
 }
 function checkInfantProfilePair() {

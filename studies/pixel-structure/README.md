@@ -4,6 +4,14 @@
 
 ## 随机人脸的协调
 
+### 黄帽人物的眼神与绘本像素试作
+
+黄帽人物在原画法里有深色的虹膜、大面积的眼部高光和两处浓重的鼻翼。上次的柔和像素脸收住了鼻翼和嘴角，放大后仍能看到较大的暗色虹膜，以及静息厚下唇两端的上挑。把视线落在眼睛上会读成睁大眼，移到嘴上又像在笑。同一张配方可重放这三种画法。[试衣镜三行实拍](storybook-faces.webp) · [旋转同一张脸](../../figure-study.html?before=storybook&subject=yellow-hardhat&framing=head&bearing=0)
+
+新试作用一块原创的 11 × 11 索引图画虹膜，叠在可眨动的上下眼睑之间。高光嵌在虹膜里，瞳孔下方留出眼色。含笑时下眼睑和嘴角同时变化。鼻尖、近侧鼻翼和鼻底共用一块转折的阴影。宽帽檐的下缘与前伸距离决定额头上的阴影落点。姬发式的齐切鬓发停在颊侧，长发从耳后落下，两层头发都随头身运动。成组铺色的思路参考了 Pedro Medeiros 的像素教程，独立的眼神、眨眼、静息与微笑可参看 LPC 作者发布的表情素材。[Cluster Sketching and Painting](https://saint11.art/pixel_art_articles/article2/) · [LPC Expanded Expressions](https://opengameart.org/content/lpc-expanded-expressions)
+
+创作室可在普通全身和分龄剪裁上使用同一套画法。图中成人、儿童、幼儿和婴儿各取本批盲抽的前两位。头像直接裁自 128 像素全身，动作取自 64 像素全身。两侧共用衣物、染色和动作进度，婴儿都在坐地伸手。可运行 `node tests/check-figure-study.cjs --check-storybook` 重放四个年龄的面部对照、全身对照和 32 个随机样本。盲评将每个年龄的八对各半交换左右，单独保存本次评审。[八次随机实拍](storybook-cast.webp) · [分龄盲评](../../figure-study.html?mode=blind&review=storybook&size=128) · [婴儿侧面](../../figure-study.html?before=fitted-story&subject=seeded&age=baby&seed=1774744938&action=baby-reach&bearing=270&phase=41&size=128)
+
 ### 创作室普通随机脸
 
 黄帽建筑工程师用的是「垂眼尾、短鼻、厚下唇」，黑发设计师用的是「鹿眼、宽鼻、丰满唇」。两者来自普通随机的 1.18.0。旧画法在成人待机时把不同唇形压到同一张笑嘴图案上，按唇厚上下拉伸。一转头，深色从唇中央一直铺到嘴角，鼻翼上的深色又占去鼻尖附近好几个像素。形状差异因此很容易被读成别扭的表情。[两张原配方的试衣镜实拍](everyday-faces.webp)

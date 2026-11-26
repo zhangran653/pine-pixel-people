@@ -536,6 +536,50 @@ function checkOrdinaryFaces(cast) {
   console.log('Ordinary random faces reproduce the wardrobe, preserve archived pixels, and animate in Three.js at four ages');
 }
 
+function checkStoryFaces(cast) {
+  for (const base of ['adult','child','toddler','baby']) {
+    const ordinary = looks.randomCharacter({base,seed:131});
+    const story = looks.withFaceFinish(ordinary,'storybook'), fitted = looks.withFittedPortrait(story);
+    for (const key of ['face','parts','colors','identity']) assert.deepEqual(fitted[key],story[key]);
+    assert.equal(fitted.packs[looks.core],looks.infantNoseRelease);
+    assert.equal(fitted.bodyFinish,'painted');
+    if (base === 'baby') {
+      assert.equal(fitted.infantNose,'nursery');
+      const flat = looks.withoutInfantNose(fitted);
+      assert.equal(flat.face.finish,'storybook');
+      assert.equal(flat.packs[looks.core],fitted.packs[looks.core]);
+    }
+    for (const doc of [story,fitted]) {
+      const soft = looks.withFaceFinish(doc,'soft-pixel');
+      assert.deepEqual(toPlain(looks.withFaceFinish(soft,'storybook')),toPlain(doc));
+      assert.deepEqual(toPlain(looks.prepare(toPlain(doc)).recipe),toPlain(looks.prepare(doc).recipe));
+      assert.equal(looks.randomFace(doc,{seed:30}).face.finish,'storybook');
+      const rolled = looks.randomCharacter({source:doc,base,seed:30,locks:['body','wear','hair','skin']});
+      assert.equal(looks.prepare(rolled).recipe.face.finish,'storybook');
+      assert.deepEqual(toPlain(rolled.parts),toPlain(doc.parts));
+      assert.equal(rolled.colors.skin,doc.colors.skin);
+      assert.ok(!looks.withPortraitInk(doc,'cel').face.finish);
+      assert.throws(()=>looks.prepare({...doc,portraitInk:'cel'}));
+      assert.throws(()=>looks.prepare({...doc,face:{...doc.face,finish:['storybook']}}));
+      const actor = looks.build(doc), clip = motion.actions.get(base === 'baby' ? 'baby-reach' : 'walk');
+      const frame = clip.sample(.41,actor), pose = frame[0].pose;
+      const head = (a,at)=>motion.figureLayers(a,at,a.body.makePose(at)).at(-1).model.colors;
+      const open = head(actor,pose);
+      assert.notEqual(digest(open),digest(head(actor,{...pose,blink:1})));
+      assert.notEqual(digest(open),digest(head(looks.build(soft),pose)));
+      const dyed = looks.build({...doc,colors:{...doc.colors,eyes:'#408595',lip:'#a24755'}});
+      const tinted = head(dyed,pose);
+      assert.equal(mask(open),mask(tinted));
+      assert.notEqual(digest(open),digest(tinted));
+      if (base === 'baby') assert.equal(Boolean(actor.rig.seatedHeadOffset),doc === fitted);
+      motion.characters.set(actor.id,actor);
+      cast.setFrame(frame);
+      assert.ok(cast.group.getObjectByName(actor.id+'/face').geometry.drawRange.count > 0);
+    }
+  }
+  console.log('Storybook portraits retain dyes, blinks, rerolls, fitted infant support and Three.js meshes across four ages');
+}
+
 function checkPortraitBrushes(cast) {
   const pins = [looks.garmentRelease,looks.infantChinRelease,looks.chinPadRelease];
   for (const pin of pins) {
@@ -811,6 +855,7 @@ async function check() {
   checkInfantChin(cast);
   checkPortraitBrushes(cast);
   checkOrdinaryFaces(cast);
+  checkStoryFaces(cast);
   console.log('Four garment ages, 128 reproducible wardrobes, fits and wear locks, shared face pixels, short hems, dyes, floor contacts and Three.js passed');
   console.log('Four ages, 128 reversible acting recipes, bilateral gaze, closed lids, prop tracking, planted feet and Three.js passed');
   console.log('Four ages, 128 reproducible ratio fits, independent head and trunk controls, neutral archived meshes, locks and Three.js passed');

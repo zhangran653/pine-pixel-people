@@ -368,9 +368,11 @@ const pineGameFace = (() => {
       const underChin = painted ? ramp(-u, .67, .97) : 0;
       const cheek = bell(u, -0.21 + 0.1 * value('cheekHeight'), 0.36);
       const outline = pinePortraitStyles.outlines[face.outline];
+      const jawBreadth = layout?.storybook
+        ? 1 + (infant ? .022 : .062)*bell(u,-.76,.22) - (infant ? 0 : .018)*bell(u,-.23,.28) : 1;
       const width =
         p[0](u) *
-        (1 - underChin * (infant ? .075 : .10)) * (1 +
+        jawBreadth * (1 - underChin * (infant ? .075 : .10)) * (1 +
           amount *
             (jaw * (jawTarget + 0.48 * ((shape.jaw ?? 1) - 1) + 0.32 * (outline?.[2] || 0)) +
               cheek * (0.056 * value('cheekWidth') + 0.21 * (outline?.[1] || 0)) +
@@ -514,7 +516,8 @@ const pineGameFace = (() => {
       }
     }
     const row = (h) => rowList[clamp(Math.round(((h + 1) * rings) / 2), 0, rings)];
-    return { row, insideSkin, frontAt, noseWidth, noseBase, infantNose, softPixels, ink, mouth, chin, lipChin, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
+    return { row, insideSkin, frontAt, noseWidth, noseBase, infantNose, softPixels, storybook:!!layout?.storybook,
+      brimEdge:layout?.brimEdge, ink, mouth, chin, lipChin, tip: eye - (eye - mouth) * tipAt, cheekCenter: -0.19 };
   }
 
   function eye(shape, off, h, blink, side, k, pitch) {
@@ -586,13 +589,13 @@ const pineGameFace = (() => {
     narrow:'covered', sleepy:'covered', hooded:'covered', monolid:'covered', 'deep-set':'covered',
     downturned:'falling', crescent:'falling'
   };
-  function featureBrush(base, ink, softPixels = false, eyes) {
+  function featureBrush(base, ink, softPixels = false, eyes, storybook = false) {
     const guide = featureGuides[base], brush = brushes[ink];
     if (!brush) return guide;
     const mix = base === 'baby' ? .46 : base === 'toddler' ? .70 : .92;
     const drawing = softPixels ? restingLids[lidKinds[eyes]] || brush.lid : brush.lid;
     const lid = guide.lid.map((pair,i) => pair.map((v,j) => v + mix * (drawing[i][j] - v)));
-    return { ...guide, lid, brow:guide.brow * brush.brow, brush, irisDrawing:irisDrawings[ink],softPixels };
+    return { ...guide, lid, brow:guide.brow * brush.brow, brush, irisDrawing:irisDrawings[ink],softPixels,storybook };
   }
   // Indexed iris drawn in the surface coordinates of the eye. The small amber
   // or cool arc turns around the pupil and the catchlight stays on the lit side.
@@ -607,15 +610,26 @@ const pineGameFace = (() => {
     line:['....rrr....','..rrrrrrr..','.rriipppiir','.ri**pppiir','ri**ppppiir','riiippppiir','riiipppiirr','riiippiiaar','.riiaaaaai.','..riiaair..','....iii....']
   };
   const irisInks = { r:'irisShadow', p:'pupil', i:'eyes', a:'irisLight', '*':'glint' };
+  // This cluster sits behind both lids. Its upper portion is deliberately
+  // cropped at rest; the lower iris ends in a coloured arc against the white.
+  const storyIris = [
+    '...rrrrr...', '..rrrrrrr..', '.rrriiiiir.', '.rii**ppir.',
+    'riii**pppii', 'riippppppii', 'riiippppiia', '.iiiippiaa.',
+    '.iiaaaiiia.', '..iaaaaii..', '....iii....'
+  ];
   // The artist chooses the resting attitude. Motion is layered over it in
   // head coordinates, shared by both eyes and independent of the camera.
   function expression(base, face, cue, jawOpen, ink) {
-    const rest = face.restExpression || (face.mouth === 'smile' ? 'warm' : face.eyes === 'round' ? 'curious' : 'calm');
     const young = base === 'baby' || base === 'toddler';
+    const storybook = face.finish === 'storybook';
+    const warm = face.mouth === 'smile' || (storybook && face.mouth === 'soft-smile');
+    const curious = face.eyes === 'round' && (!storybook || young);
+    const rest = face.restExpression || (warm ? 'warm' : curious ? 'curious' : 'calm');
     const [across, up] = cue?.gaze || [0,0], smile = clamp(cue?.smile || 0,0,1);
     return {
       across:.44*across, up:.40*up, iris:young ? .63 : .65,
-      lid:(young ? .84 : .92) + (rest === 'curious' ? (ink ? .07 : .13) : 0) + .045*up - .07*smile,
+      lid:(young ? .84 : .92) + (rest === 'curious' ? (ink ? .07 : .13) : 0) + .045*up - .07*smile
+        - (storybook && rest === 'warm' ? .065 : 0),
       lower:(young ? .84 : .93) - .09*smile - (ink && rest === 'warm' ? .14 : 0),
       brow:(rest === 'curious' ? .031 : 0) + .014*up,
       lift:(rest === 'warm' ? .74 : .46) + .72*smile,
@@ -634,17 +648,29 @@ const pineGameFace = (() => {
     const a = guide.lid[i], b = guide.lid[i + 1];
     const up = (shape.infant ? .053 + .72 * shape.up : shape.up) * guide.opening * (acting ? acting.lid : 1);
     const down = (shape.infant ? .031 + .83 * shape.down : shape.down) * 1.13 * guide.opening * (acting ? acting.lower : 1);
-    const y = h - (guide.softPixels ? .76 : 1) * shape.tilt * q;
+    const y = h - (guide.storybook ? .55 : guide.softPixels ? .76 : 1) * shape.tilt * q;
     const top = (a[0] + t * (b[0] - a[0])) * up * (guide.softPixels && !shape.infant ? .88 : 1);
-    const base = (a[1] + t * (b[1] - a[1])) * down;
+    const base = (a[1] + t * (b[1] - a[1])) * down * (guide.storybook && !shape.infant ? .80 : 1);
     const shut = .65 * base + .35 * top, lid = top + blink * (shut - top);
     const floor = base + blink * (shut - base);
     const stroke = clamp(.023 + .29 * pitch, .025, .044) * (1 - .36 * q * q) *
-      (guide.softPixels ? 1.09 + .15*q : guide.brush ? guide.brush.stroke * (.96 + .24*q) : 1);
+      (guide.storybook ? 1.38+.24*q : guide.softPixels ? 1.09 + .15*q : guide.brush ? guide.brush.stroke * (.96 + .24*q) : 1);
     if (y > lid + stroke || y < floor - .22 * stroke) return 0;
     if (blink > .93 || y >= lid - .27 * stroke) {
+      if (guide.storybook) return q < -.64 ? k.lidSkin : q > .86 ? k.browSoft : k.lash;
       if (guide.softPixels) return Math.abs(q) > .78 ? k.lidSkin : q < -.52 ? k.irisShadow : k.lash;
       return Math.abs(q) > .79 && !(guide.brush && q > 0) ? k.lidSkin : k.lash;
+    }
+    if (guide.storybook) {
+      const across = side*(q+.025) - .70*(acting?.across || 0);
+      const ix = across / (shape.infant ? .66 : .58);
+      const iz = (h-(.16+.78*(acting?.up || 0))*up) / (.72*up+.38*down);
+      if (Math.abs(ix) < 1 && Math.abs(iz) < 1) {
+        const mark = storyIris[Math.floor((1-iz)*5.5)][Math.floor((ix+1)*5.5)];
+        if (mark !== '.') return k[irisInks[mark]];
+      }
+      if (q > .28 && y < floor+.36*stroke) return k.lidRim;
+      return Math.abs(q) > .80 || y > lid-1.7*stroke ? k.scleraShade : k.sclera;
     }
     if (guide.softPixels) {
       // Both pupils share the gaze direction. The eyelid clips a steady iris
@@ -702,6 +728,7 @@ const pineGameFace = (() => {
       const a = Math.min(1,Math.abs(q));
       if (softPixels) {
         const lift = name === 'smile' ? .105 : gentleSmile ? .085 : restingLift;
+        if (guide.storybook) return -.010 + ((smiling ? .69 : .42)*lift+.058*acting.smile)*ramp(a,.18,.87);
         return -.016 + (lift+.041*acting.smile)*ramp(a,.18,.89);
       }
       return drawing.seam(a) * (.72+.28*guide.brush.corner) + (softProfile ? .036 : .061)*acting.smile*a*a;
@@ -712,7 +739,8 @@ const pineGameFace = (() => {
       const y = h-seam(q);
       const taper = 1-ramp(a,.53,1);
       const end = softPixels ? 1-ramp(a,.68,.93) : softProfile ? 1-ramp(a,.62,.985) : 1;
-      const line = softPixels ? clamp(2.1*pitch,.034,.081) : .015+Math.min(.023,.56*pitch);
+      const line = guide.storybook ? clamp(1.30*pitch,.024,.055)
+        : softPixels ? clamp(2.1*pitch,.034,.081) : .015+Math.min(.023,.56*pitch);
       const stroke = line * (.43+.57*taper)*end;
       const opening = gap * (1-a*a)**1.5*end;
       if (y < .48*stroke && y > -opening-.67*stroke) {
@@ -792,7 +820,20 @@ const pineGameFace = (() => {
     const a = Math.abs(y),
       side = x - r.axis;
     let noseLight = 0;
-    if (model.softPixels) {
+    if (model.storybook) {
+      if (side > 0 && a < 1.15*model.noseWidth && h < eye) {
+        const q = y/model.noseWidth, at = h-model.tip;
+        const turn = .032*q*q + .014*q;
+        const edge = at-turn;
+        if (q > -.65 && q < .94 && edge < -.016 && edge > -.082+.020*Math.abs(q)) {
+          return !infant && q > .39 && q < .77 && edge < -.042 ? k.nasalFold : k.nasalBase;
+        }
+        if (q > .26 && q < .89 && at > -.029 && at < (infant ? .075 : .127)*(1.14-q)) return k.nasalPlane;
+        if (bell(q,-.24,.68)*bell(at,.018,.060) > .48) return k.nasalLight;
+        const bridge = at/Math.max(.14,eye-model.tip);
+        noseLight = -.18*bell(q,.57,.43)*bell(bridge,.28,.38);
+      }
+    } else if (model.softPixels) {
       // The septum stays lit between the two alae. In profile the visible
       // accent follows the underside of the round tip into the nearer wing.
       if (side > 0 && a < 1.12*model.noseWidth && h < eye && h > model.tip-.12) {
@@ -897,7 +938,21 @@ const pineGameFace = (() => {
       if (brush === brushes.cel) tone = value < .37 ? 3 : value < .496 ? 5 : value < .615 ? 7 : 9;
       else if (brush === brushes.line) tone = value < .41 ? 4 : value < .55 ? 6 : value < .67 ? 8 : 9;
       else tone = clamp(Math.floor((value-.37)*13+4.5),4,9);
-      const warm = malar*brush.warmth + shadow*.13;
+      let warm = malar*brush.warmth + shadow*.13;
+      if (model.storybook) {
+        // Tie the ear and far cheek to one shadow mass. A short diagonal
+        // lower edge leads into the chin rather than outlining both cheeks.
+        const boundary = .65-.29*ramp(-h,.17,.82);
+        const sidePlane = ramp(across+.16*y+.22*(1-front),boundary,boundary+.24);
+        value += .016*front - .078*sidePlane - .028*under;
+        if (model.brimEdge) {
+          const [height,reach] = model.brimEdge;
+          const edge = height - .12 - .29*clamp(reach-x,0,.90) - .075*y;
+          value -= .14*front*ramp(h,edge-.055,edge+.070);
+        }
+        tone = value < .402 ? 4 : value < .492 ? 5 : value < .555 ? 6 : value < .628 ? 7 : value < .705 ? 8 : 9;
+        warm = .58*malar + .25*sidePlane;
+      }
       return k[inks[tone + (warm > .48 ? 24 : warm > .19 ? 12 : 0)]];
     }
     const tone =

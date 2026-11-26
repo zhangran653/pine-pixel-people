@@ -232,12 +232,22 @@ function check(studyBench) {
       delete old.face.finish;
       expect(normalized(old) === normalized(original), 'the two portraits have different settings');
     }
-    if (query.has('ensemble-pair') || query.has('everyday-pair')) {
+    function verifyStoryPair(source,trial,age,seed) {
+      const normal = PineLooks.randomCharacter({base:age,seed});
+      const stable = PineLooks.withFaceFinish(normal,source.face.finish);
+      const fitted = trial.packs[PineLooks.core] === PineLooks.infantNoseRelease;
+      const candidate = fitted ? PineLooks.withFittedPortrait(stable) : PineLooks.withFaceFinish(normal,'storybook');
+      const saved = doc => JSON.stringify(PineLooks.prepare(doc).recipe);
+      expect(source.face.finish === (fitted ? 'storybook' : 'soft-pixel') && trial.face.finish === 'storybook',
+        'unexpected face drawing in the pair');
+      expect(saved(stable) === saved(source) && saved(candidate) === saved(trial),'pair is not the editor recipe');
+    }
+    if (query.has('ensemble-pair') || query.has('everyday-pair') || query.has('story-pair')) {
       const stable = linkedRecipe('a'), trial = linkedRecipe('b'), age = query.get('age');
-      const verify = query.has('everyday-pair') ? verifyEverydayPair : verifyWholePair;
+      const verify = query.has('story-pair') ? verifyStoryPair : query.has('everyday-pair') ? verifyEverydayPair : verifyWholePair;
       verify(stable,trial,age,Number(query.get('seed')));
       const clip = age === 'baby' ? 'baby-reach' : 'walk';
-      if (studyBench === 'ensemble' || studyBench === 'everyday') {
+      if (['ensemble','everyday','storybook'].includes(studyBench)) {
         $('qa').textContent = JSON.stringify({age,clip,...measureClip(stable,trial,clip)});
       } else {
         const standing = picture();
@@ -247,8 +257,9 @@ function check(studyBench) {
       }
       return;
     }
-    if (query.has('ensemble-review') || query.has('everyday-review')) {
-      const ordinary = query.has('everyday-review');
+    if (query.has('ensemble-review') || query.has('everyday-review') || query.has('story-review')) {
+      const story = query.has('story-review');
+      const ordinary = query.has('everyday-review') || story;
       expect($('edit-b').hidden && !$('edit-b').hasAttribute('href') && $('results').hidden,'blind recipe leaked');
       // A throwaway browser profile checks the voting/export flow, with no human votes.
       for (let n = 0; n < 32; n++) document.querySelector('[data-vote="tie"]').click();
@@ -260,9 +271,9 @@ function check(studyBench) {
         HTMLAnchorElement.prototype.click = () => {};
         $('export').click();
       } finally { window.Blob = originalBlob; HTMLAnchorElement.prototype.click = originalClick; }
-      expect(report.review === (ordinary ? 'everyday' : 'ensemble') && report.pairs.length === 32,'incomplete replay data');
+      expect(report.review === (story ? 'storybook' : ordinary ? 'everyday' : 'ensemble') && report.pairs.length === 32,'incomplete replay data');
       if (ordinary) expect(report.coreRelease === PineLooks.release && !report.candidateBodyFinish,'wrong ordinary edition');
-      const prior = ordinary ? 'original' : '1.18.0';
+      const prior = story ? 'soft-pixel' : ordinary ? 'original' : '1.18.0';
       for (const age of ['adult','child','toddler','baby']) {
         const agePairs = report.pairs.filter(row=>row.base === age);
         expect(agePairs.length === 8 && agePairs.filter(row=>row.a === prior).length === 4,'unbalanced sides');
@@ -272,7 +283,7 @@ function check(studyBench) {
         const side = doc => ordinary ? doc.face.finish || 'original' : doc.packs[PineLooks.core];
         expect(side(a) === row.a && side(b) === row.b,'reported sides differ');
         const [stable,trial] = row.a === prior ? [a,b] : [b,a];
-        (ordinary ? verifyEverydayPair : verifyWholePair)(stable,trial,row.base,row.seed);
+        (story ? verifyStoryPair : ordinary ? verifyEverydayPair : verifyWholePair)(stable,trial,row.base,row.seed);
         if (!$('prev').disabled) $('prev').click();
       }
       $('qa').textContent = '32 full-figure seeds replayed with paired wardrobe and balanced hidden sides';
@@ -880,7 +891,7 @@ function check(studyBench) {
         return +((sorted[middle-1]+sorted[middle])/2).toFixed(1);
       };
       return {
-        versions:studyBench === 'everyday' ? ['original','soft-pixel'] : studyBench === 'body' ? ['original ink','painted'] : [base.packs[PineLooks.core],candidate.packs[PineLooks.core]],
+        versions:studyBench === 'storybook' ? [base.face.finish,candidate.face.finish] : studyBench === 'everyday' ? ['original','soft-pixel'] : studyBench === 'body' ? ['original ink','painted'] : [base.packs[PineLooks.core],candidate.packs[PineLooks.core]],
         framesPerVersion:20, medianPoseAndFineBandsMs:samples.map(median), medianProjectionAndReadbackMs:projection.map(median) };
     }
     if (studyBench) {
@@ -918,7 +929,7 @@ try {
   const measureCut = process.argv.includes('--measure-cut');
   const measureBases = process.argv.includes('--measure-bases');
   const measureForms = measureBases || process.argv.includes('--measure-forms');
-  const bench = process.argv.includes('--bench-everyday') ? 'everyday' : process.argv.includes('--bench-ensemble') ? 'ensemble' : process.argv.includes('--bench-garments') ? 'garments' : process.argv.includes('--bench-acting') ? 'acting' : process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
+  const bench = process.argv.includes('--bench-storybook') ? 'storybook' : process.argv.includes('--bench-everyday') ? 'everyday' : process.argv.includes('--bench-ensemble') ? 'ensemble' : process.argv.includes('--bench-garments') ? 'garments' : process.argv.includes('--bench-acting') ? 'acting' : process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
   const setup = join(dir, 'draft-fixture.js');
   writeFileSync(setup, '(' + loadDraft.toString() + ')(' + readFileSync(join(root,'packs/creek-hats.json'),'utf8') + ');');
   const page = readFileSync(join(root, 'figure-study.html'), 'utf8')
@@ -945,12 +956,15 @@ try {
   const mouthCase = '?mouth-turn=1&subject=seeded&before=surface&age=adult&seed=';
   const ensembleCases = ['adult','child','toddler','baby'].map(age=>'?ensemble-pair=1&before=whole-1.19.12&subject=seeded&seed=2602&age='+age);
   const ordinaryCases = ['adult','child','toddler','baby'].map(age=>'?everyday-pair=1&before=everyday&subject=seeded&seed=2602&age='+age);
+  const storyCases = ['storybook','fitted-story'].flatMap(before=>['adult','child','toddler','baby'].map(age=>'?story-pair=1&before='+before+'&subject=seeded&seed=2602&age='+age));
+  const storyReview = '?story-review=1&mode=blind&review=storybook&case=adult%2F0';
   const ordinaryMouths = ['blue-jacket','yellow-hardhat'].map(id=>'?ordinary-mouth=1&before=everyday&subject='+id);
   const ordinaryReview = '?everyday-review=1&mode=blind&review=everyday&case=adult%2F0';
   const ensembleReview = '?ensemble-review=1&mode=blind&review=ensemble&case=adult%2F0';
   const chinEdge = '?chin-edge=1&before=profile-line&subject=seeded&age=adult&seed=';
   const firstSeed = process.argv.includes('--holdout-mouth-turn') ? 2610 : 2600;
   const cases = process.argv.includes('--measure-chin-edge') ? Array.from({length:8},(_,i)=>chinEdge+(2600+i)) :
+    bench === 'storybook' ? storyCases.slice(0,4) : process.argv.includes('--check-storybook') ? [...storyCases,storyReview] :
     bench === 'everyday' ? ordinaryCases : process.argv.includes('--check-everyday') ? [...ordinaryCases,ordinaryReview,...ordinaryMouths] :
     bench === 'ensemble' ? ensembleCases : process.argv.includes('--check-ensemble') ? [...ensembleCases,ensembleReview] :
     narrow || process.argv.includes('--measure-mouth-turn') || process.argv.includes('--holdout-mouth-turn') ? Array.from({length:8},(_,i)=>mouthCase+(firstSeed+i)) :

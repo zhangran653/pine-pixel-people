@@ -136,6 +136,22 @@ const PineLooks = (() => {
   const ratioKeys = Object.keys(figureRatioRanges);
   const restExpressions = { calm:'安静', curious:'好奇', warm:'含笑' };
   const portraitInks = { wash:'柔彩', cel:'明暗块面', line:'勾线' };
+  const faceFinishes = { original:'原有画法', 'soft-pixel':'柔和像素脸', storybook:'绘本像素 · 试作' };
+  function withFaceFinish(recipe, finish) {
+    const pin = recipe.packs[core];
+    requireThat((pin === release || pin === infantNoseRelease) && pinePortraitStyles.portraitStyle(recipe) === 'animation' &&
+      typeof finish === 'string' && Object.hasOwn(faceFinishes,finish), '这项面部画法需要普通或分龄立体动画人物');
+    const next = structuredClone(recipe);
+    next.face ??= {...facePresets.classic.face};
+    if (finish === 'original' && pin !== release) delete next.face.finish;
+    else next.face.finish = finish;
+    if (finish !== 'original') {
+      delete next.portraitInk;
+      delete next.faceSurface;
+      delete next.spriteMouth;
+    }
+    return next;
+  }
   const garmentFits = {
     top: { tucked:'束入腰头', bloused:'宽身收口', straight:'直落下摆' },
     legs: { tapered:'收脚', straight:'直筒', wide:'阔腿' }
@@ -216,6 +232,15 @@ const PineLooks = (() => {
     if (style !== pinePortraitStyles.portraitStyle(next)) next.face = {...next.face, style};
     return next;
   }
+  function withFittedPortrait(recipe) {
+    const alreadyFitted = recipe.packs[core] === infantNoseRelease;
+    const next = alreadyFitted ? structuredClone(recipe) : withGarmentStudy(recipe);
+    next.packs[core] = infantNoseRelease;
+    next.bodyFinish = 'painted';
+    delete next.clothingCut;
+    if (!alreadyFitted && recipe.base === 'baby') next.infantNose = 'nursery';
+    return withFaceFinish(next,recipe.face?.finish || 'soft-pixel');
+  }
   function withoutGarmentStudy(recipe) {
     const next = structuredClone(recipe);
     clearPortraitOptions(next);
@@ -262,7 +287,7 @@ const PineLooks = (() => {
   }
   function withoutInfantNose(recipe) {
     if (recipe.packs[core] !== infantNoseRelease) return structuredClone(recipe);
-    if (recipe.portraitInk) {
+    if (recipe.portraitInk || recipe.face?.finish) {
       const next = structuredClone(recipe);
       delete next.infantNose;
       return next;
@@ -274,6 +299,7 @@ const PineLooks = (() => {
     requireThat(Object.hasOwn(portraitInks, ink), '未知像素笔触');
     const next = portraitEdition(recipe);
     next.face = { ...facePresets.classic.face, ...next.face, style:'animation' };
+    delete next.face.finish;
     next.portraitInk = ink;
     return next;
   }
@@ -438,6 +464,7 @@ SOFTWARE.`;
     if (base === 'baby' && recipe.base !== 'baby') {
       next.packs[core] = figurePin(recipe);
       clearAdultFaceDetails(next.face);
+      if (next.packs[core] === infantNoseRelease && next.face?.finish) next.infantNose = 'nursery';
     } else next.packs[core] = editingRelease(next);
     if (base !== recipe.base && pinePortraitStyles.hasFigureRatios(next.packs[core]))
       Object.assign(next.shape, fittedFigureRatios(next));
@@ -1042,7 +1069,8 @@ SOFTWARE.`;
         face[key] = selected[key];
       }
       if (selected.finish !== undefined) {
-        requireThat(pin === release && (selected.style ?? 'animation') === 'animation' && ['soft-pixel','original'].includes(selected.finish), '这项面部画法用于普通立体动画人物');
+        requireThat((pin === release || (pin === infantNoseRelease && !raw.portraitInk && selected.finish !== 'original')) &&
+          (selected.style ?? 'animation') === 'animation' && typeof selected.finish === 'string' && Object.hasOwn(faceFinishes,selected.finish), '这项面部画法需要普通或分龄立体动画人物');
         face.finish = selected.finish;
       }
       if (selected.restExpression !== undefined) {
@@ -1740,6 +1768,7 @@ SOFTWARE.`;
     else if (!pinePortraitStyles.hasFacialActing(pin) && doc.face) delete doc.face.restExpression;
     if (!pinePortraitStyles.hasStructureStudy(pin)) delete doc.anatomyParts;
     if (doc.face) {
+      delete doc.face.finish;
       delete doc.face.formMix;
       if (!pinePortraitStyles.hasGameFace(pin) || portrait !== 'animation') delete doc.face.form;
     }
@@ -1773,11 +1802,11 @@ SOFTWARE.`;
       nose: nosePair.face.nose, mouth: nosePair.face.mouth };
     // Explicitly pinned generations remain reproducible. A new ordinary roll
     // uses the current face drawing, including when started from an old save.
-    if (pin === release && portrait === 'animation') {
-      const finish = options.finish ?? recipe.face?.finish ?? (options.release ? undefined : 'soft-pixel');
+    if ((pin === release || pin === infantNoseRelease) && !brushed && portrait === 'animation') {
+      const finish = options.finish ?? recipe.face?.finish ?? (pin === release && !options.release ? 'soft-pixel' : undefined);
       if (finish !== undefined) {
-        requireThat(['original','soft-pixel'].includes(finish),'未知面部画法');
-        doc.face.finish = finish;
+        requireThat(typeof finish === 'string' && Object.hasOwn(faceFinishes,finish),'未知面部画法');
+        if (pin === release || finish !== 'original') doc.face.finish = finish;
       }
     }
     if (composition) {
@@ -1883,7 +1912,7 @@ SOFTWARE.`;
     if (ink && pin === infantNoseRelease) faceSource.packs = {...outfit.packs,[core]:pin};
     const doc = randomFace(faceSource,
       { random, style, portrait: portrait || source?.face?.style || 'animation', family, previousForm:source?.face?.form,
-        finish:options.finish ?? source?.face?.finish ?? (options.release ? undefined : 'soft-pixel'), release: pin, ink });
+        finish:options.finish ?? source?.face?.finish ?? (pin === release && !options.release ? 'soft-pixel' : undefined), release: pin, ink });
     if (doc.portraitInk && source?.portraitInk) {
       if (source.faceSurface) doc.faceSurface = source.faceSurface;
       else delete doc.faceSurface;
@@ -1921,7 +1950,7 @@ SOFTWARE.`;
       if (chin !== 'full') doc.infantChin = chin;
       else delete doc.infantChin;
     }
-    if (pin === infantNoseRelease && (source?.infantNose || (doc.portraitInk && doc.base === 'baby' && source?.base !== 'baby'))) doc.infantNose = 'nursery';
+    if (pin === infantNoseRelease && (source?.infantNose || ((doc.portraitInk || doc.face?.finish) && doc.base === 'baby' && source?.base !== 'baby'))) doc.infantNose = 'nursery';
     if (pinePortraitStyles.hasInfantChin(pin) && source?.clothingCut === 'age') doc.clothingCut = 'age';
     if (pinePortraitStyles.hasGarmentFits(pin) && !keep.has('wear')) randomGarmentFit(doc, random);
     if (pinePortraitStyles.hasFigureRatios(pin)) {
@@ -1942,7 +1971,7 @@ SOFTWARE.`;
     tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease, expressionRelease, garmentRelease, garmentFits, withGarmentStudy, withoutGarmentStudy, restExpressions, withExpressionStudy, withoutExpressionStudy,
     withFigureStudy, withGameFace, withBaseFace, withClothingStudy, withFeatureStudy, withoutFeatureStudy, withFigureRatios, withoutFigureRatios, usesClothingCut,
     infantChinRelease, chinPadRelease, infantNoseRelease, withInfantChin, withoutInfantChin, withInfantChinStyle, withInfantNose, withoutInfantNose,
-    portraitInks, withPortraitInk, withoutPortraitInk, withFaceSurface, withoutFaceSurface,
+    portraitInks, withPortraitInk, withoutPortraitInk, withFaceSurface, withoutFaceSurface, faceFinishes, withFaceFinish, withFittedPortrait,
     originalRelease,
     styleRelease,
     profileRelease,
