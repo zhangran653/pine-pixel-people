@@ -229,7 +229,9 @@ const pineGameFace = (() => {
   }
   // Draw upwards from the underside of the infant chin to an existing row just
   // under the lower lip. The lip supplies the depth for this particular face.
-  function sculptInfantChin(rows, mouth, shape, supported) {
+  function sculptInfantChin(rows, mouth, shape, style) {
+    const rounded = style === 'round';
+    const supported = rounded || style === 'full' || style === pinePortraitStyles.chinPadRelease;
     const ringIndex = h => clamp(Math.round((1 + h) * rings / 2), 0, rings);
     const shortJoin = 2 * ringIndex(mouth - .076) / rings - 1;
     const joinIndex = ringIndex(mouth - (supported ? .067 : .076)), joinH = 2 * joinIndex / rings - 1;
@@ -241,10 +243,18 @@ const pineGameFace = (() => {
     const throatX = shortTip - .20 - .025 * roundness;
     // Carry the small front cushion down from the lip before turning it under.
     // The throat keeps its independent attachment at the back of the cushion.
-    const padH = supported ? shortPad - .046 : shortPad;
-    const bottomH = supported ? Math.max(-.99, throatH - .055) : throatH;
-    const tip = supported ? lip - .003 + .060 * projection : shortTip;
-    const undersideX = supported ? lip - .166 - .024 * roundness : throatX;
+    let padH = shortPad, bottomH = throatH, tip = shortTip, undersideX = throatX;
+    if (rounded) {
+      padH = shortPad + .014;
+      bottomH = Math.max(-.99, throatH - .017);
+      tip = lip - .020 + .038 * projection;
+      undersideX = lip - .30 - .025 * roundness;
+    } else if (supported) {
+      padH = shortPad - .046;
+      bottomH = Math.max(-.99, throatH - .055);
+      tip = lip - .003 + .060 * projection;
+      undersideX = lip - .166 - .024 * roundness;
+    }
     const padStation = (padH - bottomH) / (joinH - bottomH);
     // Square-root spacing rounds the underside away from its lowest voxel.
     // Linear spacing would close in a cone and leave a single dangling pixel.
@@ -258,21 +268,40 @@ const pineGameFace = (() => {
     const front = curve(stations, supported
       ? [undersideX, tip-.098, tip-.030, tip, lip-.024+.024*projection, join.face[0]]
       : [undersideX, tip-.12, tip-.038, tip, Math.min(tip,join.face[0])-.022, join.face[0]]);
+    // Follow the cheek's own tangent where it meets the chin. From the
+    // front the two cheeks sweep into a shallow U. In profile the cushion
+    // rolls back continuously below its foremost point, before the throat.
+    const cheekSlope = rounded && clamp((rows[joinIndex+2].width - join.width) * rings / 4 *
+      (joinH - bottomH) / join.width, .12, .56);
     for (let i = 0; i < joinIndex; i++) {
       const h = 2*i/rings - 1, r = rows[i];
       const t = clamp((h - bottomH) / (joinH - bottomH), 0, 1);
       const arc = Math.sqrt(t), blend = ramp(t,.21,1);
-      r.width = join.width * breadth(arc);
-      r.axis = axis(arc);
-      r.rear = r.axis - rear(arc);
-      r.fore = front(arc) - r.axis;
+      if (rounded) {
+        const cheek = t + .94 * t * (1 - t)**2;
+        const span = Math.sqrt(cheek * (2 - cheek)) * (1 - (cheekSlope - .06 * roundness * t) * (1 - cheek));
+        const rearArc = arc * (.84 + .16 * t);
+        const under = clamp(t / padStation, 0, 1);
+        const chinFront = t < padStation
+          ? undersideX + (tip - undersideX) * Math.sqrt(under * (2 - under)) * (1 - .25 * (1 - under)**2)
+          : tip + (join.face[0] - tip) * ramp(t, padStation, 1);
+        r.width = join.width * span;
+        r.axis = undersideX + (join.axis - undersideX) * rearArc;
+        r.rear = (join.axis - jawBack) * rearArc;
+        r.fore = chinFront - r.axis;
+      } else {
+        r.width = join.width * breadth(arc);
+        r.axis = axis(arc);
+        r.rear = r.axis - rear(arc);
+        r.fore = front(arc) - r.axis;
+      }
       for (let j = 0; j <= steps; j++) {
         const v = j / steps, lipSection = (join.face[j] - join.axis) / join.fore;
         const padSection = Math.sqrt(1-v*v);
         r.face[j] = r.axis + r.fore * (padSection + (lipSection - padSection) * blend);
       }
     }
-    return { padH, bottomH, undersideX, throatH, throatX, supported };
+    return { padH, bottomH, undersideX, throatH, throatX, supported, rounded };
   }
   // Draw one continuous profile from the upper lip, past the labiomental
   // crease and chin pad, onto the underside. Depths follow this face's lips
@@ -530,7 +559,7 @@ const pineGameFace = (() => {
       ring.fore = ring.face[0] - ring.axis;
       return ring;
     });
-    const chin = infantChin ? sculptInfantChin(rowList, mouth, shape, infantChin === pinePortraitStyles.chinPadRelease) : null;
+    const chin = infantChin ? sculptInfantChin(rowList, mouth, shape, infantChin) : null;
     const tip = eye - (drawnAdult ? eyeMouth : eye-mouth)*tipAt;
     const lipChin = layout?.softProfile && !infant ? sculptLipChin(rowList,base,mouth,noseBase,shape,drawnAdult ? tip : undefined) : null;
     if (layout?.lipPads) sculptLipPads(rowList,mouth,layout,base);
@@ -1021,7 +1050,7 @@ const pineGameFace = (() => {
       const cheek = ramp(a,.32,.61) * ramp(model.mouth-h,-.15,.12);
       light += (cheekLight-light) * (.36 * cheek + .39 * ramp(model.mouth-h,.065,.14));
       light += .078 * bell(a,0,.48) * bell(h,model.chin.padH,.105) * front - .032 * below;
-      if (model.chin.supported) {
+      if (model.chin.supported && !model.chin.rounded) {
         const pad = ramp(x,.43,.83) * (1-ramp(a,.30,.62));
         light += pad * (.093 * bell(h,model.chin.padH+.016,.076) - .049 * bell(h,model.mouth-.10,.039));
       }
@@ -1052,6 +1081,11 @@ const pineGameFace = (() => {
       if (model.softPixels) {
         const socket = bell(a,.43,.39)*bell(h,eye+.13,.20);
         value += front*(.055*malar-.099*socket) - .080*shadow;
+      }
+      if (model.chin?.rounded && h < model.mouth+.035) {
+        const underside = ramp(model.chin.padH-h,0,.15);
+        const cushion = .58+.048*(1-across*across)*front-.068*across*across-.022*y-.080*underside;
+        value += .65*ramp(model.mouth-h,-.035,.13)*(cushion-value);
       }
       let tone;
       if (brush === brushes.cel) tone = value < .37 ? 3 : value < .496 ? 5 : value < .615 ? 7 : 9;

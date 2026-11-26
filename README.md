@@ -27,6 +27,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 儿童、幼儿和婴儿的普通新随机默认使用「柔和像素脸」，也能手动选用分款鼻唇。「体型 → 衣物轮廓 → 分款剪裁」可把所选脸型放到分龄体型和动作上。普通存档按保存的配方重放。早先仅记录了种子的成人随机，可显式选择 `finish: 'soft-pixel'` 重放上一版。[黑发人物的上一轮鼻唇](studies/pixel-structure/storybook-nose-lips.webp) · [黄帽与黑发人物的眼神](studies/pixel-structure/storybook-faces.webp) · [八次分龄随机与动作](studies/pixel-structure/storybook-cast.webp)
 
+普通随机抽到的婴儿默认使用「圆润下巴」。正面两颊收成浅弧，转到侧面，下唇下面留有一点厚度，再向颈部转回。已保存的婴儿可以在「五官 → 婴儿下巴」试用，也可以随时切回原先的造型。[转动随机婴儿 3603](atelier.html?figure=random&age=baby&seed=3603&tab=face&bearing=270&action=idle&phase=17) · [同一张脸的四向对照与八名随机婴儿](studies/pixel-structure/infant-rounded-jaw.webp)
+
 ### 1.19.12 随机人脸与像素表情试作
 
 在「五官 → 眼眶与口周」选择「唇到下巴的连续轮廓 · 试作」，可以比较同一个人的嘴角、下唇与颏尖。种子 2602 在 256 像素全身中的下唇下方原先有一个向前返折 4 像素的钩。新选项把这段画成连续曲线，轻笑的嘴角逐渐收笔。随机人物时可以沿用所选曲面。[转动种子 2602](figure-study.html?subject=seeded&age=adult&seed=2602&before=profile-line&size=256&framing=head&bearing=270) · [同人原色、剪影与张嘴动作](studies/pixel-structure/lip-chin-profile.webp)

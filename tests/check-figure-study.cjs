@@ -215,7 +215,7 @@ function check(studyBench) {
       return;
     }
     function verifyWholePair(stable,trial,age,seed) {
-      const drawn = PineLooks.randomCharacter({base:age,seed,ink:'auto',bodyFinish:'painted'});
+      const drawn = PineLooks.randomCharacter({base:age,seed,release:PineLooks.infantNoseRelease,ink:'auto',bodyFinish:'painted'});
       expect(stable.packs[PineLooks.core] === '1.18.0' && stable.id === trial.id &&
         trial.faceSurface === 'linked', 'unexpected whole-figure pair');
       const normalized = doc => JSON.stringify(PineLooks.prepare(doc).recipe);
@@ -225,7 +225,7 @@ function check(studyBench) {
     }
     function verifyEverydayPair(original, trial, age, seed) {
       const normalized = doc => JSON.stringify(PineLooks.prepare(doc).recipe);
-      const native = PineLooks.randomCharacter({base:age,seed,finish:'soft-pixel'});
+      const native = PineLooks.randomCharacter({base:age,seed,release:PineLooks.release,finish:'soft-pixel'});
       expect(trial.face.finish === 'soft-pixel' && normalized(native) === normalized(trial),
         'the portrait does not replay the ordinary random generator');
       const old = structuredClone(trial);
@@ -233,7 +233,7 @@ function check(studyBench) {
       expect(normalized(old) === normalized(original), 'the two portraits have different settings');
     }
     function verifyStoryPair(source,trial,age,seed) {
-      const normal = PineLooks.randomCharacter({base:age,seed,finish:'soft-pixel'});
+      const normal = PineLooks.randomCharacter({base:age,seed,release:PineLooks.release,finish:'soft-pixel'});
       const stable = PineLooks.withFaceFinish(normal,source.face.finish);
       const fitted = trial.packs[PineLooks.core] === PineLooks.infantNoseRelease;
       const candidate = fitted ? PineLooks.withFittedPortrait(stable) : PineLooks.withFaceFinish(normal,'storybook');
@@ -243,7 +243,7 @@ function check(studyBench) {
       expect(saved(stable) === saved(source) && saved(candidate) === saved(trial),'pair is not the editor recipe');
     }
     function verifyLipPair(source,trial,age,seed) {
-      const candidate = PineLooks.randomCharacter({base:age,seed,finish:'storybook-lips',style:query.get('variation') === 'expressive' ? 'expressive' : 'natural'});
+      const candidate = PineLooks.randomCharacter({base:age,seed,release:PineLooks.release,finish:'storybook-lips',style:query.get('variation') === 'expressive' ? 'expressive' : 'natural'});
       const saved = doc => JSON.stringify(PineLooks.prepare(doc).recipe);
       expect(saved(trial) === saved(candidate),'individual mouths did not replay the editor roll');
       expect(saved(source) === saved(PineLooks.withFaceFinish(candidate,'storybook')),'lip study changed something other than the brush');

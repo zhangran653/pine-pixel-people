@@ -619,10 +619,11 @@
       }));
     if (draft.base === 'baby' && looks.portraitStyleOf(draft) === 'animation') area.append(
       picker('婴儿下巴', 'infant-chin', [
-        ['prior','原有下巴'], ['soft',acting ? '短圆下巴 · 试作' : '分龄五官与短圆下巴'],
-        ['pad',acting ? '饱满小下巴 · 试作' : '分龄五官与饱满小下巴']
-      ], ({original:'prior',short:'soft',full:'pad'})[pinePortraitStyles.infantChinStyle(draft)],
-      value => { draft = looks.withInfantChinStyle(draft, {prior:'original',soft:'short',pad:'full'}[value]); }),
+        ['prior','原有下巴'], ['soft',acting || pinePortraitStyles.ordinaryInfantChin(draft) ? '短圆下巴' : '分龄五官与短圆下巴'],
+        ['pad','饱满小下巴'], ['round',draft.packs[looks.core] === looks.release && !pinePortraitStyles.ordinaryInfantChin(draft)
+          ? '圆润下巴（柔和像素脸）' : '圆润下巴']
+      ], ({original:'prior',short:'soft',full:'pad',round:'round'})[pinePortraitStyles.infantChinStyle(draft)],
+      value => { draft = looks.withInfantChinStyle(draft, {prior:'original',soft:'short',pad:'full',round:'round'}[value]); }),
       picker('婴儿鼻部','infant-nose',[['prior','原有鼻形'],['nursery','浅鼻根与圆鼻头']],
         draft.infantNose || 'prior', value => { draft = value === 'nursery' ? looks.withInfantNose(draft) : looks.withoutInfantNose(draft); })
     );
@@ -1544,6 +1545,8 @@
         const body = Object.fromEntries(tabKeys.shape.map(key => [key, draft.shape[key]]));
         draft = { ...draft, face: clone(candidate.face), shape: { ...candidate.shape, ...body },
           packs: { ...draft.packs, [looks.core]: candidate.packs[looks.core] } };
+        if (candidate.infantChin) draft.infantChin = candidate.infantChin;
+        else delete draft.infantChin;
         if (candidate.portraitInk) draft.portraitInk = candidate.portraitInk;
         else delete draft.portraitInk;
         if (candidate.faceSurface) draft.faceSurface = candidate.faceSurface;
@@ -2130,11 +2133,12 @@
     activate(first, '', false, availableId);
   } else activate(first, (stored ? 'saved:' : 'preset:') + first.id, !!stored);
   if (query.get('figure') === 'study') tryFigure();
-  if (query.get('figure') === 'ink') {
+  if (query.get('figure') === 'ink' || query.get('figure') === 'random') {
+    const ink = query.get('figure') === 'ink';
     const seed = query.get('seed'), age = query.get('age');
     if (seed !== null && /^\d{1,10}$/.test(seed) && Number(seed) <= 0xffffffff && ['adult','child','toddler','baby'].includes(age))
-      activate(looks.randomCharacter({ base:age, seed:Number(seed), ink:'auto', bodyFinish:'painted' }), '', false, true);
-    else { draft = looks.withFaceSurface(draft); changed(); fields(); }
+      activate(looks.randomCharacter({ base:age, seed:Number(seed), ...(ink && {ink:'auto',bodyFinish:'painted'}) }), '', false, true);
+    else if (ink) { draft = looks.withFaceSurface(draft); changed(); fields(); }
   }
   if (query.get('figure') === 'baby-nose' && draft.base === 'baby' && looks.portraitStyleOf(draft) === 'animation') {
     draft = looks.withInfantNose(draft);

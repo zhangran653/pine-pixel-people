@@ -125,7 +125,7 @@
     const seed = seedFor(release, session.current);
     const options = { base, seed, portrait: 'animation', style: 'natural', release };
     if (faceReviews.has(reviewKind)) {
-      const ordinary = looks.randomCharacter({base,seed,finish:reviewKind === 'storybook-lips' ? release : 'soft-pixel'});
+      const ordinary = looks.randomCharacter({base,seed,release:stableRelease,finish:reviewKind === 'storybook-lips' ? release : 'soft-pixel'});
       const pair = reviewKind === 'everyday' ? everydayPair(ordinary) : storyPair(ordinary,reviews[reviewKind]);
       return flipped(session.current) ? pair.reverse() : pair;
     }
@@ -151,7 +151,7 @@
   const archive = new Map();
   const seedParam = search.get('seed'), seedAge = search.get('age');
   if (Object.hasOwn(ages,seedAge) && /^\d{1,10}$/.test(seedParam) && Number(seedParam) <= 0xffffffff) {
-    archive.set('seeded',looks.randomCharacter({base:seedAge,seed:Number(seedParam),ink:'auto',bodyFinish:'painted'}));
+    archive.set('seeded',looks.randomCharacter({base:seedAge,seed:Number(seedParam),release:looks.infantNoseRelease,ink:'auto',bodyFinish:'painted'}));
     $('subject').prepend(new Option(ages[seedAge] + ' · 种子 ' + seedParam,'seeded'));
   }
   {
@@ -192,7 +192,10 @@
     original.face ??= {...looks.facePresets.classic.face};
     if (looks.portraitStyleOf(original) !== 'animation') original.face.style = 'animation';
     delete original.face.finish;
-    return [original,{...original,face:{...original.face,finish:'soft-pixel'}}];
+    delete original.infantChin;
+    const soft = {...original,face:{...original.face,finish:'soft-pixel'}};
+    if (source.base === 'baby' && source.infantChin) soft.infantChin = source.infantChin;
+    return [original,soft];
   }
   function storyPair(source, finishes) {
     // Preserve the fitted body on an editor handoff. Only the facial drawing
@@ -204,6 +207,7 @@
   function wholePortraitPair(source) {
     const stable = stableFigure(source);
     if (stable.face) delete stable.face.finish;
+    delete stable.infantChin;
     // Retain authored fittings and dyes. Apply age-specific defaults when
     // bringing an older study character into the current portrait edition.
     let fitted = source;
@@ -212,6 +216,7 @@
         ? looks.withGarmentStudy(source) : looks.withGarmentStudy(paintedFigure(source));
       fitted = looks.withInfantChin(garments,looks.chinPadRelease);
       if (source.base === 'baby') fitted = looks.withInfantNose(fitted);
+      if (source.base === 'baby' && source.infantChin) fitted = looks.withInfantChinStyle(fitted,source.infantChin);
     }
     return [stable, {...looks.withFaceSurface(fitted,true), bodyFinish:'painted'}];
   }
@@ -224,7 +229,7 @@
       : pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
     const before = $('before').value;
     if (faceReviews.has(before) || before === 'fitted-story') {
-      const ordinary = subject === 'seeded' ? looks.randomCharacter({base:seedAge,seed:Number(seedParam),
+      const ordinary = subject === 'seeded' ? looks.randomCharacter({base:seedAge,seed:Number(seedParam),release:stableRelease,
         finish:before === 'storybook-lips' ? before : 'soft-pixel',
         style:before === 'storybook-lips' && search.get('variation') === 'expressive' ? 'expressive' : 'natural'}) : source;
       if (before === 'storybook' || before === 'storybook-lips') return storyPair(ordinary,reviews[before]);

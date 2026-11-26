@@ -636,7 +636,7 @@ const pineDesignerBody = (() => {
     const naturalProfile = pin === '1.14.0' || editableProfile;
     const infantHeadVersion = pin === '1.13.0' || pin === '1.13.1' || naturalProfile;
     const infant = recipe.base === 'baby' && infantHeadVersion;
-    const chinStyle = ordinaryFace ? 'full' : pinePortraitStyles.infantChinStyle(recipe);
+    const chinStyle = pinePortraitStyles.infantChinStyle(recipe);
     const infantChin = infant && gameFace && chinStyle !== 'original';
     const infantNose = infant && gameFace && (ordinaryFace || (pin === pinePortraitStyles.infantNoseRelease && recipe.infantNose === 'nursery'));
     const refitNape = sculptedHead && infant && pin !== '1.13.0';
@@ -800,7 +800,7 @@ const pineDesignerBody = (() => {
       ...(brim ? {brimEdge:[brim.center[2]-brim.size[2],brim.center[0]+brim.size[0]]} : {})
     } : null;
     const skinShape = gameFace
-      ? pineGameFace.model(recipe.base, shape, sculpt, faceForm, headShape, eyeLevel, mouthH, noseRow, drawnFace, paintedFeatures, facialActing && infant, infantChin && (chinStyle === 'full' ? pinePortraitStyles.chinPadRelease : pinePortraitStyles.infantChinRelease), infantNose, faceInk, layout)
+      ? pineGameFace.model(recipe.base, shape, sculpt, faceForm, headShape, eyeLevel, mouthH, noseRow, drawnFace, paintedFeatures, facialActing && infant, infantChin && chinStyle, infantNose, faceInk, layout)
       : adjustableJaw
       ? pineHeadShape.reshape(headKind, shape, fittedDepth ? measure(shape, 'faceRelief') : 0, individual, refitNape, skinPlanes)
       : fittedJaw
@@ -976,7 +976,8 @@ const pineDesignerBody = (() => {
       upperNeck = [fit.x + ((modelAnatomy && infant ? 0.015 : 0.055) + 0.04 * (shape.jawNeck || 0)) * fit.rx, 0,
         fit.z - (modelAnatomy && infant ? 0.55 : pixelPortrait ? 0.38 : 0.64) * fit.rz];
     const chinJoin = infantChin && [
-      fit.x + (skinShape.chin.throatX - .12) * fit.rx, 0, fit.z + (skinShape.chin.throatH + .072) * fit.rz
+      fit.x + (skinShape.chin.rounded ? skinShape.chin.undersideX+.025 : skinShape.chin.throatX-.12)*fit.rx, 0,
+      fit.z + (skinShape.chin.rounded ? skinShape.chin.bottomH+.045 : skinShape.chin.throatH+.072)*fit.rz
     ];
     const sockets = {
       ...(adjustableJaw
@@ -3532,7 +3533,9 @@ const pineDesignerBody = (() => {
         const side = px * throat.side[0] + py * throat.side[1] + pz * throat.side[2];
         const v = (side - u * throat.drift) / (fit.ry * (.37 - .16 * u));
         if (Math.abs(v) >= 1) return 0;
-        const floor = infantChin
+        const floor = skinShape?.chin?.rounded
+          ? throat.rise*u*u*(3-2*u) + fit.rz*(.018*Math.sin(Math.PI*u)**2+.045*v*v)
+          : infantChin
           ? throat.rise * u*u*(3-2*u) + fit.rz * (.076*Math.sin(Math.PI*u)**2 + .061*v*v)
           : throat.rise * u * (.72 + .28 * u) + .085 * fit.rz * v * v;
         // Round the underside while keeping its upper surface inside the jaw.

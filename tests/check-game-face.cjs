@@ -294,7 +294,50 @@ function checkInfantChin(cast) {
       assert.ok(row.width>0 && row.rear>=0 && row.fore>=0 && row.face.every(Number.isFinite));
     }
   }
-  console.log('Infant chin, fixed lip and ear sockets, seated and crawling meshes, eight seeds per age and reversible garment cuts passed');
+  const babies = [];
+  for (let seed=3601;seed<=3664;seed++) {
+    const doc = looks.randomCharacter({seed});
+    if (doc.base !== 'baby') { assert.equal(doc.infantChin,undefined); continue; }
+    babies.push(seed);
+    assert.equal(looks.prepare(toPlain(doc)).recipe.infantChin,'round');
+    const archived = looks.randomCharacter({base:'baby',seed,finish:'soft-pixel',release:looks.release});
+    assert.equal(archived.infantChin,undefined);
+    for (const key of ['shape','parts','colors','face']) assert.deepEqual(doc[key],archived[key]);
+    assert.equal(looks.randomFace(archived,{seed}).infantChin,'round');
+    const full = looks.withInfantChinStyle(doc,'full'), restored = looks.withInfantChinStyle(full,'round');
+    assert.equal(looks.prepare(full).recipe.packs[looks.core],looks.release);
+    assert.equal(looks.randomFace(looks.prepare(full).recipe,{seed}).infantChin,'full');
+    assert.deepEqual(toPlain(restored),toPlain(doc));
+  }
+  assert.deepEqual(babies,[3603,3611,3615,3616,3633,3654,3657,3664]);
+  const baby = looks.randomCharacter({seed:3603}), adult = looks.withBodyProfile(baby,'female');
+  assert.equal(adult.infantChin,undefined);
+  assert.throws(()=>looks.prepare({...adult,infantChin:'round'}));
+  assert.equal(looks.randomCharacter({source:adult,seed:3603}).infantChin,'round');
+  assert.equal(looks.randomCharacter({base:'baby',seed:3603,ink:'auto'}).infantChin,'round');
+  const sitter = looks.withFittedPortrait(looks.withFaceFinish(baby,'storybook-lips'));
+  assert.equal(looks.prepare(sitter).recipe.infantChin,'round');
+  assert.equal(looks.prepare(looks.withoutInfantNose(sitter)).recipe.infantChin,'round');
+  const roundActor = looks.build(sitter), fullActor = looks.build(looks.withInfantChinStyle(sitter,'full'));
+  for (const point of ['leftJawJoint','rightJawJoint','leftEye','lowerLip','upperLip','throat','collar','seat'])
+    assert.deepEqual(roundActor.sockets[point],fullActor.sockets[point],point+' moved with the infant chin');
+  motion.characters.set(roundActor.id,roundActor);
+  for (const clip of ['idle','baby-reach','crawl','open-mouth']) {
+    const frame = motion.actions.get(clip).sample(.43,roundActor);
+    cast.setFrame(frame);
+    assert.ok(cast.group.getObjectByName(roundActor.id+'/face').geometry.drawRange.count>0);
+  }
+  for (const form of ['balanced','long','round','angular']) {
+    const args = ['baby',sitter.shape,sitter.face,form,scalp,-.13,mouth,styles.basicNoses.button,true,true,true];
+    const full = surfaces.model(...args,'full'), round = surfaces.model(...args,'round');
+    assert.deepEqual(round.row(mouth-.042).face,full.row(mouth-.042).face);
+    const pad = round.chin.padH, below = (pad+round.chin.bottomH)/2;
+    assert.ok(pad > full.chin.padH && round.chin.bottomH > full.chin.bottomH);
+    assert.ok(round.row(pad).face[0]-round.row(below).face[0] > .025,'the profile should turn back below the chin');
+    assert.ok(Math.abs(round.row(pad).face[0]-round.row(mouth-.042).face[0]) < .07,'the visible chin should support the lower lip');
+    assert.ok(round.row(mouth-.17).width > full.row(mouth-.17).width,'the cheeks should turn into a broader U');
+  }
+  console.log('Archived and rounded infant chins, normal mixed-age rolls, seated and crawling meshes, mouth and ear contacts passed');
 }
 
 function checkFigureRatios(cast) {
@@ -500,7 +543,7 @@ function checkOrdinaryFaces(cast) {
   assert.equal(new Set(openings.map(lid=>JSON.stringify(lid))).size,4,'four selected eye types share a single drawing');
   for (const base of ['adult','child','toddler','baby']) {
     const options = {base,seed:2602};
-    const a = looks.randomCharacter({...options,release:looks.release}), b = looks.randomCharacter({...options,finish:'soft-pixel'});
+    const a = looks.randomCharacter({...options,release:looks.release}), b = looks.randomCharacter({...options,release:looks.release,finish:'soft-pixel'});
     const finish = base === 'adult' ? 'storybook-lips' : 'soft-pixel';
     assert.deepEqual(looks.randomCharacter(options),looks.randomCharacter({...options,finish}));
     const clone = toPlain(b);

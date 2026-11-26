@@ -982,6 +982,41 @@ function checkOrdinaryFaces() {
     out.dataset.state = 'pass'; out.textContent = 'Studio face drawings, candidates, fitted clothes, save and both random buttons passed';
   } catch (error) { out.dataset.state = 'fail'; out.textContent = error.stack; }
 }
+function checkRoundedBaby() {
+  const $ = id => document.getElementById(id), out = $('qa-result');
+  const check = (pass, message) => { if (!pass) throw Error(message); };
+  const recipe = () => {
+    const link = $('figure-link');
+    link.dispatchEvent(new Event('focus'));
+    return JSON.parse(new URLSearchParams(new URL(link.href).hash.slice(1)).get('character'));
+  };
+  const choose = value => {
+    const pick = $('edit-infant-chin');
+    pick.value = value;
+    pick.dispatchEvent(new Event('change'));
+  };
+  try {
+    const initial = recipe();
+    check(initial.id === PineLooks.randomCharacter({seed:3603}).id && initial.infantChin === 'round' &&
+      $('edit-infant-chin').value === 'round' && $('bearing').value === '270','wrong baby or initial side view');
+    const pixels = $('mirror').toDataURL();
+    choose('pad');
+    const full = recipe();
+    check(full.infantChin === 'full' && $('mirror').toDataURL() !== pixels,'the side silhouette did not change');
+    check(JSON.stringify({...full,infantChin:'round'}) === JSON.stringify(initial),'choosing the chin changed another setting');
+    choose('round');
+    check($('mirror').toDataURL() === pixels,'the rounded silhouette did not return');
+    $('choose-faces').click();
+    document.querySelector('[data-face-candidate]').click();
+    check(recipe().infantChin === 'round','face candidate lost the infant chin');
+    $('random-face').click();
+    $('save-look').click();
+    const saved = PineWardrobe.saved.get(recipe().id);
+    check(saved?.infantChin === 'round' && PineLooks.prepare(JSON.parse(JSON.stringify(saved))).recipe.infantChin === 'round',
+      'the saved editable baby lost the new chin');
+    out.dataset.state = 'pass'; out.textContent = 'Real random infant, both chin silhouettes, face candidates, reroll and save passed';
+  } catch (error) { out.dataset.state = 'fail'; out.textContent = error.stack; }
+}
 function checkInfantProfilePair() {
   const $=id=>document.getElementById(id), result=$('qa-result');
   try {
@@ -1366,6 +1401,7 @@ try {
     ['atelier', checkOrdinaryFaces, '?model=yellow-hardhat&tab=face&bearing=0'],
     ['atelier', checkOrdinaryFaces, '?model=blue-jacket&tab=face&bearing=270'],
     ['atelier', checkOrdinaryFaces, '?preset=look_body_female&tab=face&bearing=0'],
+    ['atelier', checkRoundedBaby, '?figure=random&age=baby&seed=3603&tab=face&bearing=270&action=idle&phase=17'],
     ['atelier', checkRatioEditor, '?figure=features&model=baby&tab=face'],
     ['atelier', checkInfantProfilePair, '?model=baby02-profile&compare=baby02-source&tab=face&bearing=270&action=idle&phase=17'],
     ['studio', checkStudioMotions, '?demo=custom'],
