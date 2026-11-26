@@ -127,6 +127,7 @@
         preview.removeAttribute('role');
         preview.removeAttribute('aria-labelledby');
       }
+      desk.dispatchEvent(new CustomEvent('pine-tool', {detail:id}));
       if (focus) buttons.get(id).focus({ preventScroll: true });
       if (returnToStart) desk.scrollIntoView({ block: 'start', behavior: 'instant' });
     };

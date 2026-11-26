@@ -7,6 +7,7 @@
     <title>人物创作室 · 松溪像素世界</title>
     <link rel="stylesheet" href="atelier.css" />
     <link rel="stylesheet" href="workspace.css">
+    <link rel="stylesheet" href="character-gallery.css">
     <script defer src="workspace.js"></script>
     <script defer src="motion.js"></script>
     <script defer src="character-slices.js"></script>
@@ -35,6 +36,7 @@
     <script defer src="head-shape.js"></script>
     <script defer src="game-face.js"></script>
     <script defer src="short-hair.js"></script>
+    <script defer src="collection-wardrobe.js"></script>
     <script defer src="everyday-styles.js"></script>
     <script defer src="workshop-wear.js"></script>
     <script defer src="world-wardrobe.js"></script>
@@ -47,6 +49,7 @@
     <script defer src="appearance-store.js"></script>
     <script defer src="studio-stage.js"></script>
     <script defer src="atelier-preview.js"></script>
+    <script defer src="character-gallery.js"></script>
     <script defer src="atelier.js"></script>
   </head>
   <body data-workspace="atelier">
@@ -122,7 +125,10 @@
           <label class="name-field"
             >角色名<input id="look-name" maxlength="48" required autocomplete="off"
           /></label>
-          <details class="identity-settings"><summary>身份资料</summary><div class="identity-fields"><label>时代<select id="look-era"><option value="">未指定</option></select></label><label>职业或身份<input id="look-role" maxlength="48" list="role-options" autocomplete="off" placeholder="自定义身份"></label><datalist id="role-options"></datalist></div></details>
+          <details class="identity-settings"><summary>身份资料</summary><div class="identity-fields"><label>时代<select id="look-era"><option value="">未指定</option></select></label><label>职业或身份<input id="look-role" maxlength="48" list="role-options" autocomplete="off" placeholder="自定义身份"></label><datalist id="role-options"></datalist>
+            <label>职业领域<select id="look-field"><option value="">未指定</option></select></label>
+            <label>人物系列<select id="look-series"><option value="">未指定</option></select></label>
+            <fieldset id="look-settings"><legend>活动场景</legend></fieldset></div></details>
           <div class="base-row">
             <span id="profile-label">默认体型</span>
             <div class="switch" role="group" aria-labelledby="profile-label">
@@ -230,22 +236,46 @@
           <div id="editor-fields" class="fields" role="tabpanel" aria-labelledby="tab-shape"></div>
         </section>
         <section class="collection tool-pane" id="person-library" data-tool data-label="形象库" aria-label="人物形象库" hidden>
-          <div class="collection-head">
-            <h2>选择人物</h2>
-            <span id="shelf-count" role="status"></span>
+          <div class="gallery-heading">
+            <h1>人物形象库</h1>
+            <div class="gallery-find">
+              <select id="shelf-source" aria-label="形象来源"><option value="">所有形象</option></select>
+              <label class="gallery-search"><span aria-hidden="true"></span><input type="search" id="look-query" aria-label="搜索人物" placeholder="搜索人物、职业、衣物或配件"></label>
+            </div>
           </div>
-          <input type="search" id="look-query" aria-label="搜索形象" placeholder="搜索名称、职业或配件">
-          <div class="shelf-filters">
-            <select id="shelf-era" aria-label="形象时代"><option value="">全部时代</option></select>
-            <select id="shelf-age" aria-label="形象年龄"><option value="">全部年龄</option></select>
-            <select id="shelf-source" aria-label="形象来源"><option value="">所有形象</option><option value="saved">我的形象</option><option value="preset">内置预设</option></select>
+          <div class="gallery-realms" id="shelf-realms" role="group" aria-label="按时代筛选"></div>
+          <div class="gallery-layout">
+            <details class="gallery-filters" id="shelf-filter-panel" open>
+              <summary>筛选条件<span id="shelf-filter-count"></span></summary>
+              <div class="gallery-filter-fields">
+                <label>职业领域<select id="shelf-field"><option value="">全部领域</option></select></label>
+                <label>人物系列<select id="shelf-series"><option value="">全部系列</option></select></label>
+                <label>活动场景<select id="shelf-setting"><option value="">全部场景</option></select></label>
+                <label>年龄<select id="shelf-age"><option value="">全部年龄</option></select></label>
+                <label>体型<select id="shelf-profile"><option value="">全部体型</option></select></label>
+                <label>服装款式<select id="shelf-garment"><option value="">全部服装</option></select></label>
+                <label>随身配件<select id="shelf-gear"><option value="">全部配件</option></select></label>
+              </div>
+            </details>
+            <div class="gallery-results" id="shelf-results" tabindex="-1">
+              <div class="gallery-toolbar">
+                <div class="gallery-browse">
+                  <div class="gallery-total" role="status"><strong id="shelf-count"></strong><span id="shelf-range"></span></div>
+                  <nav class="gallery-quick-pages" id="shelf-quick" aria-label="快速翻页">
+                    <button type="button" id="shelf-prev" aria-label="上一页">‹</button><span id="shelf-position"></span><button type="button" id="shelf-next" aria-label="下一页">›</button>
+                  </nav>
+                </div>
+                <div class="gallery-display">
+                  <select id="shelf-order" aria-label="排列顺序"><option value="featured">推荐顺序</option><option value="name">按名称排序</option></select>
+                  <div class="gallery-framing" role="group" aria-label="形象卡视图"><button type="button" data-shelf-view="body" aria-pressed="true">全身</button><button type="button" data-shelf-view="face" aria-pressed="false">头像</button></div>
+                </div>
+              </div>
+              <div class="gallery-chips"><button id="shelf-family-back" type="button" hidden>‹ 返回刚才的结果</button><span id="shelf-applied"></span><button type="button" class="clear-filter" id="clear-looks" hidden>清除筛选</button></div>
+              <div id="look-shelf" class="shelf" data-framing="body"></div>
+              <div id="shelf-empty" class="gallery-empty" hidden><strong>没有找到匹配的人物</strong><button type="button" id="empty-clear">查看全部人物</button></div>
+              <footer class="gallery-footer"><label>每页 <select id="shelf-size"><option value="12">12 位</option><option value="24">24 位</option><option value="48">48 位</option></select></label><nav id="shelf-pages" aria-label="人物分页"></nav></footer>
+            </div>
           </div>
-          <button type="button" class="clear-filter" id="clear-looks" hidden>清除筛选</button>
-          <div class="switch shelf-framing" role="group" aria-label="形象卡视图">
-            <button type="button" data-shelf-view="face" aria-pressed="true">头像</button>
-            <button type="button" data-shelf-view="body" aria-pressed="false">全身</button>
-          </div>
-          <div id="look-shelf" class="shelf" data-framing="face"></div>
         </section>
         </div>
       </div>

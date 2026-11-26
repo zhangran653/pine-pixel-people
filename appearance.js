@@ -792,10 +792,18 @@ SOFTWARE.`;
   Object.assign(outfits, pineWorkshopWear.outfits);
   function applyOutfit(recipe, outfit) {
     if (Object.hasOwn(outfit.parts, 'hat')) {
+      const owner = outfit.parts.hat.split('/')[0];
+      const external = owner !== 'none' && owner !== core;
+      const pin = external && (outfit.packs?.[owner] || recipe.packs[owner]);
+      if (external) requireThat(pin, '穿搭缺少帽子素材包版本');
+      const embedded = external && [...(outfit.embeddedPacks || []), ...(recipe.embeddedPacks || [])]
+        .find(pack => pack.id === owner && pack.release === pin);
       for (const key of carriedSlots) delete recipe.parts[key];
       for (const key of outfitDyes) delete recipe.colors[key];
       recipe.packs = { [core]: recipe.packs[core] };
-      delete recipe.embeddedPacks;
+      if (external) recipe.packs[owner] = pin;
+      if (embedded) recipe.embeddedPacks = [embedded];
+      else delete recipe.embeddedPacks;
     }
     Object.assign(recipe.parts, outfit.parts);
     Object.assign(recipe.colors, outfit.colors);
@@ -845,6 +853,7 @@ SOFTWARE.`;
     else if (usesExtendedShape(recipe.shape)) needed = proportionRelease;
     else if (recipe.gender !== undefined) needed = profileRelease;
     else if (needsNewCore(recipe.parts, recipe.face)) needed = styleRelease;
+    if (pineCollectionWardrobe.needsCurrentParts(recipe.parts) && releases.indexOf(needed) < releases.indexOf(release)) needed = release;
     return releases.indexOf(pin) >= releases.indexOf(needed) ? pin : needed;
   }
   const colors = {
@@ -990,6 +999,7 @@ SOFTWARE.`;
       })
     );
   }
+  install({ ...pineCollectionWardrobe.hatPack, notice: baseNotice });
   function prepare(raw, source = catalog) {
     fields(
       raw,
@@ -1007,13 +1017,28 @@ SOFTWARE.`;
     requireThat(['child', 'adult', 'toddler', 'baby'].includes(raw.base), '不支持的基型');
     let identity;
     if (raw.identity !== undefined) {
-      fields(raw.identity, [], ['era', 'role']);
+      fields(raw.identity, [], ['era', 'role', 'field', 'settings', 'series']);
       identity = {};
       if (raw.identity.era !== undefined) {
         requireThat(Object.hasOwn(PineWorld.realms, raw.identity.era), '未知时代');
         identity.era = raw.identity.era;
       }
       if (raw.identity.role !== undefined) identity.role = short(raw.identity.role, 48);
+      if (raw.identity.field !== undefined) {
+        requireThat(Object.hasOwn(pineCharacterCollection.fields, raw.identity.field), '未知人物领域');
+        identity.field = raw.identity.field;
+      }
+      if (raw.identity.series !== undefined) {
+        requireThat(Object.hasOwn(pineCharacterCollection.series, raw.identity.series), '未知人物系列');
+        identity.series = raw.identity.series;
+      }
+      if (raw.identity.settings !== undefined) {
+        const settings = raw.identity.settings;
+        requireThat(Array.isArray(settings) && settings.length > 0 && settings.length <= Object.keys(pineCharacterCollection.settings).length &&
+          settings.every(id => typeof id === 'string' && Object.hasOwn(pineCharacterCollection.settings,id)) &&
+          new Set(settings).size === settings.length, '人物活动场景无效或重复');
+        identity.settings = [...settings];
+      }
     }
     const label = short(raw.label, 48),
       working = new Map(source);
@@ -1536,7 +1561,7 @@ SOFTWARE.`;
   // These original recipes also define the deterministic random wardrobe and historical studies.
   const archivedTemplates = new Map(seedWardrobe.map(doc => [doc.id,doc]));
   const neutralShape = Object.fromEntries(requiredShape.map(key => [key,shape[key][2]]));
-  const templates = seedWardrobe.map(source => {
+  const templates = [...seedWardrobe, ...pineCharacterCollection.sources].map(source => {
     const doc = pineCharacterCollection.assemble(source,core,infantNoseRelease,neutralShape);
     const ratios = fittedFigureRatios(doc);
     // At game size, a little more room for the eyes and mouth keeps the faces readable.
@@ -1548,6 +1573,22 @@ SOFTWARE.`;
     return doc;
   });
   const templateById = new Map(templates.map((doc) => [doc.id, doc]));
+  const collectionOutfits = {};
+  for (const [id,label] of Object.entries({
+    kiln_potter:'陶房围裙', harbour_pilot:'港湾水手服', woodblock_printer:'年画坊对襟衫',
+    moth_keeper:'夜林灯蛾斗篷', lunar_geologist:'月面勘测服', dawn_baby:'晨光小棉衣'
+  })) {
+    const doc = templateById.get('look_'+id);
+    const outfit = {label, parts:{}, colors:{}};
+    const hatOwner = doc.parts.hat.split('/')[0];
+    if (hatOwner !== 'none' && hatOwner !== core) outfit.packs = { [hatOwner]:doc.packs[hatOwner] };
+    for (const part of ['top','bottom','shoes','neck','hat',...carriedSlots])
+      if (doc.parts[part]) outfit.parts[part]=doc.parts[part];
+    for (const dye of ['top','bottom','shoes','accent',...outfitDyes])
+      if (doc.colors[dye]) outfit.colors[dye]=doc.colors[dye];
+    collectionOutfits[id]=outfit;
+  }
+  Object.assign(outfits,collectionOutfits);
   const pick = (items, random) => items[Math.floor(random() * items.length)];
   function between(min, max, random) {
     return Math.round(100 * (min + (max - min) * random())) / 100;
@@ -2097,6 +2138,7 @@ SOFTWARE.`;
     featureShapeKeys,
     outfits,
     workshopOutfits: pineWorkshopWear.outfits,
+    collectionOutfits,
     wearables,
     carriedSlots,
     outfitDyes,
@@ -2116,6 +2158,7 @@ SOFTWARE.`;
     templates,
     templateById,
     archivedTemplates,
+    library: pineCharacterCollection,
     manifest,
     install,
     prepare,

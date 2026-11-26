@@ -377,7 +377,9 @@
             "rugby",
             "breton",
             "argyle",
-            "kimono"
+            "kimono",
+            "kiln-smock", "utility-gilet", "deck-jumper", "quilt-jacket",
+            "frog-coat", "festival-bolero", "moth-cape", "thermal-shell"
           ]
         },
         "bottom": {
@@ -394,7 +396,8 @@
             "capris",
             "joggers",
             "plaid-skirt",
-            "track-shorts"
+            "track-shorts",
+            "panel-culottes", "banded-trousers"
           ]
         },
         "shoes": {
@@ -412,7 +415,8 @@
             "chelsea",
             "sandals",
             "runners",
-            "oxfords"
+            "oxfords",
+            "deck-shoes", "wrap-boots"
           ]
         },
         "neck": {
@@ -443,7 +447,8 @@
             "rucksack",
             "briefcase",
             "tote",
-            "pouch"
+            "pouch",
+            "reed-creel", "tube-case"
           ]
         },
         "attachment": {
@@ -560,7 +565,8 @@
             "tassel",
             "compass",
             "vial",
-            "pass"
+            "pass",
+            "shell-token", "signal-tag"
           ]
         },
         "implement": {
@@ -878,6 +884,17 @@
             "scifi"
           ]
         },
+        "series": { "enum": [
+          "software","managers","guides","retail","nurses","cooks","pottery","dance","painters","scholars",
+          "boatmen","lamplight","starmages","alchemists","rangers","pilots","mechanics","geology","household",
+          "nursery","playgroup","pupils","sports","trekkers","post","stage","garden","books","makers",
+          "technical","shops","transport","press","vets","oracles"
+        ] },
+        "field": { "enum": ["home","learning","craft","trade","arts","travel","nature","science","service","lore"] },
+        "settings": {
+          "type": "array", "minItems": 1, "maxItems": 9, "uniqueItems": true,
+          "items": { "enum": ["home","town","school","workshop","stage","wild","coast","transit","station"] }
+        },
         "role": {
           "type": "string",
           "minLength": 1,
@@ -916,6 +933,19 @@
     }
   },
   "allOf": [
+    {
+      "if": { "properties": { "parts": { "anyOf": [
+        { "required":["top"], "properties":{ "top":{ "enum":["kiln-smock","utility-gilet","deck-jumper","quilt-jacket","frog-coat","festival-bolero","moth-cape","thermal-shell"] } } },
+        { "required":["bottom"], "properties":{ "bottom":{ "enum":["panel-culottes","banded-trousers"] } } },
+        { "required":["shoes"], "properties":{ "shoes":{ "enum":["deck-shoes","wrap-boots"] } } },
+        { "required":["bag"], "properties":{ "bag":{ "enum":["reed-creel","tube-case"] } } },
+        { "required":["charm"], "properties":{ "charm":{ "enum":["shell-token","signal-tag"] } } }
+      ] } } },
+      "then": { "properties": { "packs": { "properties": { "pine-core": { "enum": [
+        "1.18.0","1.19.0","1.19.1","1.19.2","1.19.3","1.19.4","1.19.5","1.19.6",
+        "1.19.7","1.19.8","1.19.9","1.19.10","1.19.11","1.19.12"
+      ] } } } } }
+    },
     {
       "if": { "properties": { "face": { "required": ["finish"] } }, "required": ["face"] },
       "then": {

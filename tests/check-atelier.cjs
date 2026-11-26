@@ -556,11 +556,11 @@ function checkEditor() {
     const trimmed = PineWardrobe.saved.get(priorOcciput.id);
     expect(trimmed.packs['pine-core'] === PineLooks.release && JSON.stringify(trimmed.shape) === JSON.stringify(savedProfile.shape),
       'the posterior-only upgrade changed the saved shape controls');
-    byId('shelf-era').value = 'historic';
-    byId('shelf-era').dispatchEvent(new Event('change'));
+    document.querySelector('[data-realm=historic]').click();
     byId('look-query').value = '书生';
     byId('look-query').dispatchEvent(new Event('input'));
-    expect(document.querySelectorAll('#look-shelf button').length === 1, 'realm and role search');
+    const scholars = [...document.querySelectorAll('#look-shelf [data-key]')].map(b=>b.dataset.key);
+    expect(scholars.length === 4 && scholars.includes('preset:look_scholar') && scholars.includes('preset:look_river_scholar'), 'realm and role search');
     choose('眼窝深浅', 'morph/eyeDepth');
     expect(byId('edit-eyeDepth').closest('details').open, 'search opens the matching facial control');
     choose('低颧饱颊', 'cheekPreset/low');
@@ -620,7 +620,7 @@ function checkEditor() {
       ...PineLooks.archivedTemplates.get('look_workshop_baby'), id: 'look_archived_infant',
       packs: { 'pine-core': PineLooks.morphRelease }
     }).recipe;
-    byId('shelf-era').value = '';
+    document.querySelector('[data-realm=""]').click();
     byId('look-query').value = oldBaby.id;
     byId('look-query').dispatchEvent(new Event('input'));
     document.querySelector('[data-key="saved:' + oldBaby.id + '"]').click();
@@ -985,7 +985,7 @@ function checkOrdinaryFaces() {
 function checkLibrary() {
   const $ = id => document.getElementById(id), out = $('qa-result');
   const check = (ok, message) => { if (!ok) throw Error(message); };
-  const keys = () => [...$('look-shelf').querySelectorAll('button')].map(b => b.dataset.key);
+  const keys = () => [...$('look-shelf').querySelectorAll('[data-key]')].map(b => b.dataset.key);
   function filter(id, value) {
     $(id).value = value;
     $(id).dispatchEvent(new Event(id === 'look-query' ? 'input' : 'change'));
@@ -998,40 +998,78 @@ function checkLibrary() {
   try {
     check(!$('person-library').hidden, 'gallery link did not open the shelf');
     filter('shelf-source','preset');
-    check(keys().length === PineLooks.templates.length && new Set(keys()).size >= 61, 'incomplete built-in shelf');
-    check(keys().every(key => PineLooks.templateById.has(key.slice(7))), 'uneditable entry');
-    check($('look-shelf').querySelectorAll('.shelf-group').length === 4, 'era groups');
-    const body = document.querySelector('[data-shelf-view=body]');
-    body.click();
-    check(body.getAttribute('aria-pressed') === 'true' && $('look-shelf').dataset.framing === 'body', 'full body view');
-    filter('shelf-era','scifi');
-    filter('shelf-age','child');
-    check(keys().join() === 'preset:look_cadet', 'age and era must combine');
-    filter('shelf-age','baby');
-    check(!keys().length && $('look-shelf').querySelector('p'), 'empty filter results');
-    $('clear-looks').click();
-    filter('shelf-age','baby');
-    filter('shelf-source','preset');
-    check(keys().sort().join() === 'preset:look_chestnut,preset:look_workshop_baby', 'both baby presets');
-    $('clear-looks').click();
+    const count = () => Number($('shelf-count').textContent.match(/\d+/)[0]);
+    check(count() === PineLooks.templates.length && count() >= 144 && keys().length === 12, 'paginated character count');
+    const all = new Set();
+    while (true) {
+      for (const key of keys()) {
+        check(!all.has(key) && PineLooks.templateById.has(key.slice(7)), 'missing or duplicated entry between pages');
+        all.add(key);
+      }
+      const next = [...$('shelf-pages').querySelectorAll('button')].find(b=>b.textContent==='下一页');
+      if (next.disabled) break;
+      next.click();
+    }
+    check(all.size===PineLooks.templates.length, 'last page loses entries');
+    document.querySelector('[data-shelf-view=face]').click();
+    check(keys().length===(all.size%12 || 12) && $('look-shelf').dataset.framing==='face', 'framing must keep the page');
+    filter('shelf-source','new'); check(count()===PineLooks.library.newIds.size, 'new additions filter');
+    $('shelf-next').click();
+    const pageKeys=keys().join(), range=$('shelf-range').textContent;
+    const related=$('look-shelf').querySelector('[data-related]'), group=related.dataset.related;
+    related.click();
+    check(keys().length>=3 && keys().every(key=>PineLooks.templateById.get(key.slice(7)).identity.series===group) &&
+      $('shelf-source').value==='' && $('shelf-series').value===group,'show complete series from a restricted browse');
+    $('shelf-family-back').click();
+    check(keys().join()===pageKeys && $('shelf-range').textContent===range && $('shelf-source').value==='new' &&
+      $('look-shelf').dataset.framing==='face','return from a series must restore the original result page and view');
+    document.querySelector('[data-realm=fantasy]').click(); filter('shelf-age','child');
+    filter('shelf-setting','wild'); filter('shelf-gear','bags');
+    check(keys().sort().join() === 'preset:look_firefly_child,preset:look_moon_post_child','four dimensions must combine');
+    filter('shelf-field','nature'); filter('shelf-garment','cloaks'); filter('shelf-profile','unspecified');
+    check(keys().join()==='preset:look_firefly_child','field, costume and body filters did not intersect');
+    check($('shelf-applied').children.length===8, 'active filters are not all visible');
+    filter('shelf-profile','male');
+    check(!keys().length && !$('shelf-empty').hidden, 'empty filter recovery');
+    $('empty-clear').click(); filter('shelf-age','baby'); filter('shelf-source','preset');
+    check(count()===PineLooks.templates.filter(d=>d.base==='baby').length, 'infant results');
+    $('clear-looks').click(); filter('shelf-size','24'); check(keys().length===24,'page size');
+    filter('shelf-order','name');
+    const labels=[...$('look-shelf').querySelectorAll('strong')].map(e=>e.textContent);
+    check(labels.join() === [...labels].sort(new Intl.Collator('zh-Hans-CN',{numeric:true}).compare).join(),'name sort');
+    document.querySelector('[data-shelf-view=body]').click();
+    check($('look-shelf').dataset.framing==='body','full body view');
     filter('look-query','褶边厨师帽');
     check(keys().join() === 'preset:look_chef', 'search by the display name of an equipped item');
     filter('look-query','炼金');
-    check(keys().join() === 'preset:look_alchemist', 'search by role');
+    check(keys().length===3 && keys().includes('preset:look_alchemist') && keys().includes('preset:look_herb_alchemist'), 'search by role');
     document.querySelector('[data-shelf-view=face]').click();
     check($('look-shelf').dataset.framing === 'face', 'portrait view');
-    $('look-shelf').querySelector('button').click();
+    $('look-shelf').querySelector('[data-key="preset:look_alchemist"]').click();
     const selected = recipe(), original = PineLooks.templateById.get('look_alchemist');
     check(!$('person-edit').hidden && selected.id !== original.id, 'selected character needs its own editable copy');
     for (const key of ['parts','colors','shape','face'])
       check(Object.keys(original[key]).every(k => selected[key][k] === original[key][k]), 'gallery selection lost '+key);
+    $('look-field').value='craft'; $('look-field').dispatchEvent(new Event('change'));
+    $('look-series').value='pottery'; $('look-series').dispatchEvent(new Event('change'));
+    const coast = $('look-settings').querySelector('input[value=coast]'); coast.click();
+    check(recipe().identity.field==='craft' && recipe().identity.series==='pottery' && recipe().identity.settings.includes('coast'),'editable classification');
     $('look-name').value = '铜框眼镜习作';
     $('look-name').dispatchEvent(new Event('input'));
     $('save-look').click();
     check(PineWardrobe.saved.get(selected.id)?.label === '铜框眼镜习作' && original.label !== '铜框眼镜习作',
       'editing or saving a copy overwrote the preset');
+    $('tab-wear').click();
+    document.querySelector('[data-outfit=moth_keeper]').click();
+    const dressed=recipe();
+    check(dressed.parts.top==='moth-cape' && dressed.parts.implement==='lantern' && dressed.embeddedPacks[0].id==='pine-outfitter',
+      'wearing an entire gallery costume lost the headwear or handheld prop');
+    check(JSON.stringify(dressed.face)===JSON.stringify(selected.face) && dressed.parts.hair===selected.parts.hair,'outfit changed the person');
+    $('save-look').click(); $('tool-person-library').click(); $('clear-looks').click();
+    filter('shelf-source','saved'); filter('shelf-series','pottery'); filter('shelf-garment','cloaks'); filter('shelf-gear','tools');
+    check(keys().join()==='saved:'+selected.id,'newly worn garment or edited identity was not searchable');
     out.dataset.state = 'pass';
-    out.textContent = 'All 61 editable gallery entries, age and era filters, portrait and body views and saved copies passed';
+    out.textContent = 'Paginated gallery, series navigation, nine facets, named item search, outfits and editable saved metadata passed';
   } catch (error) { out.dataset.state = 'fail'; out.textContent = error.stack; }
 }
 function checkRoundedBaby() {

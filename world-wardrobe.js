@@ -11,15 +11,17 @@ const pineWorldWardrobe = (() => {
     brocade: '织锦袍',
     mantle: '扣襟披肩',
     flightsuit: '分体航行服',
-    mechanic: '连体检修服'
+    mechanic: '连体检修服',
+    ...pineCollectionWardrobe.tops
   };
-  const bags = { briefcase: '硬壳公文包', tote: '开口帆布袋', pouch: '束口药囊' };
+  const bags = { briefcase: '硬壳公文包', tote: '开口帆布袋', pouch: '束口药囊', ...pineCollectionWardrobe.bags };
   const charms = {
     jade: '双环玉佩',
     tassel: '编结流苏',
     compass: '黄铜罗盘',
     vial: '小玻璃药瓶',
-    pass: '挂绳证件'
+    pass: '挂绳证件',
+    ...pineCollectionWardrobe.charms
   };
   const tools = [
     'guide-flag',
@@ -87,6 +89,7 @@ const pineWorldWardrobe = (() => {
     [-0.69, 0.08, 1.67, 0.36, 0.26, 0.18, 'hatTrim']
   ]);
   function fabric(style, u, v, t, k) {
+    if (pineCollectionWardrobe.fabrics[style]) return pineCollectionWardrobe.fabrics[style](u,v,t,k);
     const a = Math.abs(v),
       front = u > 0.15,
       edge = u < -0.6 || a > 0.9,
@@ -145,6 +148,7 @@ const pineWorldWardrobe = (() => {
         : field;
   }
   function sleeve(style, t, u, v, side, r, fore, k) {
+    if (Object.hasOwn(pineCollectionWardrobe.tops,style)) return pineCollectionWardrobe.sleeve(style,t,u,v,side,r,fore,k);
     if ((style === 'scrubs' || style === 'apron') && (fore || t > 0.69)) return k.skin;
     if ((style === 'hi-vis' && t > 0.52 && t < 0.68) || (style === 'uniform' && !fore && t < 0.26))
       return k.trimLight;
@@ -153,7 +157,8 @@ const pineWorldWardrobe = (() => {
     return side * v < -0.38 * r ? k.topShade : k.top;
   }
   function carried(parts, b, k, d, w, low, h, figure = false) {
-    if (bags[parts.bag]) {
+    if (Object.hasOwn(pineCollectionWardrobe.bags,parts.bag)) pineCollectionWardrobe.bag(parts.bag,b,k,d,w,low,h);
+    else if (bags[parts.bag]) {
       const x = -0.45 * d,
         y = 1.12 * w,
         z = low + h * 0.24,
@@ -194,6 +199,7 @@ const pineWorldWardrobe = (() => {
       );
     }
     if (!parts.charm) return;
+    if (Object.hasOwn(pineCollectionWardrobe.charms,parts.charm)) return pineCollectionWardrobe.charm(parts.charm,b,k,d,w,low,h);
     const kind = parts.charm,
       badge = kind === 'pass',
       x = (badge ? 0.99 : 0.92) * d,

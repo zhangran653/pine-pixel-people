@@ -17,7 +17,7 @@ const pineFigurePaint = (() => {
     'argyle',
     'knit-vest',
     'breton',
-    'rugby'
+    'rugby', 'quilt-jacket', 'deck-jumper'
   ]);
   const fasteners = ['brass', 'brassShade', 'lensGlint', 'steel', 'spout'];
   const tones = {
@@ -222,7 +222,7 @@ const pineFigurePaint = (() => {
     return chart[clamp(Math.floor(y * 48), 0, 47) * 48 + clamp(Math.floor(x * 48), 0, 47)];
   }
   const tucked = new Set(['oxford', 'knit-vest', 'polo', 'blazer', 'tee', 'rugby', 'breton']);
-  const longCoats = new Set(['trench', 'cross-robe', 'brocade', 'lab-coat', 'apron', 'mantle', 'kimono', 'tunic']);
+  const longCoats = new Set(['trench', 'cross-robe', 'brocade', 'lab-coat', 'apron', 'mantle', 'kimono', 'tunic', 'moth-cape', 'kiln-smock']);
   const highWaists = new Set(['oxford', 'polo', 'blazer', 'knit-vest']);
   function hem(style, base, proportionStudy = false) {
     if (longCoats.has(style)) return 0;
@@ -416,7 +416,7 @@ const pineFigurePaint = (() => {
   const nurseryCut = cutRings([[0, 1.025, 1.02], [.22, 1.055, 1.12], [.46, 1.04, 1.105],
     [.70, .995, 1.04], [.85, .985, .99], [.96, .84, .87], [1, .71, .79]]);
   const workCoats = new Set(['chef-coat', 'uniform', 'flightsuit', 'mechanic', 'field-jacket', 'denim-jacket',
-    'jacket', 'trail-shell', 'rain-anorak', 'hi-vis', 'blazer', ...longCoats]);
+    'jacket', 'trail-shell', 'rain-anorak', 'hi-vis', 'blazer', 'thermal-shell', 'utility-gilet', 'frog-coat', ...longCoats]);
   // The front drawing sets width. The profile sets separate depths behind and
   // in front of the body axis. Heights run from the pelvis to the neck.
   const panelDrawings = Object.fromEntries(Object.entries({
@@ -472,7 +472,7 @@ const pineFigurePaint = (() => {
       shin:cutRings([[0,1.20,1.12],[.31,1.23,1.175],[.64,1.30,1.20],[.85,1.39,1.24],[1,1.35,1.195]])
     }
   };
-  const longPants = new Set(['trousers','joggers','pinstripe','wide-leg','cuffed-denim','cargo','bib-overalls','knee-pants']);
+  const longPants = new Set(['trousers','joggers','pinstripe','wide-leg','cuffed-denim','cargo','bib-overalls','knee-pants','panel-culottes','banded-trousers']);
   function patternFor(style, bottom, base, fit) {
     const top = topPatterns[fit.top || (highWaists.has(style) && style !== 'blazer' ? 'tucked' :
       knitwear.has(style) || style === 'snap-knit' ? 'bloused' : 'straight')];
@@ -601,7 +601,7 @@ const pineFigurePaint = (() => {
     shin: cutRings([[0, .89, .95, .025, 0], [.25, 1.005, 1.02, -.07, .015],
       [.43, 1.035, 1.04, -.12, .04], [.72, .94, .90, -.07, .015], [1, .86, .88, 0, 0]])
   };
-  const widePants = new Set(['wide-leg', 'cuffed-denim', 'cargo', 'bib-overalls']);
+  const widePants = new Set(['wide-leg', 'cuffed-denim', 'cargo', 'bib-overalls', 'panel-culottes']);
   // Cloth spans a bent joint. Sleeve and trouser ends share a width at the
   // elbow and knee instead of tracing two separate muscle bellies.
   const clothSections = {

@@ -483,7 +483,7 @@
       const match =
         Object.entries(outfit.parts).every(([k, v]) => draft.parts[k] === v) &&
         Object.entries(outfit.colors).every(([k, v]) => draft.colors[k] === v) &&
-        (!Object.hasOwn(looks.workshopOutfits, b.dataset.outfit) ||
+        (!Object.hasOwn(outfit.parts,'hat') ||
           (looks.carriedSlots.every((k) => draft.parts[k] === outfit.parts[k]) &&
             looks.outfitDyes.every((k) => draft.colors[k] === outfit.colors[k])));
       b.setAttribute('aria-pressed', String(match));
@@ -506,10 +506,11 @@
       button.type = 'button';
       button.dataset[type] = id;
       if (type === 'outfit') {
-        if (Object.hasOwn(looks.workshopOutfits, id)) {
-          group.classList.add('workshop-outfits');
+        const workshop = Object.hasOwn(looks.workshopOutfits,id);
+        if (workshop || Object.hasOwn(looks.collectionOutfits,id)) {
+          group.classList.add(workshop ? 'workshop-outfits' : 'collection-outfits');
           const thumbnail = document.createElement('canvas');
-          const model = looks.templates.find((t) => t.id === 'look_workshop_' + id);
+          const model = looks.templateById.get((workshop ? 'look_workshop_' : 'look_') + id);
           thumbnail.setAttribute('aria-hidden', 'true');
           thumbnails.set(thumbnail, { actor: actorFor(model), bearing: 29, view: 'body' });
           button.append(thumbnail);
@@ -1409,8 +1410,11 @@
     const featured = presetGroup('工坊同款', looks.workshopOutfits, 'outfit', apply);
     area.append(featured);
     paintThumbnails(featured);
+    const collection = presetGroup('形象库穿搭', looks.collectionOutfits, 'outfit', apply);
+    area.append(collection);
+    paintThumbnails(collection);
     const everyday = Object.fromEntries(
-      Object.entries(looks.outfits).filter(([id]) => !Object.hasOwn(looks.workshopOutfits, id))
+      Object.entries(looks.outfits).filter(([id]) => !Object.hasOwn(looks.workshopOutfits,id) && !Object.hasOwn(looks.collectionOutfits,id))
     );
     area.append(presetGroup('日常穿搭', everyday, 'outfit', apply));
     function group(title) {
@@ -1516,6 +1520,9 @@
     $('look-name').value = draft.label;
     $('look-era').value = draft.identity?.era || '';
     $('look-role').value = draft.identity?.role || '';
+    $('look-field').value = draft.identity?.field || '';
+    $('look-series').value = draft.identity?.series || '';
+    for (const box of $('look-settings').querySelectorAll('input')) box.checked=!!draft.identity?.settings?.includes(box.value);
     heading();
     fields();
     refreshAction();
@@ -1601,92 +1608,41 @@
     dirty = origin.dirty;
     heading();
   };
-  const shelfAges = { adult: '成人', child: '儿童', toddler: '幼儿', baby: '婴儿' };
-  let shelfView = 'face';
-  function shelf() {
-    const root = $('look-shelf'),
-      compare = $('compare'),
-      previous = compare.value;
-    shelfVisibility.disconnect();
-    visibleShelfCards.clear();
-    root.replaceChildren();
-    entries.clear();
-    const datasets = [
-      ['已保存', [...wardrobe.saved].map(([id, d]) => ['saved:' + id, d])],
-      ...Object.entries(PineWorld.realms).map(([era, label]) => [
-        label, looks.templates.filter(d => (d.identity?.era || 'modern') === era).map(d => ['preset:' + d.id, d])
-      ])
+  function galleryEntries() {
+    return [
+      ...[...wardrobe.saved].reverse().map(([id,doc]) => ['saved:'+id,doc]),
+      ...looks.templates.map(doc => ['preset:'+doc.id,doc])
     ];
-    compare.replaceChildren(new Option('无对照', ''));
+  }
+  const gallery = pineCharacterGallery.create({
+    getEntries: galleryEntries,
+    observe(canvas,doc,view) {
+      thumbnails.set(canvas, {doc,bearing:334,view});
+      shelfVisibility.observe(canvas);
+    },
+    resetImages() { shelfVisibility.disconnect(); visibleShelfCards.clear(); },
+    select(doc,key) {
+      switchTo(() => {
+        activate(doc,key,key.startsWith('saved:'));
+        PineWorkspace.openTool('person-edit',true);
+      });
+    }
+  });
+  function shelf() {
+    entries.clear();
+    const compare = $('compare'), previous=compare.value;
+    compare.replaceChildren(new Option('无对照',''));
     if (transferredPartner) {
-      entries.set('review:partner', transferredPartner);
-      compare.add(new Option('随配方带入 · ' + transferredPartner.label, 'review:partner'));
+      entries.set('review:partner',transferredPartner);
+      compare.add(new Option('随配方带入 · '+transferredPartner.label,'review:partner'));
     }
-    const era = $('shelf-era').value, age = $('shelf-age').value, source = $('shelf-source').value,
-      terms = $('look-query').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    let matchCount = 0;
-    for (const [section, items] of datasets) {
-      if (!items.length) continue;
-      const label = document.createElement('div');
-      label.className = 'shelf-group';
-      label.textContent = section;
-      let visible = false;
-      for (const [key, doc] of items) {
-        entries.set(key, doc);
-        if (key !== cardKey) compare.add(new Option(section + ' · ' + doc.label, key));
-        const eraKey = doc.identity?.era || 'modern';
-        const [hatPack, hatId] = doc.parts.hat.split('/');
-        const hat = looks.catalog.get(hatPack + '@' + doc.packs[hatPack])?.parts.find(p => p.id === hatId);
-        const haystack = [
-          doc.id,
-          doc.label,
-          doc.identity?.role,
-          shelfAges[doc.base],
-          PineWorld.realms[eraKey],
-          hat?.label,
-          ...Object.entries(doc.parts).map(([k, v]) => looks.wearables[k]?.[v] || looks.slots[k]?.[v] || v)
-        ]
-          .join(' ')
-          .toLowerCase();
-        if ((source && !key.startsWith(source + ':')) || (era && era !== eraKey) ||
-            (age && age !== doc.base) || !terms.every(t => haystack.includes(t))) continue;
-        if (!visible) {
-          root.append(label);
-          visible = true;
-        }
-        matchCount++;
-        const b = document.createElement('button'),
-          image = document.createElement('canvas'),
-          title = document.createElement('small');
-        b.type = 'button';
-        b.dataset.key = key;
-        b.setAttribute('aria-pressed', String(key === cardKey));
-        b.title = section + ' · ' + doc.label;
-        image.setAttribute('aria-hidden', 'true');
-        title.textContent = doc.label;
-        b.append(image, title);
-        root.append(b);
-        thumbnails.set(image, { doc, bearing: 334, view: shelfView });
-        shelfVisibility.observe(image);
-        b.onclick = () => switchTo(() => {
-          activate(doc, key, key.startsWith('saved:'));
-          PineWorkspace.openTool('person-edit', true);
-        });
-      }
+    for (const [key,doc] of galleryEntries()) {
+      entries.set(key,doc);
+      if (key!==cardKey) compare.add(new Option((key.startsWith('saved:') ? '已保存' : PineWorld.realms[doc.identity?.era || 'modern'])+' · '+doc.label,key));
     }
-    if ([...compare.options].some((o) => o.value === previous)) compare.value = previous;
+    if (entries.has(previous) && previous!==cardKey) compare.value=previous;
     measurements();
-    $('shelf-count').textContent =
-      era || age || terms.length || source
-        ? matchCount + ' 个结果'
-        : looks.templates.length + ' 款预置 · 已保存 ' + wardrobe.saved.size + ' 个';
-    $('clear-looks').hidden = !(era || age || terms.length || source);
-    if (!matchCount) {
-      const empty = document.createElement('p');
-      empty.textContent = $('shelf-source').value === 'saved' && !wardrobe.saved.size
-        ? '保存形象后，可以在这里再次打开。' : '没有匹配的形象，可以清除筛选。';
-      root.append(empty);
-    }
+    gallery.refresh(cardKey);
   }
   function save(copy = false) {
     if (!validName()) return;
@@ -1780,32 +1736,22 @@
     };
   for (const b of document.querySelectorAll('[data-view]')) b.onclick = () => setView(b.dataset.view);
   $('fine-face').onchange = show;
-  for (const [id, label] of Object.entries(PineWorld.realms)) {
-    for (const field of ['shelf-era', 'look-era']) $(field).add(new Option(label, id));
+  for (const [id,label] of Object.entries(PineWorld.realms)) $('look-era').add(new Option(label,id));
+  for (const [id,label] of Object.entries(looks.library.fields)) $('look-field').add(new Option(label,id));
+  for (const [id,label] of Object.entries(looks.library.series)) $('look-series').add(new Option(label,id));
+  for (const [id,label] of Object.entries(looks.library.settings)) {
+    const item=document.createElement('label'), box=document.createElement('input');
+    box.type='checkbox'; box.value=id; item.append(box,document.createTextNode(label)); $('look-settings').append(item);
   }
-  for (const item of looks.templates)
-    if (item.identity?.role) $('role-options').append(new Option(item.identity.role, item.identity.role));
-  for (const [key, label] of Object.entries(shelfAges)) $('shelf-age').add(new Option(label, key));
-  $('shelf-age').onchange = shelf;
-  $('shelf-era').onchange = shelf;
-  $('shelf-source').onchange = shelf;
-  const shelfButtons = document.querySelectorAll('[data-shelf-view]');
-  for (const button of shelfButtons) button.onclick = () => {
-    shelfView = button.dataset.shelfView;
-    $('look-shelf').dataset.framing = shelfView;
-    for (const b of shelfButtons) b.setAttribute('aria-pressed', String(b === button));
-    shelf();
-  };
-  $('clear-looks').onclick = () => {
-    for (const id of ['look-query', 'shelf-era', 'shelf-age', 'shelf-source']) $(id).value = '';
-    shelf();
-    $('look-query').focus();
-  };
-  $('look-query').oninput = shelf;
+  const roles=new Set(looks.templates.map(item=>item.identity?.role).filter(Boolean));
+  for (const role of roles) $('role-options').append(new Option(role,role));
   function editIdentity() {
     const era = $('look-era').value,
       role = $('look-role').value.trim();
-    if (era || role) draft.identity = { ...(era ? { era } : {}), ...(role ? { role } : {}) };
+    const field = $('look-field').value, series = $('look-series').value;
+    const settings = [...$('look-settings').querySelectorAll('input:checked')].map(box => box.value);
+    const identity = { ...(era && {era}), ...(role && {role}), ...(field && {field}), ...(series && {series}), ...(settings.length && {settings}) };
+    if (Object.keys(identity).length) draft.identity = identity;
     else delete draft.identity;
     draft.packs[looks.core] = looks.editingRelease(draft);
     dirty = true;
@@ -1813,6 +1759,9 @@
   }
   $('look-era').onchange = editIdentity;
   $('look-role').oninput = editIdentity;
+  $('look-field').onchange = editIdentity;
+  $('look-series').onchange = editIdentity;
+  $('look-settings').onchange = editIdentity;
   $('look-name').oninput = () => {
     draft.label = $('look-name').value;
     dirty = true;

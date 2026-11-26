@@ -31,7 +31,7 @@ const builtins = [
   'head-sections',
   'skull-core', 'head-shape', 'game-face',
   'short-hair',
-  'everyday-styles',
+  'collection-wardrobe', 'everyday-styles',
   'workshop-wear',
   'world-wardrobe', 'character-collection',
   'figure-paint',

@@ -284,14 +284,27 @@ for (const [id, rgba] of Object.entries({
   assert.equal(model.colors.length, body.nx * body.ny * 28);
 }
 const shapeDefs = JSON.parse(read('character-v1.schema.json')).properties.shape.properties;
-assert.ok(looks.templateById.size >= 61);
-assert.deepEqual([...looks.templateById.keys()].sort(), [...looks.archivedTemplates.keys()].sort());
+assert.ok(looks.library.newIds.size >= 83);
+assert.equal(looks.templateById.size, looks.archivedTemplates.size + looks.library.newIds.size);
+for (const id of [...looks.archivedTemplates.keys(),...looks.library.newIds]) assert.ok(looks.templateById.has(id),id);
 const faces = new Set();
 for (const doc of looks.templates) {
   const original = looks.archivedTemplates.get(doc.id);
   const recipe = looks.prepare(clone(doc)).recipe, copy = looks.build(recipe);
-  for (const key of ['label', 'base', 'gender']) assert.equal(doc[key], original[key], doc.id);
-  assert.equal(doc.parts.implement, original.parts.implement, doc.id);
+  if (original) {
+    for (const key of ['label','base','gender']) assert.equal(doc[key],original[key],doc.id);
+    assert.equal(doc.parts.implement,original.parts.implement,doc.id);
+    assert.notDeepEqual(clone(doc.colors),clone(original.colors),doc.id);
+  } else assert.ok(looks.library.newIds.has(doc.id));
+  assert.ok(looks.library.fields[recipe.identity.field] && recipe.identity.settings.every(s=>looks.library.settings[s]),doc.id);
+  assert.ok(looks.library.series[recipe.identity.series] && looks.library.facets(doc).garment,doc.id);
+  if (doc.parts.hat.startsWith('pine-outfitter/')) {
+    const pack = recipe.embeddedPacks[0];
+    assert.equal(pack.notice,recipe.baseNotice);
+    assert.equal(pack.release,doc.packs[pack.id]);
+    const vanilla = new Map([...looks.catalog].filter(([key])=>key.startsWith('pine-core@')));
+    assert.equal(looks.prepare(clone(recipe),vanilla).hat.id,doc.parts.hat.split('/')[1]);
+  }
   assert.equal(recipe.packs[looks.core], looks.infantNoseRelease);
   assert.equal(recipe.bodyFinish, 'painted');
   assert.equal(recipe.face.finish, doc.base === 'adult' ? 'storybook-lips' : 'soft-pixel');
@@ -299,7 +312,6 @@ for (const doc of looks.templates) {
     assert.equal(recipe.infantNose, 'nursery');
     assert.equal(recipe.infantChin, 'round');
   }
-  assert.notDeepEqual(clone(doc.colors), clone(original.colors), doc.id);
   faces.add([doc.face.eyes,doc.face.brows,doc.face.nose,doc.face.mouth].join('/'));
   assert.ok(motion.characters.has(doc.id) && copy.tags.includes(doc.base), doc.id);
   const idle = motion.actions.get('idle').sample(0.4, copy)[0].pose;
@@ -307,6 +319,26 @@ for (const doc of looks.templates) {
   if (doc.identity) assert.deepEqual(clone(recipe.identity), clone(doc.identity));
 }
 assert.ok(faces.size >= 61, 'the authored collection lost a distinct set of facial features');
+assert.deepEqual(Object.keys(looks.library.series).sort(),
+  JSON.parse(read('character-v1.schema.json')).properties.identity.properties.series.enum.sort());
+for (const group of Object.keys(looks.library.series)) {
+  const members=looks.templates.filter(d=>d.identity.series===group);
+  assert.ok(members.length>=3,group);
+  for (const visual of [d=>d.parts.hair, d=>[d.parts.top,d.parts.bottom,d.parts.shoes].join('/'),
+    d=>[d.face.eyes,d.face.brows,d.face.nose,d.face.mouth].join('/')])
+    assert.ok(new Set(members.map(visual)).size>=3,group+' must offer different silhouettes and faces');
+}
+for (const [id,outfit] of Object.entries(looks.collectionOutfits)) {
+  const original=looks.templateById.get('look_programmer'), model=clone(original);
+  looks.applyOutfit(model,outfit);
+  assert.deepEqual(model.face,clone(original.face));
+  assert.equal(model.colors.skin,original.colors.skin);
+  assert.equal(model.parts.hair,original.parts.hair);
+  assert.equal(model.parts.laptop,original.parts.laptop);
+  const portable=looks.prepare(model).recipe;
+  for (const slot of ['top','bottom','shoes','hat']) assert.equal(portable.parts[slot],looks.templateById.get('look_'+id).parts[slot]);
+  if (portable.parts.hat.startsWith('pine-outfitter/')) assert.equal(portable.embeddedPacks[0].id,'pine-outfitter');
+}
 for (const key of ['hiker', 'surveyor', 'mother', 'child', 'toddler', 'baby']) {
   const legacy = find(key),
     id = 'look_workshop_' + key,

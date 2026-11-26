@@ -19,7 +19,8 @@ const pineEverydayStyles = (() => {
       capris: '七分裤',
       joggers: '束脚运动裤',
       'plaid-skirt': '格纹裙',
-      'track-shorts': '运动短裤'
+      'track-shorts': '运动短裤',
+      ...pineCollectionWardrobe.bottoms
     },
     shoes: {
       loafers: '乐福鞋',
@@ -27,7 +28,8 @@ const pineEverydayStyles = (() => {
       chelsea: '切尔西靴',
       sandals: '交叉带凉鞋',
       runners: '拼面跑鞋',
-      oxfords: '牛津皮鞋'
+      oxfords: '牛津皮鞋',
+      ...pineCollectionWardrobe.shoes
     },
     neck: {
       pendant: '吊坠项链',
@@ -228,17 +230,22 @@ const pineEverydayStyles = (() => {
   function pants(style, b, thighLink, shinLink, k, hip, knee, foot, side, r, kr, ar) {
     const short = style === 'track-shorts',
       capri = style === 'capris',
-      wide = style === 'wide-leg',
+      wide = style === 'wide-leg' || style === 'panel-culottes',
       stripe = style === 'pinstripe';
     const end = (a, c, t) => a.map((v, i) => v + (c[i] - v) * t);
-    const cloth = (t, u, v) =>
-      stripe && Math.abs(Math.sin((v / kr) * 7.8 + (u / kr) * 2)) < 0.19
+    const cloth = (t, u, v) => {
+      if (style === 'panel-culottes') {
+        const pleat = Math.abs(v / kr - side * (.29 + .21*t));
+        return pleat < .16 ? k.bottomShade : pleat < .27 ? k.bottomLight : k.bottom;
+      }
+      return stripe && Math.abs(Math.sin((v / kr) * 7.8 + (u / kr) * 2)) < 0.19
         ? k.bottomLight
         : style === 'joggers' && side * v > 0.6 * kr
           ? k.accent
           : side * v < -0.58 * kr
             ? k.bottomShade
             : k.bottom;
+    };
     thighLink(hip, knee, r, kr, 0.96, short ? () => k.skinLight : cloth);
     if (short)
       thighLink(hip, end(hip, knee, 0.55), 1.12 * r, 1.12 * kr, 1.04, (t, u, v) =>
@@ -252,6 +259,7 @@ const pineEverydayStyles = (() => {
       0.97,
       (t, u, v) => {
         if (short || capri) return t > 0.75 ? k.rubber : k.skinLight;
+        if (style === 'banded-trousers' && t > .37) return Math.cos(22*t+side*v/kr*2.5) > .16 ? k.accent : k.bottomShade;
         if (style === 'joggers' && t > 0.7) return t > 0.8 ? k.bottomLight : k.bottomShade;
         return cloth(t, u, v);
       }
@@ -265,7 +273,7 @@ const pineEverydayStyles = (() => {
     const [x, y, z] = foot,
       floor = z - ankle,
       toe = x + 0.24 * sx * forward;
-    const boot = style === 'chelsea',
+    const boot = style === 'chelsea' || style === 'wrap-boots',
       sandal = style === 'sandals',
       mary = style === 'mary-janes',
       run = style === 'runners';
@@ -284,6 +292,10 @@ const pineEverydayStyles = (() => {
           a = (py - y) / sy,
           v = (pz - floor) / h;
         if (v < 0.31) return k.outsole;
+        if (style === 'deck-shoes') {
+          if (v < .57 || (f > .28 && Math.abs(a) > .56 && v < 1.03)) return k.rubber;
+          if (v > 1.24 && Math.abs(a) < .59 && Math.abs(f - .11) < .14) return k.accent;
+        }
         if (v < 0.49) return run ? k.rubber : k.shoeLight;
         if (sandal)
           return v < 0.68 || Math.abs(f - 0.26 - 0.47 * a) < 0.17 || Math.abs(f - 0.24 + 0.46 * a) < 0.16
@@ -307,7 +319,10 @@ const pineEverydayStyles = (() => {
         1.18 * r,
         1.23 * r,
         1,
-        (t, u, v) => (t > 0.85 ? k.shoeLight : Math.abs(v) > 0.62 * r && t > 0.25 ? k.shoeShade : k.shoes)
+        (t, u, v) => {
+          if (style === 'wrap-boots' && Math.cos(17*t+v/r*2.6) > .24) return k.accent;
+          return t > 0.85 ? k.shoeLight : Math.abs(v) > 0.62 * r && t > 0.25 ? k.shoeShade : k.shoes;
+        }
       );
   }
   function headItem(slot, style, b, k, f, hat) {

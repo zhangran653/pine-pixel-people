@@ -33,7 +33,7 @@ const sources = [
   'head-sections',
   'skull-core', 'head-shape', 'game-face',
   'short-hair',
-  'everyday-styles',
+  'collection-wardrobe', 'everyday-styles',
   'workshop-wear',
   'world-wardrobe', 'character-collection',
   'figure-paint',
@@ -86,7 +86,7 @@ assert.equal(a.m.characters.size, builtins);
 const coreVersions = json('character-v1.schema.json').properties.packs.properties['pine-core'].enum;
 assert.deepEqual(
   [...a.l.catalog.keys()],
-  coreVersions.map((pin) => 'pine-core@' + pin)
+  [...coreVersions.map((pin) => 'pine-core@' + pin), 'pine-outfitter@1.0.0']
 );
 assert.equal(a.l.prepare(second).recipe.baseNotice, read('LICENSE').trimEnd());
 assert.equal(second.embeddedPacks[0].notice, read('LICENSE').trimEnd());
@@ -356,7 +356,7 @@ const corrupt = client(),
 malformed.score.steps[3].action = 'crawl';
 assert.throws(() => corrupt.w.readScoreFile(malformed, true));
 assert.equal(corrupt.m.characters.size, builtins);
-assert.equal(corrupt.l.catalog.size, coreVersions.length);
+assert.equal(corrupt.l.catalog.size, coreVersions.length + 1);
 assert.equal(corrupt.disk.size, 0);
 const limited = client(new Map(), 1);
 const temporary = limited.w.readScoreFile(clone(cast), true);
