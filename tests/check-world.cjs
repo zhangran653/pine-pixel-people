@@ -581,7 +581,7 @@ const skull = vm.runInContext('pineHeadShape', context);
         'nose and upper lip need space on the ' + expressive.base + ' rig');
       // The drawn noses have their own tip and underside. Measure the built
       // landmarks in the same units used above for the original feature grid.
-      for (const finish of ['soft-pixel','storybook']) {
+      for (const finish of ['soft-pixel','storybook','storybook-lips']) {
         const {noseBase,upperLip} = looks.build(looks.withFaceFinish(expressive,finish)).sockets;
         assert.ok((noseBase.point[2]-upperLip.point[2])/radius >= .0399,
           finish+' nose and upper lip need space on the '+expressive.base+' rig');

@@ -174,7 +174,7 @@
     const namedPair = (query.get('study') === 'recipes' || Object.hasOwn(pineFigureModels,query.get('compare'))) &&
       $('compare').value === 'review:partner';
     const ordinaryFace = (tab === 'face' || view === 'face') && draft.packs[looks.core] === looks.release && looks.portraitStyleOf(draft) === 'animation';
-    const before = namedPair ? 'recipes' : draft.face?.finish === 'storybook' ? 'storybook' : ordinaryFace ? 'everyday' : draft.portraitInk && looks.portraitStyleOf(draft) === 'animation' ? (draft.faceSurface === 'contour' ? 'profile-line' : draft.faceSurface ? 'surface' : 'ink') :
+    const before = namedPair ? 'recipes' : pinePortraitStyles.isStorybook(draft.face?.finish) ? draft.face.finish : ordinaryFace ? 'everyday' : draft.portraitInk && looks.portraitStyleOf(draft) === 'animation' ? (draft.faceSurface === 'contour' ? 'profile-line' : draft.faceSurface ? 'surface' : 'ink') :
       draft.base === 'baby' && draft.infantNose ? 'baby-nose' : draft.base === 'baby' && draft.packs[looks.core] === looks.chinPadRelease ? 'chin-pad' :
       draft.base === 'baby' && draft.packs[looks.core] === looks.infantChinRelease ? 'chin' :
       pinePortraitStyles.hasGarmentFits(draft.packs[looks.core]) ? 'garments' :

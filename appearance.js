@@ -136,7 +136,12 @@ const PineLooks = (() => {
   const ratioKeys = Object.keys(figureRatioRanges);
   const restExpressions = { calm:'安静', curious:'好奇', warm:'含笑' };
   const portraitInks = { wash:'柔彩', cel:'明暗块面', line:'勾线' };
-  const faceFinishes = { original:'原有画法', 'soft-pixel':'柔和像素脸', storybook:'绘本像素 · 试作' };
+  const faceFinishes = { original:'原有画法', 'soft-pixel':'柔和像素脸', storybook:'绘本像素 · 试作', 'storybook-lips':'绘本像素 · 分款鼻唇' };
+  function generatedFaceFinish(options, source, base, pin) {
+    const ordinary = pin === release && !options.release;
+    const current = base === 'adult' ? 'storybook-lips' : 'soft-pixel';
+    return options.finish ?? source?.face?.finish ?? (ordinary ? current : undefined);
+  }
   function withFaceFinish(recipe, finish) {
     const pin = recipe.packs[core];
     requireThat((pin === release || pin === infantNoseRelease) && pinePortraitStyles.portraitStyle(recipe) === 'animation' &&
@@ -1796,17 +1801,28 @@ SOFTWARE.`;
     const young = infant || (design && doc.base === 'toddler');
     const eyePair = young ? pick(design ? infantEyes.filter(p => design.youngEyes.includes(p.face.eyes)) : infantEyes, random)
       : design ? eyePairings[pick(design.eyes, random)] : pick(eyePairs, random);
-    const nosePair = young ? pick(infantNoses, random) : design ? facePresets[pick(design.noses, random)] : pick(nosePairs, random);
+    const noses = young ? infantNoses : design ? design.noses : nosePairs;
+    const noseRoll = random()*noses.length;
+    const selectedNose = noses[Math.floor(noseRoll)];
+    const nosePair = design && !young ? facePresets[selectedNose] : selectedNose;
     const cheeks = design || pick(cheekChoices, random);
     doc.face = { ...doc.face, style: portrait, eyes: eyePair.face.eyes, brows: eyePair.face.brows,
       nose: nosePair.face.nose, mouth: nosePair.face.mouth };
     // Explicitly pinned generations remain reproducible. A new ordinary roll
     // uses the current face drawing, including when started from an old save.
     if ((pin === release || pin === infantNoseRelease) && !brushed && portrait === 'animation') {
-      const finish = options.finish ?? recipe.face?.finish ?? (pin === release && !options.release ? 'soft-pixel' : undefined);
+      const finish = generatedFaceFinish(options,recipe,doc.base,pin);
       if (finish !== undefined) {
         requireThat(typeof finish === 'string' && Object.hasOwn(faceFinishes,finish),'未知面部画法');
         if (pin === release || finish !== 'original') doc.face.finish = finish;
+        if (finish === 'storybook-lips') {
+          // The index picks a nose. Within every index the remaining fraction
+          // is uniform, so lips vary without advancing the dye or wardrobe stream.
+          const familyMouths = portraitCompositions[selectedFamily].mouths;
+          const lipChoices = young ? familyMouths.filter(mouth => ['small','relaxed','bow','lower-full','soft-smile','classic'].includes(mouth)) : familyMouths;
+          const mouths = [...new Set([nosePair.face.mouth,...lipChoices,...(young ? ['small','relaxed'] : [])])];
+          doc.face.mouth = mouths[Math.floor((noseRoll%1)*mouths.length)];
+        }
       }
     }
     if (composition) {
@@ -1912,7 +1928,7 @@ SOFTWARE.`;
     if (ink && pin === infantNoseRelease) faceSource.packs = {...outfit.packs,[core]:pin};
     const doc = randomFace(faceSource,
       { random, style, portrait: portrait || source?.face?.style || 'animation', family, previousForm:source?.face?.form,
-        finish:options.finish ?? source?.face?.finish ?? (pin === release && !options.release ? 'soft-pixel' : undefined), release: pin, ink });
+        finish:generatedFaceFinish(options,source,profile.base,pin), release: pin, ink });
     if (doc.portraitInk && source?.portraitInk) {
       if (source.faceSurface) doc.faceSurface = source.faceSurface;
       else delete doc.faceSurface;

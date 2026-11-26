@@ -605,7 +605,7 @@ const pineDesignerBody = (() => {
     const tailored = pinePortraitStyles.hasTailoredFigure(pin);
     const modelAnatomy = pinePortraitStyles.hasProportionStudy(pin);
     const pixelStructure = pinePortraitStyles.hasStructureStudy(pin);
-    const storybook = style === 'animation' && recipe.face?.finish === 'storybook';
+    const storybook = style === 'animation' && pinePortraitStyles.isStorybook(recipe.face?.finish);
     const cheekLocks = storybook && hairStyle?.fringe === 'hime';
     const softPixels = style === 'animation' && (storybook || recipe.face?.finish === 'soft-pixel');
     const ordinaryFace = softPixels && pin === pinePortraitStyles.figureRelease;
@@ -617,7 +617,7 @@ const pineDesignerBody = (() => {
     const facialActing = gameFace && (pinePortraitStyles.hasFacialActing(pin) || softPixels);
     const portraitInk = gameFace && pin === pinePortraitStyles.infantNoseRelease && recipe.portraitInk;
     const faceInk = softPixels ? 'wash' : portraitInk;
-    const featureGuide = paintedFeatures && pineGameFace.featureBrush(recipe.base, faceInk, softPixels, recipe.face?.eyes, storybook);
+    const featureGuide = paintedFeatures && pineGameFace.featureBrush(recipe.base, faceInk, softPixels, recipe.face?.eyes, storybook, recipe.face?.finish === 'storybook-lips');
     const faceForm = recipe.face?.form ?? recipe.anatomyParts?.skull ?? (softPixels && ordinaryFaceForms[recipe.face?.outline] || 'balanced');
     const sculpt = softPixels && recipe.face?.formMix === undefined && !recipe.face?.form && !recipe.anatomyParts?.skull
       ? {...recipe.face,formMix:recipe.base === 'baby' ? .48 : .68} : recipe.face || {};
@@ -796,6 +796,7 @@ const pineDesignerBody = (() => {
       lidTop:animationEye.up*eyeOpen, lidBottom:animationEye.down*eyeOpen,
       mouthHalf:restingMouth.width*lipSpan, lateralDepth:fit.ry/fit.rx, ...(softProfile ? {softProfile:true} : {}),
       ...(softPixels ? {softPixels:true} : {}), ...(storybook ? {storybook:true,upperLipHeight:restingMouth.upperHeight} : {}),
+      ...(featureGuide?.shapedLips ? {lipPads:restingMouth.pads} : {}),
       ...(brim ? {brimEdge:[brim.center[2]-brim.size[2],brim.center[0]+brim.size[0]]} : {})
     } : null;
     const skinShape = gameFace
@@ -1162,7 +1163,9 @@ const pineDesignerBody = (() => {
       materials.glint = tint(materials.sclera,'fff7db',.88);
       materials.nasalBase = tint(materials.skinPlane16,materials.nasalFold,.60);
       materials.nasalPlane = tint(materials.skinPlane18,materials.nasalBase,.42);
-      if (recipe.base === 'adult' && !recipe.colors.lip) {
+      if (featureGuide.shapedLips) {
+        pinePortraitStyles.shapedLipColors(materials,recipe.colors,tint,infant || recipe.base === 'toddler');
+      } else if (recipe.base === 'adult' && !recipe.colors.lip) {
         materials.lipBody = tint(materials.skinPlane18,materials.lipBody,.67);
         materials.lowerLip = tint(materials.lowerLip,tint(materials.skinPlane19,'c97d7c',.31),.46);
         materials.lipLine = tint(materials.upperLip,materials.lipLine,.72);

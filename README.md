@@ -23,9 +23,9 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ### 创作室普通随机人物
 
-「随机人物」「随机五官」和四张候选脸默认使用柔和像素画法。转动人物可以看到鼻翼随光线转暗、嘴角收进脸侧，闭嘴时上唇与下唇的厚度分别可调。[同一张黄帽脸](figure-study.html?before=everyday&subject=yellow-hardhat&framing=head&bearing=0) · [黑发人物的侧面](figure-study.html?before=everyday&subject=blue-jacket&framing=head&bearing=270)
+「随机人物」「随机五官」和「挑一组脸」生成普通成人时，默认使用「绘本像素 · 分款鼻唇」。同一款鼻子可以搭配多种唇形。正面能看闭嘴时的唇线，转到侧面能看上下唇各自的厚度。「五官 → 面部画法」可随时换画法，保存与再次随机都会沿用所选设置。[打开黑发人物](atelier.html?model=blue-jacket&tab=face&finish=storybook-lips&action=idle&phase=17&bearing=315) · [固定五官对照](studies/pixel-structure/storybook-lip-forms.webp) · [连续六个随机人物](studies/pixel-structure/storybook-lip-rolls.webp)
 
-在「五官 → 面部画法」选「绘本像素 · 试作」，可编辑眼睑下的虹膜、转到侧面的鼻翼和放松时的唇线。黑发人物的四向实拍保留了同一副宽鼻翼和丰满唇，便于观察鼻底到下巴的转折。再次随机或保存会记住选择。「体型 → 衣物轮廓 → 分款剪裁」可把同一张脸用在分龄全身和动作上。[打开黑发人物试衣镜](atelier.html?model=blue-jacket&tab=face&finish=storybook&action=idle&phase=17&bearing=315) · [鼻唇四向对照](studies/pixel-structure/storybook-nose-lips.webp) · [首轮眼神对照](studies/pixel-structure/storybook-faces.webp) · [八次分龄随机与动作](studies/pixel-structure/storybook-cast.webp)
+儿童、幼儿和婴儿的普通新随机默认使用「柔和像素脸」，也能手动选用分款鼻唇。「体型 → 衣物轮廓 → 分款剪裁」可把所选脸型放到分龄体型和动作上。普通存档按保存的配方重放。早先仅记录了种子的成人随机，可显式选择 `finish: 'soft-pixel'` 重放上一版。[黑发人物的上一轮鼻唇](studies/pixel-structure/storybook-nose-lips.webp) · [黄帽与黑发人物的眼神](studies/pixel-structure/storybook-faces.webp) · [八次分龄随机与动作](studies/pixel-structure/storybook-cast.webp)
 
 ### 1.19.12 随机人脸与像素表情试作
 

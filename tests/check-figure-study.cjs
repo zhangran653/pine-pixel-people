@@ -225,7 +225,7 @@ function check(studyBench) {
     }
     function verifyEverydayPair(original, trial, age, seed) {
       const normalized = doc => JSON.stringify(PineLooks.prepare(doc).recipe);
-      const native = PineLooks.randomCharacter({base:age, seed});
+      const native = PineLooks.randomCharacter({base:age,seed,finish:'soft-pixel'});
       expect(trial.face.finish === 'soft-pixel' && normalized(native) === normalized(trial),
         'the portrait does not replay the ordinary random generator');
       const old = structuredClone(trial);
@@ -233,7 +233,7 @@ function check(studyBench) {
       expect(normalized(old) === normalized(original), 'the two portraits have different settings');
     }
     function verifyStoryPair(source,trial,age,seed) {
-      const normal = PineLooks.randomCharacter({base:age,seed});
+      const normal = PineLooks.randomCharacter({base:age,seed,finish:'soft-pixel'});
       const stable = PineLooks.withFaceFinish(normal,source.face.finish);
       const fitted = trial.packs[PineLooks.core] === PineLooks.infantNoseRelease;
       const candidate = fitted ? PineLooks.withFittedPortrait(stable) : PineLooks.withFaceFinish(normal,'storybook');
@@ -242,12 +242,18 @@ function check(studyBench) {
         'unexpected face drawing in the pair');
       expect(saved(stable) === saved(source) && saved(candidate) === saved(trial),'pair is not the editor recipe');
     }
-    if (query.has('ensemble-pair') || query.has('everyday-pair') || query.has('story-pair')) {
+    function verifyLipPair(source,trial,age,seed) {
+      const candidate = PineLooks.randomCharacter({base:age,seed,finish:'storybook-lips',style:query.get('variation') === 'expressive' ? 'expressive' : 'natural'});
+      const saved = doc => JSON.stringify(PineLooks.prepare(doc).recipe);
+      expect(saved(trial) === saved(candidate),'individual mouths did not replay the editor roll');
+      expect(saved(source) === saved(PineLooks.withFaceFinish(candidate,'storybook')),'lip study changed something other than the brush');
+    }
+    if (query.has('ensemble-pair') || query.has('everyday-pair') || query.has('story-pair') || query.has('lip-pair')) {
       const stable = linkedRecipe('a'), trial = linkedRecipe('b'), age = query.get('age');
-      const verify = query.has('story-pair') ? verifyStoryPair : query.has('everyday-pair') ? verifyEverydayPair : verifyWholePair;
+      const verify = query.has('lip-pair') ? verifyLipPair : query.has('story-pair') ? verifyStoryPair : query.has('everyday-pair') ? verifyEverydayPair : verifyWholePair;
       verify(stable,trial,age,Number(query.get('seed')));
       const clip = age === 'baby' ? 'baby-reach' : 'walk';
-      if (['ensemble','everyday','storybook'].includes(studyBench)) {
+      if (['ensemble','everyday','storybook','storybook-lips'].includes(studyBench)) {
         $('qa').textContent = JSON.stringify({age,clip,...measureClip(stable,trial,clip)});
       } else {
         const standing = picture();
@@ -257,9 +263,10 @@ function check(studyBench) {
       }
       return;
     }
-    if (query.has('ensemble-review') || query.has('everyday-review') || query.has('story-review')) {
+    if (query.has('ensemble-review') || query.has('everyday-review') || query.has('story-review') || query.has('lip-review')) {
       const story = query.has('story-review');
-      const ordinary = query.has('everyday-review') || story;
+      const lips = query.has('lip-review');
+      const ordinary = query.has('everyday-review') || story || lips;
       expect($('edit-b').hidden && !$('edit-b').hasAttribute('href') && $('results').hidden,'blind recipe leaked');
       // A throwaway browser profile checks the voting/export flow, with no human votes.
       for (let n = 0; n < 32; n++) document.querySelector('[data-vote="tie"]').click();
@@ -271,9 +278,9 @@ function check(studyBench) {
         HTMLAnchorElement.prototype.click = () => {};
         $('export').click();
       } finally { window.Blob = originalBlob; HTMLAnchorElement.prototype.click = originalClick; }
-      expect(report.review === (story ? 'storybook' : ordinary ? 'everyday' : 'ensemble') && report.pairs.length === 32,'incomplete replay data');
+      expect(report.review === query.get('review') && report.pairs.length === 32,'incomplete replay data');
       if (ordinary) expect(report.coreRelease === PineLooks.release && !report.candidateBodyFinish,'wrong ordinary edition');
-      const prior = story ? 'soft-pixel' : ordinary ? 'original' : '1.18.0';
+      const prior = lips ? 'storybook' : story ? 'soft-pixel' : ordinary ? 'original' : '1.18.0';
       for (const age of ['adult','child','toddler','baby']) {
         const agePairs = report.pairs.filter(row=>row.base === age);
         expect(agePairs.length === 8 && agePairs.filter(row=>row.a === prior).length === 4,'unbalanced sides');
@@ -283,7 +290,7 @@ function check(studyBench) {
         const side = doc => ordinary ? doc.face.finish || 'original' : doc.packs[PineLooks.core];
         expect(side(a) === row.a && side(b) === row.b,'reported sides differ');
         const [stable,trial] = row.a === prior ? [a,b] : [b,a];
-        (story ? verifyStoryPair : ordinary ? verifyEverydayPair : verifyWholePair)(stable,trial,row.base,row.seed);
+        (lips ? verifyLipPair : story ? verifyStoryPair : ordinary ? verifyEverydayPair : verifyWholePair)(stable,trial,row.base,row.seed);
         if (!$('prev').disabled) $('prev').click();
       }
       $('qa').textContent = '32 full-figure seeds replayed with paired wardrobe and balanced hidden sides';
@@ -891,7 +898,7 @@ function check(studyBench) {
         return +((sorted[middle-1]+sorted[middle])/2).toFixed(1);
       };
       return {
-        versions:studyBench === 'storybook' ? [base.face.finish,candidate.face.finish] : studyBench === 'everyday' ? ['original','soft-pixel'] : studyBench === 'body' ? ['original ink','painted'] : [base.packs[PineLooks.core],candidate.packs[PineLooks.core]],
+        versions:['storybook','storybook-lips'].includes(studyBench) ? [base.face.finish,candidate.face.finish] : studyBench === 'everyday' ? ['original','soft-pixel'] : studyBench === 'body' ? ['original ink','painted'] : [base.packs[PineLooks.core],candidate.packs[PineLooks.core]],
         framesPerVersion:20, medianPoseAndFineBandsMs:samples.map(median), medianProjectionAndReadbackMs:projection.map(median) };
     }
     if (studyBench) {
@@ -929,7 +936,7 @@ try {
   const measureCut = process.argv.includes('--measure-cut');
   const measureBases = process.argv.includes('--measure-bases');
   const measureForms = measureBases || process.argv.includes('--measure-forms');
-  const bench = process.argv.includes('--bench-storybook') ? 'storybook' : process.argv.includes('--bench-everyday') ? 'everyday' : process.argv.includes('--bench-ensemble') ? 'ensemble' : process.argv.includes('--bench-garments') ? 'garments' : process.argv.includes('--bench-acting') ? 'acting' : process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
+  const bench = process.argv.includes('--bench-storybook-lips') ? 'storybook-lips' : process.argv.includes('--bench-storybook') ? 'storybook' : process.argv.includes('--bench-everyday') ? 'everyday' : process.argv.includes('--bench-ensemble') ? 'ensemble' : process.argv.includes('--bench-garments') ? 'garments' : process.argv.includes('--bench-acting') ? 'acting' : process.argv.includes('--bench-ratios') ? 'ratios' : process.argv.includes('--bench-features') ? 'features' : process.argv.includes('--bench-cut') ? 'cut' : process.argv.includes('--bench-body') ? 'body' : measureBases || process.argv.includes('--bench-bases') ? 'bases' : process.argv.includes('--bench');
   const setup = join(dir, 'draft-fixture.js');
   writeFileSync(setup, '(' + loadDraft.toString() + ')(' + readFileSync(join(root,'packs/creek-hats.json'),'utf8') + ');');
   const page = readFileSync(join(root, 'figure-study.html'), 'utf8')
@@ -958,12 +965,15 @@ try {
   const ordinaryCases = ['adult','child','toddler','baby'].map(age=>'?everyday-pair=1&before=everyday&subject=seeded&seed=2602&age='+age);
   const storyCases = ['storybook','fitted-story'].flatMap(before=>['adult','child','toddler','baby'].map(age=>'?story-pair=1&before='+before+'&subject=seeded&seed=2602&age='+age));
   const storyReview = '?story-review=1&mode=blind&review=storybook&case=adult%2F0';
+  const lipCases = ['adult','child','toddler','baby'].map(age=>'?lip-pair=1&before=storybook-lips&subject=seeded&seed=3603&age='+age);
+  const lipReview = '?lip-review=1&mode=blind&review=storybook-lips&case=adult%2F0';
   const ordinaryMouths = ['blue-jacket','yellow-hardhat'].map(id=>'?ordinary-mouth=1&before=everyday&subject='+id);
   const ordinaryReview = '?everyday-review=1&mode=blind&review=everyday&case=adult%2F0';
   const ensembleReview = '?ensemble-review=1&mode=blind&review=ensemble&case=adult%2F0';
   const chinEdge = '?chin-edge=1&before=profile-line&subject=seeded&age=adult&seed=';
   const firstSeed = process.argv.includes('--holdout-mouth-turn') ? 2610 : 2600;
   const cases = process.argv.includes('--measure-chin-edge') ? Array.from({length:8},(_,i)=>chinEdge+(2600+i)) :
+    bench === 'storybook-lips' ? lipCases : process.argv.includes('--check-storybook-lips') ? [...lipCases,lipCases[0]+'&variation=expressive',lipReview] :
     bench === 'storybook' ? storyCases.slice(0,4) : process.argv.includes('--check-storybook') ? [...storyCases,storyReview] :
     bench === 'everyday' ? ordinaryCases : process.argv.includes('--check-everyday') ? [...ordinaryCases,ordinaryReview,...ordinaryMouths] :
     bench === 'ensemble' ? ensembleCases : process.argv.includes('--check-ensemble') ? [...ensembleCases,ensembleReview] :
@@ -982,7 +992,7 @@ try {
     '?draft-test=1&before=current&action=follow-rattle&phase=36.25&bearing=270.5&framing=head', '?bad-test=1#character=%7B',
     '?base-test=1&subject=baby&before=bases&form=round&phase=36.25&action=baby-reach&bearing=270.5', '?mode=blind&review=bases&case=baby%2F0&resume=bases',
     '?clothing-test=1&subject=baseline-4&before=cut&action=walk&phase=43', '?mode=blind&review=cut&case=baby%2F0&resume=cut',
-    mouthCase+'2602', chinEdge+'2602',ensembleCases[3],ensembleReview,ordinaryCases[3],ordinaryReview,...ordinaryMouths,storyCases[0],storyCases[7], featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
+    mouthCase+'2602', chinEdge+'2602',ensembleCases[3],ensembleReview,ordinaryCases[3],ordinaryReview,...ordinaryMouths,storyCases[0],storyCases[7],lipCases[0], featureCase, '?mode=blind&review=features&case=baby%2F0&resume=features',
     ratioCase, '?mode=blind&review=ratios&case=baby%2F0&resume=ratios', profileCase+'chef',
     '?ratio-draft=1&before=whole-1.19.7&action=baby-reach&bearing=270&phase=43&size=128',...actingCases,...garmentCases];
   const garmentPixels = {};

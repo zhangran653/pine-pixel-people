@@ -500,13 +500,16 @@ function checkOrdinaryFaces(cast) {
   assert.equal(new Set(openings.map(lid=>JSON.stringify(lid))).size,4,'four selected eye types share a single drawing');
   for (const base of ['adult','child','toddler','baby']) {
     const options = {base,seed:2602};
-    const a = looks.randomCharacter({...options,release:looks.release}), b = looks.randomCharacter(options);
+    const a = looks.randomCharacter({...options,release:looks.release}), b = looks.randomCharacter({...options,finish:'soft-pixel'});
+    const finish = base === 'adult' ? 'storybook-lips' : 'soft-pixel';
+    assert.deepEqual(looks.randomCharacter(options),looks.randomCharacter({...options,finish}));
     const clone = toPlain(b);
     delete clone.face.finish;
     assert.deepEqual({...clone,id:a.id,label:a.label},toPlain(a));
     assert.equal(b.face.finish,'soft-pixel');
     assert.deepEqual(toPlain(looks.prepare(b).recipe),toPlain(looks.prepare(toPlain(b)).recipe));
-    assert.equal(looks.randomFace(a,{seed:52}).face.finish,'soft-pixel');
+    assert.equal(looks.randomFace(a,{seed:52}).face.finish,finish);
+    assert.equal(looks.randomFace(b,{seed:52}).face.finish,'soft-pixel');
     const original = {...b,face:{...b.face,finish:'original'}};
     assert.equal(looks.randomFace(original,{seed:52}).face.finish,'original');
     assert.equal(looks.randomCharacter({source:original,seed:52}).face.finish,'original');
@@ -549,7 +552,31 @@ function checkStoryFaces(cast) {
   assert.ok(high.noseBase.point[2]-high.upperLip.point[2] > .04*5.82*blackHair.shape.height,
     'raising a full upper lip must leave space below the nasal base');
   for (const name of ['leftEye','rightEye','leftEarCanal']) assert.deepEqual(low[name],high[name]);
+  const trial = looks.withFaceFinish(blackHair,'storybook-lips');
+  const full = looks.build(trial).sockets, original = looks.build(blackHair).sockets;
+  const thin = looks.build({...trial,face:{...trial.face,mouth:'thin'}}).sockets;
+  for (const name of ['leftEye','rightEye','leftEarCanal','chinTip']) assert.deepEqual(full[name],original[name]);
+  assert.ok(full.upperLip.point[0] > thin.upperLip.point[0]+.05 &&
+    full.lowerLip.point[0] > thin.lowerLip.point[0]+.08,'full and thin lips must have different side silhouettes');
   for (const base of ['adult','child','toddler','baby']) {
+    const previousPairs = new Set(), drawnPairs = new Set();
+    for (let seed=3601; seed<=3728; seed++) {
+      const options = {base,seed,style:seed%2 ? 'natural' : 'expressive'};
+      const previous = looks.randomCharacter({...options,finish:'storybook'});
+      const next = looks.randomCharacter({...options,finish:'storybook-lips'});
+      assert.equal(next.face.finish,'storybook-lips');
+      for (const key of ['parts','colors','identity']) assert.deepEqual(previous[key],next[key]);
+      for (const key of ['eyes','brows','nose','outline']) assert.equal(previous.face[key],next.face[key]);
+      previousPairs.add(previous.face.nose+'/'+previous.face.mouth);
+      drawnPairs.add(next.face.nose+'/'+next.face.mouth);
+      if (seed <= 3603) {
+        const saved = looks.prepare(toPlain(next)).recipe;
+        assert.deepEqual(toPlain(saved),toPlain(looks.prepare(looks.randomCharacter({...options,finish:'storybook-lips'})).recipe));
+        const {noseBase,upperLip} = looks.build(next).sockets;
+        assert.ok(noseBase.point[2] > upperLip.point[2],base+' nose overlaps the raised upper lip');
+      }
+    }
+    assert.ok(drawnPairs.size > 2*previousPairs.size,base+' noses should accept several compatible lips');
     const ordinary = looks.randomCharacter({base,seed:131});
     const story = looks.withFaceFinish(ordinary,'storybook'), fitted = looks.withFittedPortrait(story);
     for (const key of ['face','parts','colors','identity']) assert.deepEqual(fitted[key],story[key]);
@@ -561,13 +588,14 @@ function checkStoryFaces(cast) {
       assert.equal(flat.face.finish,'storybook');
       assert.equal(flat.packs[looks.core],fitted.packs[looks.core]);
     }
-    for (const doc of [story,fitted]) {
+    for (const doc of [story,fitted,looks.withFaceFinish(story,'storybook-lips'),looks.withFaceFinish(fitted,'storybook-lips')]) {
+      const finish = doc.face.finish;
       const soft = looks.withFaceFinish(doc,'soft-pixel');
-      assert.deepEqual(toPlain(looks.withFaceFinish(soft,'storybook')),toPlain(doc));
+      assert.deepEqual(toPlain(looks.withFaceFinish(soft,finish)),toPlain(doc));
       assert.deepEqual(toPlain(looks.prepare(toPlain(doc)).recipe),toPlain(looks.prepare(doc).recipe));
-      assert.equal(looks.randomFace(doc,{seed:30}).face.finish,'storybook');
+      assert.equal(looks.randomFace(doc,{seed:30}).face.finish,finish);
       const rolled = looks.randomCharacter({source:doc,base,seed:30,locks:['body','wear','hair','skin']});
-      assert.equal(looks.prepare(rolled).recipe.face.finish,'storybook');
+      assert.equal(looks.prepare(rolled).recipe.face.finish,finish);
       assert.deepEqual(toPlain(rolled.parts),toPlain(doc.parts));
       assert.equal(rolled.colors.skin,doc.colors.skin);
       assert.ok(!looks.withPortraitInk(doc,'cel').face.finish);
@@ -583,7 +611,7 @@ function checkStoryFaces(cast) {
       const tinted = head(dyed,pose);
       assert.equal(mask(open),mask(tinted));
       assert.notEqual(digest(open),digest(tinted));
-      if (base === 'baby') assert.equal(Boolean(actor.rig.seatedHeadOffset),doc === fitted);
+      if (base === 'baby') assert.equal(Boolean(actor.rig.seatedHeadOffset),doc.packs[looks.core] === looks.infantNoseRelease);
       motion.characters.set(actor.id,actor);
       cast.setFrame(frame);
       assert.ok(cast.group.getObjectByName(actor.id+'/face').geometry.drawRange.count > 0);

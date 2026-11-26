@@ -760,8 +760,8 @@
           ]
         },
         "finish": {
-          "enum": ["soft-pixel", "original", "storybook"],
-          "description": "立体动画人物使用的面部画法。1.18.0 与 1.19.12 可选择 soft-pixel 或 storybook。省略时采用对应版本的原有画法。"
+          "enum": ["soft-pixel", "original", "storybook", "storybook-lips"],
+          "description": "用于 1.18.0 与 1.19.12 的立体动画人物。storybook-lips 是普通成人新随机的默认画法，使用绘本眼神和分款鼻唇。省略时采用对应版本的原有画法。"
         },
         "nose": {
           "enum": [
@@ -921,7 +921,7 @@
       "then": {
         "properties": { "packs": { "properties": { "pine-core": { "enum": ["1.18.0", "1.19.12"] } } }, "face": { "properties": { "style": { "const": "animation" } } }, "portraitInk": false },
         "if": { "properties": { "packs": { "properties": { "pine-core": { "const": "1.19.12" } } } } },
-        "then": { "properties": { "face": { "properties": { "finish": { "enum": ["soft-pixel", "storybook"] } } } } }
+        "then": { "properties": { "face": { "properties": { "finish": { "enum": ["soft-pixel", "storybook", "storybook-lips"] } } } } }
       }
     },
     {

@@ -44,6 +44,7 @@ const pinePortraitStyles = (() => {
   const hasTailoredFigure = pin => pin === tailoredRelease || hasProportionStudy(pin);
   const hasPixelFace = pin => pin === pixelRelease || pin === figureRelease || hasTailoredFigure(pin);
   const portraitStyles = { animation: '立体动画', game: '游戏立绘', manga: '漫画', natural: '自然' };
+  const isStorybook = finish => finish === 'storybook' || finish === 'storybook-lips';
   function portraitStyle(recipe) {
     const pin = recipe.packs?.['pine-core'];
     if (pin === facePlaneRelease || hasPixelFace(pin)) return recipe.face?.style || 'animation';
@@ -269,6 +270,20 @@ const pinePortraitStyles = (() => {
     return [red, green, blue].map((gain, i) =>
       Math.min(255, Math.round(parseInt(hex.slice(2 * i, 2 * i + 2), 16) * gain)).toString(16).padStart(2, '0')
     ).join('');
+  }
+  function shapedLipColors(m, colors, tint, young) {
+    const skin = colors.skin.slice(1);
+    const lip = colors.lip?.slice(1) || tint(pigment(skin,1.01,.78,.82),skin,.12);
+    const shadow = tint(pigment(lip,.63,.62,.68),'53373b',.27);
+    m.lipLine = tint(lip,shadow,young ? .57 : .78);
+    m.upperLip = tint(lip,m.lipLine,.40);
+    m.lipBody = tint(lip,m.skinPlane18,young ? .42 : .22);
+    m.lowerLip = tint(lip,m.skinPlane19,young ? .42 : .26);
+    m.lipGlow = tint(m.lowerLip,m.skinPlane20,.38);
+    m.lipCorner = tint(m.skinPlane18,m.upperLip,young ? .27 : .34);
+    m.lipPetal = tint(m.lipLine,m.lipBody,.38);
+    m.oralWall = tint(m.upperLip,m.oralShade,.36);
+    m.oralTongue = tint(m.lowerLip,m.oralTongue,.45);
   }
   function illustratedColors(m, colors, tint, style, infant) {
     const manga = style === 'manga', skin = colors.skin.slice(1), iris = colors.eyes.slice(1);
@@ -742,9 +757,9 @@ const pinePortraitStyles = (() => {
     return 0;
   }
   return {
-    proportions, infantChinRelease, chinPadRelease, infantNoseRelease, infantChinStyle, hasInfantChin, hasGarmentFits,
+    proportions, infantChinRelease, chinPadRelease, infantNoseRelease, infantChinStyle, hasInfantChin, hasGarmentFits, isStorybook,
     illustratedRelease, silhouetteRelease, facePlaneRelease, pixelRelease, figureRelease, tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease, expressionRelease, garmentRelease, hasFacialActing, hasFigureRatios, hasPaintedFeatures, hasClothingStudy, hasBaseFace, hasGameFace, hasStructureStudy, hasProportionStudy, hasTailoredFigure, hasPixelFace, portraitStyles, portraitStyle, proportionsFor, tipProjection, noseContour,
-    illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors,
+    illustratedEyeShape, illustratedEye, illustratedBrow, illustratedColors, shapedLipColors,
     morphs,
     profileControls,
     basicNoses,
