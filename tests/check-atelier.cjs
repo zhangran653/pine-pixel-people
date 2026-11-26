@@ -1338,6 +1338,7 @@ try {
   for (const [name, check, query] of [
     ['atelier', checkEditor, '?bearing=90'],
     ['atelier', checkOrdinaryFaces, '?model=yellow-hardhat&tab=face&bearing=0'],
+    ['atelier', checkOrdinaryFaces, '?preset=look_body_female&tab=face&bearing=0'],
     ['atelier', checkRatioEditor, '?figure=features&model=baby&tab=face'],
     ['atelier', checkInfantProfilePair, '?model=baby02-profile&compare=baby02-source&tab=face&bearing=270&action=idle&phase=17'],
     ['studio', checkStudioMotions, '?demo=custom'],

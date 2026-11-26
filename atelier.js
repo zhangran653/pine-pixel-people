@@ -594,7 +594,7 @@
     figureUpgrade(area);
     if (draft.packs[looks.core] === looks.release && looks.portraitStyleOf(draft) === 'animation') {
       area.append(picker('面部画法','face-finish',[['original','原有画法'],['soft-pixel','柔和像素脸']],
-        draft.face.finish || 'original',value=>{ draft.face.finish = value; }));
+        draft.face?.finish || 'original',value=>{ draft.face = {...(draft.face || looks.facePresets.classic.face),finish:value}; }));
     }
     const gameFace = pinePortraitStyles.hasGameFace(draft.packs[looks.core]) && looks.portraitStyleOf(draft) === 'animation';
     const drawn = gameFace && pinePortraitStyles.hasBaseFace(draft.packs[looks.core]);
