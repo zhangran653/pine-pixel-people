@@ -467,7 +467,7 @@
       const pin = draft.packs[looks.core];
       apply(field.value);
       changed();
-      if (['feature-paint','infant-chin','infant-nose','portrait-ink','face-surface','clothing-cut'].includes(id) || (id === 'bottom' && pinePortraitStyles.hasGarmentFits(pin)) ||
+      if (['feature-paint','infant-chin','infant-nose','portrait-ink','face-surface','clothing-cut','bottom'].includes(id) ||
           ((tab === 'wear' || tab === 'shape') && pin !== draft.packs[looks.core])) {
         fields();
         $('edit-' + id)?.focus({ preventScroll: true });
@@ -477,6 +477,9 @@
     };
     label.append(caption, field);
     return label;
+  }
+  function fitsSkirt(outfit) {
+    return !looks.isSkirt(outfit.parts.bottom) || (draft.skirtEase || 'fixed') === (outfit.skirtEase || 'fixed');
   }
   function markPresets() {
     const hasMorphs = looks.hasFacialMorphs(draft);
@@ -509,6 +512,7 @@
     for (const b of document.querySelectorAll('[data-outfit]')) {
       const outfit = looks.outfits[b.dataset.outfit];
       const match =
+        fitsSkirt(outfit) &&
         Object.entries(outfit.parts).every(([k, v]) => draft.parts[k] === v) &&
         Object.entries(outfit.colors).every(([k, v]) => draft.colors[k] === v) &&
         (!Object.hasOwn(outfit.parts,'hat') ||
@@ -1254,6 +1258,11 @@
   }
   function garmentFields(area) {
     const pin = draft.packs[looks.core];
+    if (looks.isSkirt(draft.parts.bottom)) {
+      area.append(picker('裙围', 'skirt-ease', Object.entries(looks.skirtEaseModes), draft.skirtEase || 'fixed', value => {
+        draft.skirtEase = value;
+      }));
+    }
     const cut = looks.usesClothingCut(draft);
     const current = !cut ? 'original' : pinePortraitStyles.hasGarmentFits(pin) && draft.clothingCut !== 'age' ? 'patterns' : 'cut';
     area.append(picker('衣物轮廓', 'clothing-cut', [
@@ -1483,7 +1492,7 @@
       prev.disabled=rackState.page<=1; next.disabled=rackState.page>=pages; roll.disabled=!matches.length;
       clear.hidden=!(rackState.season||rackState.region||rackState.family);
       grid.replaceChildren();
-      const worn=outfit=>Object.entries(outfit.parts).every(([k,v])=>draft.parts[k]===v) &&
+      const worn=outfit=>fitsSkirt(outfit) && Object.entries(outfit.parts).every(([k,v])=>draft.parts[k]===v) &&
         Object.entries(outfit.colors).every(([k,v])=>draft.colors[k]===v);
       for(const [id,outfit] of matches.slice(start,start+per)) {
         const b=button('', 'rack-look-'+id),canvas=document.createElement('canvas'),title=document.createElement('span');
@@ -1539,6 +1548,7 @@
     for (const [slot, options] of Object.entries(looks.slots)) {
       clothing.append(
         picker(names[slot], slot, Object.entries(slot==='hair' ? looks.hairOptions(draft.base) : options), draft.parts[slot], (v) => {
+          if (slot === 'bottom' && draft.parts.bottom !== v) delete draft.skirtEase;
           draft.parts[slot] = v;
           if (slot === 'hair') hairGroup = looks.hairGroups[v];
         })

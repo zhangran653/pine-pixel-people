@@ -1292,7 +1292,12 @@ function checkRatioEditor() {
       new URL(byId('figure-link').href).searchParams.get('before')==='garments','editable garment fit and study handoff');
     set('bottom','skirt');
     expect(!byId('edit-fit-legs') && draft().garmentFit.legs==='wide','skirt must preserve the stored trouser setting');
-    set('bottom','trousers'); expect(byId('edit-fit-legs').value==='wide','trouser opening lost on outfit change');
+    expect(byId('edit-skirt-ease').value==='fixed','old skirt should open with a fixed hem');
+    set('skirt-ease','flexible');
+    expect(draft().skirtEase==='flexible','skirt ease missing from the portable recipe');
+    set('bottom','trousers');
+    expect(!byId('edit-skirt-ease') && !draft().skirtEase && byId('edit-fit-legs').value==='wide',
+      'changing the bottom should restore trouser fit and release the previous skirt setting');
     byId('tab-face').click();set('rest-expression','warm');
     expect(draft().garmentFit.legs==='wide' && draft().packs['pine-core']===PineLooks.garmentRelease,'editing eyes must preserve tailoring');
     byId('tab-shape').click();set('fit-top','');set('fit-legs','');

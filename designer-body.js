@@ -266,6 +266,45 @@ const pineDesignerBody = (() => {
     const bx = b[0] - joint[0], by = b[1] - joint[1], bz = b[2] - joint[2];
     return clamp(1 - (ax * bx + ay * by + az * bz) / (Math.hypot(ax, ay, az) * Math.hypot(bx, by, bz) || 1), 0, 1);
   }
+  // A thickened panel joins both legs. Barycentric coordinates carry the
+  // garment's waist-to-hem coordinate through a knee bend at either side.
+  function skirtContactPanel(a, b, c) {
+    const ab = b.p.map((n,i) => n - a.p[i]), ac = c.p.map((n,i) => n - a.p[i]);
+    const dot = (u,v) => u[0]*v[0] + u[1]*v[1] + u[2]*v[2];
+    const ab2 = dot(ab,ab), ac2 = dot(ac,ac), crossTerm = dot(ab,ac);
+    const det = ab2*ac2 - crossTerm*crossTerm, bc2 = ab2+ac2-2*crossTerm;
+    const low = a.p.map((n,i) => Math.min(n-a.radius, b.p[i]-b.radius, c.p[i]-c.radius));
+    const high = a.p.map((n,i) => Math.max(n+a.radius, b.p[i]+b.radius, c.p[i]+c.radius));
+    function touch(x, y, z, hit) {
+      const dx = x-a.p[0], dy = y-a.p[1], dz = z-a.p[2];
+      const u = dx*ab[0]+dy*ab[1]+dz*ab[2], v = dx*ac[0]+dy*ac[1]+dz*ac[2];
+      let wb, wc = 0;
+      // Closest point on the triangle, including its outside edges and corners.
+      if (det < 1e-8) {
+        if (bc2 > ab2 && bc2 > ac2) { wc = clamp((v-u+ab2-crossTerm)/bc2,0,1); wb = 1-wc; }
+        else if (ac2 > ab2) { wb = 0; wc = clamp(v/ac2,0,1); }
+        else wb = clamp(u/(ab2 || 1),0,1);
+      } else {
+        wb = (u*ac2-v*crossTerm)/det;
+        wc = (v*ab2-u*crossTerm)/det;
+        if (wb < 0 && v >= 0 && v <= ac2) { wb = 0; wc = v/ac2; }
+        else if (wc < 0 && u >= 0 && u <= ab2) { wc = 0; wb = u/ab2; }
+        else if (wb < 0 || wc < 0 || wb+wc > 1) {
+          if (u <= 0 && v <= 0) { wb = 0; wc = 0; }
+          else {
+            const onBC = clamp((v-u+ab2-crossTerm)/bc2,0,1);
+            wb = 1-onBC; wc = onBC;
+          }
+        }
+      }
+      const t = a.t + wb*(b.t-a.t) + wc*(c.t-a.t);
+      const radius = a.radius + wb*(b.radius-a.radius) + wc*(c.radius-a.radius);
+      const rx = dx-wb*ab[0]-wc*ac[0], ry = dy-wb*ab[1]-wc*ac[1], rz = dz-wb*ab[2]-wc*ac[2];
+      const relative = (rx*rx+ry*ry+rz*rz)/(radius*radius);
+      if (relative <= 1 && relative < hit.distance) { hit.distance = relative; hit.t = t; }
+    }
+    return {low, high, touch};
+  }
   // Each lock follows a curved path down the head. Angles run from the forehead
   // (0°) to the nape (180°). Each entry gives root, bend, tip, tip height,
   // half-width and an optional starting height for a shorter overlapping lock.
@@ -567,7 +606,7 @@ const pineDesignerBody = (() => {
     const skirtPattern=pinePatternWardrobe.skirts[parts.bottom], seasonalTop=pineSeasonalWardrobe.tops[parts.top];
     const sleeveCut=seasonalTop?.[5];
     const shortArm={bare:0,cap:.26,short:.58,puff:.70}[sleeveCut];
-    const skirt = !!skirtPattern || parts.bottom === 'skirt' || parts.bottom === 'plaid-skirt',
+    const skirt = pinePatternWardrobe.isSkirt(parts.bottom),
       cargo = parts.bottom === 'cargo';
     const highTops = parts.shoes === 'high-tops',
       flats = parts.shoes === 'flats';
@@ -1242,9 +1281,7 @@ const pineDesignerBody = (() => {
       sockets.bottleDock = socket('torso', dock);
     }
 
-    // The hem follows both upper legs. Its cross-section turns upward over bent
-    // knees, and each half follows its own thigh during a running stride.
-    function drawSkirt(pose, b, k, thigh) {
+    function drawSkirt(pose, b, k, thigh, kneeRadius) {
       const { legs: chains, torso } = pose;
       const up = [torso[2], torso[6], torso[10]];
       const left = [torso[1], torso[5], torso[9]];
@@ -1274,33 +1311,43 @@ const pineDesignerBody = (() => {
       const tilt = dot(gap, front),
         drop = dot(gap, down);
       const halfHips = hipHalf * 0.98;
-      const halfHem = Math.max(hipHalf * (skirtPattern ? skirtPattern[3] : 1.34), dot(gap, side) + 1.28 * thigh);
+      const halfHemRest = Math.max(hipHalf * (skirtPattern ? skirtPattern[3] : 1.34), hipBreadth + 1.28 * thigh);
+      const extraEase = recipe.skirtEase === 'flexible'
+        ? Math.min(.20*halfHemRest, .38*Math.abs(tilt) + Math.max(0, dot(gap,side)-hipBreadth)) : 0;
+      const halfHem = halfHemRest + extraEase;
       const depthAtWaist = hipThickness * 0.96,
-        depthAtHem = Math.max(1.24 * thigh, hipThickness * 1.04);
-      const pad = Math.max(halfHem, depthAtHem) + 0.45 * s;
-      const bounds = (axis) => [
-        Math.min(root[axis], hem[0][axis], hem[1][axis]) - pad,
-        Math.max(root[axis], hem[0][axis], hem[1][axis]) + pad
-      ];
-      b.stamp(...bounds(0), ...bounds(1), ...bounds(2), (x, y, z) => {
-        const dx = x - root[0],
-          dy = y - root[1],
-          dz = z - root[2];
-        const across = dx * side[0] + dy * side[1] + dz * side[2];
-        if (Math.abs(across) > halfHem) return 0;
-        const weight = clamp(across / Math.max(hipBreadth, s), -1, 1);
-        const along =
-          (dx * down[0] + dy * down[1] + dz * down[2]) / Math.max(0.4 * length, length + drop * weight);
-        if (along < 0 || along > 1) return 0;
-        const depth = depthAtWaist + (depthAtHem - depthAtWaist) * along;
-        const u = (dx * front[0] + dy * front[1] + dz * front[2] - tilt * weight * along) / depth;
-        const v = across / (halfHips + (halfHem - halfHips) * along);
-        if (Math.abs(u) > 1 || Math.abs(v) > 1) return 0;
+        depthAtHem = Math.max(1.24 * thigh, hipThickness * 1.04) + .4*extraEase;
+      const hemShin = skirtPattern ? skirtPattern[2] : 0;
+      const kneeAt = clamp((rig.thigh + .52*thigh) / (hemReach*rig.thigh + hemShin*rig.shin + drape + .52*thigh), .42, .95);
+      const around = (p, t, radius) => ({p,t,radius});
+      const rows = [chains.map(({hip}) => around(hip.map((v,i) => v + .52*thigh*up[i]), 0, 1.06*thigh))];
+      // Keep the upper lining inside the fabric even on a horizontal thigh.
+      rows.push(chains.map(({hip,knee}) => around(hip.map((v,i) => v+.36*(knee[i]-v)), .40*kneeAt, 1.04*thigh)));
+      if (hemShin>.06 || hemReach>=1) rows.push(chains.map(({knee}) => around(knee, kneeAt, 1.05*kneeRadius)));
+      rows.push(hem.map(p => around(p, 1, Math.max(.90*kneeRadius, kneeRadius*(1.09-.24*hemShin)))));
+      const panels=[];
+      for (let i=1; i<rows.length; i++) {
+        const [a,b]=rows[i-1], [c,d]=rows[i];
+        panels.push(skirtContactPanel(a,b,c), skirtContactPanel(c,b,d));
+      }
+      const hit = { distance:Infinity, t:0 }, rowPanels = [];
+      let lastY, lastZ;
+      const bounds = (axis) => {
+        const waistSpan = Math.abs(front[axis])*depthAtWaist + Math.abs(side[axis])*halfHips;
+        const hemSpan = Math.abs(front[axis])*(depthAtHem+Math.abs(tilt)) +
+          Math.abs(side[axis])*halfHem + Math.abs(down[axis]*drop);
+        const center = root[axis]+towardHem[axis];
+        return [
+          Math.min(root[axis]-waistSpan, center-hemSpan, ...panels.map(p => p.low[axis])),
+          Math.max(root[axis]+waistSpan, center+hemSpan, ...panels.map(p => p.high[axis]))
+        ];
+      };
+      function foldAt(along,u,v) {
         const apronPanel=(parts.bottom==='mamian-skirt' && Math.abs(v)<.47) ||
           (parts.bottom==='highland-kilt' && u>.15) || parts.bottom==='qipao-column' || parts.bottom==='office-pencil';
-        const fold = apronPanel ? 0 : Math.cos((skirtPattern ? skirtPattern[4] : 12) * Math.atan2(v, u) + 0.2 * along);
-        const rim = 1 - 0.048 * along * (1 + fold);
-        if (Math.abs(u) ** 2.8 + Math.abs(v) ** 2.8 > rim ** 2.8 || along > 1 - 0.021 * (1 + fold)) return 0;
+        return apronPanel ? 0 : Math.cos((skirtPattern ? skirtPattern[4] : 12) * Math.atan2(v,u) + .2*along);
+      }
+      function fabric(along,u,v,fold) {
         if (skirtPattern) {
           const pigment=pinePatternWardrobe.skirtFabric(parts.bottom,along,u,v,fold,k);
           return wholeFigure && pigment && pineSeasonalWardrobe.skirts[parts.bottom]
@@ -1314,6 +1361,58 @@ const pineDesignerBody = (() => {
         if (along < 0.14 || along > 0.94) return k.bottomShade;
         if (along > 0.87 && along < 0.92) return k.bottomLight;
         return fold > 0.54 ? k.bottomShade : fold < -0.67 ? k.bottomLight : k.bottom;
+      }
+      b.stamp(...bounds(0), ...bounds(1), ...bounds(2), (x, y, z) => {
+        const dx=x-root[0], dy=y-root[1], dz=z-root[2];
+        const across=dx*side[0]+dy*side[1]+dz*side[2];
+        const weight=clamp(across/Math.max(hipBreadth,s),-1,1);
+        const along=(dx*down[0]+dy*down[1]+dz*down[2])/Math.max(.4*length,length+drop*weight);
+        const t=clamp(along,0,1);
+        const forward=dx*front[0]+dy*front[1]+dz*front[2];
+        const u=(forward-tilt*weight*t)/(depthAtWaist+(depthAtHem-depthAtWaist)*t);
+        const v=across/(halfHips+(halfHem-halfHips)*t);
+        let radial, fold, rim, end;
+        if (along >= 0 && along <= 1 && Math.abs(u) <= 1 && Math.abs(v) <= 1) {
+          fold = foldAt(t,u,v);
+          rim = 1-.048*t*(1+fold);
+          end = 1-.021*(1+fold);
+          if (along <= end) {
+            if (u*u+v*v <= rim*rim) return fabric(t,u,v,fold);
+            radial = Math.abs(u)**2.8 + Math.abs(v)**2.8;
+            if (radial <= rim**2.8) return fabric(t,u,v,fold);
+          }
+        }
+
+        // A bulge grows out of the existing panel only where the posed legs
+        // reach it. Reuse the active panels along each horizontal voxel row.
+        if (lastY !== y || lastZ !== z) {
+          rowPanels.length = 0;
+          for (const panel of panels) {
+            if (y>=panel.low[1] && y<=panel.high[1] && z>=panel.low[2] && z<=panel.high[2]) rowPanels.push(panel);
+          }
+          lastY=y; lastZ=z;
+        }
+        hit.distance = Infinity;
+        for (const panel of rowPanels) if (x>=panel.low[0] && x<=panel.high[0]) panel.touch(x,y,z,hit);
+        // Clip after choosing the nearest panel. A second triangle must not
+        // draw a rounded cap past the open end of its neighbour.
+        if (hit.distance === Infinity || hit.t <= 0 || hit.t >= 1) return 0;
+
+        // Extend the source panel's coordinates across the contact so the
+        // dye, pleats, border and cut openings meet at the same texel.
+        fold ??= foldAt(t,u,v);
+        rim ??= 1-.048*t*(1+fold);
+        end ??= 1-.021*(1+fold);
+        const radius = (radial ?? (Math.abs(u)**2.8 + Math.abs(v)**2.8))**(1/2.8);
+        // At a bent hem the sewn edge follows the leg guide. Projecting it
+        // onto the straight rest hem can cut a second edge across the fold.
+        const hemBlend = (t-.85)/.13;
+        const blend = clamp(Math.max(hemBlend, Math.max(0,radius-rim)*2.5 + Math.abs(along-t)*4),0,1);
+        const clothT = t+(hit.t-t)*blend;
+        if (clothT > end) return 0;
+        const project = Math.min(1,rim/(radius || 1));
+        const clothU = u*project, clothV = v*project;
+        return fabric(clothT,clothU,clothV,foldAt(clothT,clothU,clothV));
       });
     }
     // Only a grounded, sitting baby compresses the seat and turns up the soles.
@@ -1567,7 +1666,7 @@ const pineDesignerBody = (() => {
           return u < -0.46 * s ? k.shoeShade : k.shoes;
         });
       }
-      if (skirt) drawSkirt(pose, b, k, thigh);
+      if (skirt) drawSkirt(pose, b, k, thigh, kneeRadius);
     }
     function drawArms(pose, b, k) {
       const seated = floorLoad(pose);

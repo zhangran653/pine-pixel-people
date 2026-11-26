@@ -58,6 +58,7 @@ const pinePatternWardrobe = (() => {
     'bell-skirt':['铃形双层舞裙',.83,.04,1.58,10],
     'petal-skirt':['花瓣叠摆裙',.94,.16,1.48,8]
   };
+  const isSkirt = id => id === 'skirt' || id === 'plaid-skirt' || Object.hasOwn(skirts,id);
   function skirtFabric(style,t,u,v,fold,k) {
     if(season.skirts[style]) return season.skirt(style,t,u,v,fold,k);
     if (style==='folk-gather' && (Math.abs(t-.79)<.035 || Math.abs(t-.91)<.045)) return k.accent;
@@ -227,5 +228,5 @@ const pinePatternWardrobe = (() => {
       }
     }
   }
-  return { hair,tops,bottoms,skirts,skirtFabric,shoes,bags,choices,fabric,sleeve,trouser,footwear,ornament,luggage };
+  return { hair,tops,bottoms,skirts,isSkirt,skirtFabric,shoes,bags,choices,fabric,sleeve,trouser,footwear,ornament,luggage };
 })();

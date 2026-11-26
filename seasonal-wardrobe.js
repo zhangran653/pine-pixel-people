@@ -273,7 +273,12 @@ const pineSeasonalWardrobe = (() => {
   }
   function skirt(id,t,u,v,fold,k) {
     const a=Math.abs(v);
-    if(id==='qipao-column' && t>.67 && a>.95-.34*(t-.67)) return 0;
+    if (id==='qipao-column' && t>.67) {
+      const opening=(t-.67)/.33;
+      // Cut through the side seam to the layer beneath. The slit narrows to a
+      // point above the hem and leaves the front and back panels continuous.
+      if (a>.95-.34*(t-.67) || (a>.38 && Math.abs(u)<.30*opening)) return 0;
+    }
     if(id==='mamian-skirt') {
       if(t>.91 || near(t,.81,.021) || (near(a,.46,.04)&&a<.60)) return k.accent;
       if(a<.46) return k.bottom;

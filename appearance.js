@@ -178,6 +178,7 @@ const PineLooks = (() => {
     }
     return next;
   }
+  const skirtEaseModes = { fixed:'固定裙围，局部补布', flexible:'弹性裙围，随步幅放量' };
   const garmentFits = {
     top: { tucked:'束入腰头', bloused:'宽身收口', straight:'直落下摆' },
     legs: { tapered:'收脚', straight:'直筒', wide:'阔腿' }
@@ -813,6 +814,10 @@ SOFTWARE.`;
       if (embedded) recipe.embeddedPacks = [embedded];
       else delete recipe.embeddedPacks;
     }
+    if (Object.hasOwn(outfit.parts, 'bottom')) {
+      if (outfit.skirtEase !== undefined) recipe.skirtEase = outfit.skirtEase;
+      else delete recipe.skirtEase;
+    }
     Object.assign(recipe.parts, outfit.parts);
     Object.assign(recipe.colors, outfit.colors);
     recipe.packs[core] = editingRelease(recipe);
@@ -1013,7 +1018,7 @@ SOFTWARE.`;
     fields(
       raw,
       ['format', 'version', 'id', 'label', 'base', 'packs', 'parts', 'shape', 'colors'],
-      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity', 'anatomyParts', 'bodyFinish', 'clothingCut', 'garmentFit', 'infantChin', 'infantNose', 'portraitInk', 'faceSurface', 'spriteMouth']
+      ['embeddedPacks', 'baseNotice', 'face', 'gender', 'identity', 'anatomyParts', 'bodyFinish', 'clothingCut', 'garmentFit', 'skirtEase', 'infantChin', 'infantNose', 'portraitInk', 'faceSurface', 'spriteMouth']
     );
     requireThat(raw.baseNotice === undefined || raw.baseNotice === baseNotice, '基础素材许可声明与版本不符');
     requireThat(
@@ -1116,6 +1121,8 @@ SOFTWARE.`;
     requireThat(raw.portraitInk === undefined || (pin === infantNoseRelease && typeof raw.portraitInk === 'string' && Object.hasOwn(portraitInks, raw.portraitInk)), '未知像素笔触');
     requireThat(raw.faceSurface === undefined || (raw.portraitInk && ['linked','contour'].includes(raw.faceSurface)), '五官联动曲面需要立绘五官');
     requireThat(raw.spriteMouth === undefined || (raw.faceSurface && raw.spriteMouth === 'accent'), '小尺寸唇线需要联动口周曲面');
+    requireThat(raw.skirtEase === undefined || (typeof raw.skirtEase === 'string' && Object.hasOwn(skirtEaseModes,raw.skirtEase)),
+      '未知裙围设置');
     if (raw.garmentFit !== undefined) {
       requireThat(pinePortraitStyles.hasGarmentFits(pin) && raw.clothingCut === undefined, '衣服版型需要启用分款剪裁');
       fields(raw.garmentFit, [], Object.keys(garmentFits));
@@ -1216,6 +1223,7 @@ SOFTWARE.`;
       ...(raw.faceSurface ? { faceSurface:raw.faceSurface } : {}),
       ...(raw.spriteMouth ? { spriteMouth:raw.spriteMouth } : {}),
       ...(raw.garmentFit ? { garmentFit: { ...raw.garmentFit } } : {}),
+      ...(raw.skirtEase ? { skirtEase:raw.skirtEase } : {}),
       ...(anatomy ? { anatomyParts: anatomy } : {}),
       shape: sizes,
       parts,
@@ -1594,6 +1602,7 @@ SOFTWARE.`;
   const templateById = new Map(templates.map((doc) => [doc.id, doc]));
   function outfitFrom(doc,label=doc.label) {
     const outfit = {label, parts:{}, colors:{}};
+    if (doc.skirtEase && pinePatternWardrobe.isSkirt(doc.parts.bottom)) outfit.skirtEase=doc.skirtEase;
     const owner = doc.parts.hat.split('/')[0];
     if (owner !== 'none' && owner !== core) {
       outfit.packs = { [owner]:doc.packs[owner] };
@@ -2147,6 +2156,7 @@ SOFTWARE.`;
   return {
     core,
     release,
+    skirtEaseModes, isSkirt:pinePatternWardrobe.isSkirt,
     tailoredRelease, proportionStudyRelease, structureStudyRelease, gameFaceRelease, baseFaceRelease, clothingStudyRelease, featureStudyRelease, figureRatioRelease, expressionRelease, garmentRelease, garmentFits, withGarmentStudy, withoutGarmentStudy, restExpressions, withExpressionStudy, withoutExpressionStudy,
     withFigureStudy, withGameFace, withBaseFace, withClothingStudy, withFeatureStudy, withoutFeatureStudy, withFigureRatios, withoutFigureRatios, usesClothingCut,
     infantChinRelease, chinPadRelease, infantNoseRelease, withInfantChin, withoutInfantChin, withInfantChinStyle, withInfantNose, withoutInfantNose,

@@ -59,6 +59,11 @@
       "description": "在嘴宽只有几个输出像素时，加强唇中央的笔触。省略时沿用常规唇色取样。",
       "const": "accent"
     },
+    "skirtEase": {
+      "description": "裙围随动作的处理。fixed 保持裁片宽度，腿顶到布面时局部包裹。flexible 另外允许裙摆随步幅略微放宽。所有裙装默认 fixed。",
+      "enum": ["fixed", "flexible"],
+      "default": "fixed"
+    },
     "garmentFit": {
       "description": "分款剪裁试作。未指定的部位随所选衣物。",
       "type": "object",
