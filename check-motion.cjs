@@ -33,7 +33,7 @@ const builtins = [
   'short-hair',
   'everyday-styles',
   'workshop-wear',
-  'world-wardrobe',
+  'world-wardrobe', 'character-collection',
   'figure-paint',
   'anatomy-core', 'designer-body',
   'appearance'
@@ -99,7 +99,19 @@ for (const clip of motion.actions.values()) {
 }
 
 for (const id of ['hiker', 'child', 'toddler']) {
-  const actor = motion.characters.get(id);
+  const active = motion.characters.get(id);
+  const restFeet = motion.actions.get('idle').sample(0,active)[0].pose.feet;
+  for (const u of phases) {
+    const p = motion.actions.get('idle').sample(u,active)[0].pose;
+    assert.deepEqual(p.feet,restFeet,id+' planted feet during the fitted idle');
+    for (const [side,leg] of p.legs.entries()) {
+      const reach = distance(leg.hip,p.feet[side]) / (active.rig.thigh + active.rig.shin);
+      assert.ok(reach > .96 && reach < 1,id+' fitted standing knee');
+      assert.ok(Math.abs(distance(leg.knee,p.feet[side]) - active.rig.shin) < 1e-6);
+    }
+  }
+  // The original actors used a symmetric stance. Replay its exact foot and knee contracts.
+  const actor = context.PineLooks.build(context.PineLooks.archivedTemplates.get('look_workshop_'+id));
   const { rig } = actor;
   const sample = (action, u) => motion.actions.get(action).sample(u, actor)[0].pose;
   const extension = (pose, i) => distance(pose.legs[i].hip, pose.feet[i]) / (rig.thigh + rig.shin);

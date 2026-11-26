@@ -52,7 +52,7 @@ function depthsOfStandaloneSkull() {
 depthsOfStandaloneSkull();
 
 for (const age of ['adult', 'child', 'toddler', 'baby']) {
-  const source = looks.templates.find((draft) => draft.base === age);
+  const source = [...looks.archivedTemplates.values()].find(draft => draft.base === age);
   const skullDigests = new Set(), formDigests = new Set();
   for (const skull of ['balanced', 'long', 'round', 'angular']) {
     const actor = looks.build({

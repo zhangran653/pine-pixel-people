@@ -35,7 +35,7 @@ const sources = [
   'short-hair',
   'everyday-styles',
   'workshop-wear',
-  'world-wardrobe',
+  'world-wardrobe', 'character-collection',
   'figure-paint',
   'anatomy-core', 'designer-body',
   'appearance',
@@ -116,7 +116,7 @@ for (const [id, stable, firstStudy] of [
   ['look_workshop_toddler', 'a2a16b89122b878de4c5d0df6cfd5a695396381f09ac32eb332bf40fcf3ca41a', '576630d19431a3a6680c987320cfdb34bc7cc1ff7d588e7234c66bc352e69fb3'],
   ['look_chestnut', '95e2aa1b079db4efd6050d40954af773a04118865678d488a47fe91332035916', '121e0128f400a2bc17dbc47706f6866788b53221919551dd0a771c35f5dfb6b9']
 ]) for (const [pin, archived] of [['1.18.0', stable], ['1.19.0', firstStudy]]) {
-  const recipe = clone(a.l.templateById.get(id));
+  const recipe = clone(a.l.archivedTemplates.get(id));
   recipe.packs[a.l.core] = pin;
   const actor = a.l.build(recipe);
   const pose = a.m.actions.get('idle').sample(0.31, actor)[0].pose;
@@ -140,7 +140,7 @@ for (const [id, stable, firstStudy] of [
   let state = 20261125;
   const random = () => ((state = (Math.imul(1664525, state) + 1013904223) >>> 0) / 4294967296);
   const archived = Array.from({ length: 8 }, () => {
-    const doc = looks.randomCharacter({ random, source: looks.templateById.get('look_hazel'), style: 'natural', portrait: 'animation' });
+    const doc = looks.randomCharacter({ random, source: looks.archivedTemplates.get('look_hazel'), style: 'natural', portrait: 'animation' });
     return [doc.base, doc.parts.top, doc.parts.hair].join('/');
   });
   assert.deepEqual(archived, ['adult/apron/curly-lob', 'adult/jacket/wolf', 'child/tee/crop', 'child/pullover/low-bun',
@@ -155,7 +155,7 @@ for (const [id, stable, firstStudy] of [
   for (const key of ['height', 'shoulders', 'arms', 'legs']) assert.equal(fitted.shape[key], external.shape[key]);
   for (const key of ['skin', 'hair', 'top', 'bottom', 'shoes']) assert.equal(fitted.colors[key], external.colors[key]);
   looks.prepare(fitted);
-  const knot = looks.withFigureStudy(looks.templateById.get('look_hazel'));
+  const knot = looks.withFigureStudy(looks.archivedTemplates.get('look_hazel'));
   for (let seed = 0; seed < 32; seed++) {
     const fittedHair = looks.randomCharacter({ seed, source: knot, locks: ['hair'] });
     assert.equal(fittedHair.parts.hat, 'none');
@@ -176,7 +176,7 @@ for (const [id, stable, firstStudy] of [
     }
     assert.ok(cuts.size >= 7 && spans.size >= 20 && skins.size >= 10, base + ' wardrobe, limbs and dyes vary independently');
   }
-  const sitter = looks.withFigureStudy(looks.templateById.get('look_chestnut'));
+  const sitter = looks.withFigureStudy(looks.archivedTemplates.get('look_chestnut'));
   for (const pin of [looks.proportionStudyRelease, preview]) {
     const infant = looks.build({...sitter, packs:{...sitter.packs, [core]:pin}});
     const rig = infant.rig, length = rig.thigh + rig.shin;
@@ -409,7 +409,7 @@ const archived = [
   [first, 'e47e0e446e167d0613115204817ccde8461ddb9de804563dec6359313808fb6a'],
   [second, '8951ad26dc67bfe486d3e0abe082d3fc7cae7c7fac7777e816432db9f3485352'],
   [
-    asPriorStyle(a.l.templates.find((p) => p.id === 'look_ridge')),
+    asPriorStyle(a.l.archivedTemplates.get('look_ridge')),
     '0569981e7d8ff0c5b2decb9ac9175b9d32cc4cdd5e69317c35bb20bc05d85827'
   ]
 ];
@@ -427,7 +427,7 @@ for (const [doc, expected] of archived) {
 const classic = a.l.facePresets.classic.face;
 assert.equal(digest(a.l.build({ ...first, packs: { 'pine-core': a.l.hairRelease } }), a.m), baseline);
 assert.notEqual(digest(a.l.build(current), a.m), baseline);
-const adultSeed = a.l.templates.find((doc) => doc.id === 'look_body_female');
+const adultSeed = a.l.archivedTemplates.get('look_body_female');
 // The published 1.6.0 grids cover both editable bases at the same idle phase.
 for (const [id, bodyHash, headHash] of [
   [
@@ -441,7 +441,7 @@ for (const [id, bodyHash, headHash] of [
     '82865472b2d14a851c75a578f6e0912a786a37bfe9b1f4df796b7c02a644262d'
   ]
 ]) {
-  const doc = a.l.templates.find((d) => d.id === id);
+  const doc = a.l.archivedTemplates.get(id);
   const prior = a.l.build({ ...doc, packs: { 'pine-core': a.l.strandRelease } });
   const pose = a.m.actions.get('idle').sample(0.2, prior)[0].pose,
     model = prior.body.makePose(pose);
@@ -465,7 +465,7 @@ function outlines(body, model) {
   return [front, side];
 }
 for (const id of ['look_body_female', 'look_body_male', 'look_relay']) {
-  const doc = a.l.templates.find((d) => d.id === id);
+  const doc = a.l.archivedTemplates.get(id);
   const prior = a.l.build({ ...doc, packs: { 'pine-core': '1.6.0' } });
   const refined = a.l.build({ ...doc, packs: { 'pine-core': '1.6.1' } });
   assert.deepEqual(refined.rig, prior.rig);
@@ -652,7 +652,7 @@ for (const [id, oldBodyHash, oldHeadHash, sculptBodyHash, sculptHeadHash] of [
     '5cfb4d94ad70aa46c402a354bcdc7597a163a01e3e24947ee389b544772f5e2d'
   ]
 ]) {
-  const seed = a.l.templates.find((doc) => doc.id === id);
+  const seed = a.l.archivedTemplates.get(id);
   const crop = {
     ...seed,
     packs: { 'pine-core': a.l.sculptRelease },
@@ -742,7 +742,7 @@ function templeEdges({ actor, pose, model, templeZ }) {
   return [min, max].map((y) => y + band.y * body.density - body.ny / 2);
 }
 for (const id of ['look_body_male', 'look_relay']) {
-  const seed = a.l.templates.find((d) => d.id === id);
+  const seed = a.l.archivedTemplates.get(id);
   const recipe = (hair, pin = a.l.volumeRelease, hat = 'none') => ({
     ...seed,
     packs: { 'pine-core': pin },
@@ -816,7 +816,7 @@ function jawGaps(recipe) {
   return gaps;
 }
 for (const id of ['look_body_male', 'look_relay']) {
-  const seed = a.l.templates.find((doc) => doc.id === id);
+  const seed = a.l.archivedTemplates.get(id);
   const face = {
     ...seed,
     shape: { ...seed.shape, height: 1 },
@@ -935,7 +935,7 @@ function lipColumns(doc) {
   });
 }
 for (const id of ['look_body_female', 'look_fern', 'look_workshop_toddler']) {
-  const doc = clone(a.l.templateById.get(id));
+  const doc = clone(a.l.archivedTemplates.get(id));
   doc.parts.hat = 'none'; doc.parts.hair = 'bald';
   const old = { ...doc, packs: { 'pine-core': a.l.infantNapeRelease } };
   const prior = lipColumns(old), revised = lipColumns(doc);
@@ -1100,7 +1100,7 @@ for (const base of ['child', 'adult']) {
 const examples = ['chorus-child', 'relay-child'].map((name) => json('packs/' + name + '.json')),
   empty = client();
 for (const doc of examples) {
-  const edited = a.l.templates.find((p) => p.id === doc.id);
+  const edited = a.l.archivedTemplates.get(doc.id);
   assert.deepEqual(clone(a.l.prepare(asPriorStyle(edited)).recipe), doc);
   assert.equal(digest(a.l.build(asPriorStyle(edited)), a.m), digest(a.l.build(doc), a.m));
   assert.ok(a.l.hasRoundedHead(edited));
@@ -1118,7 +1118,7 @@ for (const doc of examples)
   assert.equal(digest(clean.m.characters.get(doc.id), clean.m, 'run'), digest(a.l.build(doc), a.m, 'run'));
 const referenceModels = ['female', 'male'].map((gender) => json('packs/' + gender + '-adult.json'));
 const [female, male] = referenceModels.map((doc) => {
-  const template = a.l.templates.find((p) => p.id === doc.id);
+  const template = a.l.archivedTemplates.get(doc.id);
   assert.deepEqual(clone(a.l.prepare({ ...template, packs: doc.packs }).recipe), doc);
   const person = a.l.build(doc);
   assert.equal(person.gender, doc.gender);
@@ -1260,13 +1260,13 @@ for (const i of [2, 3]) {
 // Portable workshop outfits share the existing mannequin and clip contact points.
 const wardrobeSchema = json('character-v1.schema.json').properties;
 for (const id of ['look_body_female', 'look_relay']) {
-  const doc = a.l.templates.find((p) => p.id === id);
+  const doc = a.l.archivedTemplates.get(id);
   const prior = { ...doc, packs: { 'pine-core': a.l.contourRelease } };
   const wardrobe = { ...doc, packs: { 'pine-core': a.l.wardrobeRelease } };
   assert.equal(digest(a.l.build(wardrobe), a.m, 'run'), digest(a.l.build(prior), a.m, 'run'));
 }
 const surveyExample = json('packs/workshop-surveyor.json');
-const surveyTemplate = a.l.templates.find((p) => p.id === surveyExample.id);
+const surveyTemplate = a.l.archivedTemplates.get(surveyExample.id);
 assert.deepEqual(clone(a.l.prepare({ ...surveyTemplate, packs: surveyExample.packs }).recipe), surveyExample);
 for (const [slot, options] of Object.entries(a.l.wearables)) {
   assert.deepEqual([...Object.keys(options)].sort(), [...wardrobeSchema.parts.properties[slot].enum].sort());
@@ -1326,7 +1326,7 @@ const collectionExample = json('packs/style-reader.json');
 assert.deepEqual(
   clone(
     a.l.prepare({
-      ...a.l.templates.find((doc) => doc.id === collectionExample.id),
+      ...a.l.archivedTemplates.get(collectionExample.id),
       packs: collectionExample.packs
     }).recipe
   ),
@@ -1354,7 +1354,7 @@ assert.equal(a.l.editingRelease(surveyExample), a.l.wardrobeRelease);
 const archivedSurvey = { ...surveyTemplate, packs: surveyExample.packs };
 assert.equal(finePortrait(archivedSurvey), finePortrait(surveyExample));
 assert.equal(digest(a.l.build(archivedSurvey), a.m, 'run'), digest(a.l.build(surveyExample), a.m, 'run'));
-const dressed = clone(a.l.templates.find((d) => d.id === 'look_workshop_hiker'));
+const dressed = clone(a.l.archivedTemplates.get('look_workshop_hiker'));
 Object.assign(dressed.parts, {
   charm: 'jade',
   glasses: 'round',

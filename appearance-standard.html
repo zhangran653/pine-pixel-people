@@ -62,6 +62,8 @@
           Three.js 场景读取同一份形象。
         </p>
         <p><a href="#lip-contour">1.19.12 唇颏轮廓与唇线</a> · <a href="#garment-fit">1.19.9 上衣与裤腿版型</a> · <a href="#facial-acting">1.19.8 平时神情与视线</a> · <a href="#figure-ratios">1.19.7 分龄头身比例</a> · <a href="#painted-features">1.19.6 分龄五官笔触</a> · <a href="#clothing-cut">1.19.5 分龄衣物剪裁</a> · <a href="#base-faces">1.19.4 分龄基础脸</a> · <a href="#game-face">1.19.3 美术基础脸</a> · <a href="#anatomy-parts">1.19.2 人体结构与可换部件</a> · <a href="#figure-art">全身像素造型与配色样张</a> · <a href="#portrait-art">五官画风</a></p>
+        <h2 id="character-library">内置人物</h2>
+        <p><code>PineLooks.templates</code> 提供 61 份可单独保存的标准人物配方。通过 <code>PineLooks.templateById.get('look_programmer')</code> 取得程序员，传给 <code>PineLooks.build</code> 即可生成演员。要创建个人版本，复制配方并用 <code>PineLooks.newId()</code> 分配新的 ID。形象库选中人物时会自动创建副本。已导出的完整人物按自己的五官、部件、颜色和版本还原。<a href="atelier.html?tool=person-library">浏览形象库</a> · <a href="studies/pixel-structure/character-library.webp">查看全部人物</a></p>
         <h2>形象文件</h2>
         <p>
           用创作室的「导入角色」打开下面的任一示例。编辑后可以保持 ID 保存，也可以另存为独立形象。导入相同
@@ -447,7 +449,7 @@ PineWardrobe.save(portrait);</code></pre>
           旧人物按 <code>packs["pine-core"]</code> 还原。编辑草稿后，可调用
           <code>recipe.packs["pine-core"] = PineLooks.editingRelease(recipe)</code> 选取所需版本，再验证或保存。
           1.8.0 的新款式沿用原有骨架、接触点和 <code>pine-character</code> v1 文件格式。
-          <a href="packs/style-reader.json">含雀斑、眼镜与胸花的完整角色</a> · <a href="atelier.html?preset=look_style_reader&amp;tab=face">打开这个角色</a>
+          <a href="packs/style-reader.json">含雀斑、眼镜与胸花的早期书店店员配方</a> · <a href="atelier.html?preset=look_style_reader&amp;tab=face">编辑新版书店店员</a>
         </p>
         <h2>动作与接触点</h2>
         <p>

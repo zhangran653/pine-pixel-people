@@ -284,14 +284,29 @@ for (const [id, rgba] of Object.entries({
   assert.equal(model.colors.length, body.nx * body.ny * 28);
 }
 const shapeDefs = JSON.parse(read('character-v1.schema.json')).properties.shape.properties;
+assert.ok(looks.templateById.size >= 61);
+assert.deepEqual([...looks.templateById.keys()].sort(), [...looks.archivedTemplates.keys()].sort());
+const faces = new Set();
 for (const doc of looks.templates) {
-  const recipe = looks.prepare(doc).recipe,
-    copy = looks.build(recipe);
+  const original = looks.archivedTemplates.get(doc.id);
+  const recipe = looks.prepare(clone(doc)).recipe, copy = looks.build(recipe);
+  for (const key of ['label', 'base', 'gender']) assert.equal(doc[key], original[key], doc.id);
+  assert.equal(doc.parts.implement, original.parts.implement, doc.id);
+  assert.equal(recipe.packs[looks.core], looks.infantNoseRelease);
+  assert.equal(recipe.bodyFinish, 'painted');
+  assert.equal(recipe.face.finish, doc.base === 'adult' ? 'storybook-lips' : 'soft-pixel');
+  if (doc.base === 'baby') {
+    assert.equal(recipe.infantNose, 'nursery');
+    assert.equal(recipe.infantChin, 'round');
+  }
+  assert.notDeepEqual(clone(doc.colors), clone(original.colors), doc.id);
+  faces.add([doc.face.eyes,doc.face.brows,doc.face.nose,doc.face.mouth].join('/'));
   assert.ok(motion.characters.has(doc.id) && copy.tags.includes(doc.base), doc.id);
   const idle = motion.actions.get('idle').sample(0.4, copy)[0].pose;
   assert.ok(copy.body.makePose(idle).colors.some(Boolean), doc.id);
   if (doc.identity) assert.deepEqual(clone(recipe.identity), clone(doc.identity));
 }
+assert.ok(faces.size >= 61, 'the authored collection lost a distinct set of facial features');
 for (const key of ['hiker', 'surveyor', 'mother', 'child', 'toddler', 'baby']) {
   const legacy = find(key),
     id = 'look_workshop_' + key,
@@ -309,7 +324,7 @@ for (const preset of Object.values(motion.presets)) {
   assert.deepEqual(clone(plan.score), clone(loaded.score));
 }
 for (const id of ['look_body_male', 'look_body_female', 'look_relay', 'look_workshop_baby']) {
-  const doc = looks.templateById.get(id),
+  const doc = looks.archivedTemplates.get(id),
     person = looks.build(doc),
     rig = person.rig;
   const pose = motion.rig.pose(rig, { headPitch: 0.27, headYaw: 0.45 });
@@ -345,7 +360,7 @@ for (const id of ['look_body_male', 'look_body_female', 'look_relay', 'look_work
 const skull = vm.runInContext('pineHeadShape', context);
 // The same editable face should visibly age when only its underlying head changes.
 {
-  const recipe = clone(looks.templateById.get('look_workshop_baby'));
+  const recipe = clone(looks.archivedTemplates.get('look_workshop_baby'));
   recipe.face = clone(looks.facePresets.gentle.face);
   const archived = { ...recipe, packs: { 'pine-core': looks.morphRelease } };
   const old = looks.build(archived), infant = looks.build(recipe);
@@ -397,7 +412,7 @@ const skull = vm.runInContext('pineHeadShape', context);
   assert.equal(looks.withBodyProfile(archived, 'baby').packs['pine-core'], looks.morphRelease);
 }
 {
-  const seed = looks.templateById.get('look_body_male');
+  const seed = looks.archivedTemplates.get('look_body_male');
   const pixels = (doc) => {
     const actor = looks.build(doc), pose = motion.rig.pose(actor.rig);
     return hash(motion.faceLayers(actor, pose, actor.body.makePose(pose))[1].model.colors);
@@ -460,14 +475,14 @@ const skull = vm.runInContext('pineHeadShape', context);
       !['eyes', 'hair', 'skin'].includes(k) && !(k in styles.dyes)));
     return [parts, dyes].map((v) => Object.entries(v).sort(([a], [b]) => a.localeCompare(b)));
   };
-  const wardrobes = new Set(looks.templates.map((doc) => JSON.stringify([doc.base, clothing(doc)])));
+  const wardrobes = new Set([...looks.archivedTemplates.values()].map((doc) => JSON.stringify([doc.base, clothing(doc)])));
   function seeded(state) {
     return () => ((state = (Math.imul(state, 1664525) + 1013904223) >>> 0) / 4294967296);
   }
   const random = seeded(83);
   const base = JSON.stringify(seed), colors = new Set(), ages = new Set(), ids = new Set(), outlines = new Set();
   const lowCheeks = [];
-  const babySeed = looks.templateById.get('look_workshop_baby');
+  const babySeed = looks.archivedTemplates.get('look_workshop_baby');
   const archive = { ...seed, packs: { 'pine-core': looks.lipJawRelease } };
   assert.equal(looks.portraitStyleOf(archive), 'natural');
   assert.equal(looks.portraitStyleOf(seed), 'animation');
@@ -480,7 +495,7 @@ const skull = vm.runInContext('pineHeadShape', context);
   // and variation setting. A family is never selected from the character's skin dye.
   for (const portrait of Object.keys(looks.portraitStyles)) {
     for (const id of ['look_ridge', 'look_fern', 'look_workshop_toddler', 'look_workshop_baby']) {
-      const source = looks.templateById.get(id), roll = seeded(441);
+      const source = looks.archivedTemplates.get(id), roll = seeded(441);
       for (const style of ['natural', 'expressive']) {
         for (const family of Object.keys(looks.portraitFamilies)) {
           const face = looks.randomFace(source, { portrait, style, family, random: roll });
@@ -657,7 +672,7 @@ function cheekEdges(actor, views) {
   return edges;
 }
 for (const [id, outline] of [['look_body_female', 'square'], ['look_fern', 'round'], ['look_body_male', 'pear']]) {
-  const full = clone(looks.templateById.get(id));
+  const full = clone(looks.archivedTemplates.get(id));
   full.parts.hair = 'bald'; full.parts.hat = 'none';
   full.face = { ...looks.facePresets.classic.face, outline };
   Object.assign(full.shape, { cheekHeight: -0.72, cheekWidth: 0.1, cheekProjection: -0.23, cheekFullness: 0.78 });
@@ -696,7 +711,7 @@ function portraitEdges(band) {
 // Read the 45-degree outline from occupied voxels. A sudden drop just below
 // the mouth makes the far cheek look like another nose as the infant turns.
 {
-  const doc = looks.templateById.get('look_chestnut'), actor = looks.build(doc);
+  const doc = looks.archivedTemplates.get('look_chestnut'), actor = looks.build(doc);
   const pose = motion.rig.pose(actor.rig), point = name => motion.rig.socket(actor, pose, name);
   const eye = point('leftEye'), lip = point('mouth'), chin = point('chinTip');
   const band = actor.body.faceLayers(pose, actor.body.makePose(pose), chin[2] - 1, 6)[1];
@@ -734,7 +749,7 @@ function portraitEdges(band) {
 // Raycast each profile from the outside. A pupil can be present in a front view
 // and still disappear behind the outer corner of the eye when the actor turns.
 for (const id of ['look_chestnut', 'look_hazel']) {
-  const spec = vm.runInContext('pineDesignerBody', context).build(looks.templateById.get(id));
+  const spec = vm.runInContext('pineDesignerBody', context).build(looks.archivedTemplates.get(id));
   for (const key of ['eyes', 'pupil', 'irisLight', 'irisRim', 'irisShadow', 'irisHoney'])
     spec.art.materials[key] = '14e6a0';
   const actor = motion.createCharacter({ id, label: id, ...spec });
@@ -761,7 +776,7 @@ for (const id of ['look_chestnut', 'look_hazel']) {
   }
 }
 {
-  const actor = looks.build(looks.templateById.get('look_hazel'));
+  const actor = looks.build(looks.archivedTemplates.get('look_hazel'));
   const pose = motion.rig.pose(actor.rig);
   const edge = portraitEdges(motion.closePortraitLayers(actor, pose, actor.body.makePose(pose))[1]);
   const lip = actor.sockets.mouth.point[2], chin = actor.sockets.chinTip.point[2];
@@ -791,7 +806,7 @@ for (const id of ['look_chestnut', 'look_hazel']) {
     ['look_body_female', 'aquiline', 'thin', 'manga'], ['look_body_male', 'broad', 'relaxed', 'natural'],
     ['look_fern', 'short', 'soft-smile', 'game'], ['look_workshop_toddler', 'button', 'small', 'manga']
   ]) {
-    const doc = clone(looks.templateById.get(id));
+    const doc = clone(looks.archivedTemplates.get(id));
     Object.assign(doc.parts, { hair: 'bald', hat: 'none', neck: 'none' });
     doc.face = { ...looks.facePresets.classic.face, ...doc.face, nose, mouth, style };
     Object.assign(doc.shape, { lipProjection: -0.14, chinProjection: 0.04, noseBridge: 0.14 });
@@ -813,7 +828,7 @@ function sideProfile(actor) {
 {
   const excursions = [];
   for (const id of ['look_body_female', 'look_fern', 'look_workshop_toddler', 'look_workshop_baby']) {
-    const recipe = looks.templateById.get(id);
+    const recipe = looks.archivedTemplates.get(id);
     const variant = (lipProjection, jawDefinition) => ({
       ...recipe, shape: { ...recipe.shape, lipProjection, jawDefinition }
     });
@@ -852,13 +867,13 @@ function sideProfile(actor) {
       assert.throws(() => looks.prepare({ ...old, shape: { ...old.shape, [key]: 0.4 } }));
   }
   assert.ok(excursions.slice(1).every((delta, i) => delta < excursions[i]), 'younger heads use gentler projection');
-  const old = looks.build({ ...looks.templateById.get('look_fern'), packs: { 'pine-core': looks.naturalProfileRelease } });
+  const old = looks.build({ ...looks.archivedTemplates.get('look_fern'), packs: { 'pine-core': looks.naturalProfileRelease } });
   const pose = motion.rig.pose(old.rig), coarse = old.body.makePose(pose);
   assert.equal(hash(coarse.colors), 'accdfe709baa9a2c138400b4119aa03a8e77bd3c962b2791749563948f08bd55');
   assert.equal(hash(motion.faceLayers(old, pose, coarse)[1].model.colors), '8fc5b2bb8c1d591dd384eb2bbe5ce64ce49ecf7c5e9848cab88a3a9a63ad470f');
 }
 {
-  const baby = looks.templateById.get('look_workshop_baby');
+  const baby = looks.archivedTemplates.get('look_workshop_baby');
   const oldDoc = { ...baby, packs: { 'pine-core': looks.infantRelease } };
   assert.ok(looks.hasInfantHead(oldDoc) && looks.hasInfantHead(baby));
   const old = looks.build(oldDoc), current = looks.build({ ...baby, face: { ...baby.face, style: 'natural' } });
@@ -912,7 +927,7 @@ function sideProfile(actor) {
   }
 }
 for (const id of ['look_body_male', 'look_fern', 'look_workshop_toddler', 'look_workshop_baby']) {
-  const doc = looks.templateById.get(id);
+  const doc = looks.archivedTemplates.get(id);
   const build = (pin, shape = {}) => looks.build({
     ...doc, packs: { 'pine-core': pin }, parts: { ...doc.parts, hair: 'bald', hat: 'none', neck: 'none' },
     shape: { ...doc.shape, ...shape }
@@ -960,7 +975,7 @@ for (const kind of ['adult', 'child']) {
   }
 }
 for (const [key, min, max] of [['headDepth', 0.8, 1.2], ['faceRelief', 0, 1.8]]) {
-  const seed = looks.templateById.get('look_body_male');
+  const seed = looks.archivedTemplates.get('look_body_male');
   const variant = (v) => ({ ...seed, shape: { ...seed.shape, [key]: v } });
   assert.deepEqual([shapeDefs[key].minimum, shapeDefs[key].maximum, shapeDefs[key].default], [min, max, 1]);
   for (const v of [min, max]) {
@@ -972,7 +987,7 @@ for (const [key, min, max] of [['headDepth', 0.8, 1.2], ['faceRelief', 0, 1.8]])
 }
 // Opening the jaw passes through the ear-side condyles, not the pitch joint in the cranium.
 for (const id of ['look_body_male', 'look_relay', 'look_workshop_toddler', 'look_workshop_baby']) {
-  const doc = looks.templateById.get(id), a = looks.build(doc), rest = motion.rig.pose(a.rig);
+  const doc = looks.archivedTemplates.get(id), a = looks.build(doc), rest = motion.rig.pose(a.rig);
   const wide = motion.rig.pose(a.rig, { jawOpen: 1 });
   const socket = (p, name) => motion.rig.socket(a, p, name);
   const joint = socket(rest, 'leftJawJoint'), ear = socket(rest, 'leftEarCanal');
@@ -1085,7 +1100,7 @@ assert.ok(world.geometry('test-cushion').model.colors.some(Boolean));
     look_developer: 'f87d7a3cd7984576cb12b2a72fadb3d19ac3d62676acd14114638126cd7b0506'
   };
   for (const id of [...Object.keys(archives), 'look_workshop_toddler', 'look_style_runner']) {
-    const recipe = looks.templateById.get(id);
+    const recipe = looks.archivedTemplates.get(id);
     const old = looks.build({ ...recipe, packs: { 'pine-core': looks.pixelRelease } }), current = looks.build(recipe);
     assert.deepEqual(current.sockets, old.sockets);
     assert.deepEqual(current.rig, old.rig);

@@ -38,6 +38,7 @@
     <script defer src="everyday-styles.js"></script>
     <script defer src="workshop-wear.js"></script>
     <script defer src="world-wardrobe.js"></script>
+    <script defer src="character-collection.js"></script>
     <script defer src="figure-paint.js"></script>
     <script defer src="anatomy-core.js"></script>
     <script defer src="designer-body.js"></script>
@@ -231,12 +232,20 @@
         <section class="collection tool-pane" id="person-library" data-tool data-label="形象库" aria-label="人物形象库" hidden>
           <div class="collection-head">
             <h2>选择人物</h2>
-            <span id="shelf-count"></span>
+            <span id="shelf-count" role="status"></span>
           </div>
-          <div class="shelf-search"><input type="search" id="look-query" aria-label="搜索形象" placeholder="搜索名称、职业或配件"><select id="shelf-era" aria-label="形象时代"><option value="">全部时代</option></select></div>
-          <label class="library-source">来源<select id="shelf-source"><option value="">所有形象</option><option value="saved">我的形象</option><option value="preset">内置预设</option></select></label>
+          <input type="search" id="look-query" aria-label="搜索形象" placeholder="搜索名称、职业或配件">
+          <div class="shelf-filters">
+            <select id="shelf-era" aria-label="形象时代"><option value="">全部时代</option></select>
+            <select id="shelf-age" aria-label="形象年龄"><option value="">全部年龄</option></select>
+            <select id="shelf-source" aria-label="形象来源"><option value="">所有形象</option><option value="saved">我的形象</option><option value="preset">内置预设</option></select>
+          </div>
           <button type="button" class="clear-filter" id="clear-looks" hidden>清除筛选</button>
-          <div id="look-shelf" class="shelf"></div>
+          <div class="switch shelf-framing" role="group" aria-label="形象卡视图">
+            <button type="button" data-shelf-view="face" aria-pressed="true">头像</button>
+            <button type="button" data-shelf-view="body" aria-pressed="false">全身</button>
+          </div>
+          <div id="look-shelf" class="shelf" data-framing="face"></div>
         </section>
         </div>
       </div>

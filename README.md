@@ -21,6 +21,12 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 形象、动作与物件
 
+### 人物形象库
+
+61 位内置人物各有一份可编辑的配方。头像视图方便比较眼神、鼻唇和发型，全身视图可以比较身姿、衣摆和配件。可以按年龄、时代筛选，或输入职业、物件名查找。选中后可旋转、换装、保存副本，或直接带去编排动作。[打开形象库](atelier.html?tool=person-library) · [61 人实时切片总览](studies/pixel-structure/character-library.webp) · [同角色改版前后](studies/pixel-structure/character-library-comparison.webp)
+
+现代 41 人、古代 8 人、奇幻 6 人、科幻 6 人共用现有部件和动作。成人采用分款鼻唇，学童、幼儿和婴儿使用分龄的柔和像素脸，两个坐姿婴儿都采用婴儿鼻和圆润下巴。应用可以用原有角色 ID 取新版人物，已经另存的完整 JSON 仍按自己的配方重放。[形象与部件规范](appearance-standard.html#character-library)
+
 ### 创作室普通随机人物
 
 「随机人物」「随机五官」和「挑一组脸」生成普通成人时，默认使用「绘本像素 · 分款鼻唇」。同一款鼻子可以搭配多种唇形。正面能看闭嘴时的唇线，转到侧面能看上下唇各自的厚度。「五官 → 面部画法」可随时换画法，保存与再次随机都会沿用所选设置。[打开黑发人物](atelier.html?model=blue-jacket&tab=face&finish=storybook-lips&action=idle&phase=17&bearing=315) · [固定五官对照](studies/pixel-structure/storybook-lip-forms.webp) · [连续六个随机人物](studies/pixel-structure/storybook-lip-rolls.webp)
@@ -187,7 +193,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 自由搭配人物外观
 
-创作室当前在 30 个部位提供 302 款外观，含光头、16 款内置帽子，颜色、卸下部件和整套搭配另计。可以选一份职业或家庭形象配方，更改年龄、穿搭与五官，再另存为自己的角色。[试改书店店员](http://127.0.0.1:8000/atelier.html?preset=look_style_reader&tab=face) · [下载同一人物的 JSON](packs/style-reader.json)
+创作室当前在 30 个部位提供 302 款外观，含光头、16 款内置帽子，颜色、卸下部件和整套搭配另计。可以选一份职业或家庭形象配方，更改年龄、穿搭与五官，再另存为自己的角色。[试改新版书店店员](http://127.0.0.1:8000/atelier.html?preset=look_style_reader&tab=face) · [下载早期书店店员配方](packs/style-reader.json)
 
 ![六个可编辑人物、同一张脸的六组眼眉，以及六款发型的真实切片预览](appearance-collection-preview.png)
 

@@ -1,6 +1,6 @@
 // Turnaround sitters use the same parts, pigments and recipe format as the editor.
 const pineFigureModels = (() => {
-  const plain = PineLooks.templates.find(doc => doc.id === 'look_body_male');
+  const plain = PineLooks.archivedTemplates.get('look_body_male');
   function sitter(profile, label, parts, face, colors) {
     const doc = PineLooks.withBodyProfile(structuredClone(plain), profile);
     return { ...doc, id: 'look_model_' + doc.base, label,

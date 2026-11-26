@@ -1601,6 +1601,8 @@
     dirty = origin.dirty;
     heading();
   };
+  const shelfAges = { adult: '成人', child: '儿童', toddler: '幼儿', baby: '婴儿' };
+  let shelfView = 'face';
   function shelf() {
     const root = $('look-shelf'),
       compare = $('compare'),
@@ -1611,14 +1613,16 @@
     entries.clear();
     const datasets = [
       ['已保存', [...wardrobe.saved].map(([id, d]) => ['saved:' + id, d])],
-      ['预置', looks.templates.map((d) => ['preset:' + d.id, d])]
+      ...Object.entries(PineWorld.realms).map(([era, label]) => [
+        label, looks.templates.filter(d => (d.identity?.era || 'modern') === era).map(d => ['preset:' + d.id, d])
+      ])
     ];
     compare.replaceChildren(new Option('无对照', ''));
     if (transferredPartner) {
       entries.set('review:partner', transferredPartner);
       compare.add(new Option('随配方带入 · ' + transferredPartner.label, 'review:partner'));
     }
-    const era = $('shelf-era').value,
+    const era = $('shelf-era').value, age = $('shelf-age').value, source = $('shelf-source').value,
       terms = $('look-query').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
     let matchCount = 0;
     for (const [section, items] of datasets) {
@@ -1631,17 +1635,21 @@
         entries.set(key, doc);
         if (key !== cardKey) compare.add(new Option(section + ' · ' + doc.label, key));
         const eraKey = doc.identity?.era || 'modern';
+        const [hatPack, hatId] = doc.parts.hat.split('/');
+        const hat = looks.catalog.get(hatPack + '@' + doc.packs[hatPack])?.parts.find(p => p.id === hatId);
         const haystack = [
           doc.id,
           doc.label,
           doc.identity?.role,
+          shelfAges[doc.base],
           PineWorld.realms[eraKey],
+          hat?.label,
           ...Object.entries(doc.parts).map(([k, v]) => looks.wearables[k]?.[v] || looks.slots[k]?.[v] || v)
         ]
           .join(' ')
           .toLowerCase();
-        const source = $('shelf-source').value;
-        if ((source && !key.startsWith(source + ':')) || (era && era !== eraKey) || !terms.every((t) => haystack.includes(t))) continue;
+        if ((source && !key.startsWith(source + ':')) || (era && era !== eraKey) ||
+            (age && age !== doc.base) || !terms.every(t => haystack.includes(t))) continue;
         if (!visible) {
           root.append(label);
           visible = true;
@@ -1658,10 +1666,10 @@
         title.textContent = doc.label;
         b.append(image, title);
         root.append(b);
-        thumbnails.set(image, { doc, bearing: 24 });
+        thumbnails.set(image, { doc, bearing: 334, view: shelfView });
         shelfVisibility.observe(image);
         b.onclick = () => switchTo(() => {
-          activate(doc, key, section === '已保存');
+          activate(doc, key, key.startsWith('saved:'));
           PineWorkspace.openTool('person-edit', true);
         });
       }
@@ -1669,10 +1677,10 @@
     if ([...compare.options].some((o) => o.value === previous)) compare.value = previous;
     measurements();
     $('shelf-count').textContent =
-      era || terms.length || $('shelf-source').value
+      era || age || terms.length || source
         ? matchCount + ' 个结果'
         : looks.templates.length + ' 款预置 · 已保存 ' + wardrobe.saved.size + ' 个';
-    $('clear-looks').hidden = !(era || terms.length || $('shelf-source').value);
+    $('clear-looks').hidden = !(era || age || terms.length || source);
     if (!matchCount) {
       const empty = document.createElement('p');
       empty.textContent = $('shelf-source').value === 'saved' && !wardrobe.saved.size
@@ -1777,10 +1785,19 @@
   }
   for (const item of looks.templates)
     if (item.identity?.role) $('role-options').append(new Option(item.identity.role, item.identity.role));
+  for (const [key, label] of Object.entries(shelfAges)) $('shelf-age').add(new Option(label, key));
+  $('shelf-age').onchange = shelf;
   $('shelf-era').onchange = shelf;
   $('shelf-source').onchange = shelf;
+  const shelfButtons = document.querySelectorAll('[data-shelf-view]');
+  for (const button of shelfButtons) button.onclick = () => {
+    shelfView = button.dataset.shelfView;
+    $('look-shelf').dataset.framing = shelfView;
+    for (const b of shelfButtons) b.setAttribute('aria-pressed', String(b === button));
+    shelf();
+  };
   $('clear-looks').onclick = () => {
-    for (const id of ['look-query', 'shelf-era', 'shelf-source']) $(id).value = '';
+    for (const id of ['look-query', 'shelf-era', 'shelf-age', 'shelf-source']) $(id).value = '';
     shelf();
     $('look-query').focus();
   };
@@ -2262,7 +2279,9 @@
     const navigation = performance.getEntriesByType('navigation')[0]?.type;
     if (local?.doc && ((!location.search && !location.hash) ||
         (local.url === location.href && ['reload', 'back_forward'].includes(navigation)))) {
-      restoreEdit(local);
+      const preset = !local.dirty && !local.saved && local.key?.startsWith('preset:') &&
+        looks.templateById.get(local.key.slice(7));
+      restoreEdit(preset ? { ...local, doc: { ...preset, id: local.doc.id } } : local);
       const tabButton = [...document.querySelectorAll('[data-tab]')].find(b => b.dataset.tab === local.tab);
       if (tabButton) changeTab(tabButton);
       if ([...$('action').options].some(o => o.value === local.action)) action = $('action').value = local.action;
@@ -2275,6 +2294,7 @@
       if (dirty) note('已恢复本标签页的未保存草稿。');
     }
   } catch {}
+  if (query.get('tool') === 'person-library') PineWorkspace.openTool('person-library');
   if (query.get('candidates') === '1' && tab === 'face') $('choose-faces').click();
   if (query.get('reference') === '1' && tab === 'face') document.querySelector('.turnaround-guide').open = true;
   if (skipped) note('有 ' + skipped + ' 个无效的本地存档，其他形象已载入。', true);

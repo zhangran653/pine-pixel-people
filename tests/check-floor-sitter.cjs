@@ -68,7 +68,7 @@ const archived = {
   baby: 'f06aca59c2c642165f72a7609e8cb5b9c82fc88fa9c4936b457d1336669a54dd'
 };
 for (const [age, digest] of Object.entries(archived)) {
-  const doc = age === 'toddler' ? looks.templateById.get('look_workshop_toddler') : examples[age];
+  const doc = age === 'toddler' ? looks.archivedTemplates.get('look_workshop_toddler') : examples[age];
   const actor = model(doc, '1.19.1'), hash = createHash('sha256');
   assert.equal(actor.rig.infantFloorSupport, undefined);
   for (const action of ['idle','sit','wave']) {

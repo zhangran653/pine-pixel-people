@@ -526,15 +526,15 @@ h2 {
 }
 .shelf {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(98px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+  gap: 10px;
 }
 .shelf button {
   display: flex;
   align-items: center;
   min-width: 0;
   flex-direction: column;
-  padding: 0 0 5px;
+  padding: 0 0 7px;
   border-radius: 5px;
   overflow: hidden;
   background: #f5f1e5;
@@ -547,16 +547,19 @@ h2 {
 .shelf canvas {
   display: block;
   width: 100%;
-  height: 56px;
+  height: 116px;
   image-rendering: pixelated;
 }
+.shelf[data-framing='body'] canvas { height: 150px; }
+.shelf-framing { display: inline-flex; margin: 8px 0 12px; }
+.shelf-filters { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin-top: 6px; }
 .shelf small {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 0 5px;
-  font-size: 0.79rem;
+  font-size: 0.87rem;
 }
 .shelf-group {
   grid-column: 1/-1;
@@ -746,7 +749,7 @@ h2 {
     max-width: 128px;
   }
   .shelf {
-    grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
   }
 }
 @media (max-width: 680px) {
@@ -830,10 +833,10 @@ h2 {
     align-content: center;
   }
   .shelf canvas {
-    height: 65px;
+    height: 120px;
   }
   .shelf {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill,minmax(min(126px,100%),1fr));
   }
   .slider-label input {
     height: 32px;
@@ -1049,10 +1052,9 @@ dialog p {
 
 #action-partner { margin: 0 14px 5px; color: #46614c; font-size: .84rem; }
 
-.identity-fields,.shelf-search{display:grid;grid-template-columns:minmax(5em,.55fr) minmax(0,1fr);gap:.55rem;margin:.65rem 0}
+.identity-fields{display:grid;grid-template-columns:minmax(5em,.55fr) minmax(0,1fr);gap:.55rem;margin:.65rem 0}
 .identity-fields label{display:grid;gap:.2rem;font-size:.76rem;color:var(--muted,#66766b)}
-.shelf-search{grid-template-columns:minmax(0,1fr) minmax(6em,.35fr)}
-.identity-fields :is(input,select),.shelf-search :is(input,select){min-width:0;width:100%;padding:.45rem;border:1px solid #c2cbbc;border-radius:5px;background:#fafaf4;color:#283d34;font:inherit}
+.identity-fields :is(input,select),#look-query,.shelf-filters select{min-width:0;width:100%;padding:.45rem;border:1px solid #c2cbbc;border-radius:5px;background:#fafaf4;color:#283d34;font:inherit}
 .base-row .switch{flex-wrap:wrap}
 
 .jaw-controls{min-width:0;border:1px solid #81938265;border-radius:6px;padding:.6rem .8rem;margin:.8rem 0}.jaw-controls legend{padding:0 .35rem;font-weight:650}.jaw-controls .category-buttons{margin-bottom:.65rem}

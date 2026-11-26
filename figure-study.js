@@ -162,7 +162,7 @@
       return state / 4294967296;
     };
     for (const [n, label] of labels.entries()) {
-      const doc = looks.randomCharacter({ random, release: stableRelease, source: looks.templateById.get('look_hazel'),
+      const doc = looks.randomCharacter({ random, release: stableRelease, source: looks.archivedTemplates.get('look_hazel'),
         locks: [], style: 'natural', portrait: 'animation' });
       const id = 'baseline-' + (n + 1);
       doc.id = 'look_baseline_' + (n + 1);
@@ -226,7 +226,7 @@
     const source = subject === 'draft' ? submitted : sample
       ? looks.randomCharacter({ base: sample[1].split('/')[0], seed: seedFor(...sample), release:sample[0],
           bodyFinish:sample[0] === looks.featureStudyRelease ? 'painted' : undefined })
-      : pineFigureModels[subject] || archive.get(subject) || looks.templateById.get(originals[subject]);
+      : pineFigureModels[subject] || archive.get(subject) || looks.archivedTemplates.get(originals[subject]);
     const before = $('before').value;
     if (faceReviews.has(before) || before === 'fitted-story') {
       const ordinary = subject === 'seeded' ? looks.randomCharacter({base:seedAge,seed:Number(seedParam),release:stableRelease,

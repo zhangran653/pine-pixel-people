@@ -38,8 +38,8 @@
   }
   function baseRecipe(base) {
     const source =
-      (base === 'female' && looks.templateById.get('look_body_female')) ||
-      (base === 'toddler' && looks.templateById.get('look_workshop_toddler')) ||
+      (base === 'female' && looks.archivedTemplates.get('look_body_female')) ||
+      (base === 'toddler' && looks.archivedTemplates.get('look_workshop_toddler')) ||
       pineFigureModels[base] ||
       pineFigureModels.adult;
     const doc = looks.withFigureStudy(

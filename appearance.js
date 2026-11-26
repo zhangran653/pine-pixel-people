@@ -505,8 +505,14 @@ SOFTWARE.`;
       if (pinePortraitStyles.ordinaryInfantChin(next) || (next.packs[core] === infantNoseRelease && portraitStyleOf(next) === 'animation'))
         next.infantChin = 'round';
     } else next.packs[core] = editingRelease(next);
-    if (base !== recipe.base && pinePortraitStyles.hasFigureRatios(next.packs[core]))
-      Object.assign(next.shape, fittedFigureRatios(next));
+    if (base !== recipe.base && pinePortraitStyles.hasFigureRatios(next.packs[core])) {
+      const previous = fittedFigureRatios(recipe), fitted = fittedFigureRatios(next);
+      for (const key of ratioKeys) {
+        const offset = (recipe.shape[key] ?? previous[key]) - previous[key];
+        const [lo, hi] = figureRatioRanges[key];
+        next.shape[key] = Math.max(lo, Math.min(hi, Math.round(100 * (fitted[key] + offset)) / 100));
+      }
+    }
     return next;
   }
   const originalSlots = {
@@ -1268,7 +1274,7 @@ SOFTWARE.`;
       { height: 1.04, shoulders: 1.09, jaw: 0.88 }
     ]
   ];
-  const templates = seeds.map(([key, label, profile, items, palette, sizes]) => ({
+  const seedWardrobe = seeds.map(([key, label, profile, items, palette, sizes]) => ({
     format: 'pine-character',
     version: 1,
     id: 'look_' + key,
@@ -1332,8 +1338,8 @@ SOFTWARE.`;
   ];
   for (const style of additions) {
     const outfit = outfits[style.outfit],
-      seed = templates[0];
-    templates.push({
+      seed = seedWardrobe[0];
+    seedWardrobe.push({
       ...seed,
       id: 'look_' + style.key,
       label: style.label,
@@ -1348,8 +1354,8 @@ SOFTWARE.`;
   }
   // Same clothes, neutral pose and 100% height make the two adult silhouettes directly comparable.
   for (const profile of ['female', 'male']) {
-    const model = withBodyProfile(templates[0], profile);
-    templates.push({
+    const model = withBodyProfile(seedWardrobe[0], profile);
+    seedWardrobe.push({
       ...model,
       id: 'look_body_' + profile,
       label: bodyProfiles[profile].label + '体型样本',
@@ -1367,7 +1373,7 @@ SOFTWARE.`;
   };
   for (const [id, outfit] of Object.entries(pineWorkshopWear.outfits)) {
     const [profile, hair, face] = workshopProfiles[id];
-    const model = withBodyProfile(templates[0], profile);
+    const model = withBodyProfile(seedWardrobe[0], profile);
     model.id = 'look_workshop_' + id;
     model.label = outfit.label;
     model.parts.hair = hair;
@@ -1382,7 +1388,7 @@ SOFTWARE.`;
     };
     const [skin, hairDye, eye] = palettes[id];
     Object.assign(model.colors, { skin: '#' + skin, hair: '#' + hairDye, eyes: '#' + eye });
-    templates.push(applyOutfit(model, outfit));
+    seedWardrobe.push(applyOutfit(model, outfit));
   }
   // The two turnaround sitters are ordinary editable recipes. Their colours,
   // clothes and individual features may also be used by any other character.
@@ -1398,7 +1404,7 @@ SOFTWARE.`;
       { faceWidth: 1.01, jaw: 0.98, eyeSpacing: 0.94, eyeOpening: 0.15, browHeight: 0.36, noseWidth: 0.13, lowerLipFullness: 0.14 },
       { skin: '#af7450', hair: '#aea097', eyes: '#493328', brow: '#533a31' }]
   ]) {
-    const model = withBodyProfile(templates[0], profile);
+    const model = withBodyProfile(seedWardrobe[0], profile);
     model.id = 'look_' + id;
     model.label = label;
     model.face = { ...face, style: 'animation' };
@@ -1406,7 +1412,7 @@ SOFTWARE.`;
     Object.assign(model.parts, parts, { neck: 'none' });
     Object.assign(model.colors, dyes, { top: '#527875', bottom: '#565b66', accent: '#87a8a0' });
     model.packs[core] = release;
-    templates.push(model);
+    seedWardrobe.push(model);
   }
   for (const [id, label, body, hair, faceId, outfit, details, gear, dyes] of [
     [
@@ -1476,7 +1482,7 @@ SOFTWARE.`;
       { hair: '#bab1a6', skin: '#c29577', top: '#8f9c71', audio: '#aa8d71' }
     ]
   ]) {
-    const model = withBodyProfile(templates[0], body);
+    const model = withBodyProfile(seedWardrobe[0], body);
     model.id = 'look_style_' + id;
     model.label = label;
     model.parts.hair = hair;
@@ -1484,7 +1490,7 @@ SOFTWARE.`;
     applyOutfit(model, outfits[outfit]);
     Object.assign(model.parts, gear);
     Object.assign(model.colors, dyes);
-    templates.push(model);
+    seedWardrobe.push(model);
   }
   const skinDyes = Object.values(colorPresets.skin);
   const hairDyes = ['#493634', '#352e35', '#69513e', '#443438', '#554238', '#453b39'];
@@ -1492,7 +1498,7 @@ SOFTWARE.`;
   let n = 0;
   for (const [era, rows] of Object.entries(pineWorldWardrobe.roster)) {
     for (const [key, label, profile, hair, top, bottom, shoes, cloth, trim, gear] of rows) {
-      const doc = withBodyProfile(templates[0], profile);
+      const doc = withBodyProfile(seedWardrobe[0], profile);
       doc.id = 'look_' + key;
       doc.label = label;
       doc.identity = { era, role: label };
@@ -1523,10 +1529,24 @@ SOFTWARE.`;
                 : '#736d8a';
       if (gear.charm)
         doc.colors.charm = gear.charm === 'jade' ? '#93bda0' : gear.charm === 'vial' ? '#8cc1c2' : '#d7b26c';
-      templates.push(doc);
+      seedWardrobe.push(doc);
       n++;
     }
   }
+  // These original recipes also define the deterministic random wardrobe and historical studies.
+  const archivedTemplates = new Map(seedWardrobe.map(doc => [doc.id,doc]));
+  const neutralShape = Object.fromEntries(requiredShape.map(key => [key,shape[key][2]]));
+  const templates = seedWardrobe.map(source => {
+    const doc = pineCharacterCollection.assemble(source,core,infantNoseRelease,neutralShape);
+    const ratios = fittedFigureRatios(doc);
+    // At game size, a little more room for the eyes and mouth keeps the faces readable.
+    if (doc.base === 'adult') {
+      ratios.headScale = Math.round((ratios.headScale + .09) * 100) / 100;
+      ratios.noseLipSpacing = Math.round((ratios.noseLipSpacing - .10) * 100) / 100;
+    } else if (doc.base === 'child') ratios.headScale = Math.round((ratios.headScale + .05) * 100) / 100;
+    Object.assign(doc.shape,ratios);
+    return doc;
+  });
   const templateById = new Map(templates.map((doc) => [doc.id, doc]));
   const pick = (items, random) => items[Math.floor(random() * items.length)];
   function between(min, max, random) {
@@ -1961,7 +1981,7 @@ SOFTWARE.`;
       ? profileDraws.filter((key) => key !== 'baby') : profileDraws;
     if (base !== undefined) profiles = profiles.filter(key => bodyProfiles[key].base === base);
     const profile = keep.has('body') ? source : bodyProfiles[pick(profiles, random)];
-    const donor = pick(templates.filter((doc) => doc.base === profile.base), random);
+    const donor = pick(seedWardrobe.filter((doc) => doc.base === profile.base), random);
     const outfit = keep.has('wear') ? source : tailored
       ? tailoredOutfit(donor, keep.has('hair') && source.parts.hair, random, pinePortraitStyles.hasClothingStudy(pin)) : donor;
     const faceSource = { ...outfit, base: profile.base, shape: donor.shape, face: {} };
@@ -2095,6 +2115,7 @@ SOFTWARE.`;
     catalog,
     templates,
     templateById,
+    archivedTemplates,
     manifest,
     install,
     prepare,

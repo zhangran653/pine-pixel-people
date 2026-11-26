@@ -80,7 +80,7 @@ function checkEditor() {
     document.querySelector('[data-body-profile="child"]').click();
     expect(photos.get('child') === byId('mirror').toDataURL(), 'switching back changed the child');
     const legacy = {
-      ...PineLooks.templates.find((p) => p.id === 'look_body_female'),
+      ...PineLooks.archivedTemplates.get('look_body_female'),
       id: 'look_check_legacy',
       packs: { 'pine-core': PineLooks.styleRelease }
     };
@@ -112,7 +112,7 @@ function checkEditor() {
     small.style.cssText = 'width:288px;height:224px;display:block';
     document.body.append(small);
     const mirror = atelierPreview.create(small, PineMotion);
-    const model = PineLooks.templates.find((p) => p.id === 'look_camper');
+    const model = PineLooks.archivedTemplates.get('look_camper');
     const wide = {
       ...model,
       packs: { 'pine-core': PineLooks.release },
@@ -293,7 +293,7 @@ function checkEditor() {
       );
     }
     const archived = PineWardrobe.importCharacter({
-      ...PineLooks.templates.find((p) => p.id === 'look_body_female'),
+      ...PineLooks.archivedTemplates.get('look_body_female'),
       id: 'look_archived_fringe',
       packs: { 'pine-core': PineLooks.headRelease }
     }).recipe;
@@ -311,7 +311,7 @@ function checkEditor() {
       'hair preview changed the pinned save'
     );
     const previousFigure = PineWardrobe.importCharacter({
-      ...PineLooks.templates.find((p) => p.id === 'look_body_female'),
+      ...PineLooks.archivedTemplates.get('look_body_female'),
       id: 'look_prior_figure',
       packs: { 'pine-core': PineLooks.strandRelease }
     }).recipe;
@@ -423,7 +423,7 @@ function checkEditor() {
       'saved mixed collection'
     );
     const oldCut = PineWardrobe.importCharacter({
-      ...PineLooks.templates.find((p) => p.id === 'look_body_male'),
+      ...PineLooks.archivedTemplates.get('look_body_male'),
       id: 'look_archived_short_hair',
       packs: { 'pine-core': PineLooks.collectionRelease }
     }).recipe;
@@ -617,7 +617,7 @@ function checkEditor() {
     expect((PineWardrobe.saved.get(generated.id).shape.cheekFullness || 0) === repaired &&
       PineWardrobe.saved.size === savedCount + 1, 'save the local cheek correction under the same character ID');
     const oldBaby = PineWardrobe.importCharacter({
-      ...PineLooks.templateById.get('look_workshop_baby'), id: 'look_archived_infant',
+      ...PineLooks.archivedTemplates.get('look_workshop_baby'), id: 'look_archived_infant',
       packs: { 'pine-core': PineLooks.morphRelease }
     }).recipe;
     byId('shelf-era').value = '';
@@ -653,7 +653,7 @@ function checkEditor() {
     byId('save-look').click();
     expect(PineWardrobe.saved.get(firstInfant.id).packs['pine-core'] === PineLooks.release, 'save the refitted nape');
     const priorSideRecipe = PineWardrobe.importCharacter({
-      ...PineLooks.templateById.get('look_fern'), id: 'look_prior_facial_planes',
+      ...PineLooks.archivedTemplates.get('look_fern'), id: 'look_prior_facial_planes',
       packs: { 'pine-core': PineLooks.infantNapeRelease }
     }).recipe;
     byId('look-query').value = priorSideRecipe.id;
@@ -672,7 +672,7 @@ function checkEditor() {
     expect(savedSide.packs['pine-core'] === PineLooks.release && ['face', 'shape', 'parts', 'colors'].every(
       key => JSON.stringify(savedSide[key]) === JSON.stringify(priorSideRecipe[key])), 'save the upgraded recipe in place');
     const original = PineWardrobe.importCharacter({
-      ...PineLooks.templateById.get('look_body_female'), id: 'look_archived_lips',
+      ...PineLooks.archivedTemplates.get('look_body_female'), id: 'look_archived_lips',
       packs: { 'pine-core': PineLooks.naturalProfileRelease }
     }).recipe;
     byId('look-query').value = original.id;
@@ -721,7 +721,7 @@ function checkEditor() {
     expect(fitted.packs['pine-core'] === PineLooks.release && ['face', 'shape', 'parts', 'colors'].every(
       key => JSON.stringify(fitted[key]) === JSON.stringify(pinnedManga[key])), 'upgrade just the contour in place');
     const oldArt = PineWardrobe.importCharacter({
-      ...PineLooks.templateById.get('look_relay'), id: 'look_prior_art_direction',
+      ...PineLooks.archivedTemplates.get('look_relay'), id: 'look_prior_art_direction',
       packs: { 'pine-core': PineLooks.lipJawRelease }
     }).recipe;
     byId('look-query').value = oldArt.id;
@@ -980,6 +980,58 @@ function checkOrdinaryFaces() {
     $('save-look').click();
     check(PineWardrobe.saved.get(recipe().id)?.face.finish === finish,'fitted character did not save');
     out.dataset.state = 'pass'; out.textContent = 'Studio face drawings, candidates, fitted clothes, save and both random buttons passed';
+  } catch (error) { out.dataset.state = 'fail'; out.textContent = error.stack; }
+}
+function checkLibrary() {
+  const $ = id => document.getElementById(id), out = $('qa-result');
+  const check = (ok, message) => { if (!ok) throw Error(message); };
+  const keys = () => [...$('look-shelf').querySelectorAll('button')].map(b => b.dataset.key);
+  function filter(id, value) {
+    $(id).value = value;
+    $(id).dispatchEvent(new Event(id === 'look-query' ? 'input' : 'change'));
+  }
+  function recipe() {
+    const link = $('figure-link');
+    link.dispatchEvent(new Event('focus'));
+    return JSON.parse(new URLSearchParams(new URL(link.href).hash.slice(1)).get('character'));
+  }
+  try {
+    check(!$('person-library').hidden, 'gallery link did not open the shelf');
+    filter('shelf-source','preset');
+    check(keys().length === PineLooks.templates.length && new Set(keys()).size >= 61, 'incomplete built-in shelf');
+    check(keys().every(key => PineLooks.templateById.has(key.slice(7))), 'uneditable entry');
+    check($('look-shelf').querySelectorAll('.shelf-group').length === 4, 'era groups');
+    const body = document.querySelector('[data-shelf-view=body]');
+    body.click();
+    check(body.getAttribute('aria-pressed') === 'true' && $('look-shelf').dataset.framing === 'body', 'full body view');
+    filter('shelf-era','scifi');
+    filter('shelf-age','child');
+    check(keys().join() === 'preset:look_cadet', 'age and era must combine');
+    filter('shelf-age','baby');
+    check(!keys().length && $('look-shelf').querySelector('p'), 'empty filter results');
+    $('clear-looks').click();
+    filter('shelf-age','baby');
+    filter('shelf-source','preset');
+    check(keys().sort().join() === 'preset:look_chestnut,preset:look_workshop_baby', 'both baby presets');
+    $('clear-looks').click();
+    filter('look-query','褶边厨师帽');
+    check(keys().join() === 'preset:look_chef', 'search by the display name of an equipped item');
+    filter('look-query','炼金');
+    check(keys().join() === 'preset:look_alchemist', 'search by role');
+    document.querySelector('[data-shelf-view=face]').click();
+    check($('look-shelf').dataset.framing === 'face', 'portrait view');
+    $('look-shelf').querySelector('button').click();
+    const selected = recipe(), original = PineLooks.templateById.get('look_alchemist');
+    check(!$('person-edit').hidden && selected.id !== original.id, 'selected character needs its own editable copy');
+    for (const key of ['parts','colors','shape','face'])
+      check(Object.keys(original[key]).every(k => selected[key][k] === original[key][k]), 'gallery selection lost '+key);
+    $('look-name').value = '铜框眼镜习作';
+    $('look-name').dispatchEvent(new Event('input'));
+    $('save-look').click();
+    check(PineWardrobe.saved.get(selected.id)?.label === '铜框眼镜习作' && original.label !== '铜框眼镜习作',
+      'editing or saving a copy overwrote the preset');
+    out.dataset.state = 'pass';
+    out.textContent = 'All 61 editable gallery entries, age and era filters, portrait and body views and saved copies passed';
   } catch (error) { out.dataset.state = 'fail'; out.textContent = error.stack; }
 }
 function checkRoundedBaby() {
@@ -1397,10 +1449,13 @@ try {
       ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
       : 'google-chrome');
   for (const [name, check, query] of [
+    ['atelier', checkLibrary, '?tool=person-library'],
     ['atelier', checkEditor, '?bearing=90'],
     ['atelier', checkOrdinaryFaces, '?model=yellow-hardhat&tab=face&bearing=0'],
     ['atelier', checkOrdinaryFaces, '?model=blue-jacket&tab=face&bearing=270'],
-    ['atelier', checkOrdinaryFaces, '?preset=look_body_female&tab=face&bearing=0'],
+    ['atelier', checkOrdinaryFaces, '?tab=face&bearing=0#' + new URLSearchParams({character:JSON.stringify({
+      ...JSON.parse(readFileSync(join(root,'packs/female-adult.json'),'utf8')),packs:{'pine-core':'1.18.0'}
+    })})],
     ['atelier', checkRoundedBaby, '?figure=random&age=baby&seed=3603&tab=face&bearing=270&action=idle&phase=17'],
     ['atelier', checkRatioEditor, '?figure=features&model=baby&tab=face'],
     ['atelier', checkInfantProfilePair, '?model=baby02-profile&compare=baby02-source&tab=face&bearing=270&action=idle&phase=17'],
