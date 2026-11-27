@@ -56,9 +56,11 @@ const hikerMotion = (() => {
     const z = torso[2]*n[0] + torso[6]*n[1] + torso[10]*n[2];
     const out = side*y;
     const extension = Math.min(1,distance/armLength);
-    // In a forward-and-outward reach the elbow hangs mostly below the hand.
-    // Swivel a little when lifting, and further when wrapping around the ribs.
-    const swivel = .15 + extension*(.54*Math.max(0,-z) + .22*Math.max(0,z)
+    // Leave space for the upper arm beside the ribs. Fade the extra swivel as
+    // the hand rises or moves widely across or away from the chest.
+    const besideRibs = (1-ramp(extension*z,-.04,.36)) *
+      (1-ramp(extension*Math.abs(out),.24,.58));
+    const swivel = .15 + .16*besideRibs + extension*(.54*Math.max(0,-z) + .22*Math.max(0,z)
       + .42*Math.max(0,out) + 1.18*Math.max(0,-out));
     const sin = Math.sin(swivel), down = -Math.cos(swivel);
     // Parallel-transport that bend by the shortest rotation from [.8,.6,0]
@@ -100,7 +102,7 @@ const hikerMotion = (() => {
       return [from[0]+length*Math.sin(forward), from[1]+side*length*Math.cos(forward)*Math.sin(spread),
         from[2]-length*Math.cos(forward)*Math.cos(spread)];
     }
-    const spread = mix(.22,wave[1],weight), foreSpread = spread+mix(-.16,wave[2],weight);
+    const spread = mix(.30,wave[1],weight), foreSpread = spread+mix(-.16,wave[2],weight);
     const fore = mix(.29+.63*reach,.14,weight);
     const elbow = extend(shoulder,6.78,spread,mix(.04+.50*reach,.27,weight));
     const wrist = extend(elbow,5.8,foreSpread,fore), hand = extend(wrist,1.32,foreSpread,fore);

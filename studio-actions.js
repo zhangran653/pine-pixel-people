@@ -92,11 +92,8 @@ const soloClips = (() => {
         ch.headRoll = stance.headRoll;
         ch.yaw = stance.yaw;
         const torso = frame(r.pelvis, ch.hipOffset, ch.yaw, 0, ch.roll);
-        const reach = r.upperArm + r.forearm + r.palm;
-        ch.elbowPoles = sides.map(side => [-0.97, side * 0.19, -0.32]);
-        ch.hands = stance.hands.map(([front, out, down], i) => point(torso, [
-          r.shoulder[0] + reach * front, sides[i] * (r.shoulder[1] + reach * out), r.shoulder[2] - reach * down
-        ]));
+        if (r.archivedArmPose) ch.elbowPoles = sides.map(side => [-0.97, side * 0.19, -0.32]);
+        ch.hands = stance.hands.map((offset,i) => studioRig.restingHand(r,torso,sides[i],...offset));
       }
     }
     if (r.facialActing) {
@@ -258,11 +255,14 @@ const soloClips = (() => {
       // running forearm stays folded through both the drive and the backswing.
       const upper = run ? -.08 + .62*swing : -.04 + .48*swing;
       const flexion = run ? 1.45 + .20*swing : .40 + .15*swing;
-      const lower = r.forearm + r.palm, spread = run ? .11 : .09;
+      const lower = r.forearm + r.palm;
       const front = r.upperArm*Math.sin(upper) + lower*Math.sin(upper+flexion);
-      const drop = r.upperArm*Math.cos(upper) + lower*Math.cos(upper+flexion);
-      return point(neutral.torso,[r.shoulder[0]+front, arm.side*(r.shoulder[1]+drop*Math.sin(spread)),
-        r.shoulder[2]-drop*Math.cos(spread)]);
+      // Give the upper arm room beside the ribs while the forearm swings forward.
+      const upperDrop = r.upperArm*Math.cos(upper), lowerDrop = lower*Math.cos(upper+flexion);
+      const upperSpread = run ? .30 : .32, lowerSpread = run ? .065 : .19;
+      const outward = upperDrop*Math.sin(upperSpread) + lowerDrop*Math.sin(lowerSpread);
+      const down = upperDrop*Math.cos(upperSpread) + lowerDrop*Math.cos(lowerSpread);
+      return point(neutral.torso,[r.shoulder[0]+front, arm.side*(r.shoulder[1]+outward),r.shoulder[2]-down]);
     });
     const airborne = run ? h * 0.051 * Math.sin(pi * clamp((t - 0.53) / 0.47)) ** 2 * strength : 0;
     return entry(a, pose(r, ch), x, y, airborne, heading);

@@ -232,15 +232,27 @@ for (const r of Object.values(rigAPI.profiles)) {
 }
 {
   const actor = motion.characters.get('look_silkloom_dye'), r = actor.rig;
-  for (const id of ['walk','run','clap','type','carry-box','tuck-hair','turn-collar','adjust-strap','gather-ponytail','wave']) {
+  // An omitted hand follows the relaxed stance. Explicit keys, including the
+  // old neutral coordinates in saved gestures, are still exact targets.
+  const rest = rigAPI.pose(r);
+  const oldOffset = [.1,.15,-.945];
+  const gesture = motion.keyframedGesture([{at:0},{at:1,right:oldOffset}]);
+  const start = gesture(0,actor)[0].pose, end = gesture(1,actor)[0].pose;
+  const reach = r.upperArm + r.forearm + r.palm;
+  const target = rest.arms[0].shoulder.map((v,k)=>v+oldOffset[k]*reach*(k===1 ? -1 : 1));
+  assert.ok(distance(start.arms[0].hand,rest.arms[0].hand) < 1e-7);
+  assert.ok(distance(end.arms[0].hand,target) < 1e-7 && distance(target,start.arms[0].hand) > .05*reach);
+  const minimumGap = {idle:.20, walk:.10, run:.11};
+  for (const id of ['idle','walk','run','clap','type','carry-box','tuck-hair','turn-collar','adjust-strap','gather-ponytail','wave']) {
     const clip = motion.actions.get(id);
-    let previous, spread = 0;
+    let previous, spread = 0, narrowest = Infinity;
     for (let n=0;n<=240;n++) {
       const pose = clip.sample(n/240,actor)[0].pose;
       const arms = pose.arms.map((arm,i)=>{
         const d = arm.elbow.map((v,k)=>(v-arm.shoulder[k])/r.upperArm);
         const m = pose.torso, local = [0,1,2].map(k=>m[k]*d[0]+m[k+4]*d[1]+m[k+8]*d[2]);
         spread = Math.max(spread,arm.side*local[1]);
+        narrowest = Math.min(narrowest,arm.side*local[1]);
         if (previous) {
           assert.ok(distance(local,previous[i].elbow) < .25,id+' elbow jumped at '+n);
           assert.ok(distance(arm.thumb,previous[i].thumb) < .32,id+' palm flipped at '+n);
@@ -249,7 +261,8 @@ for (const r of Object.values(rigAPI.profiles)) {
       });
       previous = arms;
     }
-    if (['walk','run','clap','type','carry-box'].includes(id)) assert.ok(spread < .40,id+' flared at the shoulder');
+    if (id in minimumGap) assert.ok(narrowest > minimumGap[id],id+' arm collapsed against the waist');
+    if (['idle','walk','run','clap','type','carry-box'].includes(id)) assert.ok(spread < .40,id+' flared at the shoulder');
     if (id==='wave') assert.ok(spread > .70,'a deliberately raised elbow must clear the shoulder');
   }
 }

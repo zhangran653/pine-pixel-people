@@ -215,6 +215,18 @@ const studioRig = (() => {
     }
     return changed ? { ...pose, feet, legs } : pose;
   }
+  // Open a free, hanging arm in the frontal plane without straightening its elbow.
+  // Front, out and down are fractions of this actor's arm reach.
+  function restingHand(rig, torso, side, front = .1, out = .15, down = .945) {
+    const angle = rig.archivedArmPose ? 0 : .09;
+    const c = Math.cos(angle), s = Math.sin(angle);
+    const reach = rig.upperArm + rig.forearm + rig.palm;
+    return point(torso, [
+      rig.shoulder[0] + reach*front,
+      side*(rig.shoulder[1] + reach*(out*c + down*s)),
+      rig.shoulder[2] - reach*(down*c - out*s)
+    ]);
+  }
   function pose(rig, channels = {}) {
     const torso = frame(
       rig.pelvis,
@@ -254,12 +266,7 @@ const studioRig = (() => {
       const base = [rig.shoulder[0], side * rig.shoulder[1], rig.shoulder[2]],
         shoulder = point(torso, base);
       const length = rig.upperArm + rig.forearm + rig.palm;
-      const rest = point(torso, [
-        base[0] + length * 0.1,
-        base[1] + side * length * 0.15,
-        base[2] - length * 0.945
-      ]);
-      const goal = channels.hands?.[i] || rest,
+      const goal = channels.hands?.[i] || restingHand(rig,torso,side),
         delta = goal.map((v, k) => v - shoulder[k]);
       const requested = Math.hypot(...delta);
       const factor = Math.min(1, length / (requested || 1));
@@ -310,6 +317,7 @@ const studioRig = (() => {
   return {
     centimetersPerUnit: 3.4,
     profiles,
+    restingHand,
     // Freeze the original arm articulation for the published pixel-art comparisons.
     withArchivedArmPose: actor => ({...actor, rig:{...actor.rig, archivedArmPose:true}}),
     seated,

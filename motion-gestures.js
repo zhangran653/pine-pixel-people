@@ -8,7 +8,7 @@ const activityMotion = (() => {
   const blink = (u) => span(u, 0.68, 0.697, 0.711, 0.737);
   const between = (a, b, t) => a.map((n, i) => mix(n, b[i], t));
   const reach = (r) => r.upperArm + r.forearm + r.palm;
-  const restArm = [0.1, 0.15, -0.945];
+  const legacyRestArm = [0.1, 0.15, -0.945];
   const walking = ['adult', 'child', 'toddler'],
     school = ['adult', 'child'],
     small = ['baby', 'toddler'],
@@ -66,7 +66,8 @@ const activityMotion = (() => {
   }
   // A key is an absolute pose. Neutral channels fill omitted values at that key.
   function gesture(keys) {
-    const defaults = { right: restArm, left: restArm, head: zero, body: zero, shift: zero };
+    // A free hand takes the actor's resting position, including a seated baby's lap.
+    const defaults = { right: null, left: null, head: zero, body: zero, shift: zero };
     if (!Array.isArray(keys) || keys.length < 2 || keys[0]?.at !== 0 || keys[keys.length - 1]?.at !== 1)
       throw Error('手势关键帧须从 0 到 1');
     const frames = keys.map((key, i) => {
@@ -86,6 +87,10 @@ const activityMotion = (() => {
       }
       for (const [name, neutral] of Object.entries(defaults)) {
         const v = key[name] ?? neutral;
+        if (v === null) {
+          next[name] = null;
+          continue;
+        }
         if (!Array.isArray(v) || v.length !== 3 || !v.every(Number.isFinite))
           throw Error('无效的手势通道 ' + name);
         next[name] = [...v];
@@ -116,7 +121,10 @@ const activityMotion = (() => {
       if (r.facialActing) ch.faceCue = { gaze:channel('gaze') };
       const rest = pose(r, ch);
       ch.hands = ['right','left'].map((name,i)=>{
-        const target=v=>ch.floorSeat && v.every((x,j)=>x===restArm[j]) ? rest.arms[i].hand : hand(r,rest,i,v);
+        const target = v => {
+          if (v === null || (ch.floorSeat && v.every((x,j)=>x===legacyRestArm[j]))) return rest.arms[i].hand;
+          return hand(r,rest,i,v);
+        };
         return swingHand(r,rest,i,target(first[name]),target(last[name]),w);
       });
       return [entry(a, pose(r, ch))];
