@@ -305,6 +305,7 @@ const movementActions = (() => {
     )
   );
   // Each beat moves one sole between two marks on the actual flight. The other stays planted.
+  const stairSections = {};
   const stairBeats = (() => {
     const beats = [], last = PineWorld.stairs.count + 3;
     let marks = [[-1, 0], [-1, 0]], swing = 0;
@@ -325,8 +326,11 @@ const movementActions = (() => {
     for (let n = 0; n <= last; n++) step(n, 0);
     step(last, 0);
     rest(2);
+    stairSections.top=beats.length;
     turn(last, Math.PI);
+    stairSections.facingDown=beats.length;
     rest(6);
+    stairSections.descent=beats.length;
     for (let n = last - 1; n >= -1; n--) step(n, Math.PI);
     step(-1, Math.PI);
     turn(-1, tau);
@@ -363,7 +367,19 @@ const movementActions = (() => {
       hand(rig, rest, i, [0.11 + side * swing * 0.3, 0.14, -0.84]), Math.abs(swing)));
     return [entry(actor, pose(rig, ch), x, y, z, Math.atan2(s, c))];
   }
-  clips.push({ ...solo('climb-stairs', '上下楼梯', '移动', 17, school, stairWalk, '上楼 下楼 爬楼 台阶 楼台 转身'),
+  clips.push({ ...solo('climb-stairs', '上下楼梯', '移动', 10, school, stairWalk, '上楼 下楼 爬楼 台阶 楼台 转身'),
     route: 'stairs' });
+  for (const [id,label,seconds,from,to] of [
+    ['ascend-stairs','逐级上楼',7.8,0,stairSections.top],
+    ['turn-on-landing','在楼台换脚转身',2.1,stairSections.top,stairSections.facingDown],
+    ['descend-stairs','逐级下楼',7.8,stairSections.descent,stairBeats.length]
+  ]) clips.push({...solo(id,label,'移动',seconds,school,(u,a)=>stairWalk(mix(from,to,u)/stairBeats.length,a),'楼梯 台阶 楼台 '+label),
+    route:'stairs',transition:true});
+  for (const [id,label,seconds,base,start,end,roles] of [
+    ['take-seat','落座',1.65,soloClips.sitdown,0,.5,walking],
+    ['rise-from-seat','从椅上起身',1.8,soloClips.sitdown,.5,1,walking],
+    ['lower-to-knee','屈膝单跪',1.95,(u,a)=>exercise('kneel',u,a),0,.5,school],
+    ['rise-from-knee','从单膝跪姿站起',2.15,(u,a)=>exercise('kneel',u,a),.5,1,school]
+  ]) clips.push({...solo(id,label,'姿态转换',seconds,roles,(u,a)=>base(mix(start,end,u),a),'独立转场 '+(id==='take-seat'?'坐下 椅子':id==='rise-from-seat'?'起立 站起来 椅子':'单膝跪地 起立')),transition:true});
   return clips;
 })();

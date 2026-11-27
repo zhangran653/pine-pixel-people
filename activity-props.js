@@ -188,6 +188,16 @@ const activityProps = (() => {
         power
       );
     painter({ box, line, oval, k, item, cell: 1 / (s * (b.density || 1)) });
+    if (item.seal) {
+      const [x,y,z]=item.seal;
+      box([x,y,z+.06],[.65,.62,.16],k.bookCover);
+      box([x+.10,y,z+.18],[.13,.36,.10],k.pageIvory);
+    }
+    if (item.inkPath?.length) {
+      const points=item.inkPath, radius=item.kind==='scroll'?.25:.19;
+      oval(points[0],[radius,radius,.15],k.pageInk);
+      for(let j=1;j<points.length;j++) line(points[j-1],points[j],radius,k.pageInk);
+    }
     return true;
   }
   return { materials, paint };

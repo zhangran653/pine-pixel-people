@@ -380,6 +380,7 @@ const PineWorld = (() => {
     ['phone', '智能手机', 'office', both, [5, 6, 8], 3, { screen: [0, 0, 0] }],
     ['laptop', '笔记本电脑', 'office', both, [19, 20, 13], 1.5, { keyboard: [0, 0, 0] }],
     ['stool', '折叠凳', 'furniture', all, [12, 17, 10], 8, { seat: [0, 0, 0] }],
+    ['mat', '条纹软垫', 'home', all, [49, 20, 4], .1],
     ['book', '展开的书', 'office', all, [11, 15, 8], 1, { page: [0, 2, 1] }],
     ['pen', '签字笔', 'office', both, [5, 5, 7], 2.3],
     ['camera', '照相机', 'office', both, [8, 9, 8], 2.4],
@@ -556,7 +557,7 @@ const PineWorld = (() => {
       typeof id !== 'string' ||
       !/^[a-z][a-z0-9-]*$/.test(id) ||
       items.has(id) ||
-      ['water', 'mat'].includes(id)
+      id === 'water'
     )
       throw Error('无效或重复的物件 ID');
     if (
@@ -834,6 +835,11 @@ const PineWorld = (() => {
     return floorAt;
   }
   const resolvedScenes = new WeakSet();
+  function withoutScenery(placements, item) {
+    const result=placements.filter(p=>p!==item);
+    resolvedScenes.add(result);
+    return result;
+  }
   function withScenery(placements, extra) {
     const result = [...placements, extra];
     resolvedScenes.add(result);
@@ -965,6 +971,6 @@ const PineWorld = (() => {
       ...(actorPlacement ? { actorPlacement: adopt(actorPlacement) } : {}) };
   }
   return { realms, families, items, painters, materials, geometry, cutaway, detailMode, place, scenes, stairs,
-    normalize, resolveScene, layout, withScenery, ancestors, reparent, collectContents, removePlacement, register };
+    normalize, resolveScene, layout, withScenery, withoutScenery, ancestors, reparent, collectContents, removePlacement, register };
 })();
 globalThis.PineWorld = PineWorld;

@@ -1451,7 +1451,7 @@ function checkWorldEditor() {
     set('world-detail', 'standard');
     check(Math.abs(scenePlan().sample(0)[0].z - 4.7) < 1e-7, 'returning to the stall uses its floor at standard quality too');
     set('world-scene', 'stairs');
-    check(get('world-clip').value === 'climb-stairs' && !get('route-playback').hidden, 'stair scene with timeline');
+    check(get('world-clip').value === 'ascend-stairs' && !get('route-playback').hidden, 'stair scene with timeline');
     const downstairs = get('world-canvas').toDataURL();
     get('upper-landing').click();
     check(get('world-scrub').valueAsNumber === 0.5 && get('world-canvas').toDataURL() !== downstairs, 'pause with both feet upstairs');
@@ -1491,6 +1491,35 @@ function checkStudioMotions() {
       'activity categories'
     );
     byId('motion-browser').open = true;
+    set('who',''); expect(byId('which').options.length===500,'browse the whole catalog without choosing an actor');
+    set('which','baby-find-feet'); expect(byId('motion-supplies').textContent.includes('演员'),'provide an age-appropriate main actor automatically');
+    set('motion-domain','movement'); set('motion-duration','short'); set('motion-people','solo'); set('motion-ending','transition');
+    const choices=Array.from(byId('which').options,o=>o.value);
+    expect(choices.includes('threshold') && choices.every(id=>{
+      const c=PineMotion.actions.get(id);
+      return c.seconds>=2 && c.seconds<3 && c.roles.length===1 && c.transition && c.domain==='movement';
+    }),'combined motion filters');
+    byId('clear-motions').click();
+    set('who','baby'); set('motion-domain','together'); set('motion-people','pair'); set('motion-query','循声','input');
+    expect(byId('which').value==='family-hear-bell' && byId('with').value==='mother' &&
+      byId('motion-supplies').textContent.includes('宝宝摇铃'),'auto cast and library rattle for a baby in the second role');
+    byId('try').click();
+    byId('preview-three').addEventListener('click',e=>e.preventDefault(),{once:true}); byId('preview-three').click();
+    const family=JSON.parse(sessionStorage.getItem('pineCreek.threePreview.v1'));
+    expect(family.steps[0].actors.join(',')==='mother,baby','role order for portable preview');
+    byId('edit-world').addEventListener('click',e=>e.preventDefault(),{once:true}); byId('edit-world').click();
+    const incoming=JSON.parse(sessionStorage.getItem('pineCreek.threePreview.v1'));
+    expect(new URL(byId('edit-world').href).searchParams.get('book').startsWith('clip.') &&
+      incoming.steps.length===1 && incoming.steps[0].action==='family-hear-bell','single clip travels to the world');
+    const make=URL.createObjectURL, click=HTMLAnchorElement.prototype.click;
+    let clipFile,clipBlob;
+    try {
+      URL.createObjectURL=b=>{clipBlob=b;return make.call(URL,b);};
+      HTMLAnchorElement.prototype.click=function(){clipFile=this.download;};
+      byId('export-clip').click();
+    } finally {URL.createObjectURL=make;HTMLAnchorElement.prototype.click=click;}
+    expect(clipFile==='pine-motion-family-hear-bell.json' && clipBlob?.type==='application/json','export individual clip');
+    byId('return-score').click(); byId('clear-motions').click();
     set('who', 'child');
     set('motion-group', '家务');
     set('motion-query', '打扫', 'input');

@@ -103,4 +103,7 @@ const plan = PineMotion.compile({
 
 `target` 是场景实例的零起始下标。动作声明 `station` 指定可绑定的类型。采样器把演员及动作中的道具一起转到对应的桌子或台灯旁。当前动作接管的物件由动画绘制，例如手按下开关后灯罩底部的颜色会改变。其余实例通过 `plan.scenery(time)` 返回。动作结束后，静态实例恢复显示。导出、导入及删除前面的物件时应保留或重映射这一引用。
 
+在工坊选用动作时，`PineMotion.prepareAction(id,{actor,scene,actorPlacement})` 会优先选取同层最近的主设施。桌面盖章可以借用已放置的书桌，跳水洼可以沿场景中现有水洼的方向起跳。独立使用时，手持道具在演员的 `pose.props` 中，固定布景从 `plan.scenery(t)` 取得。两处使用同一份 `PineWorld.items` 物件目录。 [动作依赖与自定义接口](motion-standard.html#supplies)
+
+
 工坊使用 `stage.setFrame(plan.sample(t), plan.scenery(t))`。Three.js 的 `cast.setTime(plan,t)` 同时更新人物和场景，也可以对独立场景调用 `cast.setScene(PineWorld.normalize(placements))`。同一物件的多个实例共享几何体，`cast.dispose()` 会释放缓存。

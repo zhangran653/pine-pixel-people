@@ -254,7 +254,7 @@ function createStudioStage(canvas) {
     if (scene.length) scene = PineWorld.resolveScene(scene);
     scenery = scene.map((p) => ({ ...PineWorld.geometry(p.kind, detail), ...p }));
     entries = list.map((e) => {
-      const actor = studioLibrary.characters.get(e.character);
+      const actor = studioLibrary.performer(studioLibrary.characters.get(e.character),e.pose);
       return { ...e, actor, rig: actor.rig, body: actor.body, model: actor.body.makePose(e.pose) };
     });
     drawings = entries.flatMap(p => placeSliceLayers(p,

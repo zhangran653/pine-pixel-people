@@ -3,7 +3,7 @@ const atelierPreview = (() => {
   const radians = Math.PI / 180;
   const portraits = new WeakMap();
   const logicalSizes = new WeakMap();
-  let grain = null;
+  let grain = null, compositor;
 
   function paper(canvas) {
     const w = canvas.width,
@@ -42,6 +42,7 @@ const atelierPreview = (() => {
   }
 
   function part(actor, sample) {
+    actor=PineMotion.performer(actor,sample.pose);
     return { ...sample, actor, body: actor.body, model: actor.body.makePose(sample.pose) };
   }
 
@@ -52,7 +53,7 @@ const atelierPreview = (() => {
       if (pair) {
         const samples = clip.sample(phase, ...pair);
         const parts = pair.map((a, i) => part(a, samples[i]));
-        return [{ parts }];
+        return [{ parts,scenery:motion.stageFor(clip,pair) }];
       }
       clip = motion.actions.get('idle');
     }
@@ -62,14 +63,18 @@ const atelierPreview = (() => {
       // A solo mirror follows the moving root horizontally and keeps the chosen
       // side facing the lens. Ground-relative height and all joint motion survive.
       const p = part(a, { ...sample, x: 0, y: 0, heading: clip.previewTurn ? sample.heading : 0 });
-      return { parts: [p], drawing: p };
+      const scenery=motion.stageFor(solo,[a]).map(item=>{
+        const location=motion.rig.local({...sample,z:0,heading:solo.previewTurn?0:sample.heading},[item.x,item.y,item.z]);
+        return {...item,x:location[0],y:location[1],z:location[2],heading:item.heading-(solo.previewTurn?0:sample.heading)};
+      });
+      return { parts: [p], drawing: p,scenery };
     });
   }
 
-  function lens(bearing, portrait) {
+  function lens(bearing, portrait, elevation) {
     // A level full-body lens puts every point on the floor on the same scanline.
     const yaw = bearing * radians,
-      tilt = (portrait ? 5 : 0) * radians;
+      tilt = (elevation ?? (portrait ? 5 : 0)) * radians;
     const ca = Math.cos(yaw),
       sa = Math.sin(yaw),
       ce = Math.cos(tilt),
@@ -401,7 +406,7 @@ const atelierPreview = (() => {
     if (!groups.length) return;
     const feature = ['eyes', 'brows', 'nose', 'mouth'].includes(view);
     const portrait = view === 'face' || feature,
-      camera = lens(bearing, portrait);
+      camera = lens(bearing, portrait, fixed?.elevation);
     const frames = groups.map((g) => framing(g, motion, camera, portrait, groups.length > 1));
     const measured =
       !portrait && !compact && fullBodyLayout(w, h, groups, frames, motion, pixel, action, camera);
@@ -470,7 +475,12 @@ const atelierPreview = (() => {
         ink = layer.getContext('2d');
         ink.clearRect(0, 0, layer.width, layer.height);
       }
-      for (const d of drawings) {
+      if (g.scenery?.length && !portrait) {
+        compositor??=createSceneCompositor();
+        const scenery=g.scenery.map(p=>({...PineWorld.geometry(p.kind,detail?'figure':'standard'),...p}));
+        compositor.draw(ink,{yaw:camera.yaw,elevation:camera.tilt,x:ox*ratio,y:oy*ratio,
+          scaleX:scale*ratio,scaleY:scale*ratio},scenery,drawings);
+      } else for (const d of drawings) {
         const pos = camera.project(d.x, d.y, d.z);
         d.body.draw(
           ink,
@@ -705,16 +715,18 @@ const atelierPreview = (() => {
   function actionCard(clip, cast, bearing) {
     const motion = globalThis.PineMotion,
       first = clip.sample(0, ...cast),
+      scenery = motion.stageFor(clip,cast),
       height = Math.max(...cast.map((p) => p.rig.height));
     if (bearing === undefined)
       bearing =
-        cast.length === 1
+        clip.id==='lend-book' ? 265 : cast.length === 1
           ? -31
           : Math.abs(first[1].y - first[0].y) > Math.abs(first[1].x - first[0].x)
             ? 18
             : 68;
-    const camera = lens(bearing, false),
-      fixed = { left: Infinity, right: -Infinity, top: Infinity, bottom: 0 };
+    const elevation=clip.station==='desk'?23:scenery.length?14:clip.group==='双人交接'?12:0;
+    const camera = lens(bearing, false,elevation),
+      fixed = { left: Infinity, right: -Infinity, top: Infinity, bottom: 0,elevation };
     for (let n = 0; n <= 10; n++) {
       clip.sample(n / 10, ...cast).forEach((e, i) => {
         const rig = cast[i].rig,
@@ -734,12 +746,17 @@ const atelierPreview = (() => {
         }
       });
     }
+    for (const p of scenery) {
+      const bounds=projectedBounds({...PineWorld.geometry(p.kind,'standard'),...p},camera);
+      fixed.left=Math.min(fixed.left,bounds[0]); fixed.right=Math.max(fixed.right,bounds[2]);
+      fixed.top=Math.min(fixed.top,bounds[1]); fixed.bottom=Math.max(fixed.bottom,bounds[3]);
+    }
     fixed.left -= 0.115 * height;
     fixed.right += 0.115 * height;
     fixed.top -= 0.082 * height;
     fixed.bottom += 0.024 * height;
     return (canvas, u = 0.46) => {
-      const groups = [{ parts: clip.sample(u, ...cast).map((e, i) => part(cast[i], e)) }];
+      const groups = [{ parts: clip.sample(u, ...cast).map((e, i) => part(cast[i], e)),scenery }];
       paper(canvas);
       paint(
         canvas.getContext('2d'),

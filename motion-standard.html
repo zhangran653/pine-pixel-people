@@ -54,7 +54,7 @@ PineMotion.registerCharacter({
       </section>
       <section id="actions">
         <h2>编写一个动作</h2>
-        <p>每个动作声明默认时长、角色槽位和采样函数。<code>sample(u, 主角, 搭档)</code> 接收 0 至 1 的进度，返回本帧的演出人物数组。用传入的进度计算姿势，便可随时拖动时间、重复播放或改速。相同的时间与人物应得到相同的结果。</p>
+        <p>每个独立动作声明大于 0 且至多 10 秒的原始时长、演员槽位和采样函数。将 <code>transition</code> 设为 <code>true</code> 可标记落座、上楼、交接或盖印等会保留结果的片段。<code>sample(u, 主角, 搭档)</code> 接收 0 至 1 的进度，返回本帧的演出人物数组。用传入的进度计算姿势，便可随时拖动时间、重复播放或改速。相同的时间与人物应得到相同的结果。</p>
 <pre><code>PineMotion.registerAction({
   id: 'look_around', label: '看看四周', group: '日常', seconds: 2.4,
   roles: [['adult', 'child', 'toddler']],
@@ -94,11 +94,22 @@ PineMotion.registerAction({
         <p><code>roles</code> 有几个槽位，就按顺序传入几个人。每个槽位列出允许的标签，命中任意一个即可。击掌的两个槽位都接受 adult、child 或 toddler。托抱和躲猫猫使用 <code>[['adult'], ['baby']]</code>，任一成人形象都能扮演照护者。旧编排中的 <code>mother</code> 仍会选中原来的那位演员。</p>
         <p>每个人物都有命名接触点 <code>mouth</code>、<code>rightEye</code>、<code>leftEye</code>、<code>seat</code>（臀侧）和 <code>upperBack</code>（上背）。换服装或体型后如果锚点有偏移，可在注册人物时传入 <code>sockets: { upperBack: { frame: 'torso', point: [-1.95, -1.18, 11.65] } }</code>。point 是相对于静止人物原点的坐标，frame 可选 head 或 torso，带下颌骨架的人物还支持 jaw。<code>PineMotion.rig.socket(actor, pose, 'upperBack')</code> 会给出当前姿势下的人物局部坐标。</p>
         <p>两个人物共享一个 u。击掌先选一个双方都能触到的场景坐标，再把它分别换算为两人的局部手掌目标。递接包裹时由一人绘制包裹，易手前后使用相同的场景坐标。牵手迈步时双方同步换脚。抱起时，宝宝臀侧和上背的接触点随躯干升降，妈妈的两只手分别追踪它们。可从每位演出者的 <code>contacts</code> 读取已求解的场景坐标检查间距。渲染器先把两人投到共同的像素切片，再根据相机角度绘制手臂、衣服和脸的遮挡。</p>
-        <p>可用 <code>PineMotion.castFor(clip, actor, preferredPartner)</code> 按角色顺序获得匹配的一对演员。<code>PineMotion.findActions(actor, { group, query, eitherRole: true })</code> 同时查找可担当主角或搭档的动作。新增互动可在正侧面核对接触，再转到背面查看交错的手臂。想让相邻两段衔接平滑，可以为它们绘制相同的收尾和起始姿势。<a href="duet-clips.js">击掌、托抱和躲猫猫的实现</a></p>
+        <p>可用 <code>PineMotion.castFor(clip, actor, preferredPartner)</code> 按角色顺序获得匹配的一对演员。<code>PineMotion.findActions(actor, { domain, group, query, duration, people, ending, eitherRole: true })</code> 可以按两个角色位置查找动作。传入 <code>null</code> 作为人物可浏览全库。时长值为 <code>brief</code>、<code>short</code>、<code>medium</code>、<code>long</code>，分界为 2、3、5 秒。人数可选 <code>solo</code> 或 <code>pair</code>，收尾可选 <code>return</code> 或 <code>transition</code>。新增互动可在正侧面核对接触，再转到背面查看交错的手臂。想让相邻两段衔接平滑，可以为它们绘制相同的收尾和起始姿势。<a href="duet-clips.js">击掌、托抱和躲猫猫的实现</a></p>
+      </section>
+      <section id="supplies">
+        <h2>从库里准备演员和道具</h2>
+        <p><code>prepareAction</code> 可以只接收动作 ID，也可以指定人物、搭档和场景。结果包含按表演顺序排列的 <code>cast</code>、可直接编排的 <code>step</code>、带数量和库 ID 的 <code>items</code> 及穿搭 <code>wear</code>。从婴儿发起亲子动作时，成人会自动进入照护者槽位。<a href="studio.html?actor=baby&amp;action=family-hear-bell&amp;play=1">用工坊复演</a></p>
+<pre><code>const ready = PineMotion.prepareAction('family-hear-bell', { actor: 'baby' });
+const plan = PineMotion.compile({ version: 1, steps: [ready.step] });
+const people = plan.sample(1.2);
+const scenery = plan.scenery(1.2);</code></pre>
+        <p>编写动作时用 <code>items: ['stamp', 'clipboard']</code> 声明由采样器跟手绘制的物品，数量按同时使用的最大件数填写。双方递同一本书只声明一次，两人各持一把扇子就填两次。<code>seatSlots: [0]</code> 声明成人或儿童使用折叠凳，坐在地面的宝宝会省去该凳。上述 ID 来自 <code>PineWorld.items</code>。</p>
+        <p><code>fixtures: [{kind:'puddle', x:7.75, y:0}]</code> 让工坊、场景和 Three.js 自动放入静止布景。横向距离随人物身高缩放，<code>z</code> 使用场景高度单位，<code>heading</code> 使用弧度。传入 <code>scene</code> 和可选的 <code>actorPlacement</code> 时，<code>prepareAction</code> 会在同一层级匹配最近的同类主设施，绑定结果记入 <code>step.target</code>。可自行更换目标下标。<a href="world-standard.md">场景实例规范</a></p>
+        <p><code>wear: [{slot:'glasses', fallback:'round'}]</code> 按角色槽位声明穿搭。沿用已有眼镜，空槽从人物库借用圆框眼镜。可选 <code>accept</code> 数组限定相容的款式。自定义渲染入口可用 <code>PineMotion.performer(actor, entry.pose)</code> 取得这一帧的穿搭，用该人物的 body 绘制。角色原配方随编排导出，借用品在重放时解析。<a href="motion-supplies.js">依赖与接触位置</a> · <a href="short-props.js">共享物件</a></p>
       </section>
       <section id="score">
         <h2>编排、循环与交换文件</h2>
-        <p>动作库收录 112 个动作和 18 套循环编排。用「查找动作」搜索中文用途或英文 ID，也可以展开姿势卡片试演当前人物。示例「周末来访」携带园丁和田径少年两份完整形象，可在另一浏览器导入复演。「上下楼梯」可以绑定场景里的楼梯，成人和学童都能逐级走到二层并返回。<a href="index.html?scene=stairs&amp;play=1">播放上下楼梯</a> · <a href="packs/weekend-visit.json" download>下载周末来访</a> · <a href="studio.html?demo=outdoors">试演一起出门</a> · <a href="social-clips.js">双人和亲子动作实现</a></p>
+        <p>动作库收录 500 个片段，分为 8 个领域、45 类，可单独播放、导出或组成时间线。工坊提供 18 套循环编排。编排可用 <code>seconds</code> 改速，用 <code>repeat</code> 重复，也可分别编排「上楼」「平台转身」「下楼」。历史文件按保存的时长播放。<a href="studies/short-actions.webp">九段游戏实拍</a> · <a href="index.html?scene=stairs&amp;play=1">播放楼梯场景</a> · <a href="packs/weekend-visit.json" download>下载周末来访</a></p>
         <p>在工坊里选择人物和动作，调整「单次秒数」「重复次数」，再点「加入末尾」。点击时间线中的一段即可修改、替换、移动或删除。「单段试看」播放编辑中的一段，可以勾选循环反复观察。「三维预览」也会带入该段。点「返回编排」回到原播放位置和整套编排的循环设置。勾选「循环播放」会在整套编排结束后回到第一段。编排本随编辑保存在当前浏览器中，导出的 JSON 可以在其他浏览器导入。</p>
 <pre><code>{
   "version": 1,

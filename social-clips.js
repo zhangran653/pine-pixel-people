@@ -5,27 +5,8 @@ const socialActions = (() => {
     activityMotion;
   const root = (x, y, heading = 0) => ({ x, y, z: 0, heading });
   const placed = (a, r, p, contacts = {}) => ({ character: a.id, ...r, pose: p, contacts });
-  const delta = (a, b) => a.map((v, i) => v - b[i]),
-    plus = (a, b) => a.map((v, i) => v + b[i]);
-  const dot = (a, b) => a.reduce((n, v, i) => n + v * b[i], 0);
-  // Along the line toward the intended meeting point, keep both hands inside their reach spheres.
-  function commonPoint(shoulders, lengths, goal) {
-    const start = between(shoulders[0], shoulders[1], lengths[0] / (lengths[0] + lengths[1])),
-      d = delta(goal, start),
-      dd = dot(d, d);
-    let t = 1;
-    if (dd > 1e-10)
-      shoulders.forEach((s, i) => {
-        const q = delta(start, s),
-          b = dot(q, d),
-          c = dot(q, q) - lengths[i] ** 2;
-        t = Math.min(t, clamp((-b + Math.sqrt(Math.max(0, b * b - dd * c))) / dd));
-      });
-    return plus(
-      start,
-      d.map((v) => v * t)
-    );
-  }
+  const plus=(a,b)=>a.map((v,i)=>v+b[i]);
+  const commonPoint=studioRig.commonReach;
   function exchange(id, u, first, second) {
     const cast = [first, second],
       r = cast.map((a) => a.rig),

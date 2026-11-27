@@ -12,7 +12,7 @@ const builtins = [
   'surveyor-art',
   'family-art',
   'vehicle-slices',
-  'world-objects',
+  'world-objects', 'short-props',
   'activity-props',
   'studio-props',
   'studio-rig',
@@ -23,6 +23,7 @@ const builtins = [
   'daily-clips',
   'social-clips',
   'work-clips',
+  'motion-supplies', 'short-motion', 'everyday-short-clips', 'object-short-clips', 'workshop-short-clips', 'short-footwork', 'short-duets',
   'studio-library',
   'pixel-headwear',
   'pixel-portrait',
@@ -39,13 +40,16 @@ const builtins = [
   'appearance'
 ];
 const files = builtins.map((name) => join(__dirname, name + '.js'));
+let coreActions;
 for (const path of [...files, ...process.argv.slice(2).map((arg) => resolve(arg))]) {
   vm.runInContext(readFileSync(path, 'utf8'), context, { filename: path });
+  if (path===files.at(-1)) coreActions=new Set(context.PineMotion.actions.keys());
 }
 
 const motion = context.PineMotion;
 // The six legacy actors cover the four rigs. Extensions supplied to the checker are also exercised.
 const people = [...motion.characters.values()].filter((p) => !context.PineLooks.templateById.has(p.id));
+const kitFor=vm.runInContext('motionSupplies.inventory',context);
 const phases = [0, 0.15, 0.25, 0.375, 0.5, 0.625, 0.75, 0.85, 1];
 const distance = (a, b) => Math.hypot(...a.map((v, i) => v - b[i]));
 let combinations = 0;
@@ -58,8 +62,15 @@ function checkCast(clip, cast) {
   const step = { action: clip.id, actors: cast.map((p) => p.id) };
   const plan = motion.compile({ version: 1, steps: [step] });
   const label = clip.id + ' / ' + step.actors.join(' + ');
+  const observed=new Map();
   for (const phase of phases) {
-    const entries = plan.sample(phase * plan.duration);
+    const time=phase*plan.duration, entries=plan.sample(time);
+    if (coreActions.has(clip.id)) {
+      const items=[...plan.scenery(time),...entries.flatMap(e=>e.pose.props)];
+      const counts=new Map();
+      for (const {kind} of items) if (kind!=='water') counts.set(kind,(counts.get(kind)||0)+1);
+      for (const [kind,n] of counts) observed.set(kind,Math.max(observed.get(kind)||0,n));
+    }
     assert.equal(entries.length, cast.length, label);
     entries.forEach(({ character, x, y, z, heading, pose }, i) => {
       assert.equal(character, cast[i].id, label);
@@ -85,6 +96,10 @@ function checkCast(clip, cast) {
         assert.ok(distance(lead.backHand, partner.back) < 0.01, label + ' 上背支点未对齐');
       }
     }
+  }
+  if (coreActions.has(clip.id)) {
+    const listed=new Map(kitFor(clip,cast).map(({id,count})=>[id,count]));
+    assert.deepEqual(observed,listed,label+' actual library items, including shared quantities');
   }
   combinations++;
 }
@@ -195,7 +210,7 @@ for (const id of added) {
     ...e.pose.arms.flatMap((arm) => [...arm.hand, ...arm.elbow]),
     ...e.pose.feet.flat()
   ];
-  first.forEach((e, i) => assert.ok(distance(keys(e), keys(last[i])) < 1e-6, id + ' does not loop'));
+  if (!clip.transition) first.forEach((e, i) => assert.ok(distance(keys(e), keys(last[i])) < 1e-6, id + ' does not loop'));
   assert.ok(
     [0.16, 0.3, 0.47, 0.65, 0.79].some((u) =>
       clip.sample(u, ...cast).some((e, i) => distance(keys(e), keys(first[i])) > 0.01)
@@ -223,6 +238,85 @@ for (const id of ['sidestep', 'backstep', 'quiet-walk', 'march', 'pivot', 'skip'
 const adult = motion.characters.get('surveyor'),
   kid = motion.characters.get('child'),
   baby = motion.characters.get('baby');
+// An authored action is a short independent cue. A score can still deliberately
+// slow a cue down, including old files that used a 17-second stair round trip.
+const shortIds=vm.runInContext('[...everydayShortClips,...objectShortClips,...workshopShortClips,...shortFootwork,...shortDuets].map(c=>c.id)', context);
+assert.ok(motion.actions.size>=500);
+assert.throws(()=>motion.registerAction({id:'quality-overlong',label:'时长检查',seconds:10.01,roles:[['adult']],sample:()=>[]}),/10/);
+assert.equal(motion.compile({version:1,steps:[{action:'climb-stairs',actors:[adult.id],seconds:17}]}).duration,17);
+assert.ok(motion.findActions(baby,{people:'pair',domain:'together',eitherRole:true}).some(c=>c.id==='family-hear-bell'));
+assert.ok(!motion.findActions(baby,{group:'桌面操作'}).length);
+const supplies=motion.prepareAction('family-hear-bell',{actor:'baby'});
+assert.deepEqual([...supplies.step.actors],['mother','baby']);
+assert.deepEqual(Array.from(supplies.items,i=>i.id),['rattle']);
+assert.equal(motion.prepareAction('family-learn-fan').items.find(i=>i.id==='fan').count,2);
+assert.deepEqual(Array.from(motion.prepareAction('stamp-form').items,i=>i.id),['desk','chair','clipboard','stamp']);
+const bare=[...motion.characters.values()].find(p=>p.recipe?.base==='adult' && !p.recipe.parts.glasses);
+const dressed=motion.prepareAction('adjust-glasses',{actor:bare});
+assert.ok(dressed.wear[0].borrowed && !bare.recipe.parts.glasses);
+const glassesFrame=motion.actions.get('adjust-glasses').sample(.5,bare)[0];
+assert.equal(motion.performer(bare,glassesFrame.pose).recipe.parts.glasses,'round');
+assert.equal(motion.performer(bare,motion.actions.get('idle').sample(.5,bare)[0].pose),bare);
+const own=[...motion.characters.values()].find(p=>p.recipe?.base==='adult' && p.recipe.parts.glasses);
+assert.equal(motion.prepareAction('adjust-glasses',{actor:own}).wear[0].borrowed,false);
+const libraryWorld=context.PineWorld, matching=motion.prepareAction('stamp-form',{actor:adult,scene:[
+  libraryWorld.place('desk',31,17),libraryWorld.place('desk',3,1)]});
+assert.equal(matching.step.target,1);
+const jumping=motion.prepareAction('puddle-hop',{actor:kid}), puddlePlan=motion.compile({version:1,steps:[jumping.step]});
+assert.equal(puddlePlan.scenery(0)[0].kind,'puddle');
+assert.deepEqual(puddlePlan.scenery(0),puddlePlan.scenery(puddlePlan.duration*.52));
+assert.ok(puddlePlan.sample(puddlePlan.duration*.52)[0].z>2);
+const rainyStreet=[libraryWorld.place('puddle',28,-13,0,1.2)];
+const atWater=motion.prepareAction('puddle-hop',{actor:kid,scene:rainyStreet}).step;
+const onStreet=motion.compile({version:1,steps:[atWater],scene:rainyStreet});
+assert.equal(atWater.target,0); assert.equal(onStreet.scenery(1).length,1);
+const localPuddle=motion.stageFor(motion.actions.get('puddle-hop'),[kid])[0], start=onStreet.sample(0)[0];
+assert.ok(distance(rigAPI.world(start,[localPuddle.x,localPuddle.y,localPuddle.z]),[28,-13,0])<1e-7);
+for(const [id,kind] of [['hang-cloth','cloth'],['hook-keys','keyring'],['mark-trail','ribbon']]) {
+  const clip=motion.actions.get(id), end=clip.sample(1,adult)[0].pose, mounted=end.props.find(p=>p.kind===kind);
+  assert.deepEqual(mounted.frame,clip.sample(.88,adult)[0].pose.props.find(p=>p.kind===kind).frame);
+  assert.ok(distance(end.arms[0].hand,anchor(mounted,[0,0,0]))>2,id+' hand must let go');
+}
+const fingerprints=new Map(), {createHash}=require('node:crypto');
+for (const id of shortIds) {
+  const clip=motion.actions.get(id), cast=motion.castFor(clip,people.find(p=>motion.accepts(clip,0,p)));
+  const signature=createHash('sha256');
+  const joints=frame=>frame.flatMap(e=>[e.x,e.y,e.z,...e.pose.head,...e.pose.torso,...e.pose.feet.flat(),...e.pose.arms.flatMap(a=>a.hand)]);
+  for (const u of [0,.23,.46,.67,.83,1]) {
+    const frame=clip.sample(u,...cast);
+    signature.update(JSON.stringify([joints(frame),frame.flatMap(e=>e.pose.props.map(p=>[p.kind,p.frame]))]));
+  }
+  const fingerprint=signature.digest('hex');
+  assert.ok(!fingerprints.has(fingerprint),id+' duplicates '+fingerprints.get(fingerprint));
+  fingerprints.set(fingerprint,id);
+  if (!clip.transition) assert.ok(distance(joints(clip.sample(0,...cast)),joints(clip.sample(1,...cast)))<1e-6,id+' loop seam');
+}
+for (const [arrival,departure] of [['take-seat','rise-from-seat'],['lower-to-knee','rise-from-knee'],['ascend-stairs','turn-on-landing'],['turn-on-landing','descend-stairs']]) {
+  const end=motion.actions.get(arrival).sample(1,adult)[0],start=motion.actions.get(departure).sample(0,adult)[0];
+  assert.ok(Math.abs(end.z-start.z)<1e-8 && distance(end.pose.feet.flat(),start.pose.feet.flat())<1e-8,arrival+' cue boundary');
+}
+for(const clip of motion.findActions(adult,{group:'双人交接'})) for(const cast of [[adult,kid],[kid,adult]]) {
+  const shared=u=>{
+    const entries=clip.sample(u,...cast),owners=entries.filter(e=>e.pose.props.length);
+    assert.equal(owners.length,1,clip.id);
+    const e=owners[0], item=e.pose.props[0];
+    return {owner:e.character, points:[[0,0,0],[1,0,0],[0,1,0]].flatMap(p=>rigAPI.world(e,anchor(item,p)))};
+  };
+  const a=shared(.51-1e-7),b=shared(.51);
+  assert.notEqual(a.owner,b.owner,clip.id);
+  assert.ok(distance(a.points,b.points)<1e-5,clip.id+' object jumped at release');
+}
+for(const id of ['threshold','grapevine-step','ankle-circle']) {
+  const clip=motion.actions.get(id), sample=u=>{const e=clip.sample(u,adult)[0];return e.pose.feet.map(p=>rigAPI.world(e,p));};
+  for(const t of [.07,.27,.53,.81]) {
+    const a=sample(t),b=sample(t+.005);
+    assert.ok(a.some((p,i)=>distance(p,b[i])<1e-7),id+' needs a planted foot');
+  }
+}
+const sitter=context.PineLooks.build(context.PineLooks.templateById.get('look_dawn_baby'));
+assert.ok(motion.actions.get('baby-find-feet').sample(.53,sitter)[0].pose.floorSeat);
+const scrollMark=u=>motion.actions.get('ink-hook').sample(u,adult)[0].pose.props.find(p=>p.kind==='scroll').inkPath;
+assert.equal(scrollMark(0),undefined);assert.ok(scrollMark(1).length>=3);
 const poseAt = (id, u, person = adult) => motion.actions.get(id).sample(u, person)[0].pose;
 for (const [actor, id, u, kind] of [
   [adult, 'read', 0.5, 'book'],

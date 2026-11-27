@@ -4,6 +4,19 @@ const studioLibrary = (() => {
     actions = new Map(),
     rigs = studioRig.profiles;
   const isId = (s) => typeof s === 'string' && /^[a-z][a-z0-9_-]*$/.test(s);
+  const domains = {
+    life:['生活起居','日常','洗漱与仪容','穿衣与整理','等候与休息','姿势与休息','茶点与厨房','家务','家务与收纳','现代生活','手机与通勤','家具与照明'],
+    expression:['表情与沟通','神情与反应','交流与示意','手势与情绪'],
+    movement:['步态与运动','移动','姿态转换','步态与移动','体能与平衡','舞步与律动','运动与舞蹈'],
+    work:['学习与工作','学习与工作','阅读与课堂','办公与协作','学习与书桌','桌面操作','文件与服务','教学与导览','零售与服务'],
+    arts:['艺术与手艺','音乐与游戏','音乐与节拍','舞台与摄影','书画与传统工艺','手工与纺织'],
+    outdoors:['户外与探索','园艺与观察','户外与调查'],
+    together:['互动与亲子','婴幼儿','亲子','双人','双人配合','双人交接','亲子游戏'],
+    imagined:['奇幻与科幻','科幻与探索','奇幻表演','科幻作业','奇幻仪式']
+  };
+  const domainLabels=Object.fromEntries(Object.entries(domains).map(([id,[name]])=>[id,name]));
+  const domainByGroup=new Map(Object.entries(domains).flatMap(([id,[, ...groups]])=>groups.map(group=>[group,id])));
+  const lengthBands={brief:[0,2],short:[2,3],medium:[3,5],long:[5,Infinity]};
   function createCharacter({ id, label, rig, art, density = 2, tags, box, sockets, anatomy }) {
     if (!isId(id) || !label || typeof art?.paint !== 'function' || !art.materials)
       throw new Error('人物定义无效');
@@ -58,6 +71,8 @@ const studioLibrary = (() => {
     keywords = '',
     station,
     route,
+    items, seatSlots, wear, fixtures,
+    transition = false,
     previewTurn = false
   }) {
     if (
@@ -66,12 +81,14 @@ const studioLibrary = (() => {
       !label ||
       typeof group !== 'string' ||
       typeof keywords !== 'string' ||
-      typeof previewTurn !== 'boolean' ||
+      typeof previewTurn !== 'boolean' || typeof transition !== 'boolean' ||
       typeof sample !== 'function' ||
       !Number.isFinite(seconds) ||
       seconds <= 0
     )
       throw new Error('动作定义无效或 ID 重复');
+    if (seconds > 10) throw Error('单个动作最长为 10 秒，可在编排中连接或重复片段');
+    if (station!==undefined && !PineWorld.items.has(station)) throw Error('动作的交互设施需要来自物件库');
     if (route !== undefined && (station || !PineWorld.items.has(route))) throw new Error('行走路线需要已注册的场景设施');
     if (
       !Array.isArray(roles) ||
@@ -80,15 +97,21 @@ const studioLibrary = (() => {
       roles.some((r) => !Array.isArray(r) || !r.length || !r.every(isId))
     )
       throw new Error('动作需要一或两个含有效标签的角色槽位');
+    const resources=motionSupplies.define(id,items,seatSlots,roles,wear,fixtures);
     const clip = {
       id,
       label,
       group,
+      domain:domainByGroup.get(group) || '',
       seconds,
-      roles,
-      sample,
+      roles, resources, targetKind:station || route || resources.fixtures[0]?.kind,
+      sample:resources.wear.length ? (u,...cast)=>sample(u,...cast).map((part,i)=>{
+        const rule=resources.wear[i];
+        return rule?{...part,pose:{...part.pose,motionWear:rule}}:part;
+      }) : sample,
       keywords,
       previewTurn,
+      transition,
       ...(route ? { route } : {}),
       ...(station ? { station } : {})
     };
@@ -122,15 +145,22 @@ const studioLibrary = (() => {
     ...movementActions,
     ...dailyActions,
     ...socialActions,
-    ...worldActions
+    ...worldActions, ...everydayShortClips, ...objectShortClips, ...workshopShortClips, ...shortFootwork, ...shortDuets
   ])
     registerAction(clip);
-  function findActions(person, { group = '', query = '', eitherRole = false } = {}) {
+  function findActions(person, { domain='', group='', query='', duration='', people='', ending='', eitherRole=false } = {}) {
     const words = query.normalize('NFKC').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const band=lengthBands[duration];
     return [...actions.values()].filter((clip) => {
-      if (!accepts(clip, 0, person) && !(eitherRole && accepts(clip, 1, person))) return false;
+      if (person && !accepts(clip, 0, person) && !(eitherRole && accepts(clip, 1, person))) return false;
+      if (domain && clip.domain!==domain) return false;
       if (group && clip.group !== group) return false;
-      const text = [clip.label, clip.group, clip.id, ...clip.id.split('-'), clip.keywords]
+      if (band && (clip.seconds<band[0] || clip.seconds>=band[1])) return false;
+      if (people==='solo' && clip.roles.length!==1 || people==='pair' && clip.roles.length!==2) return false;
+      if (ending==='transition' && !clip.transition || ending==='return' && clip.transition) return false;
+      if (!words.length) return true;
+      const text = [clip.label, clip.group, domainLabels[clip.domain], clip.id, ...clip.id.split('-'), clip.keywords, ...clip.resources.items.map(id=>PineWorld.items.get(id).label),
+        (clip.resources.seatSlots.length?'折叠凳 椅子':''), ...clip.resources.fixtures.map(p=>PineWorld.items.get(p.kind).label),PineWorld.items.get(clip.route)?.label]
         .join(' ')
         .normalize('NFKC')
         .toLowerCase();
@@ -151,6 +181,37 @@ const studioLibrary = (() => {
       if (accepts(clip, 1, actor) && accepts(clip, 0, partner)) return [partner, actor];
     }
     return null;
+  }
+  function defaultActor(clip) {
+    return [...characters.values()].find(p=>accepts(clip,0,p));
+  }
+  function performer(actor,pose) {
+    return pose?.motionWear && globalThis.PineLooks ? PineLooks.motionOutfit(actor,pose.motionWear).actor : actor;
+  }
+  function prepareAction(id,{actor,partner,scene,actorPlacement}={}) {
+    const clip=typeof id==='string'?actions.get(id):id;
+    if (!clip) throw Error('找不到这个动作');
+    const member=p=>typeof p==='string'?characters.get(p):p;
+    const selected=actor===undefined?defaultActor(clip):member(actor);
+    const cast=castFor(clip,selected,member(partner));
+    if (!cast) throw Error('人物库里没有适合这段动作的演员搭配');
+    const step={action:clip.id,actors:cast.map(p=>p.id),seconds:clip.seconds,repeat:1};
+    const targetKind=clip.targetKind;
+    if (scene?.length && targetKind) {
+      const candidates=scene.map((p,index)=>({p,index})).filter(({p})=>p.kind===targetKind && p.parent===actorPlacement?.parent);
+      if (candidates.length) {
+        const distance=p=>Math.hypot((p.x||0)-(actorPlacement?.x||0),(p.y||0)-(actorPlacement?.y||0),(p.z||0)-(actorPlacement?.z||0));
+        step.target=candidates.reduce((a,b)=>distance(a.p)<=distance(b.p)?a:b).index;
+      }
+    }
+    const outfit=clip.resources.wear.flatMap((rule,i)=>{
+      const piece=rule && globalThis.PineLooks?.motionOutfit(cast[i],rule).wear;
+      return piece?[{actor:cast[i].id,...piece}]:[];
+    });
+    return {step,cast,items:motionSupplies.inventory(clip,cast),wear:outfit};
+  }
+  function stageFor(clip,cast) {
+    return [...(clip.route?[PineWorld.place(clip.route)]:[]),...motionSupplies.stage(clip,cast[0])];
   }
   function accepts(clip, slot, person) {
     return !!person && clip.roles[slot]?.some((tag) => person.tags.includes(tag));
@@ -402,7 +463,7 @@ const studioLibrary = (() => {
     if (!Number.isFinite(seconds) || seconds <= 0) fail('单次时长须为正数');
     if (!Number.isSafeInteger(repeat) || repeat < 1 || !Number.isFinite(seconds * repeat))
       fail('重复次数或总时长无效');
-    if (step.target !== undefined && (!(clip.station || clip.route) || !Number.isSafeInteger(step.target) || step.target < 0))
+    if (step.target !== undefined && (!clip.targetKind || !Number.isSafeInteger(step.target) || step.target < 0))
       fail('此动作无法绑定指定物件');
     return {
       action: clip.id,
@@ -441,7 +502,7 @@ const studioLibrary = (() => {
     const routes = new Map();
     for (const step of score.steps) {
       const clip = actions.get(step.action);
-      if (step.target !== undefined && score.scene?.[step.target]?.kind !== (clip.station || clip.route))
+      if (step.target !== undefined && score.scene?.[step.target]?.kind !== clip.targetKind)
         throw Error('动作绑定的场景物件缺失或类型不符');
       if (clip.route && !routes.has(clip.route)) {
         const placed = worldScene.find(p => p.kind === clip.route);
@@ -479,6 +540,25 @@ const studioLibrary = (() => {
     function routeFor(cue) {
       return cue?.clip.route ? worldScene[cue.step.target] || routes.get(cue.clip.route).obj : undefined;
     }
+    const setFrames=new Map();
+    function fixtureFrame(cue) {
+      if (cue.clip.route) return routeFor(cue);
+      if (cue.step.target===undefined) return castFrame || origin;
+      if (cue.clip.station) {
+        const local=cue.clip.sample(0,...cue.step.actors.map(id=>cast.get(id)))[0];
+        const world=sample(starts[cue.index])[0];
+        const heading=world.heading-local.heading;
+        const offset=studioRig.world({...origin,heading},[local.x,local.y,local.z]);
+        return {x:world.x-offset[0],y:world.y-offset[1],z:world.z-offset[2],heading};
+      }
+      if (!setFrames.has(cue.index)) {
+        const anchor=motionSupplies.stage(cue.clip,cast.get(cue.step.actors[0]))[0];
+        const target=worldScene[cue.step.target], heading=target.heading-anchor.heading;
+        const offset=studioRig.world({...origin,heading},[anchor.x,anchor.y,anchor.z]);
+        setFrames.set(cue.index,{x:target.x-offset[0],y:target.y-offset[1],z:target.z-offset[2],heading});
+      }
+      return setFrames.get(cue.index);
+    }
     function sample(t) {
       const cue = locate(t);
       if (!cue) return [];
@@ -486,6 +566,8 @@ const studioLibrary = (() => {
       let frame = castFrame;
       if (cue.clip.route) {
         frame = routeFor(cue);
+      } else if (cue.step.target !== undefined && !cue.clip.station) {
+        frame=fixtureFrame(cue);
       } else if (cue.step.target !== undefined) {
         const first = entries[0], destination = worldScene[cue.step.target];
         const fixture = first.pose.props.find(p => p.kind === cue.clip.station).frame;
@@ -529,10 +611,37 @@ const studioLibrary = (() => {
         return result;
       });
     }
+    const cueSets=new Map();
     function scenery(t) {
       const cue = locate(t);
-      if (cue?.clip.route) return routes.get(cue.clip.route).scenery;
-      return layout.scenery ? layout.scenery(cue?.step.target) : worldScene;
+      if (cue?.clip.route && !cue.clip.resources.fixtures.length) return routes.get(cue.clip.route).scenery;
+      const animatedTarget=cue?.clip.station?cue.step.target:undefined;
+      const scene=cue?.clip.route?routes.get(cue.clip.route).scenery:layout.scenery?layout.scenery(animatedTarget):worldScene;
+      if (!cue) return scene;
+      if (cueSets.has(cue.index)) return cueSets.get(cue.index);
+      let result=scene;
+      if (cue.clip.station==='desk' && animatedTarget!==undefined) {
+        const e=sample(starts[cue.index])[0], seat=e.pose.props.find(p=>p.kind==='chair');
+        if (seat) {
+          const [x,y,z]=studioRig.world(e,[seat.frame[3],seat.frame[7],seat.frame[11]]);
+          const nearby=scene.find(p=>p.kind==='chair' && Math.hypot(p.x-x,p.y-y)<5 && Math.abs(p.z-z)<1);
+          if (nearby) result=PineWorld.withoutScenery(result,nearby);
+        }
+      }
+      if (cue.clip.resources.fixtures.length) {
+        const actor=cast.get(cue.step.actors[0]),base=fixtureFrame(cue);
+        const fixtures=motionSupplies.stage(cue.clip,actor);
+        for (const [i,p] of fixtures.entries()) {
+          if (i===0 && cue.step.target!==undefined && !cue.clip.station && !cue.clip.route) continue;
+          const [x,y,z]=studioRig.world(base,[p.x,p.y,p.z]);
+          const floor=cue.step.target===undefined?(layout.actorFloorAt?.(x,y,base.z) ?? base.z):base.z;
+          const item={...p,x,y,z:z-base.z+floor,heading:p.heading+base.heading};
+          if (!result.some(o=>o.kind===item.kind && Math.hypot(o.x-item.x,o.y-item.y,o.z-item.z)<.5))
+            result=PineWorld.withScenery(result,item);
+        }
+      }
+      cueSets.set(cue.index,result);
+      return cueSets.get(cue.index);
     }
     return { score, worldScene, castFrame, starts, duration, locate, sample, scenery, routeAt: t => routeFor(locate(t)) };
   }
@@ -541,12 +650,14 @@ const studioLibrary = (() => {
     rig: studioRig,
     characters,
     actions,
+    domainLabels,
     faceLayers,
     closePortraitLayers,
     figureLayers,
     createCharacter,
     registerCharacter,
     registerAction,
+    prepareAction, defaultActor, performer, stageFor,
     accepts,
     findActions,
     castFor,

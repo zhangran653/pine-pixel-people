@@ -250,7 +250,7 @@ export function createPineCast(
     const cast = entries.map((e) => {
       const actor = motion.characters.get(e.character);
       if (!actor) throw new Error('未知人物 · ' + e.character);
-      return actor;
+      return motion.performer?.(actor,e.pose) ?? actor;
     });
     previousPlan = undefined;
     lastEntries = entries;

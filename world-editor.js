@@ -9,7 +9,7 @@
   const localKey = 'pinePixel.world.atlas.v1',
     rad = Math.PI / 180;
   const settings = {
-    stairs: ['庭院建筑', 'guide', 'climb-stairs', '#e5e8db', '#b5c39b', '#879d7d', '#d9caa8'],
+    stairs: ['庭院建筑', 'guide', 'ascend-stairs', '#e5e8db', '#b5c39b', '#879d7d', '#d9caa8'],
     street: ['现代街区', 'guide', 'guide-flag', '#d5dfcf', '#a5bd87', '#7c9b72', '#d7c6a3'],
     garden: ['现实自然', 'florist', 'look-around', '#e7e4cf', '#afc38e', '#729873', '#d7c9a3'],
     study: ['现代室内', 'programmer', 'desk-code', '#e6ddd0', '#d3b48d', '#a38f71', '#e4ceaa'],
@@ -77,18 +77,20 @@
   function baseScore(key) {
     const [, id, action] = settings[key],
       scene = scenes[key].objects.map((p) => ({ ...p }));
+    if (key === 'stairs') return {version:1,loop:true,scene,steps:['ascend-stairs','turn-on-landing','descend-stairs'].map(action=>({action,actors:['look_'+id],target:0}))};
     if (key === 'study') return { ...M.presets.office, scene: structuredClone(M.presets.office.scene) };
     const actorPlacement = scenes[key].actorPlacement;
     return { version: 1, loop: true, scene, ...(actorPlacement ? { actorPlacement } : {}),
-      steps: [{ action, actors: ['look_' + id], ...(key === 'stairs' ? {target: 0} : {}) }] };
+      steps: [{ action, actors: ['look_' + id] }] };
   }
-  function actors() {
+  function actors(focus) {
     const select = $('world-actor');
     select.replaceChildren();
     for (const a of M.characters.values())
       if (!a.recipeId?.startsWith('look_workshop_') || a.id === a.recipeId || wardrobe.saved.has(a.id))
         select.add(option(a.id, a.label));
-    const id = plan.score.steps[0]?.actors[0];
+    const first=plan.score.steps[0];
+    const id=first?.actors.includes(focus)?focus:first?.actors[0];
     if (id && !Array.from(select.options).some((o) => o.value === id))
       select.add(option(id, M.characters.get(id).label));
     select.value = id || 'look_guide';
@@ -98,7 +100,7 @@
     if (appearance) $('edit-scene-actor').href = appearance;
     const clips = $('world-clip');
     clips.replaceChildren();
-    for (const c of M.findActions(actor)) {
+    for (const c of M.findActions(actor,{eitherRole:true})) {
       let group = Array.from(clips.children).find((o) => o.label === c.group);
       if (!group) {
         group = document.createElement('optgroup');
@@ -114,13 +116,9 @@
     const previous = plan.score.steps[0],
       choice =
         M.actions.get(chooseMotion ? $('world-clip').value : previous?.action) || M.actions.get('idle');
-    let clip = choice,
-      cast = M.castFor(clip, actor);
-    if (!cast || cast[0] !== actor) {
-      clip = M.actions.get('idle');
-      cast = [actor];
-    }
-    const step = { action: clip.id, actors: cast.map((a) => a.id) };
+    const clip=M.accepts(choice,0,actor)||M.accepts(choice,1,actor)?choice:M.actions.get('idle');
+    const {step}=M.prepareAction(clip,{actor,partner:previous?.actors.find(id=>id!==actor.id),
+      scene:plan.score.scene,actorPlacement:plan.score.actorPlacement});
     if (clip.id === previous?.action)
       Object.assign(step, {
         seconds: previous.seconds,
@@ -128,7 +126,7 @@
         ...(previous.target === undefined ? {} : { target: previous.target })
       });
     change({ ...plan.score, steps: [step, ...plan.score.steps.slice(1)] });
-    actors();
+    actors(actor.id);
   }
   $('world-actor').onchange = () => editCast(false);
   $('world-clip').onchange = () => editCast(true);
@@ -504,7 +502,7 @@
     if (key !== lastSample) {
       lastSample = key;
       actorDrawings = plan.sample(t).map((e) => {
-        const a = M.characters.get(e.character),
+        const a = M.performer(M.characters.get(e.character),e.pose),
           model = a.body.makePose(e.pose);
         return { ...e, actor: a, body: a.body, model };
       });
@@ -737,10 +735,13 @@
   };
   $('upper-landing').onclick = () => {
     const cue = plan.locate(t);
-    const index = cue?.clip.route === 'stairs' ? cue.index : plan.score.steps.findIndex(s => M.actions.get(s.action).route === 'stairs');
+    const onFlight=cue?.clip.route==='stairs', target=onFlight?cue.step.target:undefined;
+    const landing=plan.score.steps.findIndex(s=>s.action==='turn-on-landing' && (!onFlight || s.target===target));
+    const index=landing>=0 ? landing : onFlight ? cue.index : plan.score.steps.findIndex(s=>M.actions.get(s.action).route==='stairs');
     if (index < 0) return;
     play(false);
-    t = plan.starts[index] + ((cue?.index === index ? cue.iteration : 0) + 0.5) * plan.score.steps[index].seconds;
+    const step=plan.score.steps[index], phase=step.action==='ascend-stairs'?.999:step.action==='descend-stairs'?0:.5;
+    t = plan.starts[index] + ((cue?.index === index ? cue.iteration : 0) + phase) * step.seconds;
     lastSample = '';
     draw();
   };

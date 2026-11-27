@@ -1271,6 +1271,9 @@ SOFTWARE.`;
   }
   function build(raw, source) {
     const { recipe, hat } = prepare(raw, source);
+    return fromPrepared(recipe,hat);
+  }
+  function fromPrepared(recipe,hat) {
     const actor = PineMotion.createCharacter({
       id: recipe.id,
       label: recipe.label,
@@ -1286,10 +1289,33 @@ SOFTWARE.`;
         releases.indexOf(recipe.packs[core]) >= releases.indexOf(jawRelease)
       )
     });
+    actor.recipe = recipe;
     actor.recipeId = recipe.id;
     actor.figureRelease = recipe.packs[core];
     actor.gender = recipe.gender ?? 'unspecified';
     return actor;
+  }
+  const borrowedLooks=new WeakMap();
+  function motionOutfit(actor,rule) {
+    const recipe=actor.recipe;
+    if (!recipe || !rule) return {actor};
+    const {slot,fallback,accept}=rule, current=recipe.parts[slot];
+    const compatible=current && current!=='none' && (Array.isArray(accept)?accept.includes(current):
+      accept==='skirt'?pinePatternWardrobe.isSkirt(current):true);
+    const id=compatible?current:fallback, key=slot+'/'+id;
+    let cache=borrowedLooks.get(actor);
+    if (!cache) borrowedLooks.set(actor,cache=new Map());
+    if (cache.has(key)) return cache.get(key);
+    const prepared=prepare(recipe), next=compatible?prepared.recipe:
+      {...prepared.recipe,parts:{...prepared.recipe.parts,[slot]:id}};
+    const hat=slot==='hat' && !compatible?catalog.get(core+'@'+release).parts.find(p=>core+'/'+p.id===id):prepared.hat;
+    const label=slot==='hat'?hat?.label:(slots[slot]||wearables[slot])?.[id];
+    if (!label) throw Error('找不到动作所需的穿搭 · '+key);
+    const performer=compatible?actor:fromPrepared(next,hat);
+    if (!compatible) performer.id=actor.id;
+    const result={actor:performer,wear:{slot,id,label,borrowed:!compatible}};
+    cache.set(key,result);
+    return result;
   }
   function newId() {
     const bytes = new Uint8Array(12);
@@ -2239,7 +2265,7 @@ SOFTWARE.`;
     manifest,
     install,
     prepare,
-    build,
+    build, motionOutfit,
     newId
   };
 })();
@@ -2253,6 +2279,7 @@ for (const doc of PineLooks.templates) {
     PineMotion.characters.set(id, {
       id,
       label: doc.label,
+      recipe:doc,
       recipeId: doc.id,
       figureRelease: doc.packs[PineLooks.core],
       gender: doc.gender,

@@ -105,8 +105,23 @@
   const option = (label, value) => new Option(label, value);
   const query = id('motion-query'),
     category = id('motion-group');
-  for (const name of new Set([...lib.actions.values()].map((clip) => clip.group)))
-    category.add(option(name, name));
+  const domain=id('motion-domain'), durationBand=id('motion-duration'), people=id('motion-people'), ending=id('motion-ending');
+  for (const [key,name] of Object.entries(lib.domainLabels)) domain.add(option(name,key));
+  function listGroups(wanted='') {
+    const clips=[...lib.actions.values()].filter(c=>!domain.value || c.domain===domain.value);
+    category.replaceChildren(option('全部分类',''));
+    for (const group of new Set(clips.map(c=>c.group))) category.add(option(group,group));
+    category.value=[...category.options].some(o=>o.value===wanted)?wanted:'';
+  }
+  function motionFilters() {
+    return {domain:domain.value,group:category.value,query:query.value,duration:durationBand.value,
+      people:people.value,ending:ending.value,eitherRole:true};
+  }
+  function clearFilters() {
+    for(const control of [query,domain,durationBand,people,ending]) control.value='';
+    listGroups();
+  }
+  listGroups();
   for (const [key, label] of Object.entries(lib.presetLabels)) $preset.add(option(label, key));
   if (books.world) $preset.add(option('从世界图鉴带入', 'world'));
   if (books.character) $preset.add(option('当前人物的编排', 'character'));
@@ -123,16 +138,16 @@
   }
   function refreshActors() {
     const selected = $who.value;
-    $who.replaceChildren(...visibleCast().map((p) => option(p.label, p.id)));
+    $who.replaceChildren(option('自动选角 · 全部动作',''),...visibleCast().map((p) => option(p.label, p.id)));
     if (lib.characters.has(selected)) $who.value = selected;
   }
   function targets(selected = '') {
     const clip = lib.actions.get($which.value),
       field = id('action-target');
-    field.replaceChildren(option(clip?.route && plan?.worldScene.some(p => p.kind === clip.route) ? '使用首个匹配设施' : '随动作创建', ''));
+    field.replaceChildren(option('自动匹配场景，缺少时带入', ''));
     const scene = plan?.score.scene || [];
     for (const [i, p] of scene.entries()) {
-      if (p.kind !== (clip?.station || clip?.route)) continue;
+      if (p.kind !== clip?.targetKind) continue;
       const path = PineWorld.ancestors(scene, i).reverse()
         .map(n => PineWorld.items.get(scene[n].kind).label + ' · ' + (n + 1));
       field.add(option(path.join(' / '), String(i)));
@@ -140,8 +155,17 @@
     field.value = String(selected ?? '');
     id('target-field').hidden = field.options.length < 2;
   }
+  function rolesFor(clip,who,partner) {
+    who??=lib.defaultActor(clip);
+    if (!who) return null;
+    if (clip.roles.length===1) return [who];
+    if (lib.accepts(clip,0,who) && lib.accepts(clip,1,partner)) return [who,partner];
+    if (lib.accepts(clip,0,partner) && lib.accepts(clip,1,who)) return [partner,who];
+    return null;
+  }
   function partnersFor(clip) {
-    return visibleCast().filter((person) => lib.accepts(clip, 1, person));
+    const who=lib.characters.get($who.value) || lib.defaultActor(clip);
+    return visibleCast().filter(partner=>rolesFor(clip,who,partner));
   }
   function preferredPartner(partners, wanted) {
     return (
@@ -151,18 +175,37 @@
       partners[0]
     );
   }
+  function showSupplies() {
+    const clip=lib.actions.get($which.value), line=id('motion-supplies');
+    const cast=clip && rolesFor(clip,lib.characters.get($who.value),lib.characters.get($with.value));
+    if (!cast) {line.hidden=true;return;}
+    const supplied=lib.prepareAction(clip,{actor:cast[0],partner:cast[1]});
+    const labels=supplied.items.map(item=>item.label+(item.count>1?' ×'+item.count:''));
+    labels.push(...supplied.wear.map(w=>w.label+(w.borrowed?'（临时配戴）':'')));
+    if (cast.length===2) labels.unshift('搭档 '+lib.characters.get($with.value).label);
+    if (!$who.value) labels.unshift('演员 '+cast[0].label);
+    line.textContent=labels.length?'随动作带入　'+labels.join('、'):'';
+    line.hidden=!labels.length;
+  }
   function listPartners(wanted) {
     const clip = lib.actions.get($which.value);
     $with.replaceChildren();
     id('with-field').hidden = !clip || clip.roles.length < 2;
-    if (!clip) return;
+    const actor=lib.characters.get($who.value) || (clip && lib.defaultActor(clip));
+    const link=actor && PineWardrobe.editorLink(actor,'wear'), outfit=id('edit-outfit');
+    outfit.hidden=!link;
+    if (link) outfit.href=link;
+    if (!clip) {showSupplies();return;}
     if (clip.roles.length === 2) {
       const partners = partnersFor(clip);
       const extra = lib.characters.get(wanted);
-      if (extra && lib.accepts(clip, 1, extra) && !partners.includes(extra)) partners.push(extra);
+      if (extra && rolesFor(clip,lib.characters.get($who.value),extra) && !partners.includes(extra)) partners.push(extra);
       for (const p of partners) $with.add(option(p.label, p.id));
-      $with.value = preferredPartner(partners, wanted)?.id || '';
+      const auto=lib.castFor(clip,actor);
+      const other=auto?.find(p=>p.id!==actor.id);
+      $with.value=preferredPartner(partners,wanted||other?.id)?.id || '';
     }
+    showSupplies();
   }
   let matches = [],
     cardPage = 0,
@@ -192,10 +235,12 @@
       b.type = 'button';
       b.dataset.clip = clip.id;
       b.setAttribute('aria-pressed', String(clip.id === $which.value));
-      b.append(c, caption);
+      const detail=document.createElement('small');
+      detail.textContent=clip.seconds+' 秒 · '+(clip.roles.length===2?'双人':'单人')+(clip.transition?' · 单向':'');
+      b.append(c, caption, detail);
       cards.append(b);
-      const cast = clip.roles.length === 1 ? [who] : [who, preferredPartner(partnersFor(clip), $with.value)];
-      if (cast.every(Boolean))
+      const cast = clip.roles.length === 1 ? rolesFor(clip,who) : rolesFor(clip,who,preferredPartner(partnersFor(clip), $with.value));
+      if (cast?.every(Boolean))
         jobs.push(() => atelierPreview.actionCard(clip, cast)(c, clip.id === 'jump' ? 0.49 : 0.46));
       b.onclick = () => {
         $which.value = clip.id;
@@ -227,13 +272,8 @@
   function listActions(wanted, partner) {
     const groups = new Map(),
       p = lib.characters.get($who.value);
-    const outfit = id('edit-outfit');
-    const link = PineWardrobe.editorLink(p, 'wear');
-    outfit.hidden = !link;
-    outfit.textContent = '编辑穿搭';
-    if (link) outfit.href = link;
     $which.replaceChildren();
-    const available = lib.findActions(p, { group: category.value, query: query.value });
+    const available = lib.findActions(p,motionFilters());
     for (const clip of available) {
       if (!groups.has(clip.group)) {
         const g = document.createElement('optgroup');
@@ -245,12 +285,12 @@
     }
     if ([...$which.options].some((o) => o.value === wanted)) $which.value = wanted;
     const hasMatch = available.length > 0;
-    id('clear-motions').hidden = !query.value && !category.value;
+    id('clear-motions').hidden = ![query,category,domain,durationBand,people,ending].some(control=>control.value);
     $which.disabled = !hasMatch;
-    id('try').disabled = id('append').disabled = !hasMatch;
+    id('try').disabled = id('append').disabled = id('export-clip').disabled = !hasMatch;
     id('replace').disabled = selected < 0 || !hasMatch;
     id('motion-count').textContent = hasMatch
-      ? p.label + '可选 · ' + available.length + ' 个动作'
+      ? (p?p.label+'可选':'自动选角') + ' · ' + available.length + ' 个动作 / 全库 '+lib.actions.size+' 个'
       : '没有符合条件的动作，可以更换分类或清空搜索。';
     if (hasMatch) $duration.value = lib.actions.get($which.value).seconds;
     listPartners(partner);
@@ -262,10 +302,9 @@
   function toForm(step) {
     const actor = lib.characters.get(step.actors[0]);
     if (
-      !lib.findActions(actor, { group: category.value, query: query.value }).some((c) => c.id === step.action)
+      !lib.findActions(actor,motionFilters()).some((c) => c.id === step.action)
     ) {
-      query.value = '';
-      category.value = '';
+      clearFilters();
     }
     if (!Array.from($who.options).some((o) => o.value === actor.id)) $who.add(option(actor.label, actor.id));
     $who.value = step.actors[0];
@@ -275,12 +314,14 @@
     targets(step.target);
   }
   function draft() {
-    const clip = lib.actions.get($which.value),
-      actors = [$who.value];
-    if (clip.roles.length === 2) actors.push($with.value);
+    const clip=lib.actions.get($which.value), cast=rolesFor(clip,lib.characters.get($who.value),lib.characters.get($with.value));
+    if (!cast) throw Error('请选择适合的搭档');
+    const actors=cast.map(p=>p.id);
+    const field=id('action-target'), bound=field.value!==''?Number(field.value):
+      clip.targetKind?lib.prepareAction(clip,{actor:cast[0],partner:cast[1],scene:plan.score.scene,actorPlacement:plan.score.actorPlacement}).step.target:undefined;
     return lib.validateStep({
       action: clip.id,
-      ...(id('action-target').value !== '' ? { target: Number(id('action-target').value) } : {}),
+      ...(bound===undefined?{}:{target:bound}),
       actors,
       seconds: $duration.valueAsNumber,
       repeat: $repeat.valueAsNumber
@@ -354,9 +395,9 @@
   // A shared book or joined hands are hidden behind a partner in a side-on shot.
   // Let the viewer's first orbit take precedence over subsequent automatic cuts.
   const openingViews = {
-    'climb-stairs': [291, 16],
+    'climb-stairs': [291, 16], 'ascend-stairs':[291,16], 'turn-on-landing':[291,16], 'descend-stairs':[291,16],
     'hold-hands': [18, 18],
-    storytime: [21, 19],
+    storytime: [21, 19], 'lend-book':[265,21], 'stamp-form':[314,31], 'wipe-window':[242,17],
     photograph: [324, 18],
     'water-plant': [303, 21],
     guitar: [18, 19],
@@ -406,6 +447,7 @@
     id('take-actors').textContent = cue
       ? actorsOf(cue.step)
       : lib.characters.get($who.value)?.label || '学龄儿童';
+    id('world-link-label').textContent=preview?'把这段动作放进世界':'把编排放进世界';
     id('take-number').textContent = preview
       ? '单段试看'
       : cue
@@ -508,8 +550,7 @@
     preview = null;
     book = key;
     $preset.value = key;
-    query.value = '';
-    category.value = '';
+    clearFilters();
     plan = initialScore(key);
     refreshActors();
     selected = plan.score.steps.length ? 0 : -1;
@@ -529,12 +570,13 @@
   id('edit-world').onclick = () => {
     const link = id('edit-world'), dest = new URL(link.href);
     dest.searchParams.set('destination', 'work');
-    if (book === 'world' && worldSource) dest.searchParams.set('scene', worldSource);
+    if (!preview && book === 'world' && worldSource) dest.searchParams.set('scene', worldSource);
     else dest.searchParams.delete('scene');
-    dest.searchParams.set('book', book);
-    dest.searchParams.set('title', $preset.selectedOptions[0].textContent);
+    const cue=preview?.locate(now());
+    dest.searchParams.set('book',cue?'clip.'+cue.clip.id+'.'+cue.step.actors[0]:book);
+    dest.searchParams.set('title',cue?cue.clip.label:$preset.selectedOptions[0].textContent);
     link.href = dest;
-    PineWardrobe.handoff(link, plan.score);
+    PineWardrobe.handoff(link,active().score);
   };
   function filterActions() {
     const prior = $which.value,
@@ -543,7 +585,9 @@
     if (prior && $which.value === prior) $duration.value = duration;
   }
   query.addEventListener('input', filterActions);
-  id('clear-motions').onclick = () => { query.value = ''; category.value = ''; filterActions(); query.focus(); };
+  id('clear-motions').onclick = () => { clearFilters(); filterActions(); query.focus(); };
+  domain.onchange=()=>{listGroups(category.value);filterActions();};
+  for(const control of [durationBand,people,ending]) control.onchange=filterActions;
   id('add-cue').onclick = () => { PineWorkspace.openTool('motion-library'); query.focus(); };
   id('edit-cue').onclick = () => {
     if (selected < 0) return;
@@ -574,7 +618,7 @@
     cardPage = Math.max(0, Math.floor(matches.findIndex((clip) => clip.id === $which.value) / 6));
     drawCards();
   });
-  $with.addEventListener('change', drawCards);
+  $with.addEventListener('change',()=>{showSupplies();drawCards();});
   $preset.addEventListener('change', () => openBook($preset.value, true));
   id('try').addEventListener('click', () =>
     validated((s) => {
@@ -644,18 +688,25 @@
     if (preview) previewLoop = preview.score.loop;
     else save();
   });
-  id('export').addEventListener('click', () => {
+  function downloadScore(score,name,message) {
     const link = document.createElement('a'),
-      blob = new Blob([JSON.stringify(PineWardrobe.scoreFile(plan.score), null, 2) + '\n'], {
+      blob = new Blob([JSON.stringify(PineWardrobe.scoreFile(score), null, 2) + '\n'], {
         type: 'application/json'
       });
     link.href = URL.createObjectURL(blob);
-    link.download = 'pine-motion-' + book + '.json';
+    link.download = 'pine-motion-' + name + '.json';
     document.body.append(link);
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    setNote('已导出当前编排。');
+    setNote(message);
+  }
+  id('export').addEventListener('click',()=>downloadScore(plan.score,book,'已导出当前编排。'));
+  id('export-clip').addEventListener('click',()=>{
+    const clip=lib.actions.get($which.value);
+    const cast=rolesFor(clip,lib.characters.get($who.value),lib.characters.get($with.value));
+    const score=lib.compile({version:1,loop:!clip.transition,steps:[{action:clip.id,actors:cast.map(p=>p.id)}]}).score;
+    downloadScore(score,clip.id,'已导出「'+clip.label+'」和试演人物。');
   });
   id('import').addEventListener('click', () => id('load-file').click());
   let importRevision = 0;
@@ -750,12 +801,15 @@
   if (transferred) setNote(board === 'character' ? '人物和试演动作已加入时间线。' : '已载入此场景的完整编排。');
   if (incomingError) setNote(incomingError);
   const incomingStep = incoming?.score.steps[0];
-  const requested = lib.characters.get(incomingStep?.actors[0] || url.searchParams.get('actor'));
+  const linked=lib.actions.get(url.searchParams.get('action'));
+  const named=incomingStep?.actors[0] || url.searchParams.get('actor');
+  const requested=named?lib.characters.get(named):linked?lib.defaultActor(linked):null;
   if (requested && !transferred) {
     const clip =
       lib.actions.get(incomingStep?.action || url.searchParams.get('action')) ||
       lib.actions.get(requested.tags.includes('baby') ? 'crawl' : 'run');
-    if (lib.accepts(clip, 0, requested)) {
+    if (lib.accepts(clip, 0, requested) || lib.accepts(clip,1,requested)) {
+      if (url.searchParams.has('action')) clearFilters();
       if (!Array.from($who.options).some((o) => o.value === requested.id))
         $who.add(option(requested.label, requested.id));
       $who.value = requested.id;
@@ -773,9 +827,23 @@
       render(true);
     }
   }
+  const filterLink=['domain','group','duration','people','ending','q'].some(key=>url.searchParams.has(key));
+  if (!incoming && filterLink && !linked) {
+    const selected=$which.value;
+    if (!named) $who.value='';
+    for(const [field,key] of [[domain,'domain'],[durationBand,'duration'],[people,'people'],[ending,'ending']])
+      field.value=url.searchParams.get(key)||'';
+    listGroups(url.searchParams.get('group')||'');
+    query.value=url.searchParams.get('q')||'';
+    listActions(selected,$with.value);
+    PineWorkspace.openTool('motion-library',true);
+  }
+  if (!incoming && !named && !linked && !filterLink && url.searchParams.get('tool')==='motion-library') {
+    $who.value=''; listActions($which.value);
+  }
   if (autoplay && active().duration) togglePlay();
   const priorView = PineWorkspace.resumed;
-  if (!incoming && priorView?.book === book && [priorView.position, priorView.bearing, priorView.tilt, priorView.zoom].every(Number.isFinite)) {
+  if (!incoming && !filterLink && !url.searchParams.has('tool') && !url.searchParams.has('action') && priorView?.book === book && [priorView.position, priorView.bearing, priorView.tilt, priorView.zoom].every(Number.isFinite)) {
     if (plan.score.steps[priorView.selected]) pick(priorView.selected);
     position = Math.max(0, Math.min(plan.duration, priorView.position));
     if (priorView.preview) {
@@ -792,7 +860,8 @@
     if (form && [...$who.options].some(o => o.value === form.who)) {
       $who.value = form.who;
       query.value = form.query;
-      category.value = form.group;
+      domain.value=form.domain||''; listGroups(form.group);
+      durationBand.value=form.duration||'';people.value=form.people||'';ending.value=form.ending||'';
       listActions(form.action, form.partner);
       if ($which.value === form.action) {
         $duration.value = form.seconds;
@@ -805,7 +874,7 @@
   }
   PineWorkspace.rememberView(() => ({ book, selected, position, previewTime, manualBearing,
     bearing: stage.bearing, tilt: stage.tilt, zoom: stage.zoom,
-    form: { who: $who.value, action: $which.value, partner: $with.value, query: query.value, group: category.value,
+    form: { who: $who.value, action: $which.value, partner: $with.value, ...motionFilters(),
       seconds: $duration.value, repeat: $repeat.value, target: id('action-target').value },
     ...(preview ? { preview: PineWardrobe.scoreFile(preview.score) } : {}) }));
 })();

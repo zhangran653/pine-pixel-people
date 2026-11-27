@@ -93,14 +93,18 @@ const activityMotion = (() => {
       ch.pitch = (ch.pitch || 0) + pitch;
       ch.roll = roll;
       ch.headYaw = headYaw;
-      ch.headPitch = headPitch;
+      ch.headPitch = (ch.headPitch || 0) + headPitch;
       ch.headRoll = headRoll;
       ch.hipOffset = (ch.hipOffset || zero).map((p, i) => p + shift[i] * r.height);
       ch.blink = Math.max(blink(u), mix(first.blink, last.blink, w));
       ch.jawOpen = mix(first.jawOpen, last.jawOpen, w);
       if (r.facialActing) ch.faceCue = { gaze:channel('gaze') };
       const rest = pose(r, ch);
-      ch.hands = [hand(r, rest, 0, channel('right')), hand(r, rest, 1, channel('left'))];
+      ch.hands = ['right','left'].map((name,i)=>{
+        if (!ch.floorSeat) return hand(r,rest,i,channel(name));
+        const target=v=>v.every((x,j)=>x===restArm[j]) ? rest.arms[i].hand : hand(r,rest,i,v);
+        return between(target(first[name]),target(last[name]),w);
+      });
       return [entry(a, pose(r, ch))];
     };
   }

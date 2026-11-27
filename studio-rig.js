@@ -79,6 +79,20 @@ const studioRig = (() => {
       y = p[1] - root.y;
     return [c * x + s * y, -s * x + c * y, p[2] - root.z];
   }
+  // Clamp a shared target to the intersection of the partners' reach spheres.
+  function commonReach(shoulders, lengths, goal) {
+    const fraction=lengths[0]/(lengths[0]+lengths[1]);
+    const start=shoulders[0].map((v,i)=>mix(v,shoulders[1][i],fraction));
+    const ray=goal.map((v,i)=>v-start[i]);
+    const dot=(a,b)=>a.reduce((sum,v,i)=>sum+v*b[i],0);
+    const dd=dot(ray,ray);
+    let t=1;
+    if (dd>1e-10) shoulders.forEach((p,i)=>{
+      const d=start.map((v,j)=>v-p[j]), b=dot(d,ray), c=dot(d,d)-lengths[i]**2;
+      t=Math.min(t,clamp((-b+Math.sqrt(Math.max(0,b*b-dd*c)))/dd));
+    });
+    return start.map((v,i)=>v+t*ray[i]);
+  }
   function seated(r, floor = false) {
     if (floor && r.infantFloorSupport) {
       const length = r.thigh + r.shin, height = r.height;
@@ -284,6 +298,7 @@ const studioRig = (() => {
     profiles,
     seated,
     seatedAnkle,
+    commonReach,
     world,
     local,
     validate,
