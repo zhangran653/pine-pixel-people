@@ -850,11 +850,11 @@ const pineFigurePaint = (() => {
         );
       }
   }
-  function hand(brush, k, torso, side, wrist, grip, size, infant, tailored = false, paintedBody = false) {
+  function hand(brush, k, torso, side, wrist, grip, size, infant, tailored = false, paintedBody = false, thumb) {
     const length = Math.hypot(...grip.map((v, i) => v - wrist[i])) || 1;
     const axis = grip.map((v, i) => (v - wrist[i]) / length);
-    // The thumb faces forward. Project that direction into the palm as the wrist swings.
-    let forward = [torso[0], torso[4], torso[8]];
+    // The rig supplies a continuous thumb direction. Older authored poses use the torso axes.
+    let forward = thumb || [torso[0], torso[4], torso[8]];
     const project = (v) => v.reduce((sum, n, i) => sum + n * axis[i], 0);
     let dot = project(forward);
     if (Math.abs(dot) > 0.92) {

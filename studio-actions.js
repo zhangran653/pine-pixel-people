@@ -44,7 +44,7 @@ const soloClips = (() => {
     ch.kneePoles = sides.map(side => [0.09, side * 1.35, 0.82]);
     ch.hands = sides.map(side => [ch.hipOffset[0] + 0.245 * r.height,
       side * r.height * 0.105, r.height * 0.133]);
-    ch.elbowPoles = sides.map(side => [-0.48, side * 0.82, -0.46]);
+    if (r.archivedArmPose) ch.elbowPoles = sides.map(side => [-0.48, side * 0.82, -0.46]);
   }
   // Hand offsets are fractions of arm reach: forward, outward and down from their shoulder.
   const archivedStance = {
@@ -239,8 +239,7 @@ const soloClips = (() => {
       -(px - x) * s + (py - y) * c,
       r.ankle + (i === swing ? beat * h * (run ? 0.109 : 0.068) : 0)
     ]);
-    const stride = clamp((feet[1][0] - feet[0][0]) / shift, -1, 1),
-      drive = run ? 0.185 : 0.12;
+    const stride = clamp((feet[1][0] - feet[0][0]) / shift, -1, 1);
     const ch = {
       feet,
       standing: 1 - strength,
@@ -250,9 +249,21 @@ const soloClips = (() => {
       blink: blink(u)
     };
     const neutral = pose(r, ch);
-    ch.hands = neutral.arms.map((arm, i) =>
-      add(arm.shoulder, [0.035 - sides[i] * drive * stride, sides[i] * 0.054, -(run ? 0.185 : 0.251)], h)
-    );
+    ch.hands = neutral.arms.map(arm => {
+      const swing = -arm.side * stride;
+      if (r.archivedArmPose) {
+        return add(arm.shoulder,[.035 + swing*(run ? .185 : .12),arm.side*.054,-(run ? .185 : .251)],h);
+      }
+      // Move opposite the leading leg. A walking arm hangs loosely, while a
+      // running forearm stays folded through both the drive and the backswing.
+      const upper = run ? -.08 + .62*swing : -.04 + .48*swing;
+      const flexion = run ? 1.45 + .20*swing : .40 + .15*swing;
+      const lower = r.forearm + r.palm, spread = run ? .11 : .09;
+      const front = r.upperArm*Math.sin(upper) + lower*Math.sin(upper+flexion);
+      const drop = r.upperArm*Math.cos(upper) + lower*Math.cos(upper+flexion);
+      return point(neutral.torso,[r.shoulder[0]+front, arm.side*(r.shoulder[1]+drop*Math.sin(spread)),
+        r.shoulder[2]-drop*Math.cos(spread)]);
+    });
     const airborne = run ? h * 0.051 * Math.sin(pi * clamp((t - 0.53) / 0.47)) ** 2 * strength : 0;
     return entry(a, pose(r, ch), x, y, airborne, heading);
   }

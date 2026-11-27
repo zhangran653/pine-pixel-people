@@ -1,6 +1,6 @@
 // Physical units are shared by every actor. Art density changes sampling, never bone length.
 const studioRig = (() => {
-  const { frame, point, compose, joint, standingHipLift } = hikerMotion.geometry;
+  const { frame, point, compose, joint, armPole, standingHipLift } = hikerMotion.geometry;
   const sides = [-1, 1]; // anatomical right, then left
   const profiles = {
     adult: {
@@ -63,6 +63,7 @@ const studioRig = (() => {
   const origin = [0, 0, 0];
   const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
   const mix = (a, b, t) => a + (b - a) * t;
+  const cross = (a,b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
   const ramp = (t, a, b) => {
     const u = clamp((t - a) / (b - a));
     return u * u * (3 - 2 * u);
@@ -106,12 +107,11 @@ const studioRig = (() => {
         feet: [[seatX + .90 * length, -(r.hip[1] + .28 * length), r.ankle],
           [seatX + .48 * length, r.hip[1] + .46 * length, r.ankle]],
         kneePoles: [[.24, -.86, .92], [-.38, 1.08, .70]],
-        // The palms rest over the two thighs, above the booties. The elbows
-        // open to either side and stay below the shoulder girdle.
+        // The palms rest over the two thighs, above the booties.
         hands: r.infantLapRest ? [[seatX+.69*length,-.78*r.shoulder[1],seatZ+.18*length],
           [seatX+.52*length,.85*r.shoulder[1],seatZ+.12*length]] : [[seatX + .56 * length, -.91 * r.shoulder[1], seatZ + .48 * length],
           [seatX + .49 * length, 1.08 * r.shoulder[1], seatZ + .31 * length]],
-        elbowPoles: [[-.45, -.80, -.67], [-.52, .90, -.52]]
+        ...(r.archivedArmPose ? { elbowPoles: [[-.45, -.80, -.67], [-.52, .90, -.52]] } : {})
       };
     }
     const depth = r.height * (floor ? 0.09 : 0.157),
@@ -261,17 +261,31 @@ const studioRig = (() => {
       ]);
       const goal = channels.hands?.[i] || rest,
         delta = goal.map((v, k) => v - shoulder[k]);
-      const factor = Math.min(1, length / (Math.hypot(...delta) || 1));
-      const hand = delta.map((v, k) => shoulder[k] + v * factor);
-      const elbow = joint(
-        shoulder,
-        hand,
-        rig.upperArm,
-        rig.forearm + rig.palm,
-        channels.elbowPoles?.[i] || [-0.4, side, -0.55]
-      );
-      const wrist = elbow.map((v, k) => mix(v, hand[k], rig.forearm / (rig.forearm + rig.palm)));
-      return { side, shoulder, elbow, wrist, hand };
+      const requested = Math.hypot(...delta);
+      const factor = Math.min(1, length / (requested || 1));
+      let hand = delta.map((v, k) => shoulder[k] + v * factor);
+      const lower = rig.forearm + rig.palm;
+      const innerReach = Math.abs(rig.upperArm-lower)+.0001;
+      if (!rig.archivedArmPose && requested < innerReach) {
+        const ray = requested ? delta.map(v=>v/requested) : [-torso[2],-torso[6],-torso[10]];
+        hand = shoulder.map((v,k)=>v+innerReach*ray[k]);
+      }
+      const ray = hand.map((v,k)=>v-shoulder[k]);
+      let pole = channels.elbowPoles?.[i];
+      if (!pole || (!rig.archivedArmPose && Math.hypot(...cross(ray,pole)) < 1e-7)) {
+        pole = rig.archivedArmPose ? [-.4, side, -.55] : armPole(torso,ray,side,length);
+      }
+      const elbow = joint(shoulder, hand, rig.upperArm, lower, pole);
+      const wrist = elbow.map((v, k) => mix(v, hand[k], rig.forearm/lower));
+      const arm = { side, shoulder, elbow, wrist, hand };
+      if (!rig.archivedArmPose) {
+        // The thumb follows the hinge through full extension, where the three
+        // joint positions alone no longer specify the forearm's rotation.
+        const thumb = cross(hand.map((v,k)=>v-elbow[k]),cross(ray,pole));
+        const magnitude = Math.hypot(...thumb);
+        if (magnitude) arm.thumb = thumb.map(v=>v/magnitude);
+      }
+      return arm;
     });
     const result = { torso, head, feet, legs, arms, blink: channels.blink || 0, props: [], bottle: null, bob: 0 };
     if (rig.facialActing && channels.faceCue) {
@@ -296,6 +310,8 @@ const studioRig = (() => {
   return {
     centimetersPerUnit: 3.4,
     profiles,
+    // Freeze the original arm articulation for the published pixel-art comparisons.
+    withArchivedArmPose: actor => ({...actor, rig:{...actor.rig, archivedArmPose:true}}),
     seated,
     seatedAnkle,
     commonReach,

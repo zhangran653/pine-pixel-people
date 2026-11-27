@@ -120,7 +120,7 @@ for (const [id, stable, firstStudy] of [
   const recipe = clone(a.l.archivedTemplates.get(id));
   recipe.packs[a.l.core] = pin;
   const actor = a.l.build(recipe);
-  const pose = a.m.actions.get('idle').sample(0.31, actor)[0].pose;
+  const pose = a.m.actions.get('idle').sample(0.31, a.m.rig.withArchivedArmPose(actor))[0].pose;
   const hash = createHash('sha256');
   for (const band of a.m.figureLayers(actor, pose, actor.body.makePose(pose))) {
     const { body, model, x, y, z } = band;
@@ -416,7 +416,7 @@ const archived = [
 ];
 // The archive was painted at 31% of the original idle. Keep the reference pose fixed as clips evolve.
 for (const [doc, expected] of archived) {
-  const person = a.l.build(doc);
+  const person = a.m.rig.withArchivedArmPose(a.l.build(doc));
   const t = 0.31 * (2 * Math.PI);
   const referencePose = a.m.rig.pose(person.rig, {
     standing: 0,
@@ -444,7 +444,7 @@ for (const [id, bodyHash, headHash] of [
 ]) {
   const doc = a.l.archivedTemplates.get(id);
   const prior = a.l.build({ ...doc, packs: { 'pine-core': a.l.strandRelease } });
-  const pose = a.m.actions.get('idle').sample(0.2, prior)[0].pose,
+  const pose = a.m.actions.get('idle').sample(0.2, a.m.rig.withArchivedArmPose(prior))[0].pose,
     model = prior.body.makePose(pose);
   assert.equal(colorDigest(model.colors), bodyHash);
   assert.equal(colorDigest(a.m.faceLayers(prior, pose, model)[1].model.colors), headHash);
@@ -497,7 +497,7 @@ const pinnedHead = a.l.build({
   parts: { ...adultSeed.parts, hair: 'shoulder-length', hat: 'none' },
   face: { ...classic, mouth: 'full' }
 });
-const pinnedPose = a.m.rig.pose(pinnedHead.rig, {});
+const pinnedPose = a.m.rig.pose(a.m.rig.withArchivedArmPose(pinnedHead).rig);
 const pinnedBody = pinnedHead.body.makePose(pinnedPose);
 assert.equal(
   colorDigest(pinnedBody.colors),
@@ -595,7 +595,7 @@ for (const base of ['adult', 'child']) {
 }
 // Measure real occupied cells from the ear plane with the same pose, height and camera axes.
 function headProfile(recipe) {
-  const actor = a.l.build(recipe);
+  const actor = a.m.rig.withArchivedArmPose(a.l.build(recipe));
   const pose = a.m.rig.pose(actor.rig, {});
   const bodyGrid = actor.body.makePose(pose);
   const upper = a.m.faceLayers(actor, pose, bodyGrid)[1];

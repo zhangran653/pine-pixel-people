@@ -69,7 +69,7 @@ const archived = {
 };
 for (const [age, digest] of Object.entries(archived)) {
   const doc = age === 'toddler' ? looks.archivedTemplates.get('look_workshop_toddler') : examples[age];
-  const actor = model(doc, '1.19.1'), hash = createHash('sha256');
+  const actor = rig.withArchivedArmPose(model(doc, '1.19.1')), hash = createHash('sha256');
   assert.equal(actor.rig.infantFloorSupport, undefined);
   for (const action of ['idle','sit','wave']) {
     const p = sample(actor,action,.42);

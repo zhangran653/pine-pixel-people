@@ -76,6 +76,7 @@ PineMotion.registerCharacter({
       </section>
       <section id="gestures">
         <h2>用关键帧编写可复用的手势</h2>
+        <p>手掌要抓住道具或碰到搭档时，将握点换到人物局部坐标，传给 <code>rig.pose(rig, {hands})</code>。两只手依次是右手、左手。肘部随躯干和伸手方向弯曲，手腕与拇指跟随前臂。需要主动架肘或俯卧支撑时，可以为单侧指定 <code>elbowPoles</code>，其方向使用人物局部坐标。绘制手掌可读取 <code>arm.thumb</code>，它是指向拇指一侧的单位向量。<a href="studies/arm-motion.webp">手臂动作实机对照</a></p>
         <p><code>PineMotion.keyframedGesture(keys)</code> 生成一个可注册的单人采样器。每帧的 <code>at</code> 从 0 到 1 严格递增，首尾必填。姿势按平滑曲线插值，可直接跳到任意一帧。下面给成人与儿童增加一个抚胸致意的动作。</p>
 <pre><code>const greet = { right: [0.34, -0.36, -0.08], head: [0, 0.13, 0] };
 PineMotion.registerAction({

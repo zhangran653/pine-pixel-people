@@ -33,7 +33,7 @@ const archived = {
 function checkDrawn(base, ref, cast) {
   const pinned = looks.withGameFace(base === 'toddler' ? looks.withBodyProfile(examples.child,base) : ref);
   pinned.face.form = 'angular'; pinned.bodyFinish = 'painted';
-  const old = looks.build(pinned), idle = motion.actions.get('idle');
+  const old = motion.rig.withArchivedArmPose(looks.build(pinned)), idle = motion.actions.get('idle');
   assert.equal(digest(old.body.makePose(idle.sample(.17,old)[0].pose).colors),archived[base]);
   const neutral = looks.withBaseFace(ref,'balanced');
   neutral.bodyFinish = 'painted';

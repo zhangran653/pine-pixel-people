@@ -494,7 +494,7 @@ const skull = vm.runInContext('pineHeadShape', context);
     const rest = motion.rig.pose(actor.rig), coarse = actor.body.makePose(rest);
     return [hash(coarse.colors), hash(motion.faceLayers(actor, rest, coarse)[1].model.colors)];
   }
-  assert.deepEqual(digests(old), [
+  assert.deepEqual(digests(motion.rig.withArchivedArmPose(old)), [
     '89e9dadea7e44eb0526b32a270bea13c895a09c1265eb1150c15839864ba2513',
     '306cddaaeba496a4d4c709ac5ccff86406be2644c9e5a1dd8e033145a8d0ff09'
   ], 'the 1.12 baby must replay its original figure and portrait');
@@ -1001,7 +1001,7 @@ function sideProfile(actor) {
   }
   assert.ok(excursions.slice(1).every((delta, i) => delta < excursions[i]), 'younger heads use gentler projection');
   const old = looks.build({ ...looks.archivedTemplates.get('look_fern'), packs: { 'pine-core': looks.naturalProfileRelease } });
-  const pose = motion.rig.pose(old.rig), coarse = old.body.makePose(pose);
+  const pose = motion.rig.pose(motion.rig.withArchivedArmPose(old).rig), coarse = old.body.makePose(pose);
   assert.equal(hash(coarse.colors), 'accdfe709baa9a2c138400b4119aa03a8e77bd3c962b2791749563948f08bd55');
   assert.equal(hash(motion.faceLayers(old, pose, coarse)[1].model.colors), '8fc5b2bb8c1d591dd384eb2bbe5ce64ce49ecf7c5e9848cab88a3a9a63ad470f');
 }
@@ -1010,7 +1010,7 @@ function sideProfile(actor) {
   const oldDoc = { ...baby, packs: { 'pine-core': looks.infantRelease } };
   assert.ok(looks.hasInfantHead(oldDoc) && looks.hasInfantHead(baby));
   const old = looks.build(oldDoc), current = looks.build({ ...baby, face: { ...baby.face, style: 'natural' } });
-  const rest = motion.rig.pose(old.rig), model = old.body.makePose(rest);
+  const rest = motion.rig.pose(motion.rig.withArchivedArmPose(old).rig), model = old.body.makePose(rest);
   assert.equal(hash(model.colors), '5919f9c4ce2b25550a1540b2fa62dc117c20f14a649cbcc82b614fa968b97e5d');
   assert.equal(hash(motion.faceLayers(old, rest, model)[1].model.colors),
     'be8ac6a748d64ca88d331b8cb5dcf42d49292c64e61c6b81957995229f0dfcf2', 'replay the 1.13.0 knit cap and portrait');
@@ -1237,7 +1237,7 @@ assert.ok(world.geometry('test-cushion').model.colors.some(Boolean));
     const old = looks.build({ ...recipe, packs: { 'pine-core': looks.pixelRelease } }), current = looks.build(recipe);
     assert.deepEqual(current.sockets, old.sockets);
     assert.deepEqual(current.rig, old.rig);
-    const pose = motion.actions.get(recipe.base === 'baby' ? 'sit' : 'walk').sample(0.32, current)[0].pose;
+    const pose = motion.actions.get(recipe.base === 'baby' ? 'sit' : 'walk').sample(0.32, motion.rig.withArchivedArmPose(current))[0].pose;
     const historic = old.body.makePose(pose), standard = current.body.makePose(pose);
     if (archives[id]) assert.equal(hash(historic.colors), archives[id], 'published 1.17.0 ' + id);
     assert.notEqual(hash(standard.colors), hash(historic.colors));

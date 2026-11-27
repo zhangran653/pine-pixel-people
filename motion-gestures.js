@@ -25,6 +25,21 @@ const activityMotion = (() => {
       r.shoulder[2] + target[2] * length
     ]);
   }
+  // Free hands travel around the shoulder on the way to a collar, ear or nape.
+  // Endpoints are exact, including when the two keys touch the same point.
+  function swingHand(r, body, i, from, to, t) {
+    const palm = between(from,to,t);
+    if (t === 0 || t === 1 || r.archivedArmPose) return palm;
+    const step = to.map((v,k)=>v-from[k]), span = Math.hypot(...step);
+    if (!span) return palm;
+    const shoulder = body.arms[i].shoulder, start = from.map((v,k)=>v-shoulder[k]);
+    const along = studioRig.clamp(-start.reduce((sum,v,k)=>sum+v*step[k],0)/(span*span));
+    const gap = Math.hypot(...start.map((v,k)=>v+along*step[k]));
+    const length = reach(r);
+    const bow = 4*t*(1-t) * Math.min(.55*length,.52*span) * (1-ramp(gap/length,.12,.36));
+    const m = body.torso;
+    return palm.map((v,k)=>v+bow*(.73*m[4*k]+sides[i]*.68*m[4*k+1]+.57*m[4*k+2]));
+  }
   function prop(kind, at, scale, yaw = 0, pitch = 0, roll = 0) {
     return { kind, frame: frame(zero, at, yaw, pitch, roll), scale };
   }
@@ -101,9 +116,8 @@ const activityMotion = (() => {
       if (r.facialActing) ch.faceCue = { gaze:channel('gaze') };
       const rest = pose(r, ch);
       ch.hands = ['right','left'].map((name,i)=>{
-        if (!ch.floorSeat) return hand(r,rest,i,channel(name));
-        const target=v=>v.every((x,j)=>x===restArm[j]) ? rest.arms[i].hand : hand(r,rest,i,v);
-        return between(target(first[name]),target(last[name]),w);
+        const target=v=>ch.floorSeat && v.every((x,j)=>x===restArm[j]) ? rest.arms[i].hand : hand(r,rest,i,v);
+        return swingHand(r,rest,i,target(first[name]),target(last[name]),w);
       });
       return [entry(a, pose(r, ch))];
     };
@@ -117,6 +131,7 @@ const activityMotion = (() => {
     between,
     reach,
     hand,
+    swingHand,
     prop,
     contact,
     atGrip,

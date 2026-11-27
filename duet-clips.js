@@ -120,10 +120,6 @@ const duetClips = (() => {
         [1, -0.32, 0],
         [1, 0.32, 0]
       ],
-      elbowPoles: [
-        [-0.48, -1, -0.74],
-        [-0.42, 1, -0.67]
-      ],
       blink: blink(u, 0.13) + blink(u, 0.685)
     };
     const motherRest = pose(m, mc);
@@ -179,10 +175,6 @@ const duetClips = (() => {
       hipOffset: [-1.15, 0, -0.49 * m.hip[2] - 0.62 * raised],
       pitch: 0.44 + 0.09 * raised - 0.12 * raised * reveal,
       headPitch: 0.13 + 0.13 * raised * (1 - reveal) - 0.1 * raised * reveal,
-      elbowPoles: [
-        [-0.25, -1, -0.55],
-        [-0.25, 1, -0.55]
-      ],
       kneePoles: [
         [1, -0.32, 0],
         [1, 0.32, 0]

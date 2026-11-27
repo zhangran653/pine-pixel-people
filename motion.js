@@ -46,6 +46,28 @@ const hikerMotion = (() => {
     const pole = unit(plus(bendDirection,n,-dot));
     return plus(plus(start,n,along),pole,bend);
   }
+  // Carry a downward elbow around with the reaching arm. In the torso's frame a
+  // hand pointing forward bends the elbow down; a hanging hand bends it back.
+  function armPole(torso, reach, side, armLength) {
+    const distance = Math.hypot(...reach);
+    const n = distance ? reach.map(v => v/distance) : [-torso[2],-torso[6],-torso[10]];
+    const x = torso[0]*n[0] + torso[4]*n[1] + torso[8]*n[2];
+    const y = torso[1]*n[0] + torso[5]*n[1] + torso[9]*n[2];
+    const z = torso[2]*n[0] + torso[6]*n[1] + torso[10]*n[2];
+    const out = side*y;
+    const extension = Math.min(1,distance/armLength);
+    // In a forward-and-outward reach the elbow hangs mostly below the hand.
+    // Swivel a little when lifting, and further when wrapping around the ribs.
+    const swivel = .15 + extension*(.54*Math.max(0,-z) + .22*Math.max(0,z)
+      + .42*Math.max(0,out) + 1.18*Math.max(0,-out));
+    const sin = Math.sin(swivel), down = -Math.cos(swivel);
+    // Parallel-transport that bend by the shortest rotation from [.8,.6,0]
+    // (forward, outward, up). Its antipode lies behind and across the torso.
+    const denominator = 1 + .8*x + .6*out;
+    const k = denominator > .00001 ? ((-.6*x+.8*out)*sin + z*down)/denominator : 0;
+    const forward = -.6*sin-k*(x+.8), outward = side*(.8*sin-k*(out+.6)), up = down-k*z;
+    return [0,4,8].map(row => torso[row]*forward + torso[row+1]*outward + torso[row+2]*up);
+  }
   // In a relaxed stand the thigh starts a little higher inside the pelvis.
   // Keep some leg reach in reserve so the knees can still soften with the breath.
   function standingHipLift(hipX, hipZ, ankleZ, thigh, shin) {
@@ -84,12 +106,12 @@ const hikerMotion = (() => {
     const wrist = extend(elbow,5.8,foreSpread,fore), hand = extend(wrist,1.32,foreSpread,fore);
     return {side,shoulder:point(torso,shoulder),elbow:point(torso,elbow),wrist:point(torso,wrist),hand:point(torso,hand)};
   }
-  function reachFor(chain, target, weight) {
+  function reachFor(chain, target, weight, torso) {
     if (weight <= 0) return chain;
     let hand = between(chain.hand,target,weight);
     const reach = plus(hand,chain.shoulder,-1);
     if (Math.hypot(...reach)>13.90) hand=plus(chain.shoulder,unit(reach),13.90);
-    const pole=between(unit(plus(chain.elbow,chain.shoulder,-1)),[.12,chain.side,-.95],weight);
+    const pole=between(unit(plus(chain.elbow,chain.shoulder,-1)),unit(armPole(torso,reach,chain.side,13.90)),weight);
     const elbow = joint(chain.shoulder,hand,6.78,7.12,pole);
     return {...chain,hand,elbow,wrist:between(elbow,hand,5.8/7.12)};
   }
@@ -264,8 +286,8 @@ const hikerMotion = (() => {
         let chain=arm(side,stride,torso,wave);
         const lap=between(legs[i].hip,legs[i].knee,.80);
         lap[1]+=side*.40; lap[2]+=2.50;
-        chain=reachFor(chain,lap,seated*(side===-1?1-wave[0]:1));
-        if (i===0) chain=reachFor(chain,bottle.grip,bottle.weight);
+        chain=reachFor(chain,lap,seated*(side===-1?1-wave[0]:1),torso);
+        if (i===0) chain=reachFor(chain,bottle.grip,bottle.weight,torso);
         return chain;
       });
       let posture='standing';
@@ -292,5 +314,5 @@ const hikerMotion = (() => {
       get animating() {return ambient || idleRequest!==null || swayOn || sway>0 || active();},
     };
   }
-  return {create,leg,minX,maxX, geometry:{frame,point,compose,joint,standingHipLift}};
+  return {create,leg,minX,maxX, geometry:{frame,point,compose,joint,armPole,standingHipLift}};
 })();

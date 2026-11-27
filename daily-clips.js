@@ -206,10 +206,6 @@ const dailyActions = (() => {
       0.17 * beat
     );
     ch.hands = [contact(broom, [0, 0, -0.07]), contact(broom, [0, 0, 3.25])];
-    ch.elbowPoles = [
-      [-0.3, -1, -0.3],
-      [-0.3, 1, -0.3]
-    ];
     const p = pose(r, ch);
     p.props = [broom];
     return [entry(a, p)];

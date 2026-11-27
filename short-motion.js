@@ -2,11 +2,11 @@
 // torso and legs; hand-held objects use the same frames for drawing and touch.
 const shortMotion = (() => {
   const {pose, point, ramp, mix, lookAt} = studioRig;
-  const {between, hand, reach, entry, prop, atGrip, contact, blink} = activityMotion;
+  const {between, hand, swingHand, reach, entry, prop, atGrip, contact, blink} = activityMotion;
   const reachMarks = {
     hip:[.08,.10,-.81], pocket:[.09,-.04,-.81], belt:[.23,-.32,-.73], belly:[.32,-.29,-.52],
     rib:[.20,-.08,-.31], chest:[.28,-.31,-.10], center:[.39,-.37,-.12], sternum:[.29,-.33,.02],
-    collar:[.22,-.23,.18], shoulder:[.01,.02,.08], farShoulder:[.18,-.78,.08],
+    collar:[.22,-.23,.18], shoulder:[.18,.025,.075], farShoulder:[.18,-.78,.08],
     farElbow:[.28,-.78,-.36], across:[.48,-.77,-.16], acrossLow:[.45,-.70,-.54],
     side:[.07,.65,-.33], sideLow:[.12,.50,-.65], wide:[.07,.91,.03], wing:[-.13,.66,.35],
     highSide:[.14,.64,.58], crown:[.14,.04,.91], overhead:[.12,.28,.93],
@@ -107,16 +107,19 @@ const shortMotion = (() => {
   }
   function trace(marks, actor, body, side, other, u, times, held,finish) {
     const [start,arrive,last,end]=times, resting=held && !(marks[0] in objectMarks) ? mark(marks[0],actor,body,side,other) : body.arms[side].hand;
+    const travel = (a,b,t) => swingHand(actor.rig,body,side,a,b,t);
     if (u<=start) return resting;
-    if (u<arrive) return between(resting,mark(marks[0],actor,body,side,other),ramp(u,start,arrive));
+    if (u<arrive) return travel(resting,mark(marks[0],actor,body,side,other),ramp(u,start,arrive));
     const final=marks.length-1;
     if (u>=last) {
       const lastHand=mark(marks[final],actor,body,side,other);
       if (finish==='hold') return lastHand;
-      return between(lastHand,finish==='stow'?body.arms[side].hand:resting,ramp(u,last,end));
+      return travel(lastHand,finish==='stow'?body.arms[side].hand:resting,ramp(u,last,end));
     }
     const pos=Math.min(1,(u-arrive)/(last-arrive))*final, begin=Math.floor(pos);
-    return between(mark(marks[begin],actor,body,side,other),mark(marks[Math.min(begin+1,final)],actor,body,side,other),ramp(pos-begin,0,1));
+    const a=marks[begin], b=marks[Math.min(begin+1,final)];
+    const interpolate = a in objectMarks && b in objectMarks ? between : travel;
+    return interpolate(mark(a,actor,body,side,other),mark(b,actor,body,side,other),ramp(pos-begin,0,1));
   }
   function phrase(rightText,leftText,attitude,rhythm,tools='',seat='stand',finish='',id='') {
     const right=track(rightText),left=track(leftText), [primary,support]=(tools || '').split('/'),

@@ -1,7 +1,7 @@
 // Foot phrases are authored as successive landings. Interpolate just the moving
 // shoe in scene space, then solve both legs relative to the moving pelvis.
 const shortFootwork = (() => {
-  const {pose,clamp,ramp,mix}=studioRig, {entry,solo,walking,school,hand,between,blink}=activityMotion;
+  const {pose,clamp,ramp,mix}=studioRig, {entry,solo,walking,school,hand,swingHand,between,blink}=activityMotion;
   const places={
     home:[0,0,0], ahead:[.16,0,0], far:[.245,0,0], back:[-.14,0,0], trail:[-.22,0,0],
     out:[0,.105,0], wide:[0,.16,0], close:[0,-.042,0], diag:[.145,.084,0], retreat:[-.135,.08,0],
@@ -47,7 +47,7 @@ const shortFootwork = (() => {
       const body=pose(r,ch);
       ch.hands=[right,left].map((p,j)=>{
         const shift=(j?1:-1)*side*swing;
-        return between(body.arms[j].hand,hand(r,body,j,[p[0]+.13*shift,p[1],p[2]-.13*shift]),active);
+        return swingHand(r,body,j,body.arms[j].hand,hand(r,body,j,[p[0]+.13*shift,p[1],p[2]-.13*shift]),active);
       });
       return [entry(a,pose(r,ch),x,y)];
     };
@@ -106,7 +106,7 @@ const shortFootwork = (() => {
         pitch:.26*prep+.20*catchStep,headPitch:-.14*prep-.09*catchStep,
         hipOffset:[-.024*h*(prep+catchStep),0,-h*(.12*prep+.092*catchStep)],blink:blink(u)};
       const body=pose(r,ch);
-      ch.hands=[0,1].map(i=>between(body.arms[i].hand,hand(r,body,i,arms[i]),active));
+      ch.hands=[0,1].map(i=>swingHand(r,body,i,body.arms[i].hand,hand(r,body,i,arms[i]),active));
       return [entry(a,pose(r,ch),h*dx*flight,h*dy*flight,h*lift*arc,yaw*ramp(flight,0,1))];
     },'腾空 起跳 落地 '+label),transition:!!(dx||dy||yaw)};
   }

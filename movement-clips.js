@@ -1,7 +1,7 @@
 // Each travelling step fixes one footprint in the scene until the other foot lands.
 const movementActions = (() => {
   const { pose, ramp, mix, clamp } = studioRig;
-  const { sides, entry, solo, walking, school, blink, hand, span, seatProp, tau, between } = activityMotion;
+  const { sides, entry, solo, walking, school, blink, hand, swingHand, span, seatProp, tau, between } = activityMotion;
   const routes = {
     sidestep: [
       [0, 0, 0],
@@ -105,7 +105,7 @@ const movementActions = (() => {
       if (id === 'skip') goal = [0.34, 0.29, -0.26 + 0.33 * weight * side];
       if (dance)
         goal = [0.31 + 0.13 * side * weight, 0.4 + 0.12 * side * weight, 0.03 + 0.53 * side * weight];
-      return between(rest.arms[i].hand, hand(r, rest, i, goal), active);
+      return swingHand(r, rest, i, rest.arms[i].hand, hand(r, rest, i, goal), active);
     });
     const hop = id === 'skip' ? h * 0.084 * Math.sin(Math.PI * clamp((t - 0.2) / 0.8)) ** 2 : 0;
     return [entry(a, pose(r, ch), x, y, hop, heading)];

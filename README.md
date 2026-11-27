@@ -186,6 +186,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 动作工坊
 
+散步时双臂轻弯，跑步时屈肘随对侧脚前后摆动。看手机、打字和拍手共用随躯干转动的肘部解算。抬手整理衣领、鬓发时，手掌沿弧线绕过肩头。[同人物、同机位的手臂动作对照](studies/arm-motion.webp) · [试演跑步](studio.html?actor=look_body_female&action=run&play=1) · [试演抱起宝宝](studio.html?actor=mother&action=cradle&partner=baby&play=1)
+
 动作库共有 **500 个独立片段**，分属 8 个领域、45 类，原始时长为 **1.55 至 10 秒**。选择「自动选角 · 全部动作」即可先挑动作，由人物库补齐演员。按领域、分类、时长、人数和收尾方式可以交叉筛选，也可以直接搜索名称、用途或道具。选中卡片即可看到当前人物的动作。「落座」和「从椅上起身」可以分别使用，上楼、平台转身和下楼也各有一段。「文件 → 导出所选单个动作」可保存该段原速和角色，再导入其他编排。[浏览短动作](studio.html?tool=motion-library&duration=short) · [独立上楼](studio.html?action=ascend-stairs&play=1) · [九段实机动图](studies/short-actions.webp)
 
 选中动作后，「随动作带入」列出所用物件和搭档。**在表单上盖章**会配好书桌、椅子、板夹和印章，盖下后纸面留下印记。**摇铃与循声侧耳**会给所选宝宝配一位成人和一只摇铃。**推正眼镜**沿用人物自己的镜框，缺少时从穿搭库临时配戴。随动作借用的物件、人物和配饰均有库内 ID。世界中已有可用书桌、窗框或楼梯时，可以绑定到具体实例。单段试看中点「把这段动作放进世界」，可以把当前的角色与依赖一起带走。[试演盖章](studio.html?action=stamp-form&play=1) · [从宝宝开始试演摇铃](studio.html?actor=baby&action=family-hear-bell&play=1) · [动作依赖接口](motion-standard.html#supplies)

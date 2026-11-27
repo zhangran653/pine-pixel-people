@@ -85,6 +85,16 @@ function checkCast(clip, cast) {
         for (const v of [pose.feet[side], leg.hip, leg.knee, arm.shoulder, arm.elbow, arm.wrist, arm.hand]) {
           vector(v, 3, label);
         }
+        if (coreActions.has(clip.id)) {
+          const r = cast[i].rig;
+          assert.ok(Math.abs(distance(arm.shoulder,arm.elbow)-r.upperArm) < 1e-5,label+' upper arm');
+          assert.ok(Math.abs(distance(arm.elbow,arm.wrist)-r.forearm) < 1e-5,label+' forearm');
+          assert.ok(Math.abs(distance(arm.wrist,arm.hand)-r.palm) < 1e-5,label+' palm');
+          if (clip.id==='run' || clip.id==='walk') {
+            const cosine = arm.elbow.reduce((sum,v,k)=>sum+(v-arm.shoulder[k])*(arm.wrist[k]-v),0)/(r.upperArm*r.forearm);
+            assert.ok(clip.id==='run' ? cosine > -.20 && cosine < .45 : cosine > .75 && cosine < .995,label+' elbow flexion');
+          }
+        }
       }
     });
     if (phase === 0.5) {
@@ -187,6 +197,62 @@ const original = [
 ];
 for (const id of original) assert.ok(motion.actions.has(id));
 const rigAPI = motion.rig;
+// A contact fixes the hand. Turning or leaning the torso must carry the whole
+// shoulder/elbow/wrist plane with it, at every age and on both sides.
+for (const r of Object.values(rigAPI.profiles)) {
+  const length = r.upperArm + r.forearm + r.palm;
+  const neutral = rigAPI.pose(r);
+  const turn = {yaw:.71, pitch:.25, roll:-.17, hipOffset:[.4,.7,-.2]};
+  const frame = rigAPI.pose(r,turn).torso;
+  for (const offset of [[.10,.15,-.945],[.48,-.27,-.19],[.21,.52,.66],[-.19,-.12,.34],[0,1,0],[0,0,1]]) {
+    const hands = neutral.arms.map(({side,shoulder}) =>
+      shoulder.map((v,k)=>v+length*offset[k]*(k===1 ? side : 1)));
+    const straight = rigAPI.pose(r,{hands});
+    const rotated = rigAPI.pose(r,{...turn, hands:hands.map(p=>rigAPI.point(frame,p))});
+    for (const [i,arm] of straight.arms.entries()) {
+      for (const key of ['shoulder','elbow','wrist','hand'])
+        assert.ok(distance(rotated.arms[i][key],rigAPI.point(frame,arm[key])) < 1e-6, key+' follows torso');
+      assert.ok(distance(arm.hand,hands[i]) < 1e-6);
+      for (const [start,end,size] of [['shoulder','elbow',r.upperArm],['elbow','wrist',r.forearm],['wrist','hand',r.palm]])
+        assert.ok(Math.abs(distance(arm[start],arm[end])-size) < 1e-6, start+' length');
+      assert.ok(Math.abs(Math.hypot(...arm.thumb)-1) < 1e-7);
+      assert.ok(Math.abs(arm.thumb.reduce((sum,v,k)=>sum+v*(arm.hand[k]-arm.wrist[k]),0)) < 1e-7);
+    }
+    const [right,left] = straight.arms;
+    assert.ok(distance(right.elbow,[left.elbow[0],-left.elbow[1],left.elbow[2]]) < 1e-6);
+  }
+  const shoulder = neutral.arms[0].shoulder;
+  const folded = rigAPI.pose(r,{hands:[shoulder]}).arms[0];
+  assert.ok(Math.abs(distance(folded.wrist,folded.elbow)-r.forearm) < 1e-6);
+  const target = [shoulder[0]+.65*length,shoulder[1],shoulder[2]];
+  const custom = rigAPI.pose(r,{hands:[target],elbowPoles:[[0,0,1]]}).arms[0];
+  assert.ok(custom.elbow[2] > shoulder[2] && distance(custom.hand,target) < 1e-7);
+  const parallel = rigAPI.pose(r,{hands:[target],elbowPoles:[[1,0,0]]}).arms[0];
+  assert.ok(Math.abs(distance(parallel.elbow,shoulder)-r.upperArm) < 1e-6);
+}
+{
+  const actor = motion.characters.get('look_silkloom_dye'), r = actor.rig;
+  for (const id of ['walk','run','clap','type','carry-box','tuck-hair','turn-collar','adjust-strap','gather-ponytail','wave']) {
+    const clip = motion.actions.get(id);
+    let previous, spread = 0;
+    for (let n=0;n<=240;n++) {
+      const pose = clip.sample(n/240,actor)[0].pose;
+      const arms = pose.arms.map((arm,i)=>{
+        const d = arm.elbow.map((v,k)=>(v-arm.shoulder[k])/r.upperArm);
+        const m = pose.torso, local = [0,1,2].map(k=>m[k]*d[0]+m[k+4]*d[1]+m[k+8]*d[2]);
+        spread = Math.max(spread,arm.side*local[1]);
+        if (previous) {
+          assert.ok(distance(local,previous[i].elbow) < .25,id+' elbow jumped at '+n);
+          assert.ok(distance(arm.thumb,previous[i].thumb) < .32,id+' palm flipped at '+n);
+        }
+        return {elbow:local, thumb:arm.thumb};
+      });
+      previous = arms;
+    }
+    if (['walk','run','clap','type','carry-box'].includes(id)) assert.ok(spread < .40,id+' flared at the shoulder');
+    if (id==='wave') assert.ok(spread > .70,'a deliberately raised elbow must clear the shoulder');
+  }
+}
 const anchor = (obj, local) =>
   rigAPI.point(
     obj.frame,

@@ -446,7 +446,8 @@
       $('face-gallery').textContent = '原配方的唇形与四龄游戏尺寸实拍';
     }
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
-    actors = recipes.map(doc => looks.build(doc));
+    // Published art plates compare the figure editions at their recorded pose.
+    actors = recipes.map(doc => subject === 'draft' ? looks.build(doc) : motion.rig.withArchivedArmPose(looks.build(doc)));
     neutralFrames = sampleActors('idle', .17);
     // Pin pixel scale to the taller of the two actual neutral silhouettes, including hats.
     neutralHeight = Math.max(...neutralFrames.map(({ bands }) => {

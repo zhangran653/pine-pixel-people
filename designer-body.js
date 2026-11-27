@@ -1798,7 +1798,7 @@ const pineDesignerBody = (() => {
         }
         if (parts.wrist && side === 1) pineWorkshopWear.wristwear(parts.wrist, b, k, { elbow, wrist }, cuff);
         if (wholeFigure) {
-          pineFigurePaint.hand(b, k, pose.torso, side, wrist, hand, palm * (tailored ? 1.10 : 1), infant, tailored, paintedBody);
+          pineFigurePaint.hand(b, k, pose.torso, side, wrist, hand, palm * (tailored ? 1.10 : 1), infant, tailored, paintedBody, arm.thumb);
         } else {
           const length = Math.hypot(...hand.map((v, j) => v - wrist[j])) || 1;
           const axis = hand.map((v, j) => (v - wrist[j]) / length);
