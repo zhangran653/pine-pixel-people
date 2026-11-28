@@ -1289,7 +1289,7 @@ const pineDesignerBody = (() => {
     }
 
     function drawSkirt(pose, b, k, thigh, kneeRadius) {
-      const { legs: chains, torso } = pose;
+      const chains = pose.legs, torso = pose.pelvis || pose.torso;
       const up = [torso[2], torso[6], torso[10]];
       const left = [torso[1], torso[5], torso[9]];
       const kneeDrop = chains.reduce((sum, { hip, knee }) => sum + hip[2] - knee[2], 0) / (2 * rig.thigh);
@@ -1542,12 +1542,17 @@ const pineDesignerBody = (() => {
         const dx = knee[0] - x,
           dz = knee[2] - z;
         const anklePose = pixelStructure && seated ? studioRig.seatedAnkle(rig, pose, i) : null;
-        const forward = anklePose ? 1 : 1 - 2 * clamp((dx / (Math.hypot(dx, dz) || 1) - 0.7) / 0.29, 0, 1);
+        const forward = anklePose || pose.footYaw ? 1 : 1 - 2 * clamp((dx / (Math.hypot(dx, dz) || 1) - 0.7) / 0.29, 0, 1);
         const toe = shoeX * 0.25 * forward,
           sh = ankle * (boots ? 0.73 : 0.64);
-        const footBrush = seated ? pineFigurePaint.seatedFoot(b, foot, forward, seated, anklePose?.pitch) : b;
-        const turnout = anklePose ? Math.abs(anklePose.yaw) : undefined;
-        const footwear = wholeFigure ? pineFigurePaint.shoeBrush(footBrush, k, foot, shoeX, shoeY, ankle, forward, side, parts.shoes, tailored, turnout) : b;
+        let footwear = b;
+        if (wholeFigure) {
+          const brush = seated ? pineFigurePaint.seatedFoot(b,foot,forward,seated,anklePose?.pitch) : b;
+          const turnout = anklePose ? Math.abs(anklePose.yaw) : pose.footYaw && side*pose.footYaw[i];
+          footwear = pineFigurePaint.shoeBrush(brush, k, foot, shoeX, shoeY, ankle, forward, side, parts.shoes, tailored, turnout);
+        } else if (pose.footYaw) {
+          footwear = pineFigurePaint.footBrush(b,foot,pose.footYaw[i],0);
+        }
         if (collectionShoes) {
           pineEverydayStyles.shoe(
             parts.shoes,
@@ -1926,6 +1931,7 @@ const pineDesignerBody = (() => {
         if (t < 0.14 && a > 0.18 && Math.floor(a * 14) % 2 === 0) return k.topShade;
         return u < -0.62 ? k.topShade : k.top;
       }
+      if (pose.pelvis) b.frame(pose.pelvis);
       if (seated) {
         paint.infantSeat(b, k, pose, rig, hipThickness, hipHalf, hipHeight, seated);
         b.frame(pose.torso);
@@ -1946,6 +1952,7 @@ const pineDesignerBody = (() => {
               : k.bottom,
         2.7
       );
+      if (pose.pelvis) b.frame(pose.torso);
       function paintedPanel(u, v, t, hemRise) {
         if (wholeFigure && t < waistline + hemRise) {
           const h = t / (waistline + hemRise);

@@ -105,11 +105,12 @@ const familyArt = (() => {
       const dx = knee[0] - foot[0],
         dz = knee[2] - foot[2],
         horizontal = dx / (Math.hypot(dx, dz) || 1);
-      const direction = 1 - 2 * Math.max(0, Math.min(1, (horizontal - 0.7) / 0.29));
+      const direction = pose.footYaw ? 1 : 1 - 2 * Math.max(0, Math.min(1, (horizontal - 0.7) / 0.29));
       const [fx, fy, fz] = foot,
         bottom = fz - ankleHeight,
         toe = shoeLength * 0.26 * direction;
       const sh = ankleHeight * 0.72;
+      if (pose.footYaw) frame(hikerMotion.geometry.frame(foot,[0,0,0],pose.footYaw[i],0,0));
       blob(
         fx + toe,
         fy,
@@ -138,6 +139,7 @@ const familyArt = (() => {
         },
         2.7
       );
+      if (pose.footYaw) frame(null);
     }
   }
 
@@ -189,7 +191,7 @@ const familyArt = (() => {
   function mother(pose, b, k) {
     const { frame, blob, stamp } = b;
     legs(pose, b, k, motherLegs);
-    frame(pose.torso);
+    frame(pose.pelvis || pose.torso);
     blob(
       -0.13,
       0,
@@ -201,6 +203,7 @@ const familyArt = (() => {
         z > 21.05 ? k.denimDark : x < -0.65 && Math.abs(y) > 2.3 && z > 18.2 ? k.denimLight : k.denim,
       2.9
     );
+    frame(pose.torso);
     // Curved lapels open over a striped cotton tee. The long hem has two patch pockets.
     stamp(-4.3, 4.83, -6.4, 6.4, 17.56, 34.5, (x, y, z) => {
       const h = z - 17.56,
@@ -289,8 +292,9 @@ const familyArt = (() => {
   function child(pose, b, k) {
     const { frame, stamp, blob } = b;
     legs(pose, b, k, childLegs);
-    frame(pose.torso);
+    frame(pose.pelvis || pose.torso);
     blob(-0.1, 0, 12.7, 2.91, 4.11, 2.4, k.denim, 3);
+    frame(pose.torso);
     blob(
       0.05,
       0,
@@ -367,8 +371,9 @@ const familyArt = (() => {
   function toddler(pose, b, k) {
     const { frame, blob, stamp } = b;
     legs(pose, b, k, toddlerLegs);
-    frame(pose.torso);
+    frame(pose.pelvis || pose.torso);
     blob(-0.15, 0, 9.64, 2.69, 3.51, 2.56, (x, y, z) => (z < 8.27 && x < 0 ? k.ochre : k.yellow), 2.75);
+    frame(pose.torso);
     blob(
       0.12,
       0,

@@ -16,8 +16,14 @@ const soloClips = (() => {
     return [{ character: person.id, x, y, z, heading, pose: p }];
   }
   const seated = studioRig.seated;
-  function waist(r, person) {
-    if (!person.tags.includes('baby')) return {};
+  function standingFor(person, options) {
+    if (person.rig.archivedStanding || person.tags.includes('baby')) return {};
+    const age = person.tags.includes('toddler') ? 'toddler' : person.tags.includes('child') ? 'child' : 'adult';
+    return studioRig.standing(person.rig,age,options);
+  }
+  function restingStance(person, options) {
+    if (!person.tags.includes('baby')) return standingFor(person, options);
+    const r = person.rig;
     const ch = seated(r, true);
     if (person.figureRelease === '1.19.1') supportedSeat(r, ch);
     return ch;
@@ -65,29 +71,30 @@ const soloClips = (() => {
       hands:[[.095,.162,.953],[.16,.135,.945]] }
   };
   function idle(u, a) {
-    const r = a.rig,
-      ch = waist(r, a),
-      off = ch.hipOffset || zero,
-      breath = r.infantFloorSupport ? .002 * r.height : ch.feet ? 0.15 : 0.005 * (r.thigh + r.shin);
-    ch.hipOffset = [
-      off[0],
-      off[1] + r.height * 0.005 * Math.sin(tau * u),
-      off[2] - breath * (1 - Math.cos(tau * u))
-    ];
-    ch.headYaw = 0.13 * Math.sin(u * tau) ** 3;
+    const r = a.rig, phase = tau*u;
     const structured = ['1.19.2','1.19.3','1.19.4','1.19.5','1.19.6','1.19.7','1.19.8','1.19.9','1.19.10','1.19.11','1.19.12'].includes(a.figureRelease);
-    if (structured || a.figureRelease === '1.19.0' || a.figureRelease === '1.19.1') {
+    const fitted = structured || a.figureRelease === '1.19.0' || a.figureRelease === '1.19.1';
+    const stance = garmentStances[r.garmentStance] ||
+      (structured ? (a.tags.includes('toddler') ? toddlerStance : plantedStance) : archivedStance);
+    const ch = restingStance(a,{yaw:fitted ? stance.yaw : 0,load:.95+.05*Math.sin(phase),breath:(1-Math.cos(phase))*.5});
+    if (ch.pelvisRoll === undefined) {
+      const off = ch.hipOffset || zero;
+      const breath = r.infantFloorSupport ? .002*r.height : ch.feet ? .15 : .005*(r.thigh+r.shin);
+      ch.hipOffset = [off[0],off[1]+r.height*.005*Math.sin(phase),off[2]-breath*(1-Math.cos(phase))];
+    }
+    ch.headYaw = .13*Math.sin(phase)**3;
+    if (fitted) {
       if (a.tags.includes('baby')) {
         if (!ch.floorSeat) infantFloorPose(r, ch);
       } else {
         // One planted leg takes the weight. The free foot is slightly forward
         // and its sleeve opens away from the body at a different elbow angle.
         ch.standing = 1;
-        const stance = garmentStances[r.garmentStance] ||
-          (structured ? (a.tags.includes('toddler') ? toddlerStance : plantedStance) : archivedStance);
-        ch.feet = [[r.height * stance.stride, -stance.feet[0] * r.hip[1], r.ankle],
-          [-r.height * .014, stance.feet[1] * r.hip[1], r.ankle]];
-        ch.hipOffset[1] += stance.shift * (structured ? r.hip[1] : r.height);
+        if (r.archivedStanding) {
+          ch.feet = [[r.height * stance.stride, -stance.feet[0] * r.hip[1], r.ankle],
+            [-r.height * .014, stance.feet[1] * r.hip[1], r.ankle]];
+          ch.hipOffset[1] += stance.shift * (structured ? r.hip[1] : r.height);
+        }
         ch.roll = stance.roll;
         ch.headRoll = stance.headRoll;
         ch.yaw = stance.yaw;
@@ -112,12 +119,12 @@ const soloClips = (() => {
   }
   function sway(u, a) {
     const r = a.rig,
-      ch = waist(r, a),
-      off = ch.hipOffset || zero,
       w = Math.sin(tau * u),
-      nod = 1 - Math.cos(tau * u);
+      nod = 1 - Math.cos(tau * u),
+      ch = restingStance(a,{load:w,breath:.5*nod}),
+      off = ch.hipOffset || zero;
     const grounded = r.infantFloorSupport;
-    ch.hipOffset = [off[0], off[1] + r.height * (grounded ? .009 : .026) * w,
+    if (ch.pelvisRoll === undefined) ch.hipOffset = [off[0], off[1] + r.height * (grounded ? .009 : .026) * w,
       off[2] - r.height * (grounded ? .002 : .006) * nod];
     ch.roll = (grounded ? -.041 : -.068) * w;
     ch.headRoll = (grounded ? .033 : .054) * w;
@@ -184,7 +191,7 @@ const soloClips = (() => {
   }
   function wave(u, a) {
     const r = a.rig,
-      ch = waist(r, a),
+      ch = restingStance(a,{load:.85}),
       weight = ramp(u, 0, 0.21) * (1 - ramp(u, 0.8, 1));
     ch.blink = blink(u);
     const neutral = pose(r, ch);
@@ -294,7 +301,7 @@ const soloClips = (() => {
       raise = ramp(u, 0.17, 0.4) * (1 - ramp(u, 0.66, 0.86));
     const tilt = ramp(u, 0.3, 0.46) * (1 - ramp(u, 0.63, 0.81)),
       held = ramp(u, 0.01, 0.16) * (1 - ramp(u, 0.87, 0.99));
-    const ch = { headPitch: -0.15 * tilt, headYaw: -0.055 * tilt, blink: blink(u) };
+    const ch = { ...standingFor(a,{load:.55}), headPitch: -0.15 * tilt, headYaw: -0.055 * tilt, blink: blink(u) };
     const rest = pose(r, ch),
       mouth = studioRig.socket(a, rest, 'mouth'),
       dock = a.sockets?.bottleDock
@@ -319,7 +326,7 @@ const soloClips = (() => {
       raised = ramp(u, 0.03, 0.23) * (1 - ramp(u, 0.81, 0.99));
     const tap = Math.sin(tau * u * 5),
       swiping = Math.sin(tau * u * 2.5);
-    const ch = { headPitch: 0.25 * raised, headYaw: 0.12 * raised, blink: blink(u) };
+    const ch = { ...standingFor(a,{load:.45}), headPitch: 0.25 * raised, headYaw: 0.12 * raised, blink: blink(u) };
     const rest = pose(r, ch);
     const center = [h * (0.065 + 0.09 * raised), h * 0.085, r.shoulder[2] - h * (0.18 - 0.115 * raised)];
     const close = [h * 0.11, 0, r.shoulder[2] - h * 0.03];
@@ -394,14 +401,14 @@ const soloClips = (() => {
   function clap(u, a) {
     const r = a.rig,
       h = r.height,
-      ch = waist(r, a);
+      ch = restingStance(a,{load:.25});
     ch.blink = blink(u);
     const p = pose(r, ch),
       spread = (1 - Math.cos(u * tau * 3)) * 0.5;
     const front = point(p.torso, [h * 0.13, 0, r.shoulder[2] - 0.06 * h]);
     ch.hands = sides.map((s) => [
       front[0],
-      s * (h * 0.024 + spread * h * 0.12),
+      front[1] + s * (h * 0.024 + spread * h * 0.12),
       front[2] + spread * h * 0.025
     ]);
     return entry(a, pose(r, ch));
@@ -448,6 +455,7 @@ const soloClips = (() => {
     return entry(a, pose(r, ch), x, y, 0, heading);
   }
   return {
+    standingFor,
     idle,
     sit,
     sitdown,

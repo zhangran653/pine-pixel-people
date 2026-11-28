@@ -94,6 +94,41 @@ const studioRig = (() => {
     });
     return start.map((v,i)=>v+t*ray[i]);
   }
+  // Stagger is a fraction of leg length. Width is measured between hip centres.
+  const standingForms = {
+    adult:   { width:1.18, stagger:.245, load:.68, bend:13.5, turnout:.13 },
+    child:   { width:1.20, stagger:.19, load:.49, bend:15, turnout:.14 },
+    toddler: { width:1.23, stagger:.12, load:.28, bend:17, turnout:.17 }
+  };
+  function standing(r, age = 'adult', {load = 1, breath = 0, yaw = 0} = {}) {
+    if (!Object.hasOwn(standingForms,age)) throw Error('站姿适用于成人、儿童和幼儿');
+    if (![load,breath,yaw].every(Number.isFinite)) throw Error('站姿参数需要有限数值');
+    const form = standingForms[age];
+    const weight = form.load*clamp(load,-1,1);
+    const leg = r.thigh + r.shin;
+    const halfWidth = Math.max(form.width*r.hip[1], .80*r.ankle + .063*leg);
+    const feet = sides.map(side => [
+      r.hip[0] + (side < 0 ? .70 : -.30)*form.stagger*leg, side*halfWidth, r.ankle
+    ]);
+    const shift = .54*halfWidth*weight;
+    const hipZ = r.hip[2] + standingHipLift(r.hip[0],r.hip[2],r.ankle,r.thigh,r.shin);
+    const level = frame(r.pelvis,[0,shift,0],yaw,0,0);
+    // Work back from the two planted ankles. The supporting knee retains a
+    // little bend while the free knee can soften without moving either shoe.
+    const heights = sides.map((side,i) => {
+      const hip = point(level,[r.hip[0],side*r.hip[1],hipZ]);
+      const bend = (form.bend - 8*side*weight + 1.6*clamp(breath))*Math.PI/180;
+      const reach2 = r.thigh**2 + r.shin**2 + 2*r.thigh*r.shin*Math.cos(bend);
+      const flat2 = (feet[i][0]-hip[0])**2 + (feet[i][1]-hip[1])**2;
+      return feet[i][2] + Math.sqrt(Math.max(0,reach2-flat2));
+    });
+    const slope = (heights[1]-heights[0])/Math.max(.001,2*r.hip[1]);
+    const pelvisRoll = Math.asin(clamp(slope,-.16,.16));
+    const lift = (heights[0]+heights[1])/2 - r.pelvis[2] - (hipZ-r.pelvis[2])*Math.cos(pelvisRoll);
+    const footYaw = sides.map(side => side*form.turnout);
+    return { standing:1, feet, hipOffset:[0,shift,lift], pelvisRoll, yaw,
+      footYaw, kneePoles:footYaw.map(angle => [Math.cos(angle),Math.sin(angle),0]) };
+  }
   function seated(r, floor = false) {
     if (floor && r.infantFloorSupport) {
       const length = r.thigh + r.shin, height = r.height;
@@ -249,17 +284,20 @@ const studioRig = (() => {
     const standing = clamp(channels.standing ?? (channels.feet ? 0 : 1));
     const hipZ =
       rig.hip[2] + standing * standingHipLift(rig.hip[0], rig.hip[2], rig.ankle, rig.thigh, rig.shin);
+    const pelvis = channels.pelvisRoll === undefined ? torso :
+      frame(rig.pelvis,channels.hipOffset || origin,channels.yaw || 0,channels.pitch || 0,channels.pelvisRoll);
     // The contact foot is authoritative. Lower the pelvis for a distant planted foot.
     sides.forEach((s, i) => {
-      const hip = point(torso, [rig.hip[0], s * rig.hip[1], hipZ]);
+      const hip = point(pelvis, [rig.hip[0], s * rig.hip[1], hipZ]);
       const flat = (feet[i][0] - hip[0]) ** 2 + (feet[i][1] - hip[1]) ** 2;
       const limit = Math.sqrt(Math.max(0, (rig.thigh + rig.shin) ** 2 - flat));
       const excess = Math.max(0, hip[2] - feet[i][2] - limit);
       torso[11] -= excess;
       head[11] -= excess;
+      if (pelvis !== torso) pelvis[11] -= excess;
     });
     const legs = sides.map((s, i) => {
-      const hip = point(torso, [rig.hip[0], s * rig.hip[1], hipZ]);
+      const hip = point(pelvis, [rig.hip[0], s * rig.hip[1], hipZ]);
       return { hip, knee: joint(hip, feet[i], rig.thigh, rig.shin, channels.kneePoles?.[i] || [1, 0, 0]) };
     });
     const arms = sides.map((side, i) => {
@@ -295,6 +333,8 @@ const studioRig = (() => {
       return arm;
     });
     const result = { torso, head, feet, legs, arms, blink: channels.blink || 0, props: [], bottle: null, bob: 0 };
+    if (channels.footYaw) result.footYaw = channels.footYaw;
+    if (pelvis !== torso) result.pelvis = pelvis;
     if (rig.facialActing && channels.faceCue) {
       const { gaze = [0,0], smile = 0 } = channels.faceCue;
       if (!Array.isArray(gaze) || gaze.length !== 2 || !gaze.every(Number.isFinite) || !Number.isFinite(smile))
@@ -317,9 +357,10 @@ const studioRig = (() => {
   return {
     centimetersPerUnit: 3.4,
     profiles,
+    standing,
     restingHand,
-    // Freeze the original arm articulation for the published pixel-art comparisons.
-    withArchivedArmPose: actor => ({...actor, rig:{...actor.rig, archivedArmPose:true}}),
+    // Reproduce the recorded articulation in the published pixel-art comparisons.
+    withArchivedArmPose: actor => ({...actor, rig:{...actor.rig, archivedArmPose:true, archivedStanding:true}}),
     seated,
     seatedAnkle,
     commonReach,

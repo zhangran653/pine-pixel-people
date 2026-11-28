@@ -136,7 +136,8 @@ for (const id of ['hiker', 'child', 'toddler']) {
     }
   }
   // The original actors used a symmetric stance. Replay its exact foot and knee contracts.
-  const actor = context.PineLooks.build(context.PineLooks.archivedTemplates.get('look_workshop_'+id));
+  const original = context.PineLooks.build(context.PineLooks.archivedTemplates.get('look_workshop_'+id));
+  const actor = motion.rig.withArchivedArmPose(original);
   const { rig } = actor;
   const sample = (action, u) => motion.actions.get(action).sample(u, actor)[0].pose;
   const extension = (pose, i) => distance(pose.legs[i].hip, pose.feet[i]) / (rig.thigh + rig.shin);
@@ -197,6 +198,36 @@ const original = [
 ];
 for (const id of original) assert.ok(motion.actions.has(id));
 const rigAPI = motion.rig;
+// Check the loaded and free knees independently. The feet must stay planted
+// as the load changes sides, including on long- and short-legged figures.
+const kneeBend = (r,p,i) => {
+  const reach = distance(p.legs[i].hip,p.feet[i]);
+  const cosine = (reach**2-r.thigh**2-r.shin**2)/(2*r.thigh*r.shin);
+  return Math.acos(Math.max(-1,Math.min(1,cosine)))*180/Math.PI;
+};
+for (const age of ['adult','child','toddler']) {
+  const looks = context.PineLooks, doc = looks.templates.find(p => p.base===age);
+  for (const proportions of [{}, {legs:.8,shoulders:1.35}, {legs:1.25,shoulders:.7}]) {
+    const actor = looks.build({...doc,shape:{...doc.shape,...proportions}}), r = actor.rig;
+    const at = (id,u) => motion.actions.get(id).sample(u,actor)[0].pose;
+    const feet = at('idle',0).feet, span = feet[1][1]-feet[0][1];
+    assert.ok(span > 2*r.hip[1] && span < 2.9*r.hip[1] && feet[0][0]>feet[1][0],age+' standing footprints');
+    for (const u of phases) {
+      const p = at('idle',u), free = kneeBend(r,p,0), support = kneeBend(r,p,1);
+      assert.ok(support > 5 && free > support+2 && free < 24,age+' idle knee balance');
+      assert.ok(Math.abs(distance(p.legs[0].hip,p.legs[1].hip)-2*r.hip[1]) < 1e-6,age+' rigid pelvis');
+      assert.ok(p.footYaw[0] < 0 && p.footYaw[1] > 0);
+      for (const id of ['idle','sway','wave','clap','fold-arms','drink','phone']) {
+        if (motion.accepts(motion.actions.get(id),0,actor)) assert.deepEqual(at(id,u).feet,feet,id+' shifted a footprint');
+      }
+    }
+    for (const [u,loaded] of [[.25,1],[.75,0]]) {
+      const p = at('sway',u);
+      assert.ok(kneeBend(r,p,loaded)+2 < kneeBend(r,p,1-loaded),age+' sway did not transfer weight');
+    }
+  }
+}
+assert.throws(() => rigAPI.standing(rigAPI.profiles.baby,'baby'),/站姿/);
 // A contact fixes the hand. Turning or leaning the torso must carry the whole
 // shoulder/elbow/wrist plane with it, at every age and on both sides.
 for (const r of Object.values(rigAPI.profiles)) {

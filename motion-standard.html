@@ -69,6 +69,8 @@ PineMotion.registerCharacter({
           <tr><td><code>x, y, z, heading</code></td><td>人物根节点在片段场景中的位置与绕 z 轴的朝向。跳跃的整体腾空写入根节点 z，脚、头和道具一起升降。</td></tr>
           <tr><td><code>rig.pose(rig, channels)</code></td><td>可指定骨盆偏移 hipOffset、躯干和头部的转角、左右脚踝 feet、手掌目标 hands，以及指引膝肘弯曲方向的 kneePoles 和 elbowPoles。手脚目标均为人物局部坐标。</td></tr>
           <tr><td><code>channels.standing</code></td><td>站姿权重范围为 0 到 1。1 让膝盖自然微屈，0 交给当前动作控制。双脚使用默认站位时权重为 1，自定义 feet 时默认为 0。起身时可从 0 平滑过渡到 1。</td></tr>
+          <tr><td><code>rig.standing(rig, age, options)</code></td><td>返回可直接传入 <code>rig.pose</code> 的放松站姿。<code>age</code> 可选 adult、child 或 toddler。<code>load</code> 从 −1 到 1 表示重心从右脚移向左脚，0 为均衡承重，默认值为 1。<code>breath</code> 从 0 到 1 控制呼吸时膝盖的轻微放松。<code>yaw</code> 是躯干绕竖直轴的转角，单位为弧度。双脚着地点在换重心时固定。</td></tr>
+          <tr><td><code>pose.pelvis</code>、<code>pose.footYaw</code></td><td>放松站姿提供独立的骨盆刚体矩阵，腰头和裙腰跟随骨盆。两只脚的朝向依次为右、左，以人物前方为零，绕竖直轴旋转，单位为弧度。自绘鞋面可以绕对应脚踝施加这个转角。<a href="studies/standing-legs.webp">查看正面和侧面的实机对照</a></td></tr>
           <tr><td><code>pose</code></td><td>torso、head 是按行存储的 3 × 4 刚体矩阵。legs 提供 hip、knee，feet 提供 ankle。arms 提供 shoulder、elbow、wrist、hand。blink 从 0（睁眼）到 1（闭眼）。</td></tr>
           <tr><td><code>pose.props</code></td><td>数组中的每项含 kind、frame 和 scale。内置道具包括 phone、laptop、stool、book、pen、camera、parcel、guitar 等。frame 把道具局部坐标变换到人物空间，scale 统一调整大小。水瓶沿用 pose.bottle 的 base、lip、held。</td></tr>
         </tbody></table>

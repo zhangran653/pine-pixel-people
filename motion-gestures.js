@@ -65,7 +65,7 @@ const activityMotion = (() => {
     return { id, label, group, seconds, roles: [allowed], sample, keywords };
   }
   // A key is an absolute pose. Neutral channels fill omitted values at that key.
-  function gesture(keys) {
+  function gesture(keys, useStandingBase = false) {
     // A free hand takes the actor's resting position, including a seated baby's lap.
     const defaults = { right: null, left: null, head: zero, body: zero, shift: zero };
     if (!Array.isArray(keys) || keys.length < 2 || keys[0]?.at !== 0 || keys[keys.length - 1]?.at !== 1)
@@ -98,8 +98,7 @@ const activityMotion = (() => {
       return next;
     });
     return (u, a) => {
-      const r = a.rig,
-        ch = base(a);
+      const r = a.rig;
       let end = 1;
       while (end < frames.length - 1 && u > frames[end].at) end++;
       const first = frames[end - 1],
@@ -109,6 +108,7 @@ const activityMotion = (() => {
       const [yaw, pitch, roll] = channel('body'),
         [headYaw, headPitch, headRoll] = channel('head'),
         shift = channel('shift');
+      const ch = useStandingBase && !a.tags.includes('baby') ? soloClips.standingFor(a,{load:.65,yaw}) : base(a);
       ch.yaw = yaw;
       ch.pitch = (ch.pitch || 0) + pitch;
       ch.roll = roll;
@@ -161,7 +161,7 @@ const gestureActions = (() => {
   const result = [];
   function add(id, label, section, seconds, roles, keys, keywords = '') {
     const frames = [{ at: 0 }, ...keys.map(([at, channels]) => ({ at, ...channels })), { at: 1 }];
-    result.push(solo(id, label, section, seconds, roles, gesture(frames), keywords));
+    result.push(solo(id, label, section, seconds, roles, gesture(frames, true), keywords));
   }
   add(
     'open-mouth', '自然张合嘴', '日常', 2.8, ['mandible'],

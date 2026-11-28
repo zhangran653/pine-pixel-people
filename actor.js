@@ -20,13 +20,16 @@ const hikerArt = {
       const lift = ankle[2] - 3.1, y = ankle[1];
       link(hip, knee, 2.8, 2.25, .93, (t, u, v) => u > .9 && t > .77 ? ink.pantsLight : side*v < -.9 ? ink.pantsDark : ink.pants);
       link(knee, ankle, 2.29, 1.85, .94, (t, u) => t > .7 && t < .88 ? ink.cuff : u < -.9 ? ink.pantsDark : ink.pants);
+      if (pose.footYaw) frame(hikerMotion.geometry.frame(ankle,[0,0,0],pose.footYaw[leg],0,0));
       blob(ankle[0]+1.05, y, 1.75+lift, 3.7, 2.22, 1.65, (x, yy, z) =>
         z < lift+1.05 ? ink.sole : x > ankle[0]+2.1 ? ink.leatherLight : ink.leather, 3.4);
       blob(ankle[0]+.05, y, 3.35+lift, 2.05, 2.04, 1.65, (x, yy, z) =>
         x > ankle[0]+1 && z > lift+3.1 && z < lift+3.9 ? ink.lace : ink.leather, 3);
+      if (pose.footYaw) frame(null);
     }
-    frame(pose.torso ?? rest);
+    frame(pose.pelvis ?? pose.torso ?? rest);
     blob(-.15, 0, 19.2, 3.95, 5.55, 3.25, ink.pants, 2.8);
+    frame(pose.torso ?? rest);
     blob(.1, 0, 26.35, 4.32, 6.15, 8.35, (x, y, h) => {
       const a = Math.abs(y);
       if (h < 20.5) return ink.hem;

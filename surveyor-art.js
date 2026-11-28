@@ -30,6 +30,7 @@ const surveyorArt = {
         return side*v < -1 ? ink.pantsDark : ink.trousers;
       });
       const x=foot[0], y=foot[1], lift=foot[2]-3.1;
+      if (pose.footYaw) frame(hikerMotion.geometry.frame(foot,[0,0,0],pose.footYaw[i],0,0));
       // A welted outsole, toe cap, tongue and two runs of lacing read in profile.
       blob(x+.85,y,lift+1.50,3.67,2.04,1.48,(px,py,z) => {
         const h=z-lift, front=px-x;
@@ -38,6 +39,7 @@ const surveyorArt = {
         if (front > 2.24) return ink.bootToe;
         return front < -.65 ? ink.leatherDark : ink.leather;
       },3.5);
+      if (pose.footYaw) frame(null);
       const shaft = foot.map((v,j) => v + .32*(knee[j]-v));
       link(shaft,foot,1.79,1.80,1.01,(t,u,v) => {
         if (t < .16) return ink.leatherLight;
@@ -50,8 +52,9 @@ const surveyorArt = {
       });
     }
 
-    frame(pose.torso);
+    frame(pose.pelvis || pose.torso);
     blob(-.15,0,19.2,3.95,5.35,3.25,ink.trousers,2.8);
+    frame(pose.torso);
     // The jacket flares below a narrow belt, with a diagonal satchel strap above.
     stamp(-4.4,4.9,-6.7,6.7,17.95,34.25,(x,y,z) => {
       const h=z-18, a=Math.abs(y);

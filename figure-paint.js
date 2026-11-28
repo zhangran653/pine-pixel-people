@@ -939,11 +939,9 @@ const pineFigurePaint = (() => {
       }
     };
   }
-  // The heel and the buttocks support a floor sitter. Rotate the last about the
-  // anatomical ankle. Leave links (boot shafts) on the lower leg so their cuffs
-  // continue to meet the shin when the baby flexes a foot.
-  function seatedFoot(brush, foot, forward, weight, pitch = .82) {
-    const flex = studioRig.frame(foot, [0, 0, 0], 0, -pitch * forward * weight, 0);
+  // Rotate the shoe around the ankle. Links for tall boot shafts stay on the shin.
+  function footBrush(brush, foot, yaw, pitch) {
+    const flex = studioRig.frame(foot, [0, 0, 0], yaw, pitch, 0);
     function rolled(method, args) {
       brush.frame(flex);
       method(...args);
@@ -954,6 +952,9 @@ const pineFigurePaint = (() => {
       stamp(...args) { rolled(brush.stamp, args); },
       blob(...args) { rolled(brush.blob, args); }
     };
+  }
+  function seatedFoot(brush, foot, forward, weight, pitch = .82) {
+    return footBrush(brush,foot,0,-pitch*forward*weight);
   }
 
   // A padded seat resting on the floor has a low, broad contact patch. Sample
@@ -1089,6 +1090,7 @@ const pineFigurePaint = (() => {
     shoeBrush,
     infantSeat,
     infantLap,
+    footBrush,
     seatedFoot,
     luggageBrush
   };

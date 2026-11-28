@@ -186,6 +186,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 动作工坊
 
+自然待机时，两脚按髋宽和腿长落位，承重腿稍直，另一只脚略靠前。幼儿两脚分担的重量更接近。轻晃时双脚固定，膝盖随重心交替放松。站着看手机、喝水和抱臂等候也共用这套站姿。[成人、儿童和幼儿的站姿对照](studies/standing-legs.webp) · [试演左右换重心](studio.html?actor=look_veloclub_marshal&action=sway&play=1)
+
 站立时双手垂在胯侧，袖口和腰间留出空隙。散步时双臂轻弯，跑步时上臂稍向外打开，前臂随对侧脚前后摆动。看手机、打字和拍手共用随躯干转动的肘部解算。抬手整理衣领、鬓发时，手掌沿弧线绕过肩头。[上版与本次的正面、侧面对照](studies/arm-motion.webp) · [试演跑步](studio.html?actor=look_body_female&action=run&play=1) · [试演抱起宝宝](studio.html?actor=mother&action=cradle&partner=baby&play=1)
 
 动作库共有 **500 个独立片段**，分属 8 个领域、45 类，原始时长为 **1.55 至 10 秒**。选择「自动选角 · 全部动作」即可先挑动作，由人物库补齐演员。按领域、分类、时长、人数和收尾方式可以交叉筛选，也可以直接搜索名称、用途或道具。选中卡片即可看到当前人物的动作。「落座」和「从椅上起身」可以分别使用，上楼、平台转身和下楼也各有一段。「文件 → 导出所选单个动作」可保存该段原速和角色，再导入其他编排。[浏览短动作](studio.html?tool=motion-library&duration=short) · [独立上楼](studio.html?action=ascend-stairs&play=1) · [九段实机动图](studies/short-actions.webp)

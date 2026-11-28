@@ -89,7 +89,7 @@ const pineAnatomy = (() => {
     function footEnds(pose, index) {
       const ankle = pose.feet[index],
         sole = rig.ankle;
-      const { pitch, yaw } = pose.floorSeat ? studioRig.seatedAnkle(rig, pose, index) : { pitch: 0, yaw: 0 };
+      const { pitch, yaw } = pose.floorSeat ? studioRig.seatedAnkle(rig, pose, index) : { pitch: 0, yaw: pose.footYaw?.[index] ?? 0 };
       const heel = [
         ankle[0] - 0.25 * sole * Math.cos(yaw),
         ankle[1] - 0.25 * sole * Math.sin(yaw),
